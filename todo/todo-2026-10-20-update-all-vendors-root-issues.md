@@ -6,11 +6,11 @@ severity:          medium
 status:            open
 disposition:       null
 remind_on:         null
-blocked_on:        null
+blocked_on:        the names of the four repositories whose add_repo was refused, in the session that ran Update All Vendors
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        Morgan
+waiting_on:        null
 noted:             2026-10-20
 closed:            null
 ---
@@ -56,3 +56,36 @@ before it was written here.
    before changing anything; if that passes, say so in update-all-vendors.
 
 (needs: decision -- Morgan, who asked for these as a Root issues prompt and runs the updates one by one; out of scope here, where the ask was the report.)
+
+## Outcome, 2026-10-20
+
+A root-fix session reviewed each finding against the source; all five
+held as written.
+
+1. **Fixed.** In a public repository a yes is refused while the leak
+   check has not read the set (no clone, or the check failed); the
+   question says where to clone it and offers only a no. A yes recorded
+   before the set could be read waits again in a public repository while
+   the check finds a line. Test: `check_public_copy_in_needs_the_leak_check`.
+2. **Fixed.** The update deletes files a decommissioned engine tool wrote
+   at run time (the others-did and beta-branch marks), recognised by their
+   header, through the same refusals as a legacy workflow, and records
+   each. Test: `check_engine_written_leftovers_leave_by_content`.
+3. **Fixed.** The every-run note is gone. A declaration beside an approval
+   is dropped; one without becomes a keep-or-delete question, and
+   `precedent_update.py --keep-workflow PATH --answered-by '...'` records
+   the keep. Test: `check_local_workflow_declaration_is_asked_once`. The
+   push check's "could not run" line had a cause of its own, found here in
+   BestPractice too: it looked for a script named `-c` inside the budget
+   wrapper of every approved workflow step, so none of them ever ran before
+   staging. Fixed (`script_arg`), with a case in
+   `check_push_to_staging_runs_own_checks_inside_a_budget`.
+4. **Partly.** Asking once per repository is Morgan's decided design
+   (2026-10-19), and a recorded answer already ends it, so that stays; the
+   asking session has since recorded his answers. What was wrong is
+   fixed: for a set the person only offers, the "No" no longer claims it
+   is loaded here when this repository does not declare it.
+5. **Not measured.** Still open: retry the four refused `add_repo` calls
+   one at a time, and only if that passes, say in update-all-vendors to
+   attach one repository at a time.
+

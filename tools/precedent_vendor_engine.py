@@ -3913,6 +3913,68 @@ _LEGACY_TO_READ_KINDS = {'.github/workflows/commit-identity.yml': {'consumer', '
 # tracked copy, and _retire_legacy_hooks for an untracked one.
 RETIRED_HOOK_FILES = {}
 
+
+def _json_comment_names(text, *tools):
+    """True when `text` is a JSON object whose `_comment` names one of
+    `tools` -- the header every mark file below was written with."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return False
+    comment = data.get('_comment') if isinstance(data, dict) else None
+    words = ' '.join(comment) if isinstance(comment, list) else str(comment or '')
+    return any(t in words for t in tools)
+
+
+# Files an ENGINE TOOL wrote into a consumer at run time (never vendored, so
+# no manifest records them), whose tool BestPractice has since decommissioned:
+# path -> (why, content recogniser). Removed by the update, with the same
+# file refusals as a legacy workflow.
+#
+# WHY (2026-10-20, Update All Vendors over 18 repositories). The others-did
+# report stopped storing a mark on 2026-10-10 and left the engine on
+# 2026-10-17, and BestPractice recorded tools/others_did_watermark.json as
+# decommissioned -- but only in its own registry. Consumers kept their copy,
+# whose header names the deleted tool, so each update stopped on a
+# rename-updates-links finding about a file only the engine ever wrote.
+RETIRED_ENGINE_WRITTEN_FILES = {
+    'tools/others_did_watermark.json': (
+        'the others-did mark, written by the engine\'s precedent_others_did.py; '
+        'the report stores no mark since 2026-10-10 and left the engine for '
+        'the ladder set on 2026-10-17',
+        lambda t: _json_comment_names(t, 'precedent_others_did.py')),
+    'tools/beta_branch_watermark.json': (
+        'the beta-branch mark, written by the engine\'s '
+        'precedent_beta_watermark_check.py, decommissioned 2026-10-08',
+        lambda t: _json_comment_names(t, 'precedent_beta_watermark_check.py')),
+}
+
+
+def _retire_engine_written_files(dest_root, pd):
+    """Delete each RETIRED_ENGINE_WRITTEN_FILES entry present here whose
+    content still has the shape its tool wrote. -> [rel deleted]. A file
+    with the name but not the shape is this repo's own and is kept."""
+    deleted = []
+    for rel, (reason, recognise) in sorted(RETIRED_ENGINE_WRITTEN_FILES.items()):
+        f = dest_root / rel
+        if not f.is_file():
+            continue
+        if not recognise(f.read_text(encoding='utf-8', errors='ignore')):
+            _left(rel, 'carries the name of a file a decommissioned engine '
+                       'tool wrote, but not its content -- kept; read it')
+            continue
+        if pd is None:
+            _left(rel, f'a leftover ({reason}), but the vendored '
+                       'precedent_decommission.py predates this sweep -- '
+                       'refresh once more and it goes')
+            continue
+        if _retire_one(dest_root, pd, rel, reason):
+            deleted.append(rel)
+    if deleted:
+        _warn_about_dependents(dest_root, deleted,
+                               'retired: written by an engine tool that is gone')
+    return deleted
+
 # Config fields nothing reads any more, deleted from these files on refresh.
 RETIRED_CONFIG_FIELDS = {
     'ci_debounce_minutes':
@@ -5253,6 +5315,8 @@ def copy_in_offers(dest_root, user_config=None, login=None):
         else {}
     copied = {e.get('name') for e in cfg.get('sources') or []
               if pr.is_vendored(e)}
+    declared = {e.get('name') for e in cfg.get('sources') or []
+                if isinstance(e, dict)}
     private = cfg.get('visibility') == 'private'
     try:
         import precedent_audience as _pa
@@ -5264,9 +5328,12 @@ def copy_in_offers(dest_root, user_config=None, login=None):
     alone = bool(me) and owners == {me}
     here = _repo_identity(_rev_text(root, 'remote', 'get-url', 'origin'))
     out = []
+    import precedent_resolve as _pr_
+    _ind = _pr_.person_individual_path(user_config)
     for name, url, clone, brought, set_root in _copy_in_candidates(user_config):
         if name in answered or name in copied:
             continue
+        clone_path = clone or (_ind.resolve().parent / name if _ind else None)
         # A set this repository itself holds (a voice pack in a folder of
         # it, named by set_root) is not offered to it: that copies the
         # repository into itself. Offered on 2026-10-19 to the voice
@@ -5294,11 +5361,34 @@ def copy_in_offers(dest_root, user_config=None, login=None):
             except Exception as exc:                            # noqa: BLE001
                 leak_note = f'the leak check could not run ({exc})'
         out.append({'name': name, 'repo_url': url, 'clone': clone,
+                    'clone_path': str(clone_path) if clone_path else '',
                     'brought': brought, 'default': default, 'why': why,
+                    'loaded_here': brought or name in declared,
                     'ladder': ladder, 'set_root': set_root,
                     'public': not private, 'leaks': leaks,
                     'leak_note': leak_note})
     return out
+
+
+def copy_in_unchecked(offer):
+    """-> '' when a yes to `offer` may be recorded, else why not: in a
+    public repository, a set whose files the leak check never read. A no is
+    always accepted.
+
+    WHY (2026-10-20, Update All Vendors over 18 repositories). In a public
+    repository the question said "The leak check could not run: there is no
+    clone of the set on this machine" and still offered the copy, so a yes
+    would have published rules nobody scanned. The check needs the set's
+    files; until they are on this machine there is nothing a yes can rest on."""
+    if not offer.get('public'):
+        return ''
+    clone = offer.get('clone')
+    if not clone or not pathlib.Path(clone).is_dir():
+        return 'there is no clone of the set on this machine'
+    note = str(offer.get('leak_note') or '')
+    if note.startswith('the leak check could not run'):
+        return note
+    return ''
 
 
 def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
@@ -5322,17 +5412,33 @@ def copy_in_question(offer, flag='--copy-in', by_flag='--answered-by'):
                   + (f'; and {more} more' if more > 0 else '')
                   + '. Make them general in the set\'s own repository before '
                   'a yes. ')
-        elif offer.get('clone'):
+        elif offer.get('clone') and not copy_in_unchecked(offer):
             q += 'The leak check found nothing in the set\'s files. '
-        else:
-            q += ('The leak check could not run: there is no clone of the '
-                  'set on this machine. ')
+        blocked = copy_in_unchecked(offer)
+        if blocked:
+            # practice: reach-or-ask -- the session can take read access to
+            # the set; nothing here may stand in for the check.
+            where = (f' Attach {offer["repo_url"]} for read and clone it to '
+                     f'{offer["clone_path"]}, then run this again.'
+                     if offer.get('repo_url') and offer.get('clone_path') else
+                     ' Put a clone of it on this machine, then run this again.')
+            return (q + f'{offer["name"]} cannot be copied in yet: the leak '
+                    f'check could not read it ({blocked}), and a yes would '
+                    f'publish rules nobody scanned.{where} A no can be '
+                    f'recorded now with {flag} {offer["name"]}=no {by_flag} '
+                    f'"Name, YYYY-MM-DD: \\"their words\\"".')
         if offer.get('leak_note'):
             q += f'(Not fully checked: {offer["leak_note"]}.) '
+    # A set the person only offers is not loaded here unless this repository
+    # declares it, so "keep loading it" was false for one it does not
+    # (2026-10-20, Update All Vendors: asked in repositories unrelated to it).
+    no = ('keep loading it at session start, as now'
+          if offer.get('loaded_here', True) else
+          'it stays out of this repository, as now')
     q += (f'Copy {offer["name"]} into this repository? Yes: it is in force '
           f'for everyone who works here, refreshed by Update Vendors, and it '
-          f'can never fail to load. No: keep loading it at session start, as '
-          f'now. Suggested: {offer["default"]} ({offer["why"]}).')
+          f'can never fail to load. No: {no}. '
+          f'Suggested: {offer["default"]} ({offer["why"]}).')
     if offer.get('ladder'):
         q += (' It provides the ladder, so a yes makes the ladder bind '
               'everyone here; if this repository has other code owners, '
@@ -5460,6 +5566,22 @@ def copy_in_pending(dest_root, user_config=None):
         if why:
             out.append((False, f'{name}: yes recorded, still waiting: {why}'))
             continue
+        # A yes recorded before the set could be read is checked for leaks
+        # here, the first time it can be, before anything is declared.
+        if cfg.get('visibility') != 'private':
+            try:
+                leaks, note = copy_in_leaks(clone / set_root if set_root
+                                            else clone, root)
+            except Exception as exc:                            # noqa: BLE001
+                leaks, note = [], f'the leak check could not run ({exc})'
+            if leaks or note.startswith('the leak check could not run'):
+                out.append((False, f'{name}: yes recorded, still waiting: this '
+                                   f'repository is public and '
+                                   + (f'the leak check found {len(leaks)} '
+                                      f'line(s) that would be published: '
+                                      + '; '.join(leaks[:COPY_IN_LEAKS_SHOWN])
+                                      if leaks else note)))
+                continue
         ladder = pr.LADDER_CAPABILITY in pr.source_provides(
             clone / set_root if set_root else clone)
         out.append(record_copy_in(root, name, 'yes', r.get('answered_by', ''),
@@ -5790,7 +5912,9 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
     deleted_wf, _kept = _retire_legacy_workflows(dest_root, manifest, kind, pd)
     removed_wf = _remove_unapproved_workflows(dest_root, manifest, kind, pd)
     deleted_hooks = _retire_legacy_hooks(dest_root, manifest, pd)
+    deleted_written = _retire_engine_written_files(dest_root, pd)
     _remove_retired_config_fields(dest_root)
+    _settle_local_declarations(dest_root, kind)
     handled = set()
     for old, new, old_path, new_path, kept in repoint_renamed_sources(dest_root):
         handled.add(new)
@@ -5836,7 +5960,8 @@ def retire_legacy_leftovers(dest_root, manifest, kind):
                              'on this repository, only you can delete it '
                              '(Settings -> Secrets and variables -> Actions)')
     return {'deleted': sorted(deleted_wf) + [f'{HOOK_DEST_DIR}/{n}'
-                                             for n in deleted_hooks],
+                                             for n in deleted_hooks]
+                       + deleted_written,
             'secrets': secrets}
 
 
@@ -6084,6 +6209,105 @@ def _held_back(dest_root, rel, lost, verb):
                f'runs into the local push check if it is still wanted, then '
                f'the next update removes it'
                + (f'. Recorded as {todo}' if todo else ''))
+
+
+KEEP_WORKFLOW_ASK = 'ASK KEEP WORKFLOW: '
+
+
+def record_ci_keep(dest_root, rel, answered_by):
+    """Record the person's yes to keeping `rel`, a workflow upstream does not
+    ship, in github_ci_approved pinned to its content, and drop any
+    local_ci_workflows declaration of it. -> (changed, what happened or why
+    not).
+
+    WHY (2026-10-20, Update All Vendors over 18 repositories). Three private
+    consumers declare their own workflows under local_ci_workflows, which a
+    converging kind does not honour; every update printed "the declaration
+    was not honoured; remove it from precedent.json" and nothing ever asked
+    the one question that settles it. Their words, recorded here, are what
+    keeps a workflow (practice: ci-workflow-approved)."""
+    rel = str(rel).strip()
+    if not _ANSWER_DATE.search(answered_by or '') \
+            or not _ANSWER_QUOTE.search(answered_by or ''):
+        return False, (f'{rel}: the answer needs who gave it, a date and their '
+                       f'words in quotes ("Name, YYYY-MM-DD: \\"...\\"")')
+    root = pathlib.Path(dest_root)
+    f = root / rel
+    if not rel.startswith('.github/workflows/') or not f.is_file():
+        return False, f'{rel}: there is no such workflow in this repository'
+    path = root / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False, 'there is no readable precedent.json'
+    approved = cfg.setdefault(GITHUB_CI_APPROVED_KEY, {})
+    if not isinstance(approved, dict):
+        return False, f'precedent.json\'s {GITHUB_CI_APPROVED_KEY} is not an object'
+    approved[rel] = {'sha256': _sha256(f), 'approved_by': answered_by}
+    _without_local_declaration(cfg, rel)
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True, (f'{rel}: kept, recorded in {GITHUB_CI_APPROVED_KEY} pinned to '
+                  f'its content; its {LOCAL_CI_WORKFLOWS_KEY} declaration, if '
+                  f'any, is gone')
+
+
+def _without_local_declaration(cfg, rel):
+    """Drop `rel` from cfg's local_ci_workflows, and the key once empty."""
+    declared = cfg.get(LOCAL_CI_WORKFLOWS_KEY)
+    if isinstance(declared, dict) and rel in declared:
+        del declared[rel]
+        if not declared:
+            del cfg[LOCAL_CI_WORKFLOWS_KEY]
+
+
+def _settle_local_declarations(dest_root, kind):
+    """In a converging kind, one line per local_ci_workflows declaration:
+    dropped when github_ci_approved already keeps the file, else the
+    keep-or-delete question for the person (KEEP_WORKFLOW_ASK), asked once
+    with the flag that records the answer."""
+    if kind not in CI_CONVERGES_KINDS:
+        return
+    declared = local_ci_workflows(dest_root)
+    if not declared:
+        return
+    path = dest_root / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    approved = cfg.get(GITHUB_CI_APPROVED_KEY)
+    approved = approved if isinstance(approved, dict) else {}
+    dropped = []
+    for rel, why in sorted(declared.items()):
+        entry = approved.get(rel)
+        f = dest_root / rel
+        if (isinstance(entry, dict) and f.is_file()
+                and entry.get('sha256') == _sha256(f)
+                and _ANSWER_DATE.search(str(entry.get('approved_by') or ''))
+                and _ANSWER_QUOTE.search(str(entry.get('approved_by') or ''))):
+            _without_local_declaration(cfg, rel)
+            dropped.append(rel)
+            continue
+        if not f.is_file():
+            _without_local_declaration(cfg, rel)
+            dropped.append(rel)
+            continue
+        print(f"{KEEP_WORKFLOW_ASK}{rel} is this repository's own workflow "
+              f"({LOCAL_CI_WORKFLOWS_KEY} says: {why}), and here only the "
+              f"person's approval keeps one. Ask once, keep or delete, saying "
+              f"what it runs. Keep: run the update again with --keep-workflow "
+              f"{rel} --answered-by 'Name, YYYY-MM-DD: \"their words\"', which "
+              f"records it in {GITHUB_CI_APPROVED_KEY} and ends this question. "
+              f"Delete: remove its {LOCAL_CI_WORKFLOWS_KEY} entry, and the next "
+              f"update removes it once the local push check covers what it runs.")
+    if dropped:
+        path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+        print(f"precedent_vendor_engine refresh: removed the "
+              f"{LOCAL_CI_WORKFLOWS_KEY} declaration of {', '.join(dropped)} "
+              f"-- {GITHUB_CI_APPROVED_KEY} keeps each, or it is gone, so the "
+              f"declaration said nothing.")
 
 
 def _drop_ci_approvals(dest_root, rels):
@@ -9611,13 +9835,10 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
     # declared local workflow and `--force`: force is a decision taken once
     # and never seen again, while a declaration announces itself for as long
     # as it stands, so nobody inherits an exemption they cannot see.
+    # A converging kind's declarations were settled at the top of the run
+    # (retire_legacy_leftovers -> _settle_local_declarations).
     for rel, why in sorted(local_ci_workflows(ROOT).items()):
         if kind in CI_CONVERGES_KINDS:
-            print(f"NOTE: {LOCAL_CI_WORKFLOWS_KEY} declares {rel} ({why}), but "
-                  f"this repo keeps a workflow only by the person's approval "
-                  f"in {GITHUB_CI_APPROVED_KEY} (a consumer since 2026-09-27, a "
-                  f"practice set since 2026-10-01) -- the "
-                  f"declaration was not honoured; remove it from precedent.json.")
             continue
         print(f"LOCAL (not refreshed, by declaration): {rel} -- {why}")
     if ci_catchup:
