@@ -911,12 +911,16 @@ def _copy_in(dest, answers, answered_by):
             lines.append(f'copy in: {name} is not a set you bring or offer; '
                          f'nothing recorded')
             continue
+        waits = _pve.copy_in_waits_on(offer.get('clone'),
+                                      offer.get('set_root', '')) \
+            if answer == 'yes' else ''
         ok, what = _pve.record_copy_in(dest, name, answer, answered_by,
                                        repo_url=offer['repo_url'],
                                        ladder=offer['ladder'],
-                                       set_root=offer.get('set_root', ''))
+                                       set_root=offer.get('set_root', ''),
+                                       waits_on=waits)
         lines.append(f'copy in: {what}')
-        if not ok or answer != 'yes':
+        if not ok or answer != 'yes' or waits:
             continue
         clone = offer.get('clone')
         if not clone or not (pathlib.Path(clone) / '.git').exists():
