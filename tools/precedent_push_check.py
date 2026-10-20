@@ -759,6 +759,19 @@ def approved_workflow_checks(root):
     except Exception:                                          # noqa: BLE001
         pass
     engine_tools = {f'tools/{f}' for f in man.get('files') or []}
+    # And whatever this repository's own tiers run: in BestPractice, which
+    # has no manifest, deep-check.yml's steps are precedent_check.py and
+    # verify_harness.py, which the full tier runs at the Debut. Unfiltered,
+    # they were planned as "own checks" for every push to staging -- hidden
+    # until 2026-10-20 only because script_arg's bug kept any from running.
+    try:
+        rel = HERE.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        rel = None
+    if rel:
+        engine_tools |= {a[0].replace('{engine}', rel)
+                         for entry in PUSH_CHECKS.get(repo_kind(), ())
+                         for a in [entry[1]] if a}
     checks, unrun = [], []
     for rel in sorted(approved if isinstance(approved, dict) else []):
         wf = root / rel
