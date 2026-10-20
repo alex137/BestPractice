@@ -40274,6 +40274,96 @@ def check_a_land_rebuilds_dated_outputs_two_days_left():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_a_land_in_a_shallow_clone_is_not_a_conflict():
+    """A shallow clone that lacks the commit where staging and main parted
+    made --land say "main conflicts with staging" (2026-10-20); git had only
+    refused unrelated histories. The composition now deepens the clone and
+    merges; one still too shallow says so. The control: a real conflict is
+    still a conflict. The negative control: with the deepening neutered, the
+    shallow case reads as something else, so the case can fail.
+    """
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    name = 'a land in a shallow clone deepens it, and never calls it a conflict'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shallow-land-'))
+    cases = []
+    steps, reach = pb.DEEPEN_STEPS, pb._reach_merge_base
+    quiet = lambda *a: None
+
+    def commit(d, path, text):
+        (d / path).write_text(text, encoding='utf-8')
+        fixture_git(d, 'add', '-A')
+        fixture_git(d, '-c', 'core.hooksPath=/dev/null', 'commit', '-qm', path)
+
+    def clone(tag, *depth):
+        c = tmp / tag
+        fixture_git(tmp, 'clone', '-q', *depth, '--no-single-branch',
+                    (tmp / 'origin.git').as_uri(), str(c))
+        fixture_git(c, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(c, 'config', 'user.name', 'fixture')
+        fixture_git(c, 'checkout', '-q', '-B', 'staging', 'origin/staging')
+        return c, fixture_git(c, 'rev-parse', 'origin/main').stdout.strip()
+
+    def compose(c, mtip):
+        return pb._compose(c, c, [('main', mtip, 'Bring main in')], 'staging', quiet)
+    try:
+        seed = tmp / 'seed'
+        fixture_git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        fixture_git(seed, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(seed, 'config', 'user.name', 'fixture')
+        commit(seed, 'shared.md', 'base\n')
+        fixture_git(seed, 'branch', 'staging')
+        for i in range(5):
+            commit(seed, f'm{i}.md', f'{i}\n')
+        fixture_git(seed, 'checkout', '-q', 'staging')
+        for i in range(5):
+            commit(seed, f's{i}.md', f'{i}\n')
+        fixture_git(tmp, 'clone', '-q', '--bare', str(seed), str(tmp / 'origin.git'))
+
+        c, mtip = clone('deepened', '--depth=2')
+        cases.append(('the fixture clone is shallow and lacks the merge base',
+                      fixture_git(c, 'merge-base', 'HEAD', mtip, allow_failure=True)
+                      .returncode != 0, ''))
+        conflict, merged = compose(c, mtip)
+        cases.append(('a shallow clone is deepened and main merges in',
+                      conflict is None and merged == ['main'], str(conflict)))
+
+        pb.DEEPEN_STEPS = (1,)
+        c, mtip = clone('too-shallow', '--depth=2')
+        conflict, merged = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('one deepening cannot fix says the clone is too shallow',
+                      why.startswith(pb.TOO_SHALLOW) and 'unshallow' in why, why))
+        pb._reach_merge_base = lambda *a, **k: None
+        c, mtip = clone('neutered', '--depth=2')
+        conflict, _m = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('negative control: with the deepening neutered, the shallow '
+                      'case no longer says too shallow',
+                      bool(conflict) and not why.startswith(pb.TOO_SHALLOW), why))
+        pb.DEEPEN_STEPS, pb._reach_merge_base = steps, reach
+
+        commit(seed, 'shared.md', 'staging side\n')
+        fixture_git(seed, 'checkout', '-q', 'main')
+        commit(seed, 'shared.md', 'main side\n')
+        fixture_git(seed, 'push', '-q', str(tmp / 'origin.git'), 'main', 'staging')
+        c, mtip = clone('conflict')
+        conflict, _m = compose(c, mtip)
+        why = conflict[3] if conflict else ''
+        cases.append(('control: a real conflict in a full clone is still a '
+                      'conflict, not too shallow',
+                      bool(conflict) and not why.startswith(pb.TOO_SHALLOW)
+                      and 'share no history' not in why, why))
+    except FixtureSetupError as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        pb.DEEPEN_STEPS, pb._reach_merge_base = steps, reach
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_container_check_sees_other_local_branches():
     """Work on a local branch that is not checked out is work only here; a
     branch holding nothing but session start's engine refresh is engine
@@ -89884,6 +89974,7 @@ def main():
     check_changed_files_runs_the_harness_tests_a_change_reaches()
     check_quick_tier_is_closed()
     check_a_land_rebuilds_dated_outputs_two_days_left()
+    check_a_land_in_a_shallow_clone_is_not_a_conflict()
     check_container_check_sees_other_local_branches()
     check_caused_by_this_push_reads_advisory_findings()
     check_push_check_list_is_never_refused()
