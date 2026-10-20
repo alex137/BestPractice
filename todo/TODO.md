@@ -113,7 +113,6 @@ as_of: 2026-10-20
 | [`todo-2026-10-14-update-review-remembers-past-updates`](todo-2026-10-14-update-review-remembers-past-updates.md) | Make the upstream review that Update Vendors prints (the ladder set's | 6d | parked |  |
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 4d | ask |  |
 | [`todo-2026-10-20-branch-page-data-in-a-file`](todo-2026-10-20-branch-page-data-in-a-file.md) | The branch cleanup page that | 0d | ask | Morgan's call: it changes how the page saves ticks into itself, which he chose o… |
-| [`todo-2026-10-20-ladder-set-names-the-boildown-moments`](todo-2026-10-20-ladder-set-names-the-boildown-moments.md) | The ladder set's half of naming the Boildown's moments. BestPractice's | 0d | wait | Morgan's word to land precedent-shared-ladder branch 2026-10-20-themorgan-root-i… |
 | [`todo-2026-10-20-root-issues-from-ladder-landing-check`](todo-2026-10-20-root-issues-from-ladder-landing-check.md) | Found while fixing the ladder set's landing-authority reply rule on | 0d | wait | handed on by Morgan's Root issues on 2026-10-20 as one prompt for a new session;… |
 
 ## Decisions (the Person's Call)
@@ -126,7 +125,6 @@ as_of: 2026-10-20
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 17d | ask |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 12d | ask |  |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | 9d | wait |  |
-| [`todo-2026-10-20-individual-set-charged-to-each-repo-ceiling`](todo-2026-10-20-individual-set-charged-to-each-repo-ceiling.md) | The ceiling on the session practices file (in | 0d | wait | the number Morgan declares as individual_set_tokens in his individual set |
 
 ## Unblocked Work
 
@@ -169,7 +167,6 @@ as_of: 2026-10-20
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | a later commit to tools/ on main, and a real Update Vendors over it (Closes when, 2) |
-| [`todo-2026-10-20-individual-set-charged-to-each-repo-ceiling`](todo-2026-10-20-individual-set-charged-to-each-repo-ceiling.md) | The ceiling on the session practices file (in | Morgan |
 
 ## Due Reminders
 

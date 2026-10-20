@@ -3,16 +3,16 @@ slug:              todo-2026-10-20-ladder-set-names-the-boildown-moments
 kind:              manual
 domain:            practice
 severity:          medium
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan's word to land precedent-shared-ladder branch 2026-10-20-themorgan-root-issues-moments-gate-amusp-5ntqi on its staging, then that set's Update Vendors once BestPractice PR #1314 is on main"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-20
-closed:            null
+closed:            2026-10-20
 ---
 ## What
 
@@ -144,3 +144,11 @@ Detail; it is fixed on precedent-shared-ladder branch
 2026-10-20-themorgan-root-issues-moments-gate-amusp-5ntqi, with which the
 tool prints "none" for that checkout. Left: that branch landing, and the
 set's Update Vendors after PR #1314 reaches BestPractice main.
+
+## Closed
+
+2026-10-20: both conditions hold. The fix is on precedent-shared-ladder
+`staging` and `main` ([PR #127](https://github.com/themorgan/precedent-shared-ladder/pull/127)),
+`precedent_moments.py .` prints "none" there, and after that set's Update
+Vendors from BestPractice main @ d04672e86b31, its own `precedent_check.py
+--only boildown-moments-named` passes.
