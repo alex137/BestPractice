@@ -3,7 +3,7 @@ slug:              todo-2026-10-20-individual-set-charged-to-each-repo-ceiling
 kind:              decision
 domain:            mechanism
 severity:          medium
-status:            closed
+status:            done
 disposition:       null
 remind_on:         null
 blocked_on:        null
