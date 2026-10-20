@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-20"
-approved_by: "S. Alexander Jacobson, 2026-10-20 — asked for it to be built in BestPractice (\"Why are we writing a proposal rather than just pushing a BP fix?\", then \"go ahead and start the builder session\")"
+approved_by: "S. Alexander Jacobson, 2026-10-20 — asked for it to be built as a BestPractice fix rather than kept as a proposal, then \"go ahead and start the builder session\""
 strength:    decided
 ---
 ## Rule
