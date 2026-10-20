@@ -70283,19 +70283,39 @@ def check_copy_in_is_asked_once():
             '---\nslug: zz-later\n---\n# l\n\n## Rule\n\ny\n')
         git(voice, 'add', '-A')
         git(voice, 'commit', '-qm', 'two')
+        # Moved is a question about the set's main, not the branch the clone
+        # is on: an unpushed commit is not a move, and a clone sitting on an
+        # older branch does not hide one (2026-10-19).
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep)
-        cases.append(('a moved set that waits for a go-ahead is reported, not taken',
+        cases.append(('NEGATIVE CONTROL: a commit not on the set\'s main is not '
+                      'reported as a move', not any(w == 'copy of zz-voice'
+                                                    for w, _q in rep.asks),
+                      repr(rep.asks)[:400]))
+        git(voice, 'push', '-q', 'origin', 'main')
+        git(voice, 'checkout', '-q', '-b', 'zz-old', 'HEAD~1')
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep)
+        cases.append(('a moved set that waits for a go-ahead is reported, not taken, '
+                      'whatever branch its clone is on',
                       any(w == 'copy of zz-voice' and '--take-set zz-voice' in q
                           for w, q in rep.asks)
                       and not (mine / 'process' / 'zz-voice' / 'practices'
                                / 'zz-later.md').exists(), repr(rep.asks)[:400]))
-        git(voice, 'push', '-q', 'origin', 'main')
+        git(voice, 'checkout', '-q', 'main')
         rep = pu.Report()
         pu.refresh_copies_step(mine, rep, take_sets=('zz-voice',))
         cases.append(('--take-set takes it',
                       (mine / 'process' / 'zz-voice' / 'practices'
                        / 'zz-later.md').is_file(), repr(rep.steps)[-400:]))
+        # A copy whose files are gone is made again, go-ahead or not.
+        shutil.rmtree(mine / 'process' / 'zz-voice')
+        rep = pu.Report()
+        pu.refresh_copies_step(mine, rep)
+        cases.append(('a go-ahead copy whose files are gone is made again',
+                      (mine / 'process' / 'zz-voice' / 'precedent-source.json').is_file()
+                      and (mine / 'process' / 'zz-voice' / 'practices'
+                           / 'zz-later.md').is_file(), repr(rep.steps)[-400:]))
 
         rep = pu.Report()
         pu.copy_in_step(mine, rep, {'zz-writing': 'no'}, by)
