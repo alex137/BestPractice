@@ -1878,13 +1878,38 @@ def _links_given_file(root):
     return f.with_name(DELETE_LINKS_GIVEN) if f else None
 
 
-def _links_given(root):
-    f = _links_given_file(root)
+def _links_given_files(root):
+    """-> [Path]: the given-links record of this checkout and of each
+    repository this session reaches (precedent_gate._session_roots).
+
+    WHY (2026-10-20). A session rooted ABOVE its repositories has no .git of
+    its own, so the one record kept beside the root's never existed: a
+    passing reply's links were never written down, and every later reply was
+    asked for the same delete links again. Each repository now keeps the
+    record for its own branches, in its own .git."""
+    files = []
     try:
-        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        roots = _pg._session_roots(root)
     except Exception:                                         # noqa: BLE001
-        recs = []
-    return {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
+        roots = [root]
+    for r in roots:
+        f = _links_given_file(r)
+        if f and f not in files:
+            files.append(f)
+    return files
+
+
+def _links_given(root):
+    out = set()
+    for f in _links_given_files(root):
+        try:
+            recs = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
+        except Exception:                                     # noqa: BLE001
+            recs = []
+        out |= {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
+    return out
 
 
 def _linked(text, branch):
@@ -1894,19 +1919,24 @@ def _linked(text, branch):
 
 
 def _record_links_given(text, root=None):
-    """After a passing reply: every owed branch it linked is given. Never
-    raises."""
+    """After a passing reply: every owed branch it linked is given, written
+    into its own repository's record (_links_given_files). Never raises."""
     try:
         root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-        f = _links_given_file(root)
-        if not f:
-            return
         new = [(r, b) for r, b, _ in _delete_links_owed(root) if _linked(text, b)]
-        if not new:
-            return
-        have = _links_given(root) | set(new)
-        f.write_text(json.dumps([{'repo': r, 'branch': b} for r, b in sorted(have)]),
-                     encoding='utf-8')
+        for repo in {r for r, _ in new}:
+            f = _links_given_file(repo) or _links_given_file(root)
+            if not f:
+                continue
+            try:
+                have = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
+            except Exception:                                 # noqa: BLE001
+                have = []
+            keys = {(x.get('repo'), x.get('branch')) for x in have if isinstance(x, dict)}
+            keys |= {(str(pathlib.Path(r).resolve()), b) for r, b in new if r == repo}
+            f.write_text(json.dumps([{'repo': str(r), 'branch': b}
+                                     for r, b in sorted(keys, key=str)]),
+                         encoding='utf-8')
     except Exception:                                         # noqa: BLE001
         pass
 

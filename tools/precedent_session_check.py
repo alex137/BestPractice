@@ -1227,6 +1227,28 @@ def _charge_brought_share(n):
     return charged, note, over
 
 
+def _individual_part(n, cap):
+    """-> ' (of which ~X is your individual set's own ...)' when the person's
+    own individual set accounts for part of what the session file charges
+    the repository, else ''. The repository cannot shorten that part, so a
+    remedy naming only "a reduction pass" sent the work to the wrong repo
+    (precedent_session_practices.individual_share, 2026-10-20)."""
+    try:
+        import precedent_session_practices as psp
+        part = psp.individual_share(ROOT)
+    except Exception:                                        # noqa: BLE001
+        return ''
+    if not part:
+        return ''
+    own = max(0, n - part)
+    return (f" (of which ~{part:,} is your individual set's own practices, "
+            f"which this repository cannot shorten, and ~{own:,} the "
+            f"repository's own"
+            + (f", within its ceiling: reduce your individual set, or raise "
+               f"this ceiling in the person's own words" if own <= cap else '')
+            + ')')
+
+
 def _session_load_rows():
     """What this person's session loads before any work, against the
     ceilings this repository declares. The session file is rendered per
@@ -1254,7 +1276,9 @@ def _session_load_rows():
         else:
             measured.append(f'{rel} ~{n:,} of {cap:,}')
         if n > cap:
-            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}')
+            over.append(f'{rel} is ~{n:,} tokens, over its ceiling of {cap:,}'
+                        + (_individual_part(n, cap)
+                           if rel == '.precedent/SESSION_PRACTICES.md' else ''))
     if not measured:
         return []
     name = "what this session loads fits this repository's ceilings"

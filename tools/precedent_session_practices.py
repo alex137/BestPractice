@@ -156,10 +156,11 @@ def keep_stale(target, unresolved):
 # and this file would have duplicated it into every session.
 
 
-def collect(repo, skip_brought=False):
+def collect(repo, skip_brought=False, skip_individual=False):
     """-> (extra_practices, levels, notes). `skip_brought` leaves out the
     sets the person brings, for measuring what bringing them costs
-    (brought_share). `extra_practices` is in
+    (brought_share); `skip_individual` leaves out the person's own
+    individual set too, for individual_share. `extra_practices` is in
     build_views.load_practices()' (fm, sections, file) shape so the loader
     block is rendered by the SAME code that renders AGENTS.md -- a second
     renderer here would drift from that one, which is the whole reason
@@ -179,6 +180,8 @@ def collect(repo, skip_brought=False):
         return [], {}, [('unresolved', f'no source set could be read: {e}')]
     if skip_brought:
         sources = [s for s in sources if not s.get('brought')]
+    if skip_individual:
+        sources = [s for s in sources if s.get('level') != 'individual']
 
     try:
         res = pr.resolve(sources)
@@ -590,6 +593,30 @@ def brought_share(repo=None):
     if full is None:
         return 0, names
     return max(0, full - bare), names
+
+
+def individual_share(repo):
+    """-> tokens of the repository's charge (charged_to_repo) that the
+    person's own individual set accounts for: the file rendered without the
+    brought sets, less the file rendered without the individual set as well.
+    0 when either rendering fails.
+
+    WHY (2026-10-20). A consuming repository's ceiling for this file was
+    seeded at 400 from a render whose own part measured 312; ten days later
+    the session check failed every session start at ~1,510, and its remedy
+    said to reduce the repository. ~1,200 of that was the person's own
+    individual set -- rules the repository does not hold and cannot shorten.
+    The check now says how much is whose, so the reduction goes where the
+    text is, or the person decides to raise the repository's ceiling."""
+    import contextlib, io
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with_ind = render(*collect(repo, skip_brought=True), repo=repo)
+            without = render(*collect(repo, skip_brought=True,
+                                      skip_individual=True), repo=repo)
+    except Exception:                                        # noqa: BLE001
+        return 0
+    return max(0, bv._approx_tokens(with_ind) - bv._approx_tokens(without))
 
 
 def charged_to_repo(repo, n):

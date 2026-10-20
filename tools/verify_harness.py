@@ -63302,6 +63302,37 @@ def check_landed_branch_gets_its_delete_link():
         cases.append(('...given once, it is not owed again',
                       r7.returncode == 0 and r8.returncode == 0,
                       f'exit {r7.returncode}/{r8.returncode}: {r7.stderr[:200]} {r8.stderr[:200]}'))
+        # 2026-10-20: a session rooted ABOVE its repositories has no .git of
+        # its own, so the given-links record had nowhere to live and the same
+        # delete link was asked for in every reply. Each repository keeps it.
+        def replycheck_above(name, text):
+            q = tmp / name
+            q.write_text(text, encoding='utf-8')
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo), '--text', str(q)],
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**env, 'CLAUDE_PROJECT_DIR': str(tmp),
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+                     'CLAUDE_CODE_REMOTE_SESSION_ID': sid})
+        above = '2026-10-20-me-above-abcde-r5t6y'
+        g('switch', '-q', '-c', above, 'trunk')
+        (repo / 'f.txt').write_text('f\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'above'); g('push', '-q', 'origin', above)
+        g('push', '-q', 'origin', f'{above}:trunk')
+        g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
+        ra0 = replycheck_above('above-bare.md', bare)
+        ra1 = replycheck_above('above-linked.md', bare + (
+            f'- Delete [it](https://github.com/o/r/branches/all?query={above}) '
+            'when you like; it merged into `trunk`.\n'))
+        ra2 = replycheck_above('above-later.md', bare)
+        cases.append(('rooted above the repository: its landed branch is owed its link',
+                      ra0.returncode == 2 and above in ra0.stderr,
+                      f'exit {ra0.returncode}: {ra0.stderr[:300]}'))
+        cases.append(('THE DISCRIMINATING CASE: rooted above the repository, a link '
+                      'given once is not owed again in a later reply',
+                      ra1.returncode == 0 and ra2.returncode == 0,
+                      f'exit {ra1.returncode}/{ra2.returncode}: {ra2.stderr[:300]}'))
         g('push', '-q', 'origin', '--delete', theirs)
         mine2 = '2026-10-19-me-gone-abcde-w4x8v'
         g('switch', '-q', '-c', mine2, 'trunk')
@@ -63322,6 +63353,62 @@ def check_landed_branch_gets_its_delete_link():
         sys.path.pop(0)
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'a branch landed during the turn gets its delete link '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_file_over_ceiling_names_the_individual_share():
+    """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
+    says how much of the charge is the person's own individual set, which the
+    repository cannot shorten, and how much is the repository's own.
+
+    WHY. 2026-10-20, a consuming repository: ceiling 400, seeded when its own
+    part measured 312; the session check failed every session start at
+    ~1,510 and told the repository to do a reduction pass. ~1,176 of it was
+    the person's individual set; the repository's own part, ~334, was within
+    its ceiling."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_session_check as psc
+    import precedent_session_practices as psp
+    import precedent_resolve as pr
+    cases = []
+    saved_share, saved_load = getattr(psp, 'individual_share', None), pr.load_config
+    try:
+        psp.individual_share = lambda repo: 1176
+        part = getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400)
+        cases.append(('THE DISCRIMINATING CASE: the row names the individual '
+                      "set's share and the repository's own",
+                      '~1,176' in part and '~334' in part
+                      and 'individual set' in part, repr(part)))
+        cases.append(('...and says the repository part is within its ceiling',
+                      'within its ceiling' in part, repr(part)))
+        psp.individual_share = lambda repo: 0
+        cases.append(('no individual share: nothing added',
+                      getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400) == '',
+                      ''))
+        seen = []
+        pr.load_config = lambda repo: [
+            {'level': 'universal', 'name': 'u', 'path': '.'},
+            {'level': 'individual', 'name': 'me', 'path': '/nowhere'}]
+        _resolve = pr.resolve
+        pr.resolve = lambda sources: (seen.append([s['level'] for s in sources])
+                                      or {'missing': [], 'practices': {}})
+        try:
+            try:
+                psp.collect(str(ROOT), skip_brought=True, skip_individual=True)
+            except Exception:                                # noqa: BLE001
+                pass
+        finally:
+            pr.resolve = _resolve
+        cases.append(('collect(skip_individual=True) resolves without the '
+                      'individual set', seen[:1] == [['universal']], str(seen)))
+    finally:
+        if saved_share is not None:
+            psp.individual_share = saved_share
+        pr.load_config = saved_load
+        sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the session file over its ceiling names the individual share '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n}: {d}' for n, d in bad))
 
@@ -88048,6 +88135,7 @@ def main():
     check_update_question_names_new_gates()
     check_data_branches_are_named_for_the_ladder()
     check_landed_branch_gets_its_delete_link()
+    check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
     check_date_check_skips_commits_github_made()
