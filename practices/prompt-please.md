@@ -163,7 +163,7 @@ following, every time:
   "with push access"**, a practice set above all: the session-start hook
   clones sets with read access only, so the receiving session's first push
   to one is refused unless it attaches the set for pushing first
-  ([gotcha](../gotchas/gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md)).
+  ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-22-a-cross-owner-source-clone-fetches-fine-and-cannot-be-pushed.md)).
 - **Where the work stops.** Without the person's own go-ahead for this
   handoff (below), **the prompt ends on a feature branch**: *"Build it on
   your feature branch, push it there, and stop. Open no pull request and
