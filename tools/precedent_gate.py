@@ -640,10 +640,18 @@ def _unlanded_work(root, siblings=True, records=None):
                     repo, 'rev-parse', '--verify', '-q',
                     f'refs/remotes/origin/{landing}'):
                 base = landing
-            elif landing == pb.MAIN and _ladder(repo) is False:
+            elif landing == pb.MAIN and _ladder(repo) is False and _git(
+                    repo, 'rev-parse', '--verify', '-q',
+                    f'refs/remotes/origin/{pb.MAIN}'):
                 # Off the ladder there are no tiers: work has landed when it
                 # is on main, whatever branch the repository's own
                 # contributors work on (spec/LADDER_OPT_IN_PLAN.md D3).
+                # Only where the repository HAS a branch of that name: a
+                # trunk called master compared against an origin/main that
+                # does not exist counted nothing ahead, so no unlanded work
+                # was ever reported there and the archive line passed over
+                # an unmerged branch (a consumer, 2026-10-25). Without it the
+                # declared base stands.
                 base = pb.MAIN
             # The tier a landed batch moves up to next: staging into main.
             above = pb.MAIN if landing and landing == staging \
