@@ -14297,6 +14297,21 @@ def check_reply_gate_names_work_not_yet_landed():
         cases.append(('it counts the commits', bool(got) and ' 1 commit' in got[0],
                       str(got)))
 
+        # OFF THE LADDER, A TRUNK NOT NAMED main. Off the ladder the gate
+        # took the tier name `main` as the branch to compare against; in a
+        # repository whose trunk is `trunk` (or master) origin/main does not
+        # exist, nothing counted ahead, and the archive line passed over an
+        # unmerged branch (a consumer whose trunk is master, 2026-10-25).
+        _ladder_was = pg._ladder
+        pg._ladder = lambda root: False
+        try:
+            off = pg._unlanded_work(repo, siblings=False)
+        finally:
+            pg._ladder = _ladder_was
+        cases.append(('off the ladder, a trunk not named main is still the '
+                      'branch the commit is NOT on', len(off) == 1
+                      and "'trunk'" in off[0], str(off)))
+
         # PUSHING THE FEATURE BRANCH CHANGES NOTHING -- that is the whole
         # point, and it is what the stop hook's "unpushed" test misses.
         g('push', '-q', '-u', 'origin', 'feature')
