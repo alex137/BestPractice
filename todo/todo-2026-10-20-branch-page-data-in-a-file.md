@@ -55,7 +55,7 @@ Since 2026-10-20 the ladder set's
 rebuilds it whenever the session made, landed or merged a branch, which is
 nearly every session, so nearly every closing session pays that read on a
 side page. The turn-start note that says to rebuild comes from that set's
-[`tools/ladder/branch_page_note.py`](../tools/ladder/branch_page_note.py), which this repo carries as a copy; the
+[`tools/ladder/branch_page_note.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/branch_page_note.py), which the set installs beside the engine; the
 engine's own part is the builder,
 [`tools/precedent_stale_branches.py`](../tools/precedent_stale_branches.py).
 
