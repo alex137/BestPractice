@@ -44049,6 +44049,27 @@ def check_main_test_cadence():
         pr_fail = pr_fail_saved
         cases.append(('a run that tested nothing and is the only run is kept: '
                       'it reads "passed", never "never ran"', st == 'passed'))
+        # 2026-10-27: the pull request's run failed while the push run on
+        # main was still going, so main read "running" and the red-main fix
+        # was refused straight into main; the newest FINISHED run decides
+        # when asked so, which main_test_failed does.
+        push_busy = dict(push_ok, status='in_progress', conclusion=None)
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_busy], hollow_jobs))
+        cases.append(('a push run still going, newer than its pull request\'s '
+                      'failed run, reads "running"', st == 'running'))
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_busy], hollow_jobs),
+                                       completed_only=True)
+        cases.append(('...and, finished runs only, "failed": the verdict main has '
+                      '(2026-10-27)', st == 'failed' and 'U' in why))
+        st, _why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                        runs_gh([push_busy, dict(push_ok, id=3,
+                                                 created_at='2026-10-19T14:20:00Z')],
+                                                hollow_jobs), completed_only=True)
+        cases.append(('CONTROL: finished runs only, an older pass on main itself '
+                      'does not hide the pull request\'s newer failure',
+                      st == 'failed'))
         wf_text = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(
             encoding='utf-8')
         cases.append(("precedent_branches.DECISION_JOB is deep-check.yml's "
