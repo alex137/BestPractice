@@ -67690,7 +67690,8 @@ def check_refresh_adds_read_only_allow_rules():
                   and not any('push' in r or 'checkin' in r or 'commit' in r for r in rules),
                   rules))
     cases.append(('every read-only tool outside precedent_* still has its own rule',
-                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules if r != broad}
+                  {pve._ALLOW_RULE_RE.match(r).group(1) for r in rules
+                   if r != broad and pve._ALLOW_RULE_RE.match(r)}
                   >= {t for t in pve.READ_ONLY_ALLOW_TOOLS
                       if not t.startswith('precedent_')}, rules))
     # 2026-10-18: the template asks before nothing (Morgan: "I urgently need
@@ -67750,6 +67751,76 @@ def check_refresh_adds_read_only_allow_rules():
     check(f'the refresh adds read-only Precedent tool allow rules ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
+
+
+def check_attaching_a_source_needs_no_prompt():
+    """A session attaches and clones its declared practice sources with no
+    permission prompt (Morgan, 2026-10-27: "This is a high priority fix";
+    practice: attach-never-clone-individual). The template allows add_repo
+    and register_repo_root; the refresh adds the clone command add_repo's
+    reply prescribes, for the declared sources' owners only.
+    THE DISCRIMINATING CASES: the reply's exact clone command matches a rule
+    for a declared owner and no rule for any other owner, and a fixture
+    whose individual set brings a second owner gets that owner's rules too."""
+    import fnmatch
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    cases = []
+    tpl = (ROOT / pve.SETTINGS_TEMPLATE).read_text(encoding='utf-8')
+    rules = pve.read_only_allow_rules(tpl)
+    cases.append(('the template allows add_repo and register_repo_root',
+                  all(r in rules for r in pve.ATTACH_ALLOW_RULES), rules))
+    clone = pve.clone_allow_rules(['someowner'])
+
+    def allowed(cmd, rs):
+        return any(fnmatch.fnmatchcase(cmd, r[len('Bash('):-1])
+                   for r in rs if r.startswith('Bash('))
+    reply = ('GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 '
+             'https://github.com/someowner/precedent-individual '
+             '/home/user/precedent-individual')
+    cases.append(("THE DISCRIMINATING CASE: add_repo's clone command is allowed "
+                  "for a declared owner", allowed(reply, clone), clone))
+    cases.append(('and not for any other owner',
+                  not allowed(reply.replace('someowner', 'stranger'), clone), clone))
+    cases.append(('the plain clone shape is allowed too',
+                  allowed('git clone https://github.com/someowner/x /home/user/x', clone),
+                  clone))
+    cases.append(('every clone rule reads as an engine rule, so a refresh that '
+                  'adds one is not a person\'s edit',
+                  all(pve.is_read_only_allow_rule(r) for r in clone), clone))
+    cases.append(('an owner that is not a GitHub name gets no rule',
+                  pve.clone_allow_rules(['a b', '*', '']) == [], ''))
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        ind = td / 'precedent-individual'
+        ind.mkdir()
+        (ind / 'precedent-source.json').write_text(json.dumps({'brings': [
+            {'name': 'precedent-shared-x',
+             'repo_url': 'https://github.com/otherowner/precedent-shared-x'}]}),
+            encoding='utf-8')
+        cfg = td / 'config.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(ind),
+            'repo_url': 'https://github.com/someowner/precedent-individual'}}),
+            encoding='utf-8')
+        env = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                              'PRECEDENT_SOURCE_BASE_URL')}
+        os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+        os.environ.pop('PRECEDENT_SOURCE_BASE_URL', None)
+        try:
+            owners = pve.source_owners(td)
+        finally:
+            for k, v in env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    cases.append(('the owners are the individual set and the sets it brings',
+                  owners == ['otherowner', 'someowner'], owners))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'attaching a declared practice source needs no prompt ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
 
 def check_engine_tools_allowed_and_none_asks():
     """With the settings template as shipped, Claude Code lets every engine
@@ -90634,6 +90705,7 @@ def main():
     check_repin_kept_records_the_persons_words()
     check_document_project_agents_md_is_compared_with_its_own_template()
     check_refresh_adds_read_only_allow_rules()
+    check_attaching_a_source_needs_no_prompt()
     check_engine_tools_allowed_and_none_asks()
     check_leak_gate_reads_the_written_private_repo_list()
     check_session_hooks_allow_read_only_tools_at_user_level()

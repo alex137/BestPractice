@@ -111,8 +111,14 @@ matching the phrase.
    might be involved, whether or not the person says anything.
 
    **A missing repository is a permission question first, not a handoff.**
-   Where the session can attach a repository mid-session, ask once, in one
-   line -- the repository and the access (read, or write to push) -- and
+   **The practice sources a repository declares are not asked about:** the
+   sets in its `precedent.json` and those its person's individual set
+   `brings` are attached silently, as session start says, and the settings
+   Precedent installs let that through without a prompt
+   ([attach-never-clone-individual](attach-never-clone-individual.md)).
+   For any other repository, where the session can attach one mid-session,
+   ask once, in one line -- the repository and the access (read, or write
+   to push) -- and
    keep working on everything the answer does not touch. A handoff loses
    the context this session built, repeats its reading in another window,
    and leaves the person carrying text between the two. So the prompt is

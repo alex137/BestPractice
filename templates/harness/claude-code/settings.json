@@ -30,7 +30,9 @@
       "Bash(python3 tools/practice_audit.py)",
       "Bash(python3 tools/practice_audit.py *)",
       "Bash(python3 tools/checkin.py *)",
-      "Bash(bash tools/bootstrap.sh)"
+      "Bash(bash tools/bootstrap.sh)",
+      "mcp__claude-code-remote__add_repo",
+      "mcp__claude-code-remote__register_repo_root"
     ]
   },
   "hooks": {

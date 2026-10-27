@@ -57,6 +57,18 @@ one-line note; it is not a missing source (2026-10-09, after a consumer's
 session read the old "did not resolve" message as a clone failure and cloned
 one by hand).
 
+**None of this stops for a permission prompt** (2026-10-27). The settings
+Precedent installs allow `add_repo`, `register_repo_root` and the clone
+command the attach tool's reply prescribes, for the GitHub owners of the
+sources declared here; Update Vendors and session start add them to an
+existing install. The trade-off, accepted: an MCP allow rule cannot filter
+by argument, so the `add_repo` rule also lets a session attach any
+repository with push access without asking. It reaches only repositories
+the person can already reach on GitHub, which `add_repo` checks itself. The
+clone rules are narrower: the declared owners only. If a prompt still
+appears with these rules in place, it comes from claude.ai rather than the
+settings, and no file here can clear it.
+
 ## Why
 A second clone of the individual set is one nothing loads. An edit
 committed and pushed from it looks landed while every session keeps reading
