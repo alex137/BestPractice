@@ -67792,20 +67792,20 @@ def check_attaching_a_source_needs_no_prompt():
     rules = pve.read_only_allow_rules(tpl)
     cases.append(('the template allows add_repo and register_repo_root',
                   all(r in rules for r in pve.ATTACH_ALLOW_RULES), rules))
-    clone = pve.clone_allow_rules(['someowner'])
+    clone = pve.clone_allow_rules(['owner'])
 
     def allowed(cmd, rs):
         return any(fnmatch.fnmatchcase(cmd, r[len('Bash('):-1])
                    for r in rs if r.startswith('Bash('))
     reply = ('GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 '
-             'https://github.com/someowner/precedent-individual '
+             'https://github.com/owner/precedent-individual '
              '/home/user/precedent-individual')
     cases.append(("THE DISCRIMINATING CASE: add_repo's clone command is allowed "
                   "for a declared owner", allowed(reply, clone), clone))
     cases.append(('and not for any other owner',
-                  not allowed(reply.replace('someowner', 'stranger'), clone), clone))
+                  not allowed(reply.replace('owner', 'stranger'), clone), clone))
     cases.append(('the plain clone shape is allowed too',
-                  allowed('git clone https://github.com/someowner/x /home/user/x', clone),
+                  allowed('git clone https://github.com/owner/x /home/user/x', clone),
                   clone))
     cases.append(('every clone rule reads as an engine rule, so a refresh that '
                   'adds one is not a person\'s edit',
@@ -67818,12 +67818,12 @@ def check_attaching_a_source_needs_no_prompt():
         ind.mkdir()
         (ind / 'precedent-source.json').write_text(json.dumps({'brings': [
             {'name': 'precedent-shared-x',
-             'repo_url': 'https://github.com/otherowner/precedent-shared-x'}]}),
+             'repo_url': 'https://github.com/example/precedent-shared-x'}]}),
             encoding='utf-8')
         cfg = td / 'config.json'
         cfg.write_text(json.dumps({'individual': {
             'name': 'precedent-individual', 'path': str(ind),
-            'repo_url': 'https://github.com/someowner/precedent-individual'}}),
+            'repo_url': 'https://github.com/owner/precedent-individual'}}),
             encoding='utf-8')
         env = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
                                               'PRECEDENT_SOURCE_BASE_URL')}
@@ -67838,7 +67838,7 @@ def check_attaching_a_source_needs_no_prompt():
                 else:
                     os.environ[k] = v
     cases.append(('the owners are the individual set and the sets it brings',
-                  owners == ['otherowner', 'someowner'], owners))
+                  owners == ['example', 'owner'], owners))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'attaching a declared practice source needs no prompt ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
