@@ -4,12 +4,12 @@ kind:              manual
 domain:            engine
 severity:          low
 status:            open
-disposition:       ask
+disposition:       null
 remind_on:         null
-blocked_on:        "Morgan's call (needs: decision -- Morgan): which of the 2026-10-27 options below to ship; the database one changes how the page saves ticks into itself, which he chose on 2026-10-13"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "both, A first (2026-10-27)"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-20
 closed:            null
@@ -92,6 +92,17 @@ option might not have removed, and makes the halving moot.
 at once and is a small change in the ladder set; then B, after which the
 refresh can go back to automatic and A's keyword stays as the way to force
 one.
+
+**Decided:** Morgan, 2026-10-27: "Both, A first. Reminder this is only for
+ladders (so those who don't see ladders shouldn't see the branch cleanup
+page or anything about it). Act, Book." (strength: decided).
+
+**A is on the ladder set's staging**
+([themorgan/precedent-shared-ladder#130](https://github.com/themorgan/precedent-shared-ladder/pull/130)).
+It found the cause of the cost: the 2026-10-20 "rebuild only when asked"
+change had reached that set's staging and never its `main`, which every
+repository reads. It reaches the other repositories once that set's
+staging goes into `main` (Produce), then Update Vendors in each.
 
 ## Done when
 
