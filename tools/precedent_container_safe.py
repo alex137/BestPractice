@@ -182,8 +182,9 @@ def checkouts():
 SCRATCH_GLOB = '/tmp/claude-*/*/*/scratchpad'
 try:
     from precedent_stale_branches import PAGE_FILENAME as _BRANCH_PAGE
+    from precedent_stale_branches import DB_DIRNAME as _BRANCH_DB
 except Exception:                                           # noqa: BLE001
-    _BRANCH_PAGE = 'branch-cleanup.html'
+    _BRANCH_PAGE, _BRANCH_DB = 'branch-cleanup.html', 'branch-db'
 # Files a tool writes into the scratch folder only to publish them at once.
 PUBLISHED_ON_PURPOSE = frozenset({_BRANCH_PAGE})
 # Folders that only ever hold copies of something already published: the
@@ -191,7 +192,10 @@ PUBLISHED_ON_PURPOSE = frozenset({_BRANCH_PAGE})
 # <scratchpad>/artifact-files/<artifact id>/ by default. Found the night the
 # scratch scan shipped (2026-10-12): the first session to read a live page
 # before republishing it was told its container was unsafe over that copy.
-PUBLISHED_COPY_DIRS = frozenset({'artifact-files'})
+# The branch cleanup page's refresh (2026-10-27) lists its database into
+# <scratchpad>/branch-db/ and writes the batch it sends from there: copies of
+# rows the page's database holds, or is about to.
+PUBLISHED_COPY_DIRS = frozenset({'artifact-files', _BRANCH_DB})
 
 
 def scratch_dirs():

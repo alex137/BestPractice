@@ -3,7 +3,7 @@ slug:              todo-2026-10-20-branch-page-data-in-a-file
 kind:              manual
 domain:            engine
 severity:          low
-status:            open
+status:            done
 disposition:       null
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          "both, A first (2026-10-27)"
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-20
-closed:            null
+closed:            2026-10-27
 ---
 ## What
 
@@ -103,6 +103,21 @@ It found the cause of the cost: the 2026-10-20 "rebuild only when asked"
 change had reached that set's staging and never its `main`, which every
 repository reads. It reaches the other repositories once that set's
 staging goes into `main` (Produce), then Update Vendors in each.
+
+**B is built (2026-10-27).** The page's rows live in its own database, one
+document a repository
+([`tools/precedent_stale_branches.py`](../tools/precedent_stale_branches.py),
+"THE ROWS LIVE IN THE PAGE'S DATABASE"). A refresh is an ArtifactData listing,
+one `--db-docs` run and one batch of writes for the repositories the session
+can see, a few thousand tokens, with no read of the page and no republish.
+Morgan's pinned page was moved in place the same day: its last read-through,
+one republish of the new page with the `db` capability, and its rows seeded
+from the old page, the rows he had ticked left off. That read-through found
+the old page's script broken by an unescaped apostrophe, so nothing on it had
+run; the harness now parses the page's script. The ladder set's practice
+describes the new refresh. The refresh still runs only on "Branch cleanup";
+whether it should come back on its own now that it is cheap was put to
+Morgan in chat the same day.
 
 ## Done when
 
