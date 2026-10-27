@@ -86,7 +86,7 @@ WHY. Until then the page carried every row inside its own HTML and was
 republished whole, which the Artifact tool allows over another session's
 version only after the session has Read every line of it. On 2026-10-27
 the page was 1,097 lines and the read about 98,000 tokens, paid at nearly
-every close (practice: stale-branch-cleanup; BestPractice
+every close (the ladder set's stale-branch-cleanup; BestPractice
 todo/todo-2026-10-20-branch-page-data-in-a-file.md). Morgan, 2026-10-27:
 "Both, A first. ... Act, Book." (strength: decided), A being the refresh
 only on "Branch cleanup" and B this.
