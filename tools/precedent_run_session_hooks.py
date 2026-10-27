@@ -159,9 +159,11 @@ def repos_under(root):
 
 
 def read_only_rules(root, repos):
-    """-> the read-only Precedent tool allow rules the repositories under
-    `root` declare or the settings template beside this file has, each
-    once, in the order found. [] when the engine module is not here."""
+    """-> the read-only Precedent tool and source-attach allow rules the
+    repositories under `root` declare or the settings template beside this
+    file has, then the clone rules for their declared sources' owners
+    (precedent_vendor_engine.attach_clone_rules), each once, in the order
+    found. [] when the engine module is not here."""
     here = pathlib.Path(__file__).resolve().parent
     sys.path.insert(0, str(here))
     try:
@@ -180,6 +182,12 @@ def read_only_rules(root, repos):
                 continue
     for text in texts:
         for rule in pve.read_only_allow_rules(text):
+            if rule not in found:
+                found.append(rule)
+    # And cloning each declared practice source, so attaching one at the
+    # start of a session never waits on a prompt (2026-10-27).
+    for base in [root] + list(repos):
+        for rule in pve.attach_clone_rules(base):
             if rule not in found:
                 found.append(rule)
     return found

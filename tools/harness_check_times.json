@@ -50,6 +50,7 @@
   "check_assumed_visibility_never_deletes_practices": 1.0,
   "check_attached_sets_sources_are_synced": 1.0,
   "check_attached_sets_sync_is_safe_for_everyone": 2.3,
+  "check_attaching_a_source_needs_no_prompt": 0.0,
   "check_audit_says_where_a_moved_bootstrap_section_went": 0.1,
   "check_bare_all_runs_across_the_cores": 0.1,
   "check_bare_push_check_takes_the_landing_tier": 0.0,

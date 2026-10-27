@@ -879,7 +879,15 @@ def main_test_failed(root):
                  if mtip and _gets_github_test(root, MAIN) else [])
         if not tests:
             return False
-        return github_test_state(root, mtip, tests)[0] == 'failed'
+        state = github_test_state(root, mtip, tests)[0]
+        if state == 'running':
+            # MAIN'S RE-RUN IS STILL GOING (2026-10-27): a Produce merged,
+            # its pull request's run failed, and the push run on main took
+            # thirteen minutes more. The fix, opened in that window, was
+            # refused straight into main because the newest run read
+            # "running". The newest FINISHED run is the verdict main has.
+            state = github_test_state(root, mtip, tests, completed_only=True)[0]
+        return state == 'failed'
     except Exception:                                       # noqa: BLE001
         return False
 
@@ -1989,7 +1997,7 @@ def _tested_nothing(gh, slug, run):
 
 
 def github_test_state(root, sha, tests, gh=None, via_pulls=True,
-                      _slug_override=None, _renamed_from=None):
+                      _slug_override=None, _renamed_from=None, completed_only=False):
     """-> (state, detail): did main's GitHub test run on `sha` and pass?
 
     A run counts from either of two places: on the commit itself (a workflow
@@ -2002,7 +2010,10 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
     state is one of 'passed', 'failed', 'running', 'none' (never ran) and
     'unknown' (GitHub could not be asked). Two or three API calls, counted
     by github_budget.py (practice: github-api-budget); one with
-    `via_pulls` off, which is how a run started on the commit is awaited."""
+    `via_pulls` off, which is how a run started on the commit is awaited.
+    `completed_only` leaves out runs that have not finished, so the newest
+    FINISHED run decides: main_test_failed asks it that way when a run is
+    still going."""
     gh = gh or _sibling('github_budget')
     slug = _slug_override or _slug(root)
     if gh is None or not slug:
@@ -2032,6 +2043,8 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
         for r in runs:
             path = r.get('path')
             if r.get('conclusion') == 'skipped':
+                continue
+            if completed_only and r.get('status') != 'completed':
                 continue
             if path in wanted and (path not in newest or (r.get('created_at') or '')
                                    > (newest[path].get('created_at') or '')):
@@ -2098,7 +2111,8 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
             if current.lower() != slug.lower():
                 state, detail = github_test_state(root, sha, tests, gh, via_pulls,
                                                   _slug_override=current,
-                                                  _renamed_from=slug)
+                                                  _renamed_from=slug,
+                                                  completed_only=completed_only)
                 return state, (f'{detail} (asked as {current}: origin still names '
                                f'{slug}, the repository\'s old name -- '
                                f'git remote set-url origin to the new one)')
