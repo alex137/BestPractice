@@ -34,9 +34,10 @@ render it.
 
 ENGINE-REGISTERED GENERATORS (2026-10-07). Some pages have no document
 behind them: the branch-cleanup page that the ladder set's
-stale-branch-cleanup practice puts in a session's closing summary is
-written by tools/precedent_stale_branches.py --html from the live branch
-list. The gate refused it, so two rules in force contradicted each other and
+stale-branch-cleanup practice links in a session's closing summary is
+written by tools/precedent_stale_branches.py --db-page (since 2026-10-27 a
+shell whose rows live in its own database; before, --html with every row in
+it). The gate refused it, so two rules in force contradicted each other and
 a session fell back to pasting links into chat. A tool named in GENERATORS
 calls record_generated() on every page it writes, which notes the page's
 sha256 in a ledger outside any repository (GENERATED_LEDGER); a page whose
