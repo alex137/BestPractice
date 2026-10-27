@@ -34,7 +34,13 @@
       "Bash(python3 tools/catalogue_stats.py)",
       "Bash(python3 tools/leak_gate.py)",
       "Bash(python3 tools/leak_gate.py *)",
-      "Bash(python3 deck/build_deck.py *)"
+      "Bash(python3 deck/build_deck.py *)",
+      "mcp__claude-code-remote__add_repo",
+      "mcp__claude-code-remote__register_repo_root",
+      "Bash(GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/themorgan/*)",
+      "Bash(GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/themorgan/*)",
+      "Bash(git clone --depth 1 https://github.com/themorgan/*)",
+      "Bash(git clone https://github.com/themorgan/*)"
     ]
   },
   "hooks": {

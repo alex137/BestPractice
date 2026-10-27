@@ -1858,6 +1858,69 @@ _ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
 # much"). The list is gone: when work moves is the rules' call (go-update,
 # produce), checked by the tools themselves.
 ENGINE_ALLOW_RULE = 'Bash(python3 tools/precedent_*)'
+# ATTACHING A DECLARED PRACTICE SOURCE NEVER STOPS FOR A CLICK (Morgan,
+# 2026-10-27: "This is a high priority fix"). AGENTS.md tells every session
+# to attach its practice sources silently at the start; with no allow rule
+# for add_repo, register_repo_root or the clone add_repo's reply prescribes,
+# a session started from a phone sat at a permission prompt until he came
+# back, sometimes half an hour later. The two MCP rules are in the settings
+# template. Claude Code cannot filter an MCP rule by argument, so the
+# add_repo one also covers attaching with push access, to any repository:
+# it is limited only by the person's own GitHub access, which add_repo
+# checks itself. The clone rules can be narrowed, to the GitHub owners of
+# the sources declared here (attach_clone_rules), in the two shapes the
+# reply prescribes: with and without GIT_LFS_SKIP_SMUDGE=1.
+ATTACH_ALLOW_RULES = ('mcp__claude-code-remote__add_repo',
+                      'mcp__claude-code-remote__register_repo_root')
+_CLONE_RULE_RE = re.compile(
+    r'^Bash\((?:GIT_LFS_SKIP_SMUDGE=1 )?git clone (?:--depth 1 )?'
+    r'https://github\.com/[\w.-]+/\*\)$')
+
+
+def clone_allow_rules(owners):
+    """-> the Bash allow rules for cloning any repository of `owners` the
+    way add_repo's reply says to, each owner's four shapes, in order."""
+    out = []
+    for owner in owners:
+        if not re.fullmatch(r'[\w.-]+', owner or ''):
+            continue
+        for env in ('GIT_LFS_SKIP_SMUDGE=1 ', ''):
+            for depth in ('--depth 1 ', ''):
+                rule = f'Bash({env}git clone {depth}https://github.com/{owner}/*)'
+                if rule not in out:
+                    out.append(rule)
+    return out
+
+
+def source_owners(root):
+    """-> the GitHub owners of the practice sources this repository and its
+    person declare (precedent_hooks._attach_hints: the individual set, the
+    sets it brings, PRECEDENT_SOURCE_BASE_URL), sorted. [] when none is
+    known here, as in a fresh container before the individual set is
+    attached: rules written by an earlier refresh stay in the file."""
+    here = str(pathlib.Path(__file__).resolve().parent)
+    sys.path.insert(0, here)
+    try:
+        import precedent_hooks
+        hints = precedent_hooks._attach_hints(pathlib.Path(root))
+    except Exception:                                        # noqa: BLE001
+        return []
+    finally:
+        sys.path.remove(here)
+    owners = {v.split('/')[0] for v in hints.values() if v}
+    return sorted(o for o in owners if re.fullmatch(r'[\w.-]+', o))
+
+
+def attach_clone_rules(root):
+    """-> clone_allow_rules for source_owners(root)."""
+    return clone_allow_rules(source_owners(root))
+
+
+def is_attach_allow_rule(rule):
+    """True for a rule that lets a session attach and clone a practice
+    source without a prompt: ATTACH_ALLOW_RULES and the clone rules."""
+    return isinstance(rule, str) and (rule in ATTACH_ALLOW_RULES
+                                      or bool(_CLONE_RULE_RE.match(rule)))
 
 
 def _is_engine_ask_rule(rule):
@@ -1870,8 +1933,10 @@ def _is_engine_ask_rule(rule):
 
 def is_read_only_allow_rule(rule):
     """True for `Bash(python3 tools/X)` or `Bash(python3 tools/X *)` where X
-    is one of READ_ONLY_ALLOW_TOOLS, and for ENGINE_ALLOW_RULE."""
-    if rule == ENGINE_ALLOW_RULE:
+    is one of READ_ONLY_ALLOW_TOOLS, for ENGINE_ALLOW_RULE, and for the
+    attach rules (is_attach_allow_rule), which read a repository the person
+    can already read and change nothing here."""
+    if rule == ENGINE_ALLOW_RULE or is_attach_allow_rule(rule):
         return True
     m = _ALLOW_RULE_RE.match(rule) if isinstance(rule, str) else None
     return bool(m) and m.group(1) in READ_ONLY_ALLOW_TOOLS
@@ -1990,7 +2055,8 @@ def _apply_read_only_allow(dest_root, rules, ask=()):
     print(f"precedent_vendor_engine refresh: in .claude/settings.json, from "
           f"{SETTINGS_TEMPLATE} -- added only, nothing already there was "
           f"changed: "
-          + (f"allowed {len(allowed)} Precedent tool rule(s) ({', '.join(allowed)})"
+          + (f"allowed {len(allowed)} Precedent tool or source-attach rule(s) "
+             f"({', '.join(allowed)})"
              if allowed else '')
           + ('; ' if allowed and asked else '')
           + (f"{len(asked)} rule(s) that always ask the person first, for the "
@@ -9796,7 +9862,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                                   ROOT, clone, new_commit)[0] == 'past')
         _tmpl = _template_settings_text(clone, new_commit)
         allow_pending = (manifest.get('kind') == 'consumer' and bool(_read_only_allow_missing(
-            ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl))))
+            ROOT, read_only_allow_rules(_tmpl) + attach_clone_rules(ROOT),
+            engine_ask_rules(_tmpl))))
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
@@ -9900,7 +9967,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
         # 2026-10-14 when this ran for every repo).
         _tmpl = _template_settings_text(clone, new_commit)
         if manifest.get('kind') == 'consumer' and _apply_read_only_allow(
-                ROOT, read_only_allow_rules(_tmpl), engine_ask_rules(_tmpl)):
+                ROOT, read_only_allow_rules(_tmpl) + attach_clone_rules(ROOT),
+                engine_ask_rules(_tmpl)):
             if ROOT / '.claude' / 'settings.json' not in written:
                 written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a
