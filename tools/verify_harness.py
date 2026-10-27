@@ -32462,14 +32462,15 @@ def check_branch_cleanup_button():
     cases.append(('not installed: no link and no explanation', line == '', line))
     line = sb._cleanup_line('o', 'r', 3, dict(st(False, '', installed=False), source=True), now)
     cases.append(('a practice set: no link and no explanation', line == '', line))
-    page = sb.render_html([('o', 'r', [('done-branch', '2026-10-01')])], now=now,
-                          cleanup={('o', 'r'): st(True, day_ago)})
-    recs, _clicked = sb.read_cleanup(page)
-    cases.append(('the page keeps every row beside the button',
-                  'branches/all?query=done-branch' in page and 'class="cleanup"' in page, ''))
-    cases.append(('the record survives a saved page', recs and recs[0]['last'] == day_ago, recs))
-    cases.append(('a page with the button is format 3', sb.page_format(page) == 3,
-                  sb.page_format(page)))
+    doc = sb.repo_doc('o', 'r', [('done-branch', '2026-10-01')], now.isoformat(),
+                      cleanup=st(True, day_ago), now=now)
+    cases.append(('a repository\'s section keeps every row beside the button',
+                  'branches/all?query=done-branch' in doc['section']
+                  and 'class="cleanup"' in doc['section'], ''))
+    cases.append(('its document keeps the record, for the next refresh',
+                  doc['cleanup']['last'] == day_ago, doc['cleanup']))
+    cases.append(('a document records the format that wrote it',
+                  doc['format'] == sb.PAGE_FORMAT >= 4, doc['format']))
 
     # Every delete below runs in a throwaway repository whose origin is a
     # local bare one: with its guard broken, this test must still never
@@ -32547,38 +32548,35 @@ def check_branch_cleanup_button():
             starters.append(f.name)
     cases.append(('no engine tool can start it', starters == [], starters))
     script = sb._PAGE
-    click = script.find("all.addEventListener('click'")
+    run = script.find('function runPublic(){')
+    end = script.find('\n  }\n', run)
     cases.append(('the page starts it only from the all-public button\'s click',
-                  script.count("method:'run_workflow'") == 1 and click != -1
-                  and script.index("method:'run_workflow'") > click, ''))
+                  script.count("method:'run_workflow'") == 1 and run != -1
+                  and run < script.index("method:'run_workflow'") < end
+                  and script.count('runPublic') == 2
+                  and "all.addEventListener('click',runPublic)" in script, ''))
     cases.append(('the page may call one GitHub tool and nothing else',
                   sb.PAGE_CAPABILITIES['mcp']['servers']
                   == [{'server': sb.GITHUB_CONNECTOR, 'tools': ['actions_run_trigger']}],
                   sb.PAGE_CAPABILITIES))
 
-    pub = dict(st(False, ''), repo='pub')
-    groups = [('o', 'pub', [('p1', '2026-10-01'), ('p2', '2026-10-02')]),
-              ('o', 'r', [('x', '2026-10-01')]),
-              ('o', 'unknown', [('u', '2026-10-01')])]
-    keyed = {('o', 'pub'): pub, ('o', 'r'): st(True, ''),
-             ('o', 'unknown'): dict(st(None, ''), repo='unknown')}
-    got = sb.public_cleanup(groups, [('o', 'gone', [('g', '2026-10-01')], '')],
-                            {**keyed, ('o', 'gone'): dict(st(False, ''), repo='gone')})
-    cases.append(('the all-public button covers public repositories, carried ones too, '
-                  'and never a private or unknown one',
-                  got == [('o', 'pub', 2), ('o', 'gone', 1)], got))
+    def public(state, rows=(('p1', '2026-10-01'), ('p2', '2026-10-02'))):
+        return sb.repo_doc('o', 'pub', list(rows), now.isoformat(), cleanup=state,
+                           now=now)['public']
+    cases.append(('the all-public button covers a public repository, carried or not',
+                  public(st(False, '')) and sb.repo_doc(
+                      'o', 'gone', [('g', '2026-10-01')], '2026-10-01T00:00:00+00:00',
+                      cleanup=st(False, ''), fresh=False, now=now)['public'], ''))
+    cases.append(('...and never a private or unknown one',
+                  not public(st(True, '')) and not public(st(None, '')), ''))
     cases.append(('CONTROL: a public repository without the workflow is left out',
-                  sb.public_cleanup(groups[:1], [], {('o', 'pub'): dict(pub, installed=False)})
-                  == [], ''))
-    page = sb.render_html(groups, now=now, cleanup=keyed)
-    cases.append(('the page carries the all-public button, counting its rows',
-                  'id="del-public"' in page and 'all 1 public repository (2 listed)' in page
-                  and page.count('data-public="1"') == 1, ''))
-    cases.append(('CONTROL: with no public repository there is no all-public button',
-                  'id="del-public"' not in sb.render_html(
-                      groups[1:], now=now, cleanup=keyed), ''))
+                  not public(dict(st(False, ''), installed=False)), ''))
+    cases.append(('CONTROL: nor one with nothing to delete', not public(st(False, ''), ()), ''))
+    cases.append(('the page builds the all-public button from those, counting their rows',
+                  "r.public&&r.section" in script and 'id="del-public"' in script
+                  and "(r.branches||[]).length" in script, ''))
     cases.append(('any cleanup click checks off that repository\'s rows',
-                  "function started(p)" in script and "started(p); save()" in script
+                  "function started(p)" in script and "started(p); });" in script
                   and "pub.forEach(started)" in script, ''))
 
     with tempfile.TemporaryDirectory() as td:
@@ -66610,7 +66608,7 @@ def check_gate_refusals_are_worded_by_their_tools():
 
 
 def check_publish_gate_passes_the_branch_cleanup_page():
-    """The page tools/precedent_stale_branches.py --html writes is published
+    """The page tools/precedent_stale_branches.py --db-page writes is published
     past the Artifact publish gate; a hand-made page still is not.
 
     WHY. 2026-10-07, a consuming repository: the stop hook asked for the
@@ -66618,7 +66616,7 @@ def check_publish_gate_passes_the_branch_cleanup_page():
     tools/artifact_publish_gate.py refused it as "not a render of any
     registered document" -- two rules in force contradicting each other.
     Planted: the gate's own two-direction --self-check; the generator's
-    --html run notes its page, which the gate then passes; the same page
+    --db-page run notes its page, which the gate then passes; the same page
     with one byte changed is refused."""
     import tempfile
     cases = []
@@ -66637,14 +66635,13 @@ def check_publish_gate_passes_the_branch_cleanup_page():
         try:
             _sb.collect = lambda fetch=False, seen=None: (
                 [('o', 'r', [('old-branch', '2026-10-01')])], [])
-            # No saved page: one would make --html wait for --merge
-            # (practice: fixture-owns-its-state).
+            # No saved page (practice: fixture-owns-its-state).
             _sb._person = lambda: {}
             page = td / 'branch-cleanup.html'
             with open(os.devnull, 'w') as quiet:
                 saved_out, sys.stdout = sys.stdout, quiet
                 try:
-                    _sb.main(['--html', str(page)])
+                    _sb.main(['--db-page', str(page)])
                 finally:
                     sys.stdout = saved_out
             cases.append(('the generator\'s page passes the gate',
@@ -66783,65 +66780,76 @@ def check_stale_branches_skip_a_reverted_merge():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def check_branch_cleanup_page_data_is_a_branch_a_line():
-    """The branch cleanup page's data block is written a branch a line, by
-    the tool that builds it and by the page's own script when it saves its
-    ticks, so a session can Read the saved page line by line.
+def check_branch_cleanup_page_script_parses():
+    """The branch cleanup page's script parses, and the page reads its rows
+    from its own database: no row, tick or self-save is written into it.
 
-    WHY (2026-10-20). The block was one JSON line, some 20,000 tokens for
-    230 branches; stale-branch-cleanup says to Read every line of the saved
-    page before the first publish, and a Read of that line was refused for
-    size. LIMIT: 2,000 characters, the length past which the Read tool cuts
-    a line. Planted: a page of 230 branches, 200 in one repository (one
-    repository a line would still be 15,000 characters); it must read back
-    whole, and the page script's wrap, run under node when node is
-    installed, must write the very block the tool wrote."""
-    import datetime
+    WHY (2026-10-27). Moving the page to its database, the live page read
+    through for the last time had `repository's` inside a single-quoted
+    string in its script: a syntax error, so nothing on the page ran -- no
+    ticks, no delete-all buttons, no Open next -- and nothing had noticed.
+    Planted: the page's script, under node when node is installed, must
+    parse; a copy with the same apostrophe unescaped must not (the CONTROL
+    that the check can fail)."""
     import shutil
+    import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_stale_branches as _sb
-    name = 'the branch cleanup page writes its data a branch a line'
-    limit = 2000
-    groups = [('o', 'Big', [(f'2026-10-{i % 28 + 1:02d}-someone-a-long-branch-name-{i}-abcde',
-                             '2026-10-01') for i in range(200)]),
-              ('o', 'Small', [(f'b{i}', '2026-10-02') for i in range(29)] + [('b-<odd>', '2026-10-03')])]
-    page = _sb.render_html(groups, now=datetime.datetime(2026, 10, 20, tzinfo=datetime.timezone.utc))
-    widest = max(len(l) for l in page.splitlines())
-    block = _sb._DATA.search(page).group(1)
-    back = {r['repo']: [b for b, _d in r['branches']] for r in _sb.read_page(page)}
-    cases = [(f'no line of a 230-branch page passes {limit} characters', widest <= limit,
-              f'widest {widest}'),
-             ('the page reads back every branch',
-              len(back.get('Big', [])) == 200 and back.get('Small', [])[-1:] == ['b-<odd>'],
-              str({k: len(v) for k, v in back.items()}))]
+    name = 'the branch cleanup page\'s script parses and reads its database'
+    page = _sb.render_page()
+    m = re.search(r'<script>(.*)</script>', page, re.S)
+    js = m.group(1) if m else ''
+    cases = [('the page carries a script', bool(js), ''),
+             ('it reads its rows from the database, live',
+              "window.claude.use('db')" in js and "collection('repos').onSnapshot" in js, ''),
+             ('it writes only its own ticks and clicks',
+              "db.doc('ticks/'" in js and "db.doc('clicks/'" in js
+              and "doc('repos/" not in js, ''),
+             ('nothing republishes the page', "use('artifact')" not in js
+              and 'publish(' not in js, ''),
+             ('the page holds no rows of its own', 'data-k=' not in page
+              and 'branch-data' not in page, ''),
+             ('the rows a session writes are editors\' only',
+              {'path': _sb.DB_REPOS, 'write': 'admin'}
+              in _sb.PAGE_CAPABILITIES['db']['rules'], _sb.PAGE_CAPABILITIES)]
     node = shutil.which('node')
-    fn = re.search(r'  function wrap\(v, ind\)\{.*?\n  \}\n', page, re.S)
-    cases.append(("the page's script carries wrap", fn is not None, ''))
-    if node and fn:
-        js = (fn.group(0) + 'var d=JSON.parse(require("fs").readFileSync(0,"utf8"));'
-              'process.stdout.write(wrap(d,"").replace(/</g,"\\\\u003c"));')
-        r = subprocess.run([node, '-e', js], input=json.dumps(json.loads(block)),
-                           capture_output=True, text=True, timeout=60)
-        cases.append(('saving its ticks, the page writes the block the tool wrote',
-                      r.returncode == 0 and r.stdout == block, (r.stderr or r.stdout)[:200]))
+    if node and js:
+        with tempfile.TemporaryDirectory() as td:
+            good, bad = pathlib.Path(td) / 'page.js', pathlib.Path(td) / 'bad.js'
+            good.write_text(js, encoding='utf-8')
+            bad.write_text(js.replace("repository\\'s", "repository's"), encoding='utf-8')
+            r = subprocess.run([node, '--check', str(good)], capture_output=True, text=True,
+                               timeout=60)
+            cases.append(('node parses the page\'s script', r.returncode == 0,
+                          (r.stderr or '')[:300]))
+            r = subprocess.run([node, '--check', str(bad)], capture_output=True, text=True,
+                               timeout=60)
+            cases.append(('CONTROL: the apostrophe the live page carried does not parse',
+                          r.returncode != 0, ''))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
 
 
-def check_branch_cleanup_page_merges_the_saved_page():
-    """Refreshing the saved branch-cleanup page keeps the rows of every
-    repository this session did not check, and replaces those it did.
+def check_branch_cleanup_refresh_writes_only_what_it_checked():
+    """A refresh of the branch cleanup page writes a document for each
+    repository this session checked and leaves every other one alone; a
+    write over a document is pinned to the version it was listed at; a page
+    from before the database seeds it.
 
-    WHY. A consuming repository's Update Vendors, 2026-10-12: the tool only
-    sees the clones on disk, so a session with fewer repositories open than
-    the last one published over the page and wiped the rows the wider
-    session listed. Planted: a saved page listing repositories A and B; a run
-    that checked only A (now with nothing to delete) and C. A's rows go, C's
-    arrive, B's stay under their last-checked date; the merged page reads
-    back for the next merge; a page built before the JSON block is read
-    from its sections; with a saved page and no --merge nothing is written;
-    --replace writes this run's list alone."""
+    WHY. 2026-10-12: a session with fewer repositories open than the last
+    one published over the page and wiped the rows the wider session had
+    listed, so the page was merged on every refresh; and that merge needed
+    a read of the whole page, about 98,000 tokens on 2026-10-27. With one
+    document a repository nothing is merged: a repository this run did not
+    check is simply not written. Planted: a listing holding A and B; a run
+    that checked A (now empty) and C. A is rewritten empty, C created, B
+    untouched; a run that checked a repository with nothing in it, not in
+    the listing, writes nothing for it; a listed document without a version
+    is refused, nothing written; --versions takes pairs or the listing's
+    own lines; a pre-database page seeds the repositories this run did not
+    check, less its ticked rows and any branch the engine keeps; --html now
+    refuses and writes nothing."""
     import contextlib
     import datetime
     import io
@@ -66849,162 +66857,96 @@ def check_branch_cleanup_page_merges_the_saved_page():
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_stale_branches as _sb
     cases = []
-    then = datetime.datetime(2026, 10, 11, 10, 0, tzinfo=datetime.timezone.utc)
-    now = then + datetime.timedelta(days=1)
-    old = _sb.render_html([('o', 'A', [('a-done', '2026-10-01')]),
-                           ('o', 'B', [('b-done', '2026-10-02'),
-                                       ('b-<odd>', '2026-10-03')])], now=then)
-    previous = _sb.read_page(old)
-    cases.append(('a page reads back its own list',
-                  [(r['repo'], [b for b, _d in r['branches']]) for r in previous]
-                  == [('A', ['a-done']), ('B', ['b-done', 'b-<odd>'])], previous))
-    carried = _sb.carried_over(previous, [('o', 'a'), ('o', 'C')])
-    cases.append(('a repository this run checked is replaced, case aside; one it '
-                  'did not check is carried with its date',
-                  [(o, n, [b for b, _d in r], c[:10]) for o, n, r, c in carried]
-                  == [('o', 'B', ['b-done', 'b-<odd>'], '2026-10-11')], carried))
-    page = _sb.render_html([('o', 'C', [('c-done', '2026-10-04')])], now=now,
-                           carried=carried)
-    got = {r['repo']: r for r in _sb.read_page(page)}
-    cases.append(('the merged page lists C fresh and B kept, A gone',
-                  sorted(got) == ['B', 'C']
-                  and got['C']['checked'].startswith('2026-10-12')
-                  and got['B']['checked'].startswith('2026-10-11'), got))
-    cases.append(('...dates the kept rows, and counts both',
-                  'Checked 11 Oct 2026, 10:00 UTC.' in page
-                  and '0 of 3 done' in page, ''))
-    kept = _sb.carried_over([{'owner': 'o', 'repo': 'D', 'checked': '',
-                              'branches': [['precedent-promote-lock', '2026-10-01'],
-                                           ['precedent-check-receipts', '2026-10-01'],
-                                           ['d-done', '2026-10-01']]}], [])
-    cases.append(('a carried row never offers a branch the engine keeps, '
-                  'whoever listed it', [[b for b, _d in r] for _o, _n, r, _c in kept]
-                  == [['d-done']], kept))
-    legacy = _sb._DATA.sub('', old)
-    cases.append(('a page built before the JSON block is read from its sections',
-                  [(r['repo'], [b for b, _d in r['branches']], r['checked'][:16])
-                   for r in _sb.read_page(legacy)]
-                  == [('A', ['a-done'], '2026-10-11T10:00'),
-                      ('B', ['b-done', 'b-<odd>'], '2026-10-11T10:00')],
-                  _sb.read_page(legacy)))
-    real_collect, real_person = _sb.collect, _sb._person
-    real_waiting = _sb.collect_waiting
+    now = datetime.datetime(2026, 10, 27, 15, 0, tzinfo=datetime.timezone.utc)
+    then = '2026-10-20T10:00:00+00:00'
+    listing = {_sb.doc_id('o', 'A'): (3, {'owner': 'o', 'repo': 'A', 'checked': then,
+                                          'branches': [['a-done', '2026-10-01']]}),
+               _sb.doc_id('o', 'B'): (5, {'owner': 'o', 'repo': 'B', 'checked': then,
+                                          'branches': [['b-done', '2026-10-02']]})}
+    docs = _sb.build_docs([('o', 'C', [('c-done', '2026-10-04')])], [],
+                          [('o', 'a'), ('o', 'C'), ('o', 'D')], [], [], listing, now=now)
+    cases.append(('A is rewritten (case aside), C created, B and the empty D not written',
+                  sorted(docs) == [_sb.doc_id('o', 'A'), _sb.doc_id('o', 'C')], sorted(docs)))
+    cases.append(('...A with nothing left on it, C with its row, both dated now',
+                  docs[_sb.doc_id('o', 'A')]['branches'] == []
+                  and docs[_sb.doc_id('o', 'C')]['branches'] == [['c-done', '2026-10-04']]
+                  and docs[_sb.doc_id('o', 'C')]['checked'].startswith('2026-10-27'), ''))
+    with tempfile.TemporaryDirectory() as td:
+        writes = _sb.db_writes(docs, listing, pathlib.Path(td))
+        pins = {w['doc_id']: w.get('if_version') for w in writes}
+        cases.append(('the write over A is pinned to its listed version; C is a create',
+                      pins == {_sb.doc_id('o', 'A'): 3, _sb.doc_id('o', 'C'): None}, pins))
+        cases.append(('each write names a file holding its document',
+                      all(json.loads(pathlib.Path(w['file_path']).read_text())['repo']
+                          for w in writes), ''))
+    cases.append(('--versions takes pairs and the listing\'s own lines',
+                  _sb.parse_versions('o--a=3 - "o--b"  772 bytes  version 5  "/x/o--b.json"')
+                  == {'o--a': 3, 'o--b': 5}, ''))
+    cases.append(('a document id keeps only what an id may hold',
+                  _sb.doc_id('Own er', 'Re/po') == 'own_er--re_po', _sb.doc_id('Own er', 'Re/po')))
+    legacy = ('<script type="application/json" id="branch-data">' + json.dumps({
+        'format': 3, 'built': then,
+        'done': {'B/b-done': '2026-10-21T00:00:00Z'},
+        'repos': [{'owner': 'o', 'repo': 'B', 'checked': then,
+                   'branches': [['b-done', '2026-10-02'], ['b-kept', '2026-10-03'],
+                                ['precedent-promote-lock', '2026-10-01']]},
+                  {'owner': 'o', 'repo': 'A', 'checked': then,
+                   'branches': [['a-done', '2026-10-01']]}],
+        'waiting': [{'owner': 'o', 'repo': 'W', 'checked': then, 'staging': 'staging',
+                     'commits': 2, 'oldest': '2026-10-10'}],
+        'cleanup': [], 'clicked': {}}) + '</script>')
+    seeded = _sb.build_docs([], [], [('o', 'A')], [], [], {}, now=now, seed_text=legacy)
+    b = seeded.get(_sb.doc_id('o', 'B'), {})
+    cases.append(('a pre-database page seeds B under its own date, less its ticked row '
+                  'and the engine\'s branch',
+                  b.get('branches') == [['b-kept', '2026-10-03']]
+                  and b.get('checked') == then, b.get('branches')))
+    cases.append(('...and its waiting row for a repository with nothing to delete',
+                  (seeded.get(_sb.doc_id('o', 'W')) or {}).get('waiting')
+                  == {'staging': 'staging', 'commits': 2, 'oldest': '2026-10-10'}, ''))
+    cases.append(('CONTROL: a repository this run checked is not seeded from it',
+                  _sb.doc_id('o', 'A') not in seeded, sorted(seeded)))
+    real_collect, real_waiting, real_person = _sb.collect, _sb.collect_waiting, _sb._person
+    real_github = _sb._github
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
-        saved_ledger = os.environ.get('PRECEDENT_GENERATED_PAGES')
-        os.environ['PRECEDENT_GENERATED_PAGES'] = str(td / 'ledger.json')
-        (td / 'saved.html').write_text(old, encoding='utf-8')
-        _sb.collect_waiting = lambda fetch=False, seen=None: []
-        out = td / 'out.html'
+        (td / 'repos').mkdir()
+        (td / 'repos' / 'o--c.json').write_text(json.dumps(
+            {'owner': 'o', 'repo': 'C', 'checked': then, 'branches': []}))
 
         def collect(fetch=False, seen=None):
             if seen is not None:
-                seen.extend([('o', 'A'), ('o', 'C')])
+                seen.extend([('o', 'C')])
             return [('o', 'C', [('c-done', '2026-10-04')])], []
 
         def run(*args):
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                rc = _sb.main(['--html', str(out), *args])
+                rc = _sb.main(list(args))
             return rc, buf.getvalue()
         try:
             _sb.collect = collect
+            _sb.collect_waiting = lambda fetch=False, seen=None: []
             _sb._person = lambda: {'branch_cleanup_page': 'https://claude.ai/artifact/x'}
-            rc, said = run()
-            cases.append(('with a saved page and no --merge, nothing is written',
-                          rc == 2 and not out.exists()
-                          and 'Nothing written: the saved page' in said, said))
-            rc, said = run('--merge', str(td / 'saved.html'))
-            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
-            cases.append(('--merge writes C fresh and keeps B',
-                          rc == 0 and got == ['B', 'C']
-                          and '2 kept from the saved page for 1 repositor' in said,
-                          f'{got} {said}'))
-            # 2026-10-20: the publish was refused until the saved source was
-            # Read through, while a ladder note said never to Read it. The
-            # tool's last line owns the steps, in the order enforced.
-            cases.append(('the last line says to Read every line of the merged '
-                          'file before publishing, and to resend an identical-'
-                          'content refusal once',
-                          f'Read every line of {td / "saved.html"}' in said
-                          and 'send it once more unchanged' in said, said[-400:]))
-            (td / 'junk.html').write_text('<p>not a cleanup page</p>', encoding='utf-8')
-            out.unlink()
-            rc, said = run('--merge', str(td / 'junk.html'))
-            cases.append(('a file holding no list is refused, never merged as empty',
-                          rc == 2 and not out.exists()
-                          and 'holds no branch list' in said, said))
-            rc, said = run('--replace')
-            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
-            cases.append(('CONTROL: --replace writes this run\'s list alone',
-                          rc == 0 and got == ['C'], f'{got} {said}'))
-            # 2026-10-13: the page saves the person's ticks into itself;
-            # a ticked row of a repository this run did not check is left
-            # off, and a tick never hides a row this run checked fresh.
-            # The block is edited as JSON, never by its spelling: the
-            # tool writes it a branch a line (page_json).
-            def with_data(page, change):
-                def sub(m):
-                    data = json.loads(m.group(1))
-                    change(data)
-                    return m.group(0).replace(m.group(1), json.dumps(data))
-                return _sb._DATA.sub(sub, page)
-            ticked = with_data(old, lambda d: d.update(done={
-                'B/b-done': '2026-10-12T09:00:00Z', 'C/c-done': '2026-10-12T09:00:00Z'}))
-            (td / 'ticked.html').write_text(ticked, encoding='utf-8')
-            rc, said = run('--merge', str(td / 'ticked.html'))
-            merged = out.read_text(encoding='utf-8')
-            got = {r['repo']: [b for b, _d in r['branches']]
-                   for r in _sb.read_page(merged)}
-            cases.append(('a branch the person ticked on the page is left off '
-                          'a repository this run did not check',
-                          rc == 0 and got.get('B') == ['b-<odd>']
-                          and '1 left off because the person checked them off' in said,
-                          f'{got} {said}'))
-            cases.append(('CONTROL: a tick never hides a row this run checked',
-                          got.get('C') == ['c-done'], got))
-            cases.append(('a new build starts with no ticks of its own',
-                          _sb.read_done(merged) == {}, _sb.read_done(merged)))
-            cases.append(('the page saves its own ticks, and the session is '
-                          'told to publish it so it can',
-                          "claude.use('artifact')" in merged
-                          and 'page.publish(' in merged
-                          and '"artifact": {}' in said, said))
-            # 2026-10-13: the page carries its format; an engine older
-            # than the page refuses to merge it rather than drop fields it
-            # cannot read, and a page from before the field is accepted.
-            cases.append(('a page records the format of the engine that built it',
-                          _sb.page_format(old) == _sb.PAGE_FORMAT >= 1,
-                          _sb.page_format(old)))
-            newer = with_data(old, lambda d: d.update(format=_sb.PAGE_FORMAT + 1))
-            (td / 'newer.html').write_text(newer, encoding='utf-8')
-            out.unlink()
-            rc, said = run('--merge', str(td / 'newer.html'))
-            cases.append(('a page built by a newer engine is refused, nothing '
-                          'written, and Update Vendors is named',
-                          rc == 2 and not out.exists()
-                          and 'built by a newer engine' in said
-                          and 'Update Vendors' in said, said))
-            unformatted = with_data(old, lambda d: d.pop('format'))
-            (td / 'unformatted.html').write_text(unformatted, encoding='utf-8')
-            rc, said = run('--merge', str(td / 'unformatted.html'))
-            got = sorted(r['repo'] for r in _sb.read_page(out.read_text(encoding='utf-8')))
-            cases.append(('CONTROL: a page with no format field counts as format '
-                          '0 and merges',
-                          _sb.page_format(unformatted) == 0 and rc == 0
-                          and got == ['B', 'C']
-                          and 'built by a newer engine' not in said,
-                          f'{got} {said}'))
+            _sb._github = lambda: None
+            rc, said = run('--db-docs', str(td))
+            cases.append(('a listed document with no version is refused, nothing written',
+                          rc == 2 and not (td / 'out').exists()
+                          and 'Nothing written' in said, said))
+            rc, said = run('--db-docs', str(td), '--versions', 'o--c=7')
+            writes = json.loads(said.strip().splitlines()[-1]) if rc == 0 else []
+            cases.append(('with its version, the batch line pins it',
+                          rc == 0 and [w.get('if_version') for w in writes] == [7], said[-300:]))
+            rc, said = run('--html', str(td / 'page.html'))
+            cases.append(('--html refuses and points at the database route',
+                          rc == 2 and not (td / 'page.html').exists()
+                          and '--db-docs' in said, said))
         finally:
-            _sb.collect, _sb._person = real_collect, real_person
-            _sb.collect_waiting = real_waiting
-            if saved_ledger is None:
-                os.environ.pop('PRECEDENT_GENERATED_PAGES', None)
-            else:
-                os.environ['PRECEDENT_GENERATED_PAGES'] = saved_ledger
+            _sb.collect, _sb.collect_waiting, _sb._person = real_collect, real_waiting, real_person
+            _sb._github = real_github
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
-    check(f'refreshing the branch-cleanup page merges the saved one ({len(cases)} '
-          f'stated cases)', not bad, '; '.join(bad))
+    check(f'a branch-page refresh writes only what it checked ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_branch_cleanup_open_next_is_a_real_link():
@@ -67021,9 +66963,10 @@ def check_branch_cleanup_open_next_is_a_real_link():
         import precedent_stale_branches as _sb
     finally:
         sys.path.pop(0)
-    two = _sb.render_html([('o', 'r', [('a/one', '2026-10-01'),
-                                       ('b-two', '2026-10-02')])])
-    one = _sb.render_html([('o', 'r', [('a/one', '2026-10-01')])])
+    two = _sb.repo_doc('o', 'r', [('a/one', '2026-10-01'), ('b-two', '2026-10-02')],
+                       '2026-10-27T00:00:00+00:00')['section']
+    one = _sb.repo_doc('o', 'r', [('a/one', '2026-10-01')],
+                       '2026-10-27T00:00:00+00:00')['section']
     tag = two.split('class="open-next"', 1)[-1].split('>', 1)[0] \
         if 'class="open-next"' in two else ''
     cases = [
@@ -67032,7 +66975,7 @@ def check_branch_cleanup_open_next_is_a_real_link():
             'class="open-next"', 1)[0].rsplit('<a', 1)[-1] + tag, tag),
         ('it opens in a new tab', 'target="_blank"' in tag, tag),
         ('one branch has no link', 'class="open-next"' not in one),
-        ('no script calls window.open', 'window.open(' not in two),
+        ('no script calls window.open', 'window.open(' not in _sb._PAGE),
     ]
     bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'the cleanup page opens the next branch with a real link '
@@ -67055,7 +66998,7 @@ def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     republish reported an older runtime version, and nothing said whether
     to move it.
 
-    Planted through render_html: a fresh repository carrying main, a live
+    Planted through repo_doc: a fresh repository carrying main, a live
     data- branch, a moved old name and an ordinary branch; a carried one
     whose saved rows hold an old engine name and an ordinary branch."""
     sys.path.insert(0, str(ROOT / 'tools'))
@@ -67064,13 +67007,13 @@ def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     finally:
         sys.path.pop(0)
     cases = []
-    page = _sb.render_html(
-        [('o', 'fresh', [('main', '2026-10-01'), ('data-promote-lock', '2026-10-02'),
-                         ('precedent-promote-lock', '2026-10-03'),
-                         ('feat-a', '2026-10-04')])],
-        carried=[('o', 'saved', [('precedent-check-receipts', '2026-10-05'),
-                                 ('feat-b', '2026-10-06')],
-                  '2026-10-16T12:00:00+00:00')])
+    page = _sb.repo_doc('o', 'fresh', [('main', '2026-10-01'),
+                                       ('data-promote-lock', '2026-10-02'),
+                                       ('precedent-promote-lock', '2026-10-03'),
+                                       ('feat-a', '2026-10-04')],
+                        '2026-10-27T00:00:00+00:00')['section'] + _sb.repo_doc(
+        'o', 'saved', [('precedent-check-receipts', '2026-10-05'), ('feat-b', '2026-10-06')],
+        '2026-10-16T12:00:00+00:00', fresh=False)['section']
     offered = set(re.findall(r'data-k="([^"]+)"', page))
     cases.append(('main is never offered', 'fresh/main' not in offered, sorted(offered)))
     cases.append(('a live data- branch is never offered',
@@ -67088,8 +67031,8 @@ def check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names():
     # 2026-10-20 (Morgan: "don't [explain], just give it to me and say
     # nothing else"): the page is the list, with no paragraphs about it.
     cases.append(('the page carries no explanatory intro',
-                  'class="lede"' not in page and 'Checking a branch off' not in page))
-    cases.append(('the count is of what is offered (3)', '0 of 3 done' in page))
+                  'class="lede"' not in _sb._PAGE and 'Checking a branch off' not in _sb._PAGE))
+    cases.append(('the count is of what is offered (3)', len(offered) == 3, sorted(offered)))
     cases.append(('one list of engine branch names, from the data-branch module',
                   getattr(_sb, 'ENGINE_BRANCHES', frozenset()) >= {
                       'precedent-promote-lock', 'precedent-check-receipts'}
@@ -67115,9 +67058,9 @@ def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
     Planted: a real repository whose staging is ahead of main by one change
     (listed), one whose staging only merged main back in (level, not
     listed), one with no staging (no row); a saved page whose waiting row
-    for a repository this run did not check is kept under its date, and one
-    for a repository this run checked and found level is dropped; a page
-    with branches gone but a waiting row still merges."""
+    for a repository this run did not check is left alone, and one for a
+    repository this run checked and found level is rewritten without it; a
+    pre-database page with branches gone but a waiting row still seeds it."""
     import datetime
     import subprocess as _sp
     import tempfile
@@ -67161,83 +67104,40 @@ def check_branch_cleanup_page_lists_staging_waiting_to_go_live():
                       _sb.waiting_in(work) is None, _sb.waiting_in(work)))
     then = datetime.datetime(2026, 10, 14, 12, 0, tzinfo=datetime.timezone.utc)
     now = then + datetime.timedelta(days=2)
-    old = _sb.render_html([], now=then, waiting=[
-        ('o', 'Kept', 'staging', 2, '2026-10-10'),
-        ('o', 'Level', 'staging', 1, '2026-10-12')])
-    cases.append(('a page with no branches but a waiting row is still a page',
-                  _sb.is_page(old) and _sb.page_format(old) >= 2, ''))
-    prev = _sb.read_waiting(old)
-    carried = _sb.carried_waiting(prev, [('o', 'level'), ('o', 'New')])
-    cases.append(('a repository this run did not check keeps its row; one it '
-                  'checked (case aside) is replaced',
-                  [(c[1], c[3], c[5][:10]) for c in carried]
-                  == [('Kept', 2, '2026-10-14')], carried))
-    page = _sb.render_html([], now=now, waiting=[('o', 'New', 'staging', 3, '2026-10-15')],
-                           carried_wait=carried, tz='America/Argentina/Buenos_Aires')
-    got = {r['repo']: r for r in _sb.read_waiting(page)}
-    cases.append(('the merged page lists New fresh and Kept under its date',
-                  sorted(got) == ['Kept', 'New']
-                  and got['New']['checked'].startswith('2026-10-16')
-                  and got['Kept']['checked'].startswith('2026-10-14'), got))
-    cases.append(('...under a Waiting to go live heading, linking the comparison, '
-                  'and dating a kept row',
-                  'Waiting to go live' in page
-                  and 'github.com/o/New/compare/main...staging' in page
-                  and 'Checked 14 Oct 2026' in page, ''))
-    cases.append(('CONTROL: nothing waiting, no waiting section',
-                  'Waiting to go live' not in _sb.render_html([], now=now), ''))
+    listing = {_sb.doc_id('o', 'Kept'): (2, {'owner': 'o', 'repo': 'Kept',
+                                             'checked': then.isoformat(), 'branches': [],
+                                             'waiting': {'staging': 'staging', 'commits': 2,
+                                                         'oldest': '2026-10-10'}}),
+               _sb.doc_id('o', 'Level'): (4, {'owner': 'o', 'repo': 'Level',
+                                              'checked': then.isoformat(), 'branches': [],
+                                              'waiting': {'staging': 'staging', 'commits': 1,
+                                                          'oldest': '2026-10-12'}})}
+    docs = _sb.build_docs([], [('o', 'New', 'staging', 3, '2026-10-15')], [],
+                          [('o', 'level'), ('o', 'New')], [], listing, now=now,
+                          tz='America/Argentina/Buenos_Aires')
+    cases.append(('a repository this run checked and found level is rewritten with no '
+                  'row; New gets its row; Kept, not checked, is left alone',
+                  sorted(docs) == [_sb.doc_id('o', 'Level'), _sb.doc_id('o', 'New')]
+                  and docs[_sb.doc_id('o', 'Level')]['waiting'] is None
+                  and docs[_sb.doc_id('o', 'New')]['waiting']['commits'] == 3, sorted(docs)))
+    li = docs[_sb.doc_id('o', 'New')]['waiting_li']
+    cases.append(('the row links GitHub\'s comparison and counts the commits',
+                  'github.com/o/New/compare/main...staging' in li and '3 commits' in li, li))
+    cases.append(('the page heads the rows Waiting to go live and dates one checked '
+                  'before the newest', 'Waiting to go live' in _sb._PAGE
+                  and 'r.checked!==newest.checked' in _sb._PAGE, ''))
+    old = ('<script type="application/json" id="branch-data">' + json.dumps({
+        'format': 2, 'repos': [], 'waiting': [
+            {'owner': 'o', 'repo': 'Kept', 'checked': then.isoformat(), 'staging': 'staging',
+             'commits': 2, 'oldest': '2026-10-10'}]}) + '</script>')
+    cases.append(('a pre-database page with no branches but a waiting row still seeds it',
+                  _sb.is_page(old) and (_sb.build_docs([], [], [], [], [], {}, now=now,
+                                                       seed_text=old)
+                                        .get(_sb.doc_id('o', 'Kept')) or {}).get('waiting')
+                  == {'staging': 'staging', 'commits': 2, 'oldest': '2026-10-10'}, ''))
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
     check(f'the branch-cleanup page lists staging waiting to go live ({len(cases)} '
           f'stated cases)', not bad, '; '.join(bad))
-
-
-def check_branch_cleanup_merge_warns_on_a_stale_copy():
-    """--merge warns when the file it is handed is not a read of the saved
-    page made just before the build.
-
-    WHY. 2026-10-15, a consuming repository: a session merged its own copy
-    from earlier in the session after another session had republished the
-    page; that merge would have dropped the other session's rows and the
-    ticks saved since. Planted: a fresh read built after this session's
-    last build (no warning); the output file itself; a read built before
-    this session's last build; a file saved long ago. Warnings only: the
-    merge still writes."""
-    import datetime
-    import tempfile
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import precedent_stale_branches as _sb
-    cases = []
-    t0 = datetime.datetime(2026, 10, 15, 12, 0, tzinfo=datetime.timezone.utc)
-    rows = [('o', 'A', [('a-done', '2026-10-01')])]
-    with tempfile.TemporaryDirectory() as td:
-        td = pathlib.Path(td)
-        out = td / 'branch-cleanup.html'
-        out.write_text(_sb.render_html(rows, now=t0), encoding='utf-8')
-        fresh = _sb.render_html(rows, now=t0 + datetime.timedelta(minutes=5))
-        (td / 'index.html').write_text(fresh, encoding='utf-8')
-        now = datetime.datetime.fromtimestamp((td / 'index.html').stat().st_mtime,
-                                              datetime.timezone.utc)
-        said = _sb.stale_merge_warnings(td / 'index.html', out, fresh, now=now)
-        cases.append(('CONTROL: a fresh read built after our last build is quiet',
-                      said == [], said))
-        mine = out.read_text(encoding='utf-8')
-        said = _sb.stale_merge_warnings(out, out, mine, now=now)
-        cases.append(('merging the output file itself is called our own build',
-                      any("own last build" in w for w in said), said))
-        older = _sb.render_html(rows, now=t0 - datetime.timedelta(hours=1))
-        (td / 'old.html').write_text(older, encoding='utf-8')
-        said = _sb.stale_merge_warnings(td / 'old.html', out, older, now=now)
-        cases.append(('a copy built before our last build is called older',
-                      any('older copy' in w for w in said), said))
-        later = now + datetime.timedelta(minutes=_sb.FRESH_READ_MINUTES + 30)
-        said = _sb.stale_merge_warnings(td / 'index.html', out, fresh, now=later)
-        cases.append(('a file saved long before the build gives its age',
-                      any('minutes ago' in w for w in said), said))
-        cases.append(('a page without a JSON block has no build time',
-                      _sb.page_built('<p>x</p>') is None, ''))
-    bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
-    check(f'--merge warns when handed a stale copy of the cleanup page '
-          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_branch_cleanup_page_is_one_page_updated_in_place():
@@ -67265,14 +67165,14 @@ def check_branch_cleanup_page_is_one_page_updated_in_place():
     line = _sb.built_line(at, 'Not/A_Zone')
     cases.append(('CONTROL: an unreadable zone falls back to UTC',
                   line == 'Refreshed 11 Oct 2026, 18:05 UTC', line))
-    groups = [('o', 'r', [('old-branch', '2026-10-01')])]
-    one = _sb.render_html(groups, now=at)
-    two = _sb.render_html(groups, now=at + datetime.timedelta(hours=1))
-    cases.append(('the page carries its refreshed line',
-                  'Refreshed 11 Oct 2026, 18:05 UTC' in one, ''))
-    cases.append(('two builds keep their ticks apart',
-                  "branch-cleanup-done:20261011T180500Z" in one
-                  and "branch-cleanup-done:20261011T190500Z" in two, ''))
+    doc = _sb.repo_doc('o', 'r', [('old-branch', '2026-10-01')], at.isoformat())
+    cases.append(('a repository carries when it was checked, and the page heads '
+                  'itself Refreshed from the newest',
+                  doc['checked_text'] == 'Checked 11 Oct 2026, 18:05 UTC.'
+                  and "replace(/^Checked /,'Refreshed ')" in _sb._PAGE, doc['checked_text']))
+    cases.append(('a tick counts only for the check it was made on',
+                  't.built===r.checked' in _sb._PAGE
+                  and "set({built:r.checked" in _sb._PAGE, ''))
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
         ident = {'name': 'P', 'email': 'p@example.com',
@@ -90717,12 +90617,11 @@ def main():
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
     check_branch_cleanup_page_is_one_page_updated_in_place()
-    check_branch_cleanup_page_data_is_a_branch_a_line()
-    check_branch_cleanup_page_merges_the_saved_page()
+    check_branch_cleanup_page_script_parses()
+    check_branch_cleanup_refresh_writes_only_what_it_checked()
     check_branch_cleanup_page_lists_staging_waiting_to_go_live()
     check_branch_cleanup_page_never_offers_main_and_marks_moved_engine_names()
     check_branch_cleanup_open_next_is_a_real_link()
-    check_branch_cleanup_merge_warns_on_a_stale_copy()
     check_stale_branches_skip_a_reverted_merge()
     check_engine_unpacks_tars_in_one_place()
     check_update_seeds_an_upstream_budget_for_a_vendored_tool()
