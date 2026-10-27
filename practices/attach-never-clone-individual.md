@@ -61,9 +61,9 @@ one by hand).
 Precedent installs allow `add_repo`, `register_repo_root` and the clone
 command the attach tool's reply prescribes, for the GitHub owners of the
 sources declared here; Update Vendors and session start add them to an
-existing install. The trade-off, accepted: an MCP allow rule cannot filter
-by argument, so the `add_repo` rule also lets a session attach any
-repository with push access without asking. It reaches only repositories
+existing install. The trade-off, accepted: a Model Context Protocol (MCP)
+allow rule cannot filter by argument, so the `add_repo` rule also lets a
+session attach any repository with push access without asking. It reaches only repositories
 the person can already reach on GitHub, which `add_repo` checks itself. The
 clone rules are narrower: the declared owners only. If a prompt still
 appears with these rules in place, it comes from claude.ai rather than the
