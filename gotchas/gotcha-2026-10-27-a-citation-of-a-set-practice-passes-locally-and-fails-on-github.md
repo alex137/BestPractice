@@ -25,10 +25,18 @@ such practice and failed `main` after the merge. Moving the set aside and
 running `python3 tools/precedent_check.py --only code-cites-practice`
 reproduced it at once.
 
+The fix went into `main` and the next test failed the same way from a
+different angle: an open item linked the ladder note tool by a relative path under tools/ladder/,
+a file the ladder set installs into this checkout but that the repository
+does not track, so the light check's link test found it locally and not on
+the runner.
+
 ## Fix
 
 In engine code, never write `practice: SLUG` for a practice that lives in a
 set: name it in words ("the ladder set's stale-branch-cleanup"), as the
-rest of the engine does. To check before pushing, move the set's clone
-aside and run `python3 tools/precedent_check.py --only
-code-cites-practice`, then move it back.
+rest of the engine does. Link a file a set installs (anything under
+`tools/ladder/`, which this repository does not track) by its GitHub
+address in the set, never by a relative path. To check before pushing, run
+`python3 tools/precedent_check.py` in a fresh clone of the branch, with the
+set's clone moved aside, then move it back.
