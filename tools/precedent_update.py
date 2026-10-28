@@ -400,6 +400,74 @@ def seed_baseline_approvals(repo, data, path, approved_by=None):
     return True
 
 
+def record_copy_in_budget(repo, today=None):
+    """-> a sentence for the report when the occasion cap in force is above
+    its approval only by the shares of sets copied in here, after recording
+    the new number as approved on the person's own copy-in answer; else
+    None. Morgan, 2026-10-28 (strength: decided): "Go, fix it at the engine
+    root issue" -- a copy-in brings its set's occasion share into the
+    repository's cap, approved_budgets is the repository's own, so each
+    repository that copied a set in failed budget-within-approval in turn
+    and asked again for words the copy-in had already given.
+
+    A raise larger than those shares is not explained by the copy-in and
+    still waits for the person's words: nothing is recorded then. The
+    shares counted are those of the sets precedent.json's copy_in says yes
+    to, with the words that yes was given in."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    approved = data.get('approved_budgets') if isinstance(data, dict) else None
+    entry = approved.get('occasion_index') if isinstance(approved, dict) else None
+    if not (isinstance(entry, dict) and isinstance(entry.get('max'), int)):
+        return None
+    try:
+        import build_views as _bv
+        now = _bv.effective_budgets(repo, registry=path).get('occasion_index')
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not isinstance(now, int) or now <= entry['max']:
+        return None
+    answers = cfg.get('copy_in') if isinstance(cfg, dict) else None
+    shares, words = {}, []
+    for e in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not (isinstance(e, dict) and e.get('vendored') is True and e.get('path')):
+            continue
+        ans = (answers or {}).get(e.get('name')) if isinstance(answers, dict) else None
+        if not (isinstance(ans, dict) and ans.get('answer') == 'yes'
+                and ans.get('answered_by')):
+            continue
+        try:
+            v = json.loads((repo / str(e['path']) / 'precedent-source.json')
+                           .read_text(encoding='utf-8')).get('occasion_share_tokens')
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(v, int):
+            shares[e['name']] = v
+            if ans['answered_by'] not in words:
+                words.append(ans['answered_by'])
+    was = entry['max']
+    if not shares or now - was > sum(shares.values()):
+        return None
+    import time as _time
+    day = today or _time.strftime('%Y-%m-%d')
+    named = ', '.join(f'{n} {v:,}' for n, v in sorted(shares.items()))
+    approved['occasion_index'] = {
+        'max': now, 'strength': 'decided',
+        'approved_by': ' / '.join(words) + (
+            f' -- the copy-in of {", ".join(sorted(shares))}; recorded by '
+            f'Update Vendors on {day}, raising {was:,} to {now:,}, within '
+            f'the occasion shares those copies bring ({named})'),
+        'previous_max': was, 'copy_in': sorted(shares)}
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return (f'occasion_index approved at {now:,} (was {was:,}): the rise is '
+            f'within the occasion shares of the sets copied in here ({named}), '
+            f'so it stands on the person\'s copy-in answer, recorded with it')
+
+
 def approval_gap(repo):
     """-> a sentence for the report when the registry exists and has no
     approved_budgets (so budget-within-approval skips every run), else None.
@@ -5823,6 +5891,9 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     gap = approval_gap(repo)
     if gap:
         rep.step('session-load budget', gap)
+    raised = record_copy_in_budget(repo)
+    if raised:
+        rep.step('session-load budget', raised)
     if ensure_headroom_floor(repo):
         rep.step('session-load budget', f'headroom_floor_pct set to '
                  f'{HEADROOM_FLOOR_DEFAULT} in tools/session_load_budgets.json '

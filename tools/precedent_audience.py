@@ -91,6 +91,14 @@ def _registry_owners(repo):
     except (OSError, ValueError, AttributeError):
         pass
     try:
+        # Only an individual set is owned by the person its identity.json
+        # names. A consuming repository may keep its own identity.json for
+        # commit authorship, often an email alone; read as its owner list,
+        # that hid the GitHub owner (2026-10-28, a consumer's ladder check).
+        level = json.loads((root / 'precedent-source.json').read_text(
+            encoding='utf-8')).get('level')
+        if str(level or '').strip().lower() != 'individual':
+            raise ValueError('not an individual set')
         data = json.loads((root / 'identity.json').read_text(encoding='utf-8'))
         if data.get('github'):
             found.add('@' + str(data['github']).lstrip('@').lower())

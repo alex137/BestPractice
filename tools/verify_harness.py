@@ -28571,6 +28571,19 @@ def check_filename_separator_knows_names_it_did_not_choose():
     cases.append(('CONTROL: two repo-own scripts with different separators '
                   'still fail', 'tools/' in out and 'first fix the cause' in out,
                   out))
+    # 2026-10-28: copy-in names each copied set's record after the set,
+    # hyphens and all, beside process/'s own snake_case files.
+    copied = {'precedent.json': json.dumps({'sources': [
+                  {'level': 'shared', 'name': 'zz-set', 'path': 'process/zz-set',
+                   'vendored': True}]}) + '\n',
+              'process/manifest_zz-set.json': '{}\n',
+              'process/decommissioned_paths.json': '{}\n'}
+    out = judge(copied)
+    cases.append(('a copied-in set\'s manifest beside process/\'s own '
+                  'snake_case file is clean', out == '', out))
+    out = judge(dict(copied, **{'precedent.json': '{"sources": []}\n'}))
+    cases.append(('CONTROL: the same manifest with no copy-in declared is '
+                  'still a mix', 'process/' in out, out))
     out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
     cases.append(('a genuinely mixed directory still fails, leading with '
                   'the root fix', 'first fix the cause' in out
@@ -65548,8 +65561,12 @@ def check_session_file_over_ceiling_names_the_individual_share():
     import precedent_resolve as pr
     cases = []
     saved_share, saved_load = getattr(psp, 'individual_share', None), pr.load_config
+    saved_brought = psp.brought_budget
     try:
         psp.individual_share = lambda repo: 1176
+        # This machine's own individual set may declare a budget of its own,
+        # which makes _individual_part stand aside; the fixture owns that.
+        psp.brought_budget = lambda repo=None, key=None: (None, None)
         part = getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400)
         cases.append(('THE DISCRIMINATING CASE: the row names the individual '
                       "set's share and the repository's own",
@@ -65580,6 +65597,7 @@ def check_session_file_over_ceiling_names_the_individual_share():
     finally:
         if saved_share is not None:
             psp.individual_share = saved_share
+        psp.brought_budget = saved_brought
         pr.load_config = saved_load
         sys.path.pop(0)
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -66158,6 +66176,79 @@ def check_legacy_workflow_sweep_honours_the_persons_approval():
                       rel not in carried))
     bad = [n for n, ok_ in cases if not ok_]
     check(f'the pre-Precedent workflow sweep honours the person\'s approval '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_copy_in_records_the_budget_it_brings():
+    """A set copied in brings its occasion share into the repository's cap,
+    and Update Vendors records that rise as approved, on the person's own
+    copy-in answer, so budget-within-approval passes after a copy-in run.
+    A rise larger than the copied sets' shares, or a set the person said
+    no to, is not recorded, and the check still refuses.
+
+    WHY. Morgan, 2026-10-28 (strength: decided): "Go, fix it at the engine
+    root issue". One consumer's cap rose 150 with its copy-ins and was
+    raised by hand on his words; the next consumer failed the same way,
+    because approved_budgets is each repository's own."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+        import precedent_check as pc
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    words = 'Zz, 2026-10-20: "copy the shared sets in"'
+    cases = []
+    saved_eff, saved_root = bv.effective_budgets, pc.ROOT
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td)
+        (repo / 'tools').mkdir()
+        (repo / 'process' / 'zz-set').mkdir(parents=True)
+        (repo / 'process' / 'zz-set' / 'precedent-source.json').write_text(
+            json.dumps({'name': 'zz-set', 'occasion_share_tokens': 750}))
+
+        def run(in_force, answer='yes'):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'sources': [{'level': 'shared', 'name': 'zz-set',
+                             'path': 'process/zz-set', 'vendored': True}],
+                'copy_in': {'zz-set': {'answer': answer, 'answered_by': words}}}))
+            (repo / 'tools' / 'session_load_budgets.json').write_text(json.dumps({
+                'approved_budgets': {'occasion_index': {
+                    'max': 3650, 'strength': 'baseline',
+                    'approved_by': 'baseline 2026-10-10: seeded'}}}))
+            bv.effective_budgets = lambda *a, **k: {'occasion_index': in_force}
+            said = pu.record_copy_in_budget(repo, today='2026-10-28')
+            pc.ROOT = repo
+            found = [str(f) for f in pc._budget_within_approval(None)]
+            entry = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                               .read_text())['approved_budgets']['occasion_index']
+            return said, found, entry
+        try:
+            said, found, entry = run(3800)
+            cases.append(('a rise within the copied set\'s share is recorded on '
+                          'the copy-in answer, and the check passes',
+                          bool(said) and not found and entry['max'] == 3800
+                          and words in entry['approved_by']
+                          and entry.get('previous_max') == 3650,
+                          f'{said} {found} {entry}'))
+            said, found, entry = run(4500)
+            cases.append(('CONTROL: a rise beyond the copied shares is not '
+                          'recorded, and the check refuses',
+                          said is None and entry['max'] == 3650
+                          and any('occasion_index' in f for f in found),
+                          f'{said} {found}'))
+            said, found, entry = run(3800, answer='no')
+            cases.append(('a set the person said no to explains nothing',
+                          said is None and entry['max'] == 3650 and found,
+                          f'{said} {found}'))
+            said, _found, _entry = run(3650)
+            cases.append(('nothing above the approval: nothing recorded',
+                          said is None, str(said)))
+        finally:
+            bv.effective_budgets, pc.ROOT = saved_eff, saved_root
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a copy-in records the occasion budget it brings '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
@@ -83381,6 +83472,41 @@ def check_ladder_test_session_and_the_two_ladder_checks():
             got = pc._ladder_set_is_brought_not_declared(None)
             cases.append((f'binds_everyone, {what}: {want} finding(s)',
                           len(got) == want, str([str(f) for f in got])[:300]))
+        # 2026-10-28: a consumer keeps its own identity.json (an email, for
+        # commit authorship). It was read as an individual set's owner, so
+        # its GitHub owner was never asked and no approval could match.
+        if (repo / 'CODEOWNERS').exists():
+            (repo / 'CODEOWNERS').unlink()
+        subprocess.run(['git', 'init', '-q', str(repo)], env=_genv,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                        'https://github.com/fxowner/repo'], env=_genv,
+                       capture_output=True)
+        (repo / 'identity.json').write_text(json.dumps(
+            {'name': 'Fx Owner', 'email': 'fx@example.invalid'}))
+        for be_by, ind, want, what in (
+                ('fxowner, 2026-10-19: "yes"', False, 0,
+                 "a consumer's own identity.json does not hide its GitHub owner"),
+                ('Fx Owner, 2026-10-19: "yes"', False, 1,
+                 'a name no maintainers entry maps is still not a login')):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'binds_everyone': {'sets': ['ladder-set'], 'approved_by': be_by},
+                'sources': [{'name': 'ladder-set', 'level': 'shared',
+                             'path': '../ladder-set'}]}))
+            pc.ROOT = repo
+            got = pc._ladder_set_is_brought_not_declared(None)
+            cases.append((f'binds_everyone, {what}: {want} finding(s)',
+                          len(got) == want and (want == 0 or
+                                                '"maintainers"' in str(got[0])),
+                          str([str(f) for f in got])[:300]))
+        import precedent_audience as _pa
+        (repo / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual'}))
+        cases.append(('an individual set is still owned by its identity.json',
+                      'fx@example.invalid' in (_pa.owners(repo)[0] or ()),
+                      str(_pa.owners(repo))))
+        (repo / 'precedent-source.json').unlink()
+        (repo / 'identity.json').unlink()
     finally:
         pc.ROOT = saved_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -91048,6 +91174,7 @@ def main():
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_copy_in_records_the_budget_it_brings()
     check_legacy_workflow_sweep_honours_the_persons_approval()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
