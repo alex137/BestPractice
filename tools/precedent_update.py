@@ -1159,6 +1159,11 @@ def maintainers_step(repo, rep):
         rep.step('code owners', f'named {", ".join("@" + w for w in written)} '
                  f'in precedent.json\'s maintainers ({how}); change the list '
                  f'there any time -- it is never rewritten once set')
+    named = pve.name_the_persons_maintainer(repo)
+    if named:
+        rep.step('code owners', f'added your declared name to @{named}\'s entry '
+                 f'in precedent.json\'s maintainers, so an approval that names '
+                 f'you ("Name, YYYY-MM-DD: ...") is read as yours')
     # A single owner's own zone, offered for the records nobody's identity
     # reaches (2026-10-08) -- a question for the person, never written here.
     try:
