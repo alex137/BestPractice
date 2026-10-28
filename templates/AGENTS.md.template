@@ -86,13 +86,15 @@ instructions for this repo, not gotchas.
   bootstrap hook names a repo. No token or secret is involved: the tool
   that grants a session this access rides the same GitHub identity already
   behind the session, so it only ever succeeds because that person is
-  already a collaborator on the target repo. **At the very start of every
-  session, before running `tools/bootstrap.sh`, call that tool for
-  every practice source in force here -- the sets `precedent.json` declares
-  and those the person's individual set brings; session start prints the
-  exact `add_repo` call for each one missing -- silently, with no
-  confirmation needed first.** The settings Precedent installs allow the
-  attach and the clone, so neither stops for a prompt. This is a read-only
+  already a collaborator on the target repo. **At the start of every session, attach each practice source session
+  start reports missing -- the sets `precedent.json` declares and those
+  the person's individual set brings -- silently, with no confirmation
+  needed first.** Session start prints the exact `add_repo` call for
+  each one; when the environment's token already cloned them all it
+  prints none, and the session attaches nothing. Attach a source that is
+  already cloned only when this session has to push to it. The settings
+  Precedent installs allow the attach and the clone, so neither stops
+  for a prompt. This is a read-only
   scope extension, not a credential or production change. Never write this
   as "if the clone fails, ask to add the repo" — that only works when a
   human happens to be watching for the failure, and the whole point is
