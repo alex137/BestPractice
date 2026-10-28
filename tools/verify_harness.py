@@ -65933,6 +65933,71 @@ def check_update_all_vendors_skips_its_own_source():
           f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
 
 
+def check_update_all_reads_what_the_update_prints():
+    """precedent_update_all.py reads precedent_update.py's report, so the
+    two are pinned here through the real printers: both COMMIT MESSAGE forms
+    reach the commit message, and questions the update calls optional hold
+    nothing back, while a question block that is not called optional still
+    stops the repository at ASK.
+
+    WHY. 2026-10-28, one Update All run: the update had started printing the
+    files it rewrote outside the vendored trees in a second form the parser
+    never read, so three repositories' commits left them out; and a copy-in
+    offer, which the update itself says it is complete without, stopped a
+    fourth at ASK with nothing pushed."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rep = pu.Report()
+    rep.commit_note = 'took the anyway path'
+    rep.ask('copy-in zz', 'copy zz in? yes or no')
+    saved = pu.rewritten_outside_vendored
+    pu.rewritten_outside_vendored = lambda _repo: ['M AGENTS.md',
+                                                  'A .claude/settings.json']
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            rep._questions()
+            print("\nDONE -- nothing left for this repo to decide. Ask the "
+                  "question(s) above")
+            rep._commit_note()
+    finally:
+        pu.rewritten_outside_vendored = saved
+    out = buf.getvalue()
+    note = pua._commit_note(out) or ''
+    cases.append(('the in-these-words form reaches the commit message',
+                  'took the anyway path' in note, note))
+    cases.append(('every rewritten file reaches the commit message',
+                  '  M AGENTS.md' in note and '  A .claude/settings.json' in note,
+                  note))
+    cases.append(('the update prints the mark Update All reads for an ask',
+                  pua.ASKS_MARK in out))
+    questions, optional = pua._questions(out)
+    cases.append(('the questions are read, and read as optional',
+                  questions == ['copy-in zz: copy zz in? yes or no'] and optional,
+                  f'{questions} {optional}'))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(['git', 'init', '-q', tmp], check=True)
+        (pathlib.Path(tmp) / 'f').write_text('x')
+        subprocess.run(['git', '-C', tmp, 'add', 'f'], check=True)
+        cases.append(('optional questions only: the run goes on to commit',
+                      pua._outcome(pua.DONE, out, tmp) == 'DONE'))
+        strict = out.replace(pua.OPTIONAL_MARK, 'answer these first')
+        cases.append(('a question block not called optional: ASK',
+                      pua._outcome(pua.DONE, strict, tmp) == 'ASK'))
+    src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
+    cases.append(('an optional question is printed on the repository\'s line',
+                  "QUESTION for the person ({repo})" in src))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update All reads what the update prints '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_promote_commits_carry_a_session_trailer():
     """A commit the Promote tool writes itself -- the rebuild of generated
     files during a composition -- carries a session trailer the trailer
@@ -90703,6 +90768,7 @@ def main():
     check_update_takes_a_removal_its_source_decommissioned()
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
+    check_update_all_reads_what_the_update_prints()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

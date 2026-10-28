@@ -34,7 +34,12 @@ Each repository's line starts with one word:
               the branch, the base and the full 40-character head for the
               merge. Clone deleted
     READY     DONE with --no-push: stopped before the commit; clone kept
-    ASK       DONE with questions for the person; nothing committed. Clone kept
+    ASK       DONE with questions for the person that the update does not
+              call optional; nothing committed. Clone kept. Questions it
+              calls optional ("the update is complete without these", a
+              copy-in offer) hold nothing back: the repository goes on to
+              PUSHED or CURRENT and each question is printed under its line
+              as QUESTION, for the session to pass up
     LEFT      LEFT FOR YOU: this repository's own calls; clone kept, log named
     FAILED    a step could not run or the deep check is red; clone kept
 Every line but SKIPPED and NOT USED names the repository's log, which the
@@ -138,9 +143,40 @@ def link_sources(clone_dir):
     return missing
 
 
+QUESTIONS_MARK = 'QUESTIONS FOR THE PERSON -- '
+OPTIONAL_MARK = 'the update is complete without these'
+NOTE_WORDS = 'COMMIT MESSAGE: say this in it, in these words: '
+NOTE_FILES = 'COMMIT MESSAGE: name each of these in it -- '
+
+
+def _indented_after(lines, i):
+    """-> the indented lines that follow lines[i], up to the first other."""
+    block = []
+    for line in lines[i + 1:]:
+        if not line.startswith('  '):
+            break
+        block.append(line.strip())
+    return block
+
+
+def _questions(out):
+    """-> (questions, optional): the QUESTIONS FOR THE PERSON block's items,
+    and whether its header calls them optional. Every question the update
+    asks holds nothing (Report.ask), and a copy-in offer is one; 2026-10-28,
+    one consumer's run stopped at ASK on one and had to be committed by hand."""
+    lines = out.splitlines()
+    questions, optional = [], True
+    for i, line in enumerate(lines):
+        if line.startswith(QUESTIONS_MARK):
+            optional = optional and OPTIONAL_MARK in line
+            questions += [q.removeprefix('- ') for q in _indented_after(lines, i)]
+    return questions, optional
+
+
 def _outcome(code, out, clone_dir):
     if code == DONE:
-        if ASKS_MARK in out:
+        questions, optional = _questions(out)
+        if ASKS_MARK in out and not (questions and optional):
             return 'ASK'
         staged = subprocess.run(['git', 'diff', '--cached', '--quiet'],
                                 cwd=clone_dir).returncode
@@ -149,10 +185,21 @@ def _outcome(code, out, clone_dir):
 
 
 def _commit_note(out):
-    for line in out.splitlines():
-        if line.startswith('COMMIT MESSAGE: say this in it, in these words: '):
-            return line.split('in these words: ', 1)[1].strip()
-    return None
+    """-> what the update's COMMIT MESSAGE lines ask the commit to say, both
+    forms (Report._commit_note prints them), or None. 2026-10-28: only the
+    first form was read, and every Update All commit left out the files the
+    update rewrote outside the vendored trees."""
+    lines = out.splitlines()
+    parts = []
+    for i, line in enumerate(lines):
+        if line.startswith(NOTE_WORDS):
+            parts.append(line[len(NOTE_WORDS):].strip())
+        elif line.startswith(NOTE_FILES):
+            files = _indented_after(lines, i)
+            if files:
+                parts.append('Files this update rewrote outside the vendored '
+                             'trees:\n' + '\n'.join(f'  {f}' for f in files))
+    return '\n\n'.join(parts) or None
 
 
 def _branch_name(clone_dir):
@@ -203,6 +250,8 @@ def run_one(repo, work, args):
         out = r.stdout + r.stderr
         log.write_text(out, encoding='utf-8')
         outcome = _outcome(r.returncode, out, dest)
+        if outcome != 'ASK':
+            result['questions'] = _questions(out)[0]
         if outcome == 'DONE' and args.no_push:
             outcome = 'READY'
         elif outcome == 'DONE':
@@ -233,6 +282,10 @@ def run_one(repo, work, args):
     extra = (f"  {result['branch']} -> {result['base']}  head {result['head']}"
              if outcome == 'PUSHED' else '')
     print(f'{outcome:8} {repo}{extra}{where}  ({secs}s)', flush=True)
+    for question in result.get('questions', []):
+        # Optional, so they held nothing back, and still the person's to
+        # answer: the session passes them up.
+        print(f'         QUESTION for the person ({repo}): {question}', flush=True)
     return outcome
 
 
