@@ -23,8 +23,12 @@ approved_by: "Morgan, 2026-09-25, in a handoff relayed from a consumer repo's
 ## Rule
 **Attach the individual source; never make a second clone of it.** Call the
 repo-attach tool (`add_repo` in Claude Code on the web) for
-`precedent-individual` as the session-start step says: it is what grants
-this session access, push included. Its reply (as of 2026-09) says to clone the repo to
+`precedent-individual` when the session-start step says it is missing: it
+is what grants this session access, push included. **When session start
+already cloned it** (the environment carries `PRECEDENT_GIT_TOKEN`), it
+reports nothing missing and the session attaches nothing, until it has to
+push to the set (Morgan, 2026-10-27, strength: decided: "make sessions
+skip the attach when already cloned"). Its reply (as of 2026-09) says to clone the repo to
 `/home/user/<name>`, the directory the project lives in, while the source
 bootstrap clones it to `~/precedent-individual`. **The bootstrap keeps one
 working tree and makes both paths lead to it.** If it cloned first, it has
