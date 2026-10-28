@@ -130,9 +130,13 @@ project_dir="${CLAUDE_PROJECT_DIR:-.}"
 # and without it the whole hook aborted before running a single check --
 # silently, with an exit status nothing reads. Caught testing the clean
 # direction, which is the one direction a broken gate looks fine in.
+# The push's OWN `-C`, never the first in the command (2026-10-28):
+# `git -C /other worktree add ...; git push` pushes this repo, and reading
+# /other skipped every check here, as push-check-gate.sh once did with a
+# command's first `cd`.
 target="$(printf '%s' "$cmd" \
-  | grep -oE '\-C[[:space:]]+[^[:space:]]+' \
-  | head -n1 | sed -E 's/^-C[[:space:]]+//' || true)"
+  | grep -oE 'git[[:space:]]+-C[[:space:]]+[^[:space:]]+[[:space:]]+push\b' \
+  | head -n1 | sed -E 's/^git[[:space:]]+-C[[:space:]]+//; s/[[:space:]]+push$//' || true)"
 if [[ -n "$target" ]]; then
     target_top="$(git -C "$target" rev-parse --show-toplevel 2>/dev/null || true)"
     here_top="$(git -C "$project_dir" rev-parse --show-toplevel 2>/dev/null || true)"

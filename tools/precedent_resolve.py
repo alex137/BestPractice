@@ -2081,7 +2081,7 @@ def _requires(fm):
     return {str(x).strip() for x in got or [] if str(x).strip()}
 
 
-def resolve(sources, context=()):
+def resolve(sources, context=(), targets=()):
     """-> {'practices': {slug: practice}, 'shadowed': [...], 'blocked': [...],
            'missing': [...], 'retired': [...]}
 
@@ -2096,7 +2096,13 @@ def resolve(sources, context=()):
     they provide counts for `requires`, and a rule in force in one counts as
     in force for a deduplicated stub that points at it. Without that, a
     sync that left a brought set out also dropped every rule that needs the
-    ladder it provides (found by a consumer rehearsal, 2026-10-03)."""
+    ladder it provides (found by a consumer rehearsal, 2026-10-03).
+
+    `targets` is narrower: sources whose rules in force count only as where
+    a deduplicated stub points, never for `requires`. A measurement that
+    renders without the brought sets passes them here, so a rule moved into
+    one is not kept in force from its old stub and charged to the set it
+    left (precedent_session_practices.individual_share, 2026-10-28)."""
     by_source, missing = [], []
     for s in sources:
         loaded, why = load_source(s)
@@ -2132,7 +2138,9 @@ def resolve(sources, context=()):
     provided = set(ENGINE_CAPABILITIES)
     for _s, _loaded in by_source:
         provided |= source_provides(_s['path'])
-    in_context = set()
+    # slug -> the brought set it is in force in, for a caller saying where
+    # a deduplicated rule went (precedent_sync_views, 2026-10-28).
+    in_context = {}
     # What a brought set provides counts for the PERSON's own rules only (an
     # individual set's "for me, the ladder"). A rule a repository declares
     # stays keyed to what the repository declares, so a committed view comes
@@ -2141,9 +2149,14 @@ def resolve(sources, context=()):
     for _s in context or ():
         provided_for_person |= source_provides(_s['path'])
         _loaded, _why = load_source(_s)
-        in_context |= {slug for slug, p in (_loaded or {}).items()
-                       if bv._json_str(p['fm'].get('status', 'active'))
-                       == IN_FORCE_STATUS}
+        for slug, p in (_loaded or {}).items():
+            if bv._json_str(p['fm'].get('status', 'active')) == IN_FORCE_STATUS:
+                in_context.setdefault(slug, _s.get('name'))
+    for _s in targets or ():
+        _loaded, _why = load_source(_s)
+        for slug, p in (_loaded or {}).items():
+            if bv._json_str(p['fm'].get('status', 'active')) == IN_FORCE_STATUS:
+                in_context.setdefault(slug, _s.get('name'))
     for _s, loaded in by_source:                      # lowest precedence first
         claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
@@ -2314,7 +2327,7 @@ def resolve(sources, context=()):
         resolved.setdefault(practice['slug'], dict(practice, kept_in_force=msg))
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling,
-            'copies': copies}
+            'copies': copies, 'in_context': in_context}
 
 
 def _same_bytes(a, b):

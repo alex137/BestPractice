@@ -41741,6 +41741,21 @@ def check_push_check_gate():
                          cwd=elsewhere, project=elsewhere)
         cases.append(('a later `git -C <other> ...` does not make <other> '
                       'the repository pushed', not denied))
+        # Two `cd`s, the push belonging to the second (2026-10-28: a
+        # feature-branch push in one repo was refused as a push to another
+        # repo's main, because the gate read the command's FIRST `cd`).
+        denied, _ = gate(f'cd {elsewhere} && ls; cd {work} && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('with two `cd`s, the repository pushed is the one the '
+                      'last `cd` before the push enters', denied))
+        denied, _ = gate(f'cd {work} && ls; cd {elsewhere} && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('and an earlier `cd <repo>` does not make <repo> the '
+                      'repository pushed', not denied))
+        denied, _ = gate(f'git commit -q -m "cd {work}" && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('a `cd` inside a quoted message is not a `cd`',
+                      not denied))
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
@@ -44049,6 +44064,19 @@ def check_main_test_cadence():
         pr_fail = pr_fail_saved
         cases.append(('a run that tested nothing and is the only run is kept: '
                       'it reads "passed", never "never ran"', st == 'passed'))
+        # 2026-10-28, measured: the push run on main finished green in 21s
+        # having tested nothing, while the pull request's run went on for
+        # eleven minutes. "running" was right; the detail now says where.
+        pr_busy = dict(pr_fail, status='in_progress', conclusion=None)
+        pr_fail_saved, pr_fail = pr_fail, pr_busy
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a finished push run that tested nothing, with its pull '
+                      'request\'s run still going: "running", naming the pull '
+                      'request and that the commit\'s own run deferred (2026-10-28)',
+                      st == 'running' and 'on pull request #1240' in why
+                      and 'tested nothing' in why))
         # 2026-10-27: the pull request's run failed while the push run on
         # main was still going, so main read "running" and the red-main fix
         # was refused straight into main; the newest FINISHED run decides
@@ -50508,6 +50536,15 @@ def check_bootstrap_source_produces_resolvable_set():
                       and all(e.get('inputs') and e.get('check') for e in _entries)
                       and _reg.returncode == 0 and '1 passed' in _reg.stdout,
                       _reg.stdout[-400:] + _reg.stderr[-200:]))
+        # 2026-10-28: sets made here had no permissions block, so a session
+        # rooted in one stopped at the add_repo prompt for the sets it brings.
+        _st = indiv_dest / '.claude' / 'settings.json'
+        _allow = ((json.loads(_st.read_text(encoding='utf-8')).get('permissions') or {})
+                  .get('allow') or []) if _st.is_file() else []
+        cases.append(('a new set\'s settings.json allows attaching without a prompt',
+                      'mcp__claude-code-remote__add_repo' in _allow
+                      and 'mcp__claude-code-remote__register_repo_root' in _allow,
+                      _allow))
         sys.path.insert(0, str(ROOT / 'tools'))
         try:
             import precedent_push_check as _ppc
@@ -65367,6 +65404,100 @@ def check_individual_set_is_charged_to_its_own_budget():
           f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_share_keeps_a_moved_rule_with_its_brought_set():
+    """A rule an individual set moved into a set it brings is charged to the
+    brought set's share, never back to the individual set's own.
+
+    WHY (2026-10-28). The shares are measured by rendering the session file
+    without the brought sets. Rendered that way, the individual set's
+    deduplicated stubs found no target and were kept in force, so eleven
+    rules moved into the ladder set on purpose were counted as the
+    individual set's own and charged to the repository's ceiling as well,
+    while the brought set's share came out too small.
+
+    1. measured without the brought set, the moved rule is not there;
+    2. the individual set's own rule still is;
+    3. CONTROL: the full render still carries the moved rule, from the set
+       it moved to."""
+    import tempfile, contextlib, io
+    import json as _json
+    import precedent_session_practices as psp
+    import precedent_resolve as pr
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    results = []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            uni = tmp / 'universal'
+            (uni / 'practices').mkdir(parents=True)
+            (uni / 'practices' / 'plain-rule.md').write_text(
+                _move_fixture_practice('plain-rule'), encoding='utf-8')
+            lad = tmp / 'p' / 'fx-ladder'
+            (lad / 'practices').mkdir(parents=True)
+            (lad / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'fx-ladder', 'level': 'shared'}), encoding='utf-8')
+            (lad / 'practices' / 'moved-rule.md').write_text(
+                _move_fixture_practice('moved-rule'), encoding='utf-8')
+            ind = tmp / 'p' / 'precedent-individual'
+            (ind / 'practices').mkdir(parents=True)
+            (ind / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'precedent-individual', 'level': 'individual',
+                'brings': [{'name': 'fx-ladder',
+                            'repo_url': 'https://example.com/fx.git'}]}),
+                encoding='utf-8')
+            (ind / 'practices' / 'own-rule.md').write_text(
+                _move_fixture_practice('own-rule'), encoding='utf-8')
+            (ind / 'practices' / 'moved-rule.md').write_text(
+                _move_fixture_practice('moved-rule')
+                .replace('status:      active', 'status:      deduplicated')
+                .replace('in_force_at: null', 'in_force_at: moved-rule'),
+                encoding='utf-8')
+            cfg = tmp / 'cfg.json'
+            cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+                'name': 'precedent-individual', 'path': str(ind)}}),
+                encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+            repo = tmp / 'consumer'
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(_json.dumps({
+                'format_version': 1, 'base_branch': 'main',
+                'visibility': 'private',
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': str(uni)}]}), encoding='utf-8')
+
+            def slugs(**kw):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    extra = psp.collect(str(repo), **kw)[0]
+                return {fm.get('slug') for fm, _s, _f in extra}
+
+            full, bare = slugs(), slugs(skip_brought=True)
+            results.append(('1: measured without the brought set, the moved '
+                            'rule is not kept in force from its old stub',
+                            'moved-rule' not in bare,
+                            sorted(bare)))
+            results.append(("2: the individual set's own rule is still there",
+                            'own-rule' in bare,
+                            sorted(bare)))
+            results.append(('3: CONTROL: the full render carries the moved '
+                            'rule, from the set it moved to',
+                            'moved-rule' in full,
+                            sorted(full)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a rule moved into a brought set is charged to that set, not back '
+          f'to the individual set ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_session_file_over_ceiling_names_the_individual_share():
     """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
     says how much of the charge is the person's own individual set, which the
@@ -65401,7 +65532,7 @@ def check_session_file_over_ceiling_names_the_individual_share():
             {'level': 'universal', 'name': 'u', 'path': '.'},
             {'level': 'individual', 'name': 'me', 'path': '/nowhere'}]
         _resolve = pr.resolve
-        pr.resolve = lambda sources: (seen.append([s['level'] for s in sources])
+        pr.resolve = lambda sources, **_kw: (seen.append([s['level'] for s in sources])
                                       or {'missing': [], 'practices': {}})
         try:
             try:
@@ -65931,6 +66062,71 @@ def check_update_all_vendors_skips_its_own_source():
     bad = [n for n, ok in cases if not ok]
     check(f'Update All Vendors skips its own source '
           f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
+
+
+def check_update_all_reads_what_the_update_prints():
+    """precedent_update_all.py reads precedent_update.py's report, so the
+    two are pinned here through the real printers: both COMMIT MESSAGE forms
+    reach the commit message, and questions the update calls optional hold
+    nothing back, while a question block that is not called optional still
+    stops the repository at ASK.
+
+    WHY. 2026-10-28, one Update All run: the update had started printing the
+    files it rewrote outside the vendored trees in a second form the parser
+    never read, so three repositories' commits left them out; and a copy-in
+    offer, which the update itself says it is complete without, stopped a
+    fourth at ASK with nothing pushed."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rep = pu.Report()
+    rep.commit_note = 'took the anyway path'
+    rep.ask('copy-in zz', 'copy zz in? yes or no')
+    saved = pu.rewritten_outside_vendored
+    pu.rewritten_outside_vendored = lambda _repo: ['M AGENTS.md',
+                                                  'A .claude/settings.json']
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            rep._questions()
+            print("\nDONE -- nothing left for this repo to decide. Ask the "
+                  "question(s) above")
+            rep._commit_note()
+    finally:
+        pu.rewritten_outside_vendored = saved
+    out = buf.getvalue()
+    note = pua._commit_note(out) or ''
+    cases.append(('the in-these-words form reaches the commit message',
+                  'took the anyway path' in note, note))
+    cases.append(('every rewritten file reaches the commit message',
+                  '  M AGENTS.md' in note and '  A .claude/settings.json' in note,
+                  note))
+    cases.append(('the update prints the mark Update All reads for an ask',
+                  pua.ASKS_MARK in out))
+    questions, optional = pua._questions(out)
+    cases.append(('the questions are read, and read as optional',
+                  questions == ['copy-in zz: copy zz in? yes or no'] and optional,
+                  f'{questions} {optional}'))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(['git', 'init', '-q', tmp], check=True)
+        (pathlib.Path(tmp) / 'f').write_text('x')
+        subprocess.run(['git', '-C', tmp, 'add', 'f'], check=True)
+        cases.append(('optional questions only: the run goes on to commit',
+                      pua._outcome(pua.DONE, out, tmp) == 'DONE'))
+        strict = out.replace(pua.OPTIONAL_MARK, 'answer these first')
+        cases.append(('a question block not called optional: ASK',
+                      pua._outcome(pua.DONE, strict, tmp) == 'ASK'))
+    src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
+    cases.append(('an optional question is printed on the repository\'s line',
+                  "QUESTION for the person ({repo})" in src))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update All reads what the update prints '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_promote_commits_carry_a_session_trailer():
@@ -66623,6 +66819,27 @@ def check_gate_refusals_are_worded_by_their_tools():
                       'commit-identity push gate REFUSED' in reason
                       and 0 <= reason.find('Nothing in the refused command ran')
                       < reason.find('AUTHOR-FINDING-9')))
+        # A `git -C` on an earlier command names no repository pushed
+        # (2026-10-28): the gate once read the command's first `-C` and
+        # skipped every check on a push to this repo.
+        other = td / 'other'
+        subprocess.run(['git', 'init', '-q', str(other)], capture_output=True)
+        payload = json.dumps({'tool_input': {'command':
+                              f'git -C {other} status; git push origin x'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        cases.append(('an earlier `git -C <other> ...` does not skip the '
+                      'commit-identity push gate', '"deny"' in r.stdout))
+        payload = json.dumps({'tool_input': {'command':
+                              f'git -C {other} push origin x'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        cases.append(('while the push\'s own `git -C <other> push` still does',
+                      '"deny"' not in r.stdout))
     bad = [n for n, ok in cases if not ok]
     check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
@@ -86940,6 +87157,35 @@ def check_consumer_sync_counts_what_a_brought_set_provides():
                     results.append(('4: CONTROL: a person who brings nothing does '
                                     'not get it', 'needs-ladder.md' not in tree
                                     and 'plain-rule.md' in tree, sorted(tree)))
+            # 5. A rule the individual set held, synced into the tree, then
+            # moved to the brought set on purpose (2026-10-28: eleven such
+            # moves read "the rule is LOST here", and a session relayed it
+            # as a loss). The copy still goes; the line says where it went.
+            ind = tmp / 'brings' / 'precedent-individual'
+            stub = (ind / 'practices' / 'old-stage.md').read_text(encoding='utf-8')
+            (ind / 'practices' / 'old-stage.md').write_text(
+                rule('old-stage'), encoding='utf-8')
+            repo = tmp / 'consumer-brings'
+            with contextlib.redirect_stderr(io.StringIO()):
+                psv.sync(str(repo), user_config=str(tmp / 'brings.json'))
+            before = (repo / 'practices' / 'old-stage.md').exists()
+            # The removal guard reads the COMMITTED MANIFEST.json.
+            for a in (['init', '-q'], ['add', '-A'],
+                      ['-c', 'user.name=T', '-c', 'user.email=t@example.com',
+                       '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 's']):
+                subprocess.run(['git', '-C', str(repo), *a], capture_output=True)
+            (ind / 'practices' / 'old-stage.md').write_text(stub, encoding='utf-8')
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                psv.sync(str(repo), user_config=str(tmp / 'brings.json'))
+            said = err.getvalue()
+            results.append(('5: a rule moved to a brought set is removed from '
+                            'the tree and said to load from that set, not LOST',
+                            before and not (repo / 'practices' / 'old-stage.md').exists()
+                            and 'LOST' not in said and 'IN FORCE NOWHERE' not in said
+                            and 'now loads as fx-stage from `fx-ladder`, brought '
+                                'by your individual set' in said,
+                            said[-600:]))
     finally:
         for k, v in saved.items():
             if v is None:
@@ -90695,6 +90941,7 @@ def main():
     check_landed_branch_gets_its_delete_link()
     check_delete_links_and_one_line_boildown_agree()
     check_individual_set_is_charged_to_its_own_budget()
+    check_session_share_keeps_a_moved_rule_with_its_brought_set()
     check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()
@@ -90703,6 +90950,7 @@ def main():
     check_update_takes_a_removal_its_source_decommissioned()
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
+    check_update_all_reads_what_the_update_prints()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

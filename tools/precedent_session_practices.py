@@ -178,13 +178,19 @@ def collect(repo, skip_brought=False, skip_individual=False):
         sources = pr.load_config(repo)
     except Exception as e:                                   # noqa: BLE001
         return [], {}, [('unresolved', f'no source set could be read: {e}')]
+    # A brought set left out of a measurement is still where a stub points:
+    # without it, eleven rules moved from an individual set into its brought
+    # set came back from their old stubs and were charged to the individual
+    # set's own share (2026-10-28).
+    left_out = []
     if skip_brought:
+        left_out = [s for s in sources if s.get('brought')]
         sources = [s for s in sources if not s.get('brought')]
     if skip_individual:
         sources = [s for s in sources if pr.declared_level(s) != 'individual']
 
     try:
-        res = pr.resolve(sources)
+        res = pr.resolve(sources, targets=left_out)
     except Exception as e:                                   # noqa: BLE001
         return [], {}, [('unresolved',
                          f'the declared sources could not be resolved: {e}')]
