@@ -401,19 +401,24 @@ def seed_baseline_approvals(repo, data, path, approved_by=None):
 
 
 def record_copy_in_budget(repo, today=None):
-    """-> a sentence for the report when the occasion cap in force is above
-    its approval only by the shares of sets copied in here, after recording
-    the new number as approved on the person's own copy-in answer; else
-    None. Morgan, 2026-10-28 (strength: decided): "Go, fix it at the engine
-    root issue" -- a copy-in brings its set's occasion share into the
-    repository's cap, approved_budgets is the repository's own, so each
-    repository that copied a set in failed budget-within-approval in turn
-    and asked again for words the copy-in had already given.
+    """-> a sentence for the report when a budget in force is above its
+    approval only by what the sets copied in here bring, after recording the
+    new number as approved on the person's own copy-in answer; else None.
+    Morgan, 2026-10-28 (strength: decided): "Go, fix it at the engine root
+    issue" -- approved_budgets is the repository's own, so each repository
+    that copied a set in failed in turn and asked again for words the
+    copy-in had already given.
 
-    A raise larger than those shares is not explained by the copy-in and
-    still waits for the person's words: nothing is recorded then. The
-    shares counted are those of the sets precedent.json's copy_in says yes
-    to, with the words that yes was given in."""
+    Two budgets move with a copy-in. The occasion cap gains each copied
+    set's declared occasion_share_tokens. The ceiling of
+    .precedent/SESSION_PRACTICES.md gains what the copied sets now add to
+    the repository's charge for that file, measured as the file rendered
+    with and without them (precedent_session_practices.copied_share): a set
+    the person brought was charged to their own budget, and copied in it is
+    the repository's. A rise beyond what the copies bring is not explained
+    by the copy-in and still waits for the person's words: nothing is
+    recorded for it. Only sets precedent.json's copy_in says yes to count,
+    with the words that yes was given in."""
     path = repo / 'tools' / 'session_load_budgets.json'
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
@@ -421,51 +426,88 @@ def record_copy_in_budget(repo, today=None):
     except (OSError, ValueError):
         return None
     approved = data.get('approved_budgets') if isinstance(data, dict) else None
-    entry = approved.get('occasion_index') if isinstance(approved, dict) else None
-    if not (isinstance(entry, dict) and isinstance(entry.get('max'), int)):
+    if not isinstance(approved, dict) or not isinstance(cfg, dict):
         return None
-    try:
-        import build_views as _bv
-        now = _bv.effective_budgets(repo, registry=path).get('occasion_index')
-    except Exception:                                        # noqa: BLE001
-        return None
-    if not isinstance(now, int) or now <= entry['max']:
-        return None
-    answers = cfg.get('copy_in') if isinstance(cfg, dict) else None
-    shares, words = {}, []
-    for e in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+    answers = cfg.get('copy_in') if isinstance(cfg.get('copy_in'), dict) else {}
+    shares, words, unanswered = {}, [], []
+    for e in cfg.get('sources') or []:
         if not (isinstance(e, dict) and e.get('vendored') is True and e.get('path')):
             continue
-        ans = (answers or {}).get(e.get('name')) if isinstance(answers, dict) else None
+        ans = answers.get(e.get('name'))
         if not (isinstance(ans, dict) and ans.get('answer') == 'yes'
                 and ans.get('answered_by')):
+            unanswered.append(e.get('name'))
             continue
+        if ans['answered_by'] not in words:
+            words.append(ans['answered_by'])
         try:
             v = json.loads((repo / str(e['path']) / 'precedent-source.json')
                            .read_text(encoding='utf-8')).get('occasion_share_tokens')
         except (OSError, ValueError, AttributeError):
-            continue
-        if isinstance(v, int):
-            shares[e['name']] = v
-            if ans['answered_by'] not in words:
-                words.append(ans['answered_by'])
-    was = entry['max']
-    if not shares or now - was > sum(shares.values()):
+            v = None
+        shares[e['name']] = v if isinstance(v, int) else 0
+    if not words:
         return None
     import time as _time
     day = today or _time.strftime('%Y-%m-%d')
-    named = ', '.join(f'{n} {v:,}' for n, v in sorted(shares.items()))
-    approved['occasion_index'] = {
-        'max': now, 'strength': 'decided',
-        'approved_by': ' / '.join(words) + (
-            f' -- the copy-in of {", ".join(sorted(shares))}; recorded by '
-            f'Update Vendors on {day}, raising {was:,} to {now:,}, within '
-            f'the occasion shares those copies bring ({named})'),
-        'previous_max': was, 'copy_in': sorted(shares)}
+    copies = ', '.join(sorted(shares))
+    said = []
+
+    def approve(key, was, now, why):
+        approved[key] = {
+            'max': now, 'strength': 'decided',
+            'approved_by': ' / '.join(words) + (
+                f' -- the copy-in of {copies}; recorded by Update Vendors on '
+                f'{day}, raising {was:,} to {now:,}, {why}'),
+            'previous_max': was, 'copy_in': sorted(shares)}
+
+    try:
+        import build_views as _bv
+        now = _bv.effective_budgets(repo, registry=path).get('occasion_index')
+    except Exception:                                        # noqa: BLE001
+        now = None
+    entry = approved.get('occasion_index')
+    if (isinstance(now, int) and isinstance(entry, dict)
+            and isinstance(entry.get('max'), int) and now > entry['max']
+            and now - entry['max'] <= sum(shares.values())):
+        was = entry['max']
+        named = ', '.join(f'{n} {v:,}' for n, v in sorted(shares.items()))
+        approve('occasion_index', was, now,
+                f'within the occasion shares those copies bring ({named})')
+        said.append(f'occasion_index approved at {now:,} (was {was:,}), within '
+                    f'the occasion shares of the sets copied in ({named})')
+
+    # The session file's ceiling, only when every copied set was answered
+    # yes: the share is measured for all of them at once.
+    surface = '.precedent/SESSION_PRACTICES.md'
+    row = (data.get('surfaces') or {}).get(surface)
+    if not unanswered and isinstance(row, dict) and isinstance(row.get('ceiling'), int):
+        try:
+            import contextlib, io
+            import precedent_session_practices as _psp
+            with contextlib.redirect_stderr(io.StringIO()):
+                n = _bv._approx_tokens(_psp.render(*_psp.collect(str(repo)),
+                                                   repo=str(repo)))
+                charged = _psp.charged_to_repo(str(repo), n)[0]
+                share = _psp.copied_share(str(repo))
+        except Exception:                                    # noqa: BLE001
+            charged, share = None, 0
+        ceiling = row['ceiling']
+        if isinstance(charged, int) and share and ceiling < charged <= ceiling + share:
+            new = ceiling + share
+            row['ceiling'] = new
+            approve(f'surfaces/{surface}', ceiling, new,
+                    f'by the ~{share:,} tokens those copies add to this '
+                    f'repository\'s charge for the file (measured with and '
+                    f'without them)')
+            said.append(f'{surface} ceiling raised to {new:,} (was {ceiling:,}; '
+                        f'~{charged:,} in force), by the ~{share:,} the copied '
+                        f'sets add to it')
+    if not said:
+        return None
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-    return (f'occasion_index approved at {now:,} (was {was:,}): the rise is '
-            f'within the occasion shares of the sets copied in here ({named}), '
-            f'so it stands on the person\'s copy-in answer, recorded with it')
+    return ('; '.join(said) + ': it stands on the person\'s copy-in answer, '
+            'recorded with it')
 
 
 def approval_gap(repo):
