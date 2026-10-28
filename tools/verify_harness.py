@@ -43304,6 +43304,15 @@ def check_promote_only_and_tier_branches():
             cases.append(('on: with main\'s test green, the same fix is refused',
                           pb.merge_refusal(work, ['main'], ['claude/fix'],
                                            str(cfg), head_sha=fix_sha) is not None))
+            # 2026-10-28: a practice set runs no GitHub test, so a fix-main
+            # branch with no recorded failure was told "only from staging".
+            why = pb.merge_refusal(work, ['main'],
+                                   ['2026-10-28-zz-fix-main-a-word-ab-cd'],
+                                   str(cfg), head_sha=fix_sha) or ''
+            cases.append(('on: a fix-main branch with no red verdict here is told '
+                          'what is missing and how to record it, never only '
+                          '"from staging"', 'is a fix for a red main' in why
+                          and '--run-tests main' in why, why))
         finally:
             pb.main_test_failed = saved_failed
         # ...and red means the full local suite too, where GitHub's test was
