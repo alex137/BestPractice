@@ -5166,6 +5166,59 @@ def _edit_access_logins(dest_root):
         (None, 'GitHub lists nobody with edit access')
 
 
+def _person_name_for(root, login):
+    """-> the declared name of the person running this when `login` is
+    theirs, else ''. A code owner's name is how an approval names them
+    ("Name, YYYY-MM-DD: ..."), and a maintainers entry with a login alone
+    matched no such approval (2026-10-28: two consumers' binds_everyone,
+    "Morgan, ...", failed the ladder check until the name was added by
+    hand)."""
+    try:
+        import precedent_identity as _pid
+        ident = _pid.declared_identity(root)
+    except Exception:                                           # noqa: BLE001
+        return ''
+    gh = str(ident.get('github') or '').strip().lstrip('@')
+    if not gh:
+        try:
+            import precedent_audience as _pa
+            gh = str(_pa.viewer(root)[0] or '').strip().lstrip('@')
+        except Exception:                                       # noqa: BLE001
+            gh = ''
+    name = str(ident.get('name') or '').strip()
+    return name if gh and name and gh.lower() == str(login).lstrip('@').lower() else ''
+
+
+def name_the_persons_maintainer(dest_root):
+    """Add the person's declared name to their own entry in precedent.json's
+    `maintainers` when it carries their login and no name. -> the login
+    named, or ''. Only that one field, in that one entry: the list itself is
+    the repository's, and nobody else's entry is touched."""
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        text = path.read_text(encoding='utf-8')
+        cfg = json.loads(text)
+    except (OSError, ValueError):
+        return ''
+    entries = cfg.get('maintainers') if isinstance(cfg, dict) else None
+    if not isinstance(entries, list):
+        return ''
+    for e in entries:
+        if isinstance(e, dict) and e.get('github') and not e.get('name'):
+            name = _person_name_for(dest_root, e['github'])
+            if name:
+                old = json.dumps({'github': e['github']}, ensure_ascii=False)
+                e['name'] = name
+                new = json.dumps(e, ensure_ascii=False)
+                if text.count(old) == 1:
+                    path.write_text(text.replace(old, new), encoding='utf-8')
+                else:
+                    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False)
+                                    + '\n', encoding='utf-8')
+                return str(e['github'])
+    return ''
+
+
 def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
     """Name this repository's code owners in precedent.json's `maintainers`
     when it names none yet: the people who can edit it on GitHub right now,
@@ -5226,7 +5279,11 @@ def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
             today = precedent_time.today()
         except Exception:                                       # noqa: BLE001
             today = None    # never the machine's own clock (timestamps-carry-offset)
-    entry = json.dumps([{'github': l} for l in logins], ensure_ascii=False)
+    people = []
+    for l in logins:
+        name = _person_name_for(root, l)
+        people.append({'github': l, **({'name': name} if name else {})})
+    entry = json.dumps(people, ensure_ascii=False)
     when = f' {today}' if today else ''
     note = json.dumps([f'Written{when} at install or update: {how}. A '
                        f'starting default -- change it here; the engine never '
@@ -5238,11 +5295,11 @@ def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
     new_text = (text[:m.end()] + f'\n  "maintainers": {entry},\n'
                 f'  "_maintainers_comment": {note}{sep}' + rest) if m else ''
     try:
-        ok = json.loads(new_text).get('maintainers') == [{'github': l} for l in logins]
+        ok = json.loads(new_text).get('maintainers') == people
     except ValueError:
         ok = False
     if not ok:
-        cfg = {'maintainers': [{'github': l} for l in logins],
+        cfg = {'maintainers': people,
                '_maintainers_comment': json.loads(note), **cfg}
         new_text = json.dumps(cfg, indent=2, ensure_ascii=False) + '\n'
     path.write_text(new_text, encoding='utf-8')
