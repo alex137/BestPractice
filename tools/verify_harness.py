@@ -44064,6 +44064,19 @@ def check_main_test_cadence():
         pr_fail = pr_fail_saved
         cases.append(('a run that tested nothing and is the only run is kept: '
                       'it reads "passed", never "never ran"', st == 'passed'))
+        # 2026-10-28, measured: the push run on main finished green in 21s
+        # having tested nothing, while the pull request's run went on for
+        # eleven minutes. "running" was right; the detail now says where.
+        pr_busy = dict(pr_fail, status='in_progress', conclusion=None)
+        pr_fail_saved, pr_fail = pr_fail, pr_busy
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a finished push run that tested nothing, with its pull '
+                      'request\'s run still going: "running", naming the pull '
+                      'request and that the commit\'s own run deferred (2026-10-28)',
+                      st == 'running' and 'on pull request #1240' in why
+                      and 'tested nothing' in why))
         # 2026-10-27: the pull request's run failed while the push run on
         # main was still going, so main read "running" and the red-main fix
         # was refused straight into main; the newest FINISHED run decides
@@ -50523,6 +50536,15 @@ def check_bootstrap_source_produces_resolvable_set():
                       and all(e.get('inputs') and e.get('check') for e in _entries)
                       and _reg.returncode == 0 and '1 passed' in _reg.stdout,
                       _reg.stdout[-400:] + _reg.stderr[-200:]))
+        # 2026-10-28: sets made here had no permissions block, so a session
+        # rooted in one stopped at the add_repo prompt for the sets it brings.
+        _st = indiv_dest / '.claude' / 'settings.json'
+        _allow = ((json.loads(_st.read_text(encoding='utf-8')).get('permissions') or {})
+                  .get('allow') or []) if _st.is_file() else []
+        cases.append(('a new set\'s settings.json allows attaching without a prompt',
+                      'mcp__claude-code-remote__add_repo' in _allow
+                      and 'mcp__claude-code-remote__register_repo_root' in _allow,
+                      _allow))
         sys.path.insert(0, str(ROOT / 'tools'))
         try:
             import precedent_push_check as _ppc
@@ -66040,6 +66062,71 @@ def check_update_all_vendors_skips_its_own_source():
     bad = [n for n, ok in cases if not ok]
     check(f'Update All Vendors skips its own source '
           f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
+
+
+def check_update_all_reads_what_the_update_prints():
+    """precedent_update_all.py reads precedent_update.py's report, so the
+    two are pinned here through the real printers: both COMMIT MESSAGE forms
+    reach the commit message, and questions the update calls optional hold
+    nothing back, while a question block that is not called optional still
+    stops the repository at ASK.
+
+    WHY. 2026-10-28, one Update All run: the update had started printing the
+    files it rewrote outside the vendored trees in a second form the parser
+    never read, so three repositories' commits left them out; and a copy-in
+    offer, which the update itself says it is complete without, stopped a
+    fourth at ASK with nothing pushed."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+    finally:
+        sys.path.pop(0)
+    cases = []
+    rep = pu.Report()
+    rep.commit_note = 'took the anyway path'
+    rep.ask('copy-in zz', 'copy zz in? yes or no')
+    saved = pu.rewritten_outside_vendored
+    pu.rewritten_outside_vendored = lambda _repo: ['M AGENTS.md',
+                                                  'A .claude/settings.json']
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            rep._questions()
+            print("\nDONE -- nothing left for this repo to decide. Ask the "
+                  "question(s) above")
+            rep._commit_note()
+    finally:
+        pu.rewritten_outside_vendored = saved
+    out = buf.getvalue()
+    note = pua._commit_note(out) or ''
+    cases.append(('the in-these-words form reaches the commit message',
+                  'took the anyway path' in note, note))
+    cases.append(('every rewritten file reaches the commit message',
+                  '  M AGENTS.md' in note and '  A .claude/settings.json' in note,
+                  note))
+    cases.append(('the update prints the mark Update All reads for an ask',
+                  pua.ASKS_MARK in out))
+    questions, optional = pua._questions(out)
+    cases.append(('the questions are read, and read as optional',
+                  questions == ['copy-in zz: copy zz in? yes or no'] and optional,
+                  f'{questions} {optional}'))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(['git', 'init', '-q', tmp], check=True)
+        (pathlib.Path(tmp) / 'f').write_text('x')
+        subprocess.run(['git', '-C', tmp, 'add', 'f'], check=True)
+        cases.append(('optional questions only: the run goes on to commit',
+                      pua._outcome(pua.DONE, out, tmp) == 'DONE'))
+        strict = out.replace(pua.OPTIONAL_MARK, 'answer these first')
+        cases.append(('a question block not called optional: ASK',
+                      pua._outcome(pua.DONE, strict, tmp) == 'ASK'))
+    src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
+    cases.append(('an optional question is printed on the repository\'s line',
+                  "QUESTION for the person ({repo})" in src))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update All reads what the update prints '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_promote_commits_carry_a_session_trailer():
@@ -90863,6 +90950,7 @@ def main():
     check_update_takes_a_removal_its_source_decommissioned()
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
+    check_update_all_reads_what_the_update_prints()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

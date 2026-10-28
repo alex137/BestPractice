@@ -695,6 +695,13 @@ def _install_session_hooks(dest, base_branch='main'):
                 {'type': 'command',
                  'command': f'$CLAUDE_PROJECT_DIR/.claude/hooks/precedent-hooks.sh {ev}',
                  'timeout': 900}]})
+        # The no-prompt attach rules, from the one list Update Vendors' refresh
+        # adds to an existing set (2026-10-28: sets made here had none, so a
+        # session rooted in one stopped at the add_repo prompt for the sets
+        # it brings). The clone rules need the owners known here; a set made
+        # before the individual set resolves gets them on its first refresh.
+        allow, _ask = precedent_vendor_engine._refresh_allow_rules('source', '', dest)
+        payload['permissions'] = {'allow': allow}
         settings.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
         written.append(settings)
     return written

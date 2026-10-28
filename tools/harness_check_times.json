@@ -684,6 +684,7 @@
   "check_untracked_renders_use_source_fingerprints": 0.2,
   "check_update_adopts_an_earlier_runs_catalogue_mirror": 0.0,
   "check_update_adopts_engine_written_ahead": 0.0,
+  "check_update_all_reads_what_the_update_prints": 0.2,
   "check_update_all_vendors_skips_its_own_source": 0.1,
   "check_update_asks_before_changing_hooks": 0.1,
   "check_update_asks_for_words_that_name_the_commit": 0.0,

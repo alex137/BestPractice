@@ -5145,12 +5145,15 @@ def _tree(sha):
     return out.strip() if rc == 0 else None
 
 
-def _why_not_newer(skipped):
+def _why_not_newer(skipped, details=None):
     """-> "GitHub's test is still running on X and failed on Y" for the
-    newer commits passed over, newest first, grouped by state."""
+    newer commits passed over, newest first, grouped by state. A commit
+    still being tested carries where (`details`, sha -> github_test_state's
+    detail): its own run can be finished while its pull request's decides."""
     groups = {}
     for sha, state in skipped:
-        groups.setdefault(state, []).append(sha[:12])
+        where = (details or {}).get(sha) if state == 'running' else None
+        groups.setdefault(state, []).append(sha[:12] + (f' ({where})' if where else ''))
     parts = []
     for state, shas in groups.items():
         named = ', '.join(shas[:3]) + (f' and {len(shas) - 3} more' if len(shas) > 3 else '')
@@ -5227,11 +5230,13 @@ def source_commit(follow, tip, take=None):
     # (a session with no GitHub access to BestPractice). An unmarked commit
     # falls back to asking GitHub.
     marked = passed_trees() or set()
+    details = {}
     for sha in commits:
         if marked and _tree(sha) in marked:
             state, detail = 'passed', 'its passed marker'
         else:
             state, detail = main_test_state(sha, tests)
+        details[sha] = detail
         if state == 'unknown' and marked:
             # GitHub cannot be asked, and the markers can: a commit without
             # one is not known to have passed, so look further back for the
@@ -5253,7 +5258,7 @@ def source_commit(follow, tip, take=None):
                                + (", the newest with a recorded pass" if unread else '')
                                + f", {n} commit"
                                f"{'s' if n != 1 else ''} behind the newest {follow}, "
-                               f"{tip[:12]}, because {_why_not_newer(skipped)}. This "
+                               f"{tip[:12]}, because {_why_not_newer(skipped, details)}. This "
                                f"repo gets the newer ones once their test passes")
             return out
         if state == 'unknown':
@@ -5271,7 +5276,7 @@ def source_commit(follow, tip, take=None):
                 return out
             out['failed'] = (f"GitHub stopped answering ({detail}) while this "
                              f"looked for the newest {follow} whose test passed, "
-                             f"after finding that {_why_not_newer(skipped)}. "
+                             f"after finding that {_why_not_newer(skipped, details)}. "
                              f"Nothing was taken. Run "
                              f"it again, or take a commit anyway in the person's "
                              f"own words with {TAKE_FLAG} <commit>")
@@ -5288,7 +5293,7 @@ def source_commit(follow, tip, take=None):
         return out
     out['commit'] = None
     out['failed'] = (f"none of {follow}'s newest {len(commits)} commits passed "
-                     f"GitHub's test: {_why_not_newer(skipped)}. Nothing was "
+                     f"GitHub's test: {_why_not_newer(skipped, details)}. Nothing was "
                      f"taken. Run it again once {follow}'s test passes, or take "
                      f"a commit anyway in the person's own words with "
                      f"{TAKE_FLAG} <commit>")
