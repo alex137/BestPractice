@@ -44049,6 +44049,19 @@ def check_main_test_cadence():
         pr_fail = pr_fail_saved
         cases.append(('a run that tested nothing and is the only run is kept: '
                       'it reads "passed", never "never ran"', st == 'passed'))
+        # 2026-10-28, measured: the push run on main finished green in 21s
+        # having tested nothing, while the pull request's run went on for
+        # eleven minutes. "running" was right; the detail now says where.
+        pr_busy = dict(pr_fail, status='in_progress', conclusion=None)
+        pr_fail_saved, pr_fail = pr_fail, pr_busy
+        st, why = pb.github_test_state(repo, 'SHA', [(WF, True)],
+                                       runs_gh([push_ok], hollow_jobs))
+        pr_fail = pr_fail_saved
+        cases.append(('a finished push run that tested nothing, with its pull '
+                      'request\'s run still going: "running", naming the pull '
+                      'request and that the commit\'s own run deferred (2026-10-28)',
+                      st == 'running' and 'on pull request #1240' in why
+                      and 'tested nothing' in why))
         # 2026-10-27: the pull request's run failed while the push run on
         # main was still going, so main read "running" and the red-main fix
         # was refused straight into main; the newest FINISHED run decides
