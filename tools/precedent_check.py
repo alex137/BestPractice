@@ -12135,6 +12135,40 @@ def _decommissioning_record_exemptions():
 OLD_PACK_MANIFEST_GLOB = 'manifest_*.json'
 
 
+def _copied_in_sets():
+    """-> (names, paths): every set precedent.json declares as copied in
+    (`"vendored": true`), and every set such a copy carries inside itself
+    (its precedent-source.json `carries`). Copy-in records each one at
+    process/manifest_<name>.json, the old pack's own file name, so a copy
+    was read as a leftover pack (2026-10-28, a consumer's main went red on
+    its two copied-in shared sets). Read here, not through
+    precedent_resolve, because a consumer runs this file from its vendored
+    tools with only its neighbours beside it."""
+    names, paths = set(), set()
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return names, paths
+    for e in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
+        if not (isinstance(e, dict) and e.get('vendored') is True and e.get('path')):
+            continue
+        root = str(e['path']).strip('/')
+        if e.get('name'):
+            names.add(str(e['name']))
+        paths.add(root)
+        try:
+            man = json.loads((ROOT / root / 'precedent-source.json').read_text(
+                encoding='utf-8'))
+        except (ValueError, OSError):
+            continue
+        for c in (man.get('carries') if isinstance(man, dict) else None) or []:
+            if isinstance(c, dict) and c.get('name'):
+                names.add(str(c['name']))
+                if c.get('path'):
+                    paths.add(f"{root}/{str(c['path']).strip('/')}")
+    return names, paths
+
+
 def _leftover_old_packs():
     """-> [(manifest_rel, tree_rel or None)] for a repo that MIGRATED and
     still carries the old pack mechanism.
@@ -12161,7 +12195,10 @@ def _leftover_old_packs():
     if not proc.is_dir():
         return []
     out = []
+    copied_names, copied_paths = _copied_in_sets()
     for man in sorted(proc.glob(OLD_PACK_MANIFEST_GLOB)):
+        if man.stem.replace('manifest_', '', 1) in copied_names:
+            continue                  # a copied-in set's record, not a pack
         # A pack manifest may name its tree; fall back to the conventional
         # `process/<pack>/` derived from the manifest's own suffix.
         tree = None
@@ -12170,6 +12207,10 @@ def _leftover_old_packs():
             if isinstance(data, dict):
                 if data.get('kept_after_migration'):
                     continue          # a declared, reasoned keep -- see below
+                at = (data.get('upstream') or {}).get('vendored_at') \
+                    if isinstance(data.get('upstream'), dict) else None
+                if at and str(at).strip('/') in copied_paths:
+                    continue          # a copied-in set's record, by its tree
                 tree = ((data.get('upstream') or {}).get('path')
                         if isinstance(data.get('upstream'), dict) else None)
         except (ValueError, OSError):
