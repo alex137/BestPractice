@@ -624,6 +624,7 @@ def _pushed_commit(root, args, dest):
 
 
 LAND_COMMAND = 'python3 tools/precedent_branches.py --land'
+RUN_TESTS_COMMAND = 'python3 tools/precedent_branches.py --run-tests'
 
 
 def _promotion_heads(root, base):
@@ -837,6 +838,21 @@ def merge_refusal(root, bases, heads, user_config=None, head_sha=None):
             return None
     if MAIN in bases and head_sha and red_main_fix(root, head_sha):
         return None
+    fix = sorted(h for h in heads or () if RED_MAIN_FIX_MARK in h)
+    if MAIN in bases and fix:
+        # THE RED-MAIN ROUTE, REFUSED FOR WANT OF A VERDICT (2026-10-28). A
+        # practice set runs no GitHub test, so a fix branch straight into
+        # main passes only on a failed `--run-tests main` recorded in this
+        # clone; without one the person was told "only from staging", as if
+        # the route the produce practice gives did not exist.
+        return (f'{fix[0]} is a fix for a red {MAIN}, and it goes straight '
+                f'into {MAIN} only when {MAIN}\'s own test has failed on its '
+                f'tip as this clone knows it: GitHub\'s test, or the full '
+                f'local suite. Neither has, here. Run `{RUN_TESTS_COMMAND} '
+                f'{MAIN}` in this clone; when it fails on {MAIN}\'s tip, merge '
+                f'this pull request again. If {MAIN} passes, there is nothing '
+                f'to fix straight into it: land the branch on {staging} '
+                f'(`{LAND_COMMAND} BRANCH`) and say Promote.')
     if MAIN in bases and head_sha and content_only(root, head_sha):
         return None
     if MAIN in bases and stale:
@@ -890,6 +906,11 @@ def main_test_failed(root):
         return state == 'failed'
     except Exception:                                       # noqa: BLE001
         return False
+
+
+# The words precedent_branch_name.py puts in a fix-main branch's name
+# (`fix main WORDS`), which the produce practice says to use for one.
+RED_MAIN_FIX_MARK = '-fix-main-'
 
 
 def red_main_fix(root, head_sha):
