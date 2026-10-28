@@ -50521,6 +50521,15 @@ def check_bootstrap_source_produces_resolvable_set():
                       and all(e.get('inputs') and e.get('check') for e in _entries)
                       and _reg.returncode == 0 and '1 passed' in _reg.stdout,
                       _reg.stdout[-400:] + _reg.stderr[-200:]))
+        # 2026-10-28: sets made here had no permissions block, so a session
+        # rooted in one stopped at the add_repo prompt for the sets it brings.
+        _st = indiv_dest / '.claude' / 'settings.json'
+        _allow = ((json.loads(_st.read_text(encoding='utf-8')).get('permissions') or {})
+                  .get('allow') or []) if _st.is_file() else []
+        cases.append(('a new set\'s settings.json allows attaching without a prompt',
+                      'mcp__claude-code-remote__add_repo' in _allow
+                      and 'mcp__claude-code-remote__register_repo_root' in _allow,
+                      _allow))
         sys.path.insert(0, str(ROOT / 'tools'))
         try:
             import precedent_push_check as _ppc
