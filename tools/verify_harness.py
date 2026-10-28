@@ -28571,6 +28571,19 @@ def check_filename_separator_knows_names_it_did_not_choose():
     cases.append(('CONTROL: two repo-own scripts with different separators '
                   'still fail', 'tools/' in out and 'first fix the cause' in out,
                   out))
+    # 2026-10-28: copy-in names each copied set's record after the set,
+    # hyphens and all, beside process/'s own snake_case files.
+    copied = {'precedent.json': json.dumps({'sources': [
+                  {'level': 'shared', 'name': 'zz-set', 'path': 'process/zz-set',
+                   'vendored': True}]}) + '\n',
+              'process/manifest_zz-set.json': '{}\n',
+              'process/decommissioned_paths.json': '{}\n'}
+    out = judge(copied)
+    cases.append(('a copied-in set\'s manifest beside process/\'s own '
+                  'snake_case file is clean', out == '', out))
+    out = judge(dict(copied, **{'precedent.json': '{"sources": []}\n'}))
+    cases.append(('CONTROL: the same manifest with no copy-in declared is '
+                  'still a mix', 'process/' in out, out))
     out = judge({'notes/a-b.md': '# a\n', 'notes/c_d.md': '# c\n'})
     cases.append(('a genuinely mixed directory still fails, leading with '
                   'the root fix', 'first fix the cause' in out
@@ -83381,6 +83394,41 @@ def check_ladder_test_session_and_the_two_ladder_checks():
             got = pc._ladder_set_is_brought_not_declared(None)
             cases.append((f'binds_everyone, {what}: {want} finding(s)',
                           len(got) == want, str([str(f) for f in got])[:300]))
+        # 2026-10-28: a consumer keeps its own identity.json (an email, for
+        # commit authorship). It was read as an individual set's owner, so
+        # its GitHub owner was never asked and no approval could match.
+        if (repo / 'CODEOWNERS').exists():
+            (repo / 'CODEOWNERS').unlink()
+        subprocess.run(['git', 'init', '-q', str(repo)], env=_genv,
+                       capture_output=True)
+        subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin',
+                        'https://github.com/fxowner/repo'], env=_genv,
+                       capture_output=True)
+        (repo / 'identity.json').write_text(json.dumps(
+            {'name': 'Fx Owner', 'email': 'fx@example.invalid'}))
+        for be_by, ind, want, what in (
+                ('fxowner, 2026-10-19: "yes"', False, 0,
+                 "a consumer's own identity.json does not hide its GitHub owner"),
+                ('Fx Owner, 2026-10-19: "yes"', False, 1,
+                 'a name no maintainers entry maps is still not a login')):
+            (repo / 'precedent.json').write_text(json.dumps({
+                'binds_everyone': {'sets': ['ladder-set'], 'approved_by': be_by},
+                'sources': [{'name': 'ladder-set', 'level': 'shared',
+                             'path': '../ladder-set'}]}))
+            pc.ROOT = repo
+            got = pc._ladder_set_is_brought_not_declared(None)
+            cases.append((f'binds_everyone, {what}: {want} finding(s)',
+                          len(got) == want and (want == 0 or
+                                                '"maintainers"' in str(got[0])),
+                          str([str(f) for f in got])[:300]))
+        import precedent_audience as _pa
+        (repo / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent-individual', 'level': 'individual'}))
+        cases.append(('an individual set is still owned by its identity.json',
+                      'fx@example.invalid' in (_pa.owners(repo)[0] or ()),
+                      str(_pa.owners(repo))))
+        (repo / 'precedent-source.json').unlink()
+        (repo / 'identity.json').unlink()
     finally:
         pc.ROOT = saved_root
         shutil.rmtree(tmp, ignore_errors=True)
