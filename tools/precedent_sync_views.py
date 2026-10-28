@@ -783,6 +783,17 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
                                              res.get('retired') or [])
                 if live is not None:
                     return f", now in force as {live}"
+                # A set the person's individual set brings carries it: moved,
+                # not lost (2026-10-28: eleven rules moved on purpose to a
+                # brought set read LOST, and a session relayed it as a loss).
+                ctx = res.get('in_context') or {}
+                brought_live = pr.follow_in_force_at(
+                    s, ctx, res.get('retired') or [])
+                if brought_live is not None:
+                    as_ = '' if brought_live == s else f" as {brought_live}"
+                    return (f", now loads{as_} from "
+                            f"{pr.set_ref(ctx[brought_live])}, brought by "
+                            f"your individual set")
                 gone = gone_to.get((s, src))
                 if gone and gone[2:3] == (True,):
                     return (f", a retired name withdrawn from universal on "
