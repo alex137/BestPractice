@@ -59,7 +59,9 @@ the BestPractice clone:
    merge tool's own answer is the postcondition: run nothing after a merge
    in that turn (the gotcha above). If auto mode refuses the first merge,
    stop and ask once for all of them by name: "Merge the N update pull
-   requests".
+   requests". A QUESTION line under a PUSHED or CURRENT one is optional
+   (the update was complete without it) and still the person's: carry it
+   into the one message step 5 ends with.
 5. **Hand each ASK, LEFT or FAILED repository to its own subagent**, with a
    fresh context. Give it the clone and log paths the line names, and tell
    it to read that repository's own instructions, work the update per
