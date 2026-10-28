@@ -66273,10 +66273,98 @@ def check_copy_in_records_the_budget_it_brings():
             said, _found, _entry = run(3650)
             cases.append(('nothing above the approval: nothing recorded',
                           said is None, str(said)))
+            # 2026-10-28: a copy-in also moves the copied sets' share of the
+            # session file from the person's brought budget to the repo's.
+            import precedent_session_practices as psp
+            saved_psp = (psp.collect, psp.render, psp.charged_to_repo,
+                         psp.copied_share)
+            surface = '.precedent/SESSION_PRACTICES.md'
+
+            def run_surface(charged, share=71):
+                (repo / 'precedent.json').write_text(json.dumps({
+                    'sources': [{'level': 'shared', 'name': 'zz-set',
+                                 'path': 'process/zz-set', 'vendored': True}],
+                    'copy_in': {'zz-set': {'answer': 'yes', 'answered_by': words}}}))
+                (repo / 'tools' / 'session_load_budgets.json').write_text(json.dumps({
+                    'surfaces': {surface: {'ceiling': 400}},
+                    'approved_budgets': {f'surfaces/{surface}': {
+                        'max': 400, 'strength': 'baseline',
+                        'approved_by': 'baseline 2026-10-09: seeded'}}}))
+                bv.effective_budgets = lambda *a, **k: {}
+                psp.collect = lambda *a, **k: ([], {}, [])
+                psp.render = lambda *a, **k: 'x'
+                psp.charged_to_repo = lambda r, n: (charged, 0, [], None)
+                psp.copied_share = lambda r: share
+                said = pu.record_copy_in_budget(repo, today='2026-10-28')
+                reg = json.loads((repo / 'tools' / 'session_load_budgets.json')
+                                 .read_text())
+                return said, reg['surfaces'][surface]['ceiling'], \
+                    reg['approved_budgets'][f'surfaces/{surface}']
+            try:
+                said, ceiling, appr = run_surface(414)
+                cases.append(('the session file over its ceiling by no more '
+                              'than the copies add: ceiling and approval rise '
+                              'by that share, on the copy-in answer',
+                              bool(said) and ceiling == 471 and appr['max'] == 471
+                              and words in appr['approved_by'],
+                              f'{said} {ceiling} {appr}'))
+                said, ceiling, appr = run_surface(500)
+                cases.append(('CONTROL: over by more than the copies add: '
+                              'nothing raised', said is None and ceiling == 400
+                              and appr['max'] == 400, f'{said} {ceiling}'))
+            finally:
+                (psp.collect, psp.render, psp.charged_to_repo,
+                 psp.copied_share) = saved_psp
         finally:
             bv.effective_budgets, pc.ROOT = saved_eff, saved_root
     bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
     check(f'a copy-in records the occasion budget it brings '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_private_scrub_names_a_copied_set_by_its_own_repo():
+    """private-repo-scrub names a private set copied INTO a repository by
+    the repository its precedent.json entry declares, never by git's
+    origin there -- which is the host repository's own -- and never counts
+    a repository's own name as a leak from inside it.
+
+    WHY. 2026-10-28: once a private set was copied into a consumer, the
+    scrub told it that its practice linking to its own assets/ named "the
+    private repository" -- itself."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_check as pc
+        import precedent_resolve as pr
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = pr.load_config
+    with tempfile.TemporaryDirectory() as td:
+        host = pathlib.Path(td) / 'host'
+        copy = host / 'process' / 'zz-set'
+        copy.mkdir(parents=True)
+        (copy / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-set', 'level': 'shared', 'visibility': 'private'}))
+        subprocess.run(['git', 'init', '-q', str(host)], capture_output=True)
+        subprocess.run(['git', '-C', str(host), 'remote', 'add', 'origin',
+                        'https://github.com/zz-owner/zz-host'], capture_output=True)
+        entry = {'name': 'zz-set', 'level': 'shared', 'path': str(copy),
+                 'vendored': True, 'repo': 'https://github.com/zz-owner/zz-set'}
+        try:
+            pr.load_config = lambda root: [entry]
+            names = pc._private_source_names(host)
+            cases.append(('a copied private set is named by its declared repo, '
+                          'and the host is not named', names == ['zz-owner/zz-set'],
+                          names))
+            pr.load_config = lambda root: [dict(entry, repo=None)]
+            names = pc._private_source_names(host)
+            cases.append(('a copy that declares no repo names nothing, never the '
+                          'host', names == [], names))
+        finally:
+            pr.load_config = saved
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'private-repo-scrub names a copied set by its own repo '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
@@ -91205,6 +91293,7 @@ def main():
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_private_scrub_names_a_copied_set_by_its_own_repo()
     check_copy_in_records_the_budget_it_brings()
     check_legacy_workflow_sweep_honours_the_persons_approval()
     check_promote_commits_carry_a_session_trailer()

@@ -8837,10 +8837,22 @@ def _private_source_names(root):
                                          else 'public')
         if vis == 'public':
             continue
-        url = _git('remote', 'get-url', 'origin', cwd=path).stdout.strip()
+        # A set copied in sits inside this repository, so git's origin there
+        # is this repository's own (2026-10-28: a consumer was told it named
+        # a private repository -- itself -- once a private set was copied
+        # in). Such a set is named by the repository its entry declares.
+        inside = path.resolve().is_relative_to(here)
+        url = (str(s.get('repo') or '') if inside else
+               _git('remote', 'get-url', 'origin', cwd=path).stdout.strip())
         m = re.search(r'[/:]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$', url)
         if m:
             names.add(f'{m.group(1)}/{m.group(2)}')
+    # A repository's own name is not a leak from inside it.
+    own = re.search(r'[/:]([\w.-]+)/([\w.-]+?)(?:\.git)?/?$',
+                    _git('remote', 'get-url', 'origin', cwd=here).stdout.strip())
+    if own:
+        names = {n for n in names
+                 if n.lower() != f'{own.group(1)}/{own.group(2)}'.lower()}
     return sorted(names)
 
 
