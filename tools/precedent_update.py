@@ -1274,14 +1274,18 @@ def maintainers_step(repo, rep):
         rep.step('code owners', f'added your declared name to @{named}\'s entry '
                  f'in precedent.json\'s maintainers, so an approval that names '
                  f'you ("Name, YYYY-MM-DD: ...") is read as yours')
-    # A single owner's own zone, offered for the records nobody's identity
-    # reaches (2026-10-08) -- a question for the person, never written here.
+    # A single owner's own zone, for the records nobody's identity reaches
+    # (2026-10-08): written, since the owner's identity already declares it
+    # (Morgan, 2026-10-28; pve.apply_owner_timezone).
     try:
-        offer = pve.timezone_offer(repo)
+        tz = pve.apply_owner_timezone(repo)
     except Exception:                                          # noqa: BLE001
-        offer = None
-    if offer:
-        rep.ask('time zone', offer)
+        tz = None
+    if tz:
+        rep.step('time zone', f'wrote "fallback_timezone": "{tz[1]}" to '
+                 f'precedent.json -- @{tz[0]}\'s declared zone, for what runs '
+                 f'where no identity reaches (a GitHub Actions job); change it '
+                 f'there any time')
 
 
 def copy_in_step(repo, rep, answers=None, answered_by=''):

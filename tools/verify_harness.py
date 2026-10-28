@@ -78326,20 +78326,25 @@ def check_update_finds_the_clone_by_its_origin():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
-def check_install_and_update_offer_the_owners_zone():
+def check_install_and_update_write_the_owners_zone():
     """In a repository with exactly one maintainer and no fallback_timezone,
-    install and Update Vendors offer that person's own zone as
+    install and Update Vendors write that person's own zone as
     precedent.json's fallback_timezone when the person running them is that
-    maintainer with a zone in their identity.json -- one line they can say
-    yes to, never written unasked.
+    maintainer with a zone in their identity.json, and say so. A
+    precedent.json that already has the key is never touched, whatever its
+    value.
 
     WHY. 2026-10-08, from a consumer: a single person's repository never
     declared fallback_timezone, so its GitHub Actions job dated failure
     records and issue stamps in the engine's last resort (New York, the
-    right team default) instead of its owner's zone.
+    right team default) instead of its owner's zone. From then until
+    2026-10-28 it was offered as a question; Morgan, 2026-10-28 (strength:
+    decided): "Go, fix it in the engine; leave the shared sets" -- the
+    owner's identity already declares the zone, so asking was the failure.
 
-    Negative control, measured 2026-10-08: before the fix pve had no
-    timezone_offer, and neither install nor the update said anything."""
+    Negative control, measured 2026-10-28: on the engine before this change
+    (timezone_offer) the update asked and wrote nothing, so the 'written'
+    cases fail there."""
     import tempfile
     pu, pve, _pr = _update_tools()
     cases = []
@@ -78366,35 +78371,54 @@ def check_install_and_update_offer_the_owners_zone():
             repo = tmp / 'repo'
             repo.mkdir()
 
-            def offer(data):
-                (repo / 'precedent.json').write_text(json.dumps(data), encoding='utf-8')
-                return pve.timezone_offer(repo)
-            one = {'maintainers': [{'github': 'solo'}]}
-            got = offer(one)
-            cases.append(('one maintainer, who is running it, with a zone: offered '
-                          'with the exact line to add',
-                          bool(got) and f'"fallback_timezone": "{zone}"' in got, got))
-            cases.append(('...and precedent.json is not written',
-                          json.loads((repo / 'precedent.json').read_text()) == one, ''))
-            cases.append(('two maintainers: no offer', offer(
-                {'maintainers': [{'github': 'solo'}, {'github': 'other'}]}) is None, ''))
-            cases.append(('a fallback_timezone already declared: no offer', offer(
-                dict(one, fallback_timezone='America/New_York')) is None, ''))
-            cases.append(('someone else running it: no offer', offer(
-                {'maintainers': [{'github': 'other'}]}) is None, ''))
+            def run(data, pretty=True):
+                text = json.dumps(data, indent=2 if pretty else None) + '\n'
+                (repo / 'precedent.json').write_text(text, encoding='utf-8')
+                got = pve.apply_owner_timezone(repo)
+                return got, json.loads((repo / 'precedent.json').read_text())
+            one = {'maintainers': [{'github': 'solo'}], 'format_version': 1}
+            got, after = run(one)
+            cases.append(('one maintainer, who is running it, with a zone: written',
+                          got == ('solo', zone)
+                          and after == dict(one, fallback_timezone=zone), after))
+            got, after = run(one, pretty=False)
+            cases.append(('...also into a one-line precedent.json',
+                          after.get('fallback_timezone') == zone
+                          and after.get('maintainers') == one['maintainers'], after))
+            got, after = run(dict(one, fallback_timezone='America/New_York'))
+            cases.append(('a fallback_timezone already declared (a shared set\'s '
+                          'New York): left as it is',
+                          got is None and after['fallback_timezone'] == 'America/New_York',
+                          after))
+            got, after = run(dict(one, fallback_timezone=None))
+            cases.append(('the key present but empty: left as it is',
+                          got is None and after['fallback_timezone'] is None, after))
+            for label, data in (
+                    ('two maintainers', {'maintainers': [{'github': 'solo'},
+                                                         {'github': 'other'}]}),
+                    ('someone else running it', {'maintainers': [{'github': 'other'}]}),
+                    ('no maintainers', {'format_version': 1})):
+                got, after = run(data)
+                cases.append((f'{label}: nothing written',
+                              got is None and 'fallback_timezone' not in after, after))
             (indiv / 'identity.json').write_text(json.dumps(
                 dict(ident, timezone='')), encoding='utf-8')
-            cases.append(('no zone in identity.json: no offer', offer(one) is None, ''))
+            got, after = run(one)
+            cases.append(('no zone in identity.json: nothing written',
+                          got is None and 'fallback_timezone' not in after, after))
             (indiv / 'identity.json').write_text(json.dumps(ident), encoding='utf-8')
 
-            offer(one)
+            (repo / 'precedent.json').write_text(json.dumps(one), encoding='utf-8')
             rep = pu.Report()
             import contextlib, io
             with contextlib.redirect_stdout(io.StringIO()):
                 pu.maintainers_step(repo, rep)
-            cases.append(('Update Vendors puts it to the person as a question',
-                          any(w == 'time zone' and zone in q for w, q in rep.asks),
-                          rep.asks))
+            cases.append(('Update Vendors writes it, reports it, and asks nothing',
+                          json.loads((repo / 'precedent.json').read_text()).get(
+                              'fallback_timezone') == zone
+                          and any(zone in str(s) for s in rep.steps)
+                          and not any(w == 'time zone' for w, _q in rep.asks),
+                          (rep.steps, rep.asks)))
 
             proj = tmp / 'installed'
             proj.mkdir()
@@ -78407,10 +78431,10 @@ def check_install_and_update_offer_the_owners_zone():
                                         PRECEDENT_USER_CONFIG=str(cfg), HOME=str(tmp)),
                                capture_output=True, text=True)
             out = r.stdout + r.stderr
-            cases.append(('install offers it too, and writes nothing',
-                          'time zone, an offer' in out and zone in out
-                          and 'fallback_timezone' not in json.loads(
-                              (proj / 'precedent.json').read_text(encoding='utf-8')),
+            cases.append(('install writes it too, and says so',
+                          'time zone: wrote' in out
+                          and json.loads((proj / 'precedent.json').read_text(
+                              encoding='utf-8')).get('fallback_timezone') == zone,
                           out[-1200:]))
     finally:
         for k, v in saved.items():
@@ -78419,8 +78443,9 @@ def check_install_and_update_offer_the_owners_zone():
             else:
                 os.environ[k] = v
     bad = [f'{n}: {d}' for n, ok, d in cases if not ok]
-    check(f'install and Update Vendors offer a single owner\'s zone as the '
-          f'fallback ({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'install and Update Vendors write a single owner\'s zone as the '
+          f'fallback, and leave a declared one alone ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
 
 
 def check_a_reasked_left_out_section_is_not_asked_every_rerun():
@@ -91662,7 +91687,7 @@ def main():
     check_update_on_stubs_stages_nothing_under_claude()
     check_size_cap_warning_names_the_cap()
     check_update_finds_the_clone_by_its_origin()
-    check_install_and_update_offer_the_owners_zone()
+    check_install_and_update_write_the_owners_zone()
     check_update_leaves_no_dead_manifest_entry()
     check_update_in_force_nowhere_asks_once()
     check_update_repoints_moved_engine_commands()
