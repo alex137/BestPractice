@@ -66098,6 +66098,56 @@ def check_update_all_vendors_skips_its_own_source():
           f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
 
 
+def check_legacy_workflow_sweep_honours_the_persons_approval():
+    """A workflow on the pre-Precedent names list that the person approved
+    in github_ci_approved, in their own words and pinned to its content, is
+    not left for the person again; one with no approval, or whose content
+    has changed since, still is.
+
+    WHY. 2026-10-28: a consumer's update dropped its local_ci_workflows
+    declaration, which a consumer does not honour, and then stopped on its
+    three approved checks, because this sweep read only that declaration."""
+    import hashlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    rel = '.github/workflows/status-claims-check.yml'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        wf = root / rel
+        wf.parent.mkdir(parents=True)
+        wf.write_text('on: pull_request\njobs: {}\n', encoding='utf-8')
+
+        def run(entry):
+            (root / 'precedent.json').write_text(json.dumps(
+                {'github_ci_approved': {rel: entry} if entry else {}}),
+                encoding='utf-8')
+            got = []
+            orig = pve._left
+            pve._left = lambda what, why: got.append(what)
+            try:
+                pve._retire_legacy_workflows(root, {}, 'consumer', None)
+            finally:
+                pve._left = orig
+            return rel in got
+        sha = hashlib.sha256(wf.read_bytes()).hexdigest()
+        ok = {'sha256': sha,
+              'approved_by': 'Zz, 2026-10-19: "yes, keep it"'}
+        cases.append(('approved in the person\'s words, content unchanged: '
+                      'not left again', not run(ok)))
+        cases.append(('CONTROL: no approval: left for the person', run(None)))
+        cases.append(('approved, but the content changed since: left',
+                      run(dict(ok, sha256='0' * 64))))
+        cases.append(('an approval that quotes nobody: left',
+                      run(dict(ok, approved_by='Zz, 2026-10-19'))))
+    bad = [n for n, ok_ in cases if not ok_]
+    check(f'the pre-Precedent workflow sweep honours the person\'s approval '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_all_reads_what_the_update_prints():
     """precedent_update_all.py reads precedent_update.py's report, so the
     two are pinned here through the real printers: both COMMIT MESSAGE forms
@@ -90985,6 +91035,7 @@ def main():
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_legacy_workflow_sweep_honours_the_persons_approval()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()
