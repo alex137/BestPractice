@@ -572,6 +572,7 @@
   "check_session_load_target_is_reported_each_reply": 0.2,
   "check_session_practices_drop_what_agents_md_carries": 0.0,
   "check_session_practices_load_without_publishing": 0.8,
+  "check_session_share_keeps_a_moved_rule_with_its_brought_set": 0.1,
   "check_session_ships_exclude_survives_another_worktree": 0.2,
   "check_session_start_charges_brought_sets_to_the_person": 0.0,
   "check_session_start_hook_runs_bootstrap_locally": 0.3,

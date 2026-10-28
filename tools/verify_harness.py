@@ -65382,6 +65382,100 @@ def check_individual_set_is_charged_to_its_own_budget():
           f'({len(cases)} stated cases)', not bad, '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_share_keeps_a_moved_rule_with_its_brought_set():
+    """A rule an individual set moved into a set it brings is charged to the
+    brought set's share, never back to the individual set's own.
+
+    WHY (2026-10-28). The shares are measured by rendering the session file
+    without the brought sets. Rendered that way, the individual set's
+    deduplicated stubs found no target and were kept in force, so eleven
+    rules moved into the ladder set on purpose were counted as the
+    individual set's own and charged to the repository's ceiling as well,
+    while the brought set's share came out too small.
+
+    1. measured without the brought set, the moved rule is not there;
+    2. the individual set's own rule still is;
+    3. CONTROL: the full render still carries the moved rule, from the set
+       it moved to."""
+    import tempfile, contextlib, io
+    import json as _json
+    import precedent_session_practices as psp
+    import precedent_resolve as pr
+
+    saved = {k: os.environ.get(k) for k in (
+        'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_USER_CONFIG', pr.NO_LADDERS_ENV)}
+    for k in saved:                       # practice: fixture-owns-its-state
+        os.environ.pop(k, None)
+    results = []
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = pathlib.Path(tmp)
+            uni = tmp / 'universal'
+            (uni / 'practices').mkdir(parents=True)
+            (uni / 'practices' / 'plain-rule.md').write_text(
+                _move_fixture_practice('plain-rule'), encoding='utf-8')
+            lad = tmp / 'p' / 'fx-ladder'
+            (lad / 'practices').mkdir(parents=True)
+            (lad / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'fx-ladder', 'level': 'shared'}), encoding='utf-8')
+            (lad / 'practices' / 'moved-rule.md').write_text(
+                _move_fixture_practice('moved-rule'), encoding='utf-8')
+            ind = tmp / 'p' / 'precedent-individual'
+            (ind / 'practices').mkdir(parents=True)
+            (ind / 'precedent-source.json').write_text(_json.dumps({
+                'name': 'precedent-individual', 'level': 'individual',
+                'brings': [{'name': 'fx-ladder',
+                            'repo_url': 'https://example.com/fx.git'}]}),
+                encoding='utf-8')
+            (ind / 'practices' / 'own-rule.md').write_text(
+                _move_fixture_practice('own-rule'), encoding='utf-8')
+            (ind / 'practices' / 'moved-rule.md').write_text(
+                _move_fixture_practice('moved-rule')
+                .replace('status:      active', 'status:      deduplicated')
+                .replace('in_force_at: null', 'in_force_at: moved-rule'),
+                encoding='utf-8')
+            cfg = tmp / 'cfg.json'
+            cfg.write_text(_json.dumps({'format_version': 1, 'individual': {
+                'name': 'precedent-individual', 'path': str(ind)}}),
+                encoding='utf-8')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+            repo = tmp / 'consumer'
+            repo.mkdir()
+            (repo / 'precedent.json').write_text(_json.dumps({
+                'format_version': 1, 'base_branch': 'main',
+                'visibility': 'private',
+                'sources': [{'level': 'universal', 'name': 'precedent',
+                             'path': str(uni)}]}), encoding='utf-8')
+
+            def slugs(**kw):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    extra = psp.collect(str(repo), **kw)[0]
+                return {fm.get('slug') for fm, _s, _f in extra}
+
+            full, bare = slugs(), slugs(skip_brought=True)
+            results.append(('1: measured without the brought set, the moved '
+                            'rule is not kept in force from its old stub',
+                            'moved-rule' not in bare,
+                            sorted(bare)))
+            results.append(("2: the individual set's own rule is still there",
+                            'own-rule' in bare,
+                            sorted(bare)))
+            results.append(('3: CONTROL: the full render carries the moved '
+                            'rule, from the set it moved to',
+                            'moved-rule' in full,
+                            sorted(full)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a rule moved into a brought set is charged to that set, not back '
+          f'to the individual set ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
+
+
 def check_session_file_over_ceiling_names_the_individual_share():
     """The session check's over-ceiling row for .precedent/SESSION_PRACTICES.md
     says how much of the charge is the person's own individual set, which the
@@ -65416,7 +65510,7 @@ def check_session_file_over_ceiling_names_the_individual_share():
             {'level': 'universal', 'name': 'u', 'path': '.'},
             {'level': 'individual', 'name': 'me', 'path': '/nowhere'}]
         _resolve = pr.resolve
-        pr.resolve = lambda sources: (seen.append([s['level'] for s in sources])
+        pr.resolve = lambda sources, **_kw: (seen.append([s['level'] for s in sources])
                                       or {'missing': [], 'practices': {}})
         try:
             try:
@@ -90760,6 +90854,7 @@ def main():
     check_landed_branch_gets_its_delete_link()
     check_delete_links_and_one_line_boildown_agree()
     check_individual_set_is_charged_to_its_own_budget()
+    check_session_share_keeps_a_moved_rule_with_its_brought_set()
     check_session_file_over_ceiling_names_the_individual_share()
     check_install_and_update_name_the_code_owners()
     check_update_judges_retired_sets_after_the_catalogue()

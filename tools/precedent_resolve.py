@@ -2081,7 +2081,7 @@ def _requires(fm):
     return {str(x).strip() for x in got or [] if str(x).strip()}
 
 
-def resolve(sources, context=()):
+def resolve(sources, context=(), targets=()):
     """-> {'practices': {slug: practice}, 'shadowed': [...], 'blocked': [...],
            'missing': [...], 'retired': [...]}
 
@@ -2096,7 +2096,13 @@ def resolve(sources, context=()):
     they provide counts for `requires`, and a rule in force in one counts as
     in force for a deduplicated stub that points at it. Without that, a
     sync that left a brought set out also dropped every rule that needs the
-    ladder it provides (found by a consumer rehearsal, 2026-10-03)."""
+    ladder it provides (found by a consumer rehearsal, 2026-10-03).
+
+    `targets` is narrower: sources whose rules in force count only as where
+    a deduplicated stub points, never for `requires`. A measurement that
+    renders without the brought sets passes them here, so a rule moved into
+    one is not kept in force from its old stub and charged to the set it
+    left (precedent_session_practices.individual_share, 2026-10-28)."""
     by_source, missing = [], []
     for s in sources:
         loaded, why = load_source(s)
@@ -2142,6 +2148,11 @@ def resolve(sources, context=()):
     provided_for_person = set(provided)
     for _s in context or ():
         provided_for_person |= source_provides(_s['path'])
+        _loaded, _why = load_source(_s)
+        for slug, p in (_loaded or {}).items():
+            if bv._json_str(p['fm'].get('status', 'active')) == IN_FORCE_STATUS:
+                in_context.setdefault(slug, _s.get('name'))
+    for _s in targets or ():
         _loaded, _why = load_source(_s)
         for slug, p in (_loaded or {}).items():
             if bv._json_str(p['fm'].get('status', 'active')) == IN_FORCE_STATUS:
