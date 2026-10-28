@@ -4304,7 +4304,11 @@ def _retire_legacy_workflows(dest_root, manifest, kind, pd):
             # The person kept it in their own words, pinned to this content
             # (2026-10-28: a consumer's three approved checks stopped its
             # update here once the update dropped the local_ci_workflows
-            # declaration a consumer does not honour).
+            # declaration a consumer does not honour). Dropped from the
+            # first pass's list too: an update starts the refresh with the
+            # repository's own older engine, which found it before this pass
+            # replaced it (2026-10-28, measured: a rehearsal of the update on that consumer ended LEFT on all three without this, READY with it).
+            _drop_left(lambda i, rel=rel: i != rel)
             continue
         _left(rel, 'a workflow name from before Precedent with no stock shape '
                    'to recognise it by, so nothing here deletes it. Read what '

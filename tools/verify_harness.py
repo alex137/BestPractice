@@ -66143,6 +66143,19 @@ def check_legacy_workflow_sweep_honours_the_persons_approval():
                       run(dict(ok, sha256='0' * 64))))
         cases.append(('an approval that quotes nobody: left',
                       run(dict(ok, approved_by='Zz, 2026-10-19'))))
+        # 2026-10-28, measured: an update starts the refresh with the
+        # repository's own older engine, whose first pass had already left
+        # the file; the second pass, finding it approved, must drop that.
+        (root / 'precedent.json').write_text(json.dumps(
+            {'github_ci_approved': {rel: ok}}), encoding='utf-8')
+        pve._CARRIED_LEFT[:] = [(rel, 'found by the first pass')]
+        try:
+            pve._retire_legacy_workflows(root, {}, 'consumer', None)
+            carried = [i for i, _w in pve._CARRIED_LEFT]
+        finally:
+            pve._CARRIED_LEFT.clear()
+        cases.append(('approved: the first pass\'s finding of it is dropped too',
+                      rel not in carried))
     bad = [n for n, ok_ in cases if not ok_]
     check(f'the pre-Precedent workflow sweep honours the person\'s approval '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
