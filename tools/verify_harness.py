@@ -48785,7 +48785,41 @@ def check_leftover_pack_is_flagged_after_migration():
         cases.append(('an unparseable pack manifest is still flagged -- '
                       'unreadable is not absent', MARK in out))
 
-    failed = [n for n, ok in cases if not ok]
+        # 2026-10-28: copy-in records a copied set at the old pack's own
+        # file name; a consumer's main went red on two of them.
+        def _copied(base, entry, manifest='{}', carries=None):
+            _repo(base, migrated=True, pack=False)
+            (base / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}, entry]}),
+                encoding='utf-8')
+            if carries is not None:
+                (base / entry['path']).mkdir(parents=True, exist_ok=True)
+                (base / entry['path'] / 'precedent-source.json').write_text(
+                    json.dumps({'carries': carries}), encoding='utf-8')
+            for n in ['zz-set'] + [c['name'] for c in carries or []]:
+                (base / 'process' / f'manifest_{n}.json').write_text(
+                    manifest, encoding='utf-8')
+            r = subprocess.run(
+                [sys.executable, str(base / 'process' / 'upstream' / 'tools'
+                                     / 'precedent_check.py'),
+                 '--only', 'migration-scrubs-vocabulary'],
+                capture_output=True, text=True, cwd=str(base), timeout=180)
+            return r.stdout + r.stderr
+        copied = {'level': 'shared', 'name': 'zz-set', 'path': 'process/zz-set',
+                  'vendored': True}
+        out = _copied(tmp / 'f', copied,
+                      carries=[{'name': 'zz-inner', 'path': 'inner'}])
+        cases.append(('a copied-in set\'s manifest, and one a copy carries, '
+                      'are not leftover packs', MARK not in out, ))
+        out = _copied(tmp / 'g', dict(copied, vendored=False))
+        cases.append(('CONTROL: the same manifest with no copy-in declared is '
+                      'still flagged', MARK in out and 'manifest_zz-set' in out))
+        out = _copied(tmp / 'h', dict(copied, name='zz-other'),
+                      manifest='{"upstream": {"vendored_at": "process/zz-set"}}')
+        cases.append(('a copied-in set recorded by its tree, under another '
+                      'file name, is not a leftover pack', MARK not in out))
+
+    failed = [c[0] for c in cases if not c[1]]
     check(f'a leftover pre-migration practice pack is flagged after migration '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
