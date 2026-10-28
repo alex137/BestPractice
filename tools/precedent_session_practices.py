@@ -156,7 +156,7 @@ def keep_stale(target, unresolved):
 # and this file would have duplicated it into every session.
 
 
-def collect(repo, skip_brought=False, skip_individual=False):
+def collect(repo, skip_brought=False, skip_individual=False, skip_copied=False):
     """-> (extra_practices, levels, notes). `skip_brought` leaves out the
     sets the person brings, for measuring what bringing them costs
     (brought_share); `skip_individual` leaves out the person's own
@@ -188,6 +188,12 @@ def collect(repo, skip_brought=False, skip_individual=False):
         sources = [s for s in sources if not s.get('brought')]
     if skip_individual:
         sources = [s for s in sources if pr.declared_level(s) != 'individual']
+    if skip_copied:
+        # The sets copied into the repository (`"vendored": true`, and what a
+        # copy carries), for copied_share; left out the same way, so a stub
+        # pointing at one does not bring its old text back.
+        left_out += [s for s in sources if s.get('vendored')]
+        sources = [s for s in sources if not s.get('vendored')]
 
     try:
         res = pr.resolve(sources, targets=left_out)
@@ -612,6 +618,25 @@ def brought_share(repo=None):
     if full is None:
         return 0, names
     return max(0, full - bare), names
+
+
+def copied_share(repo):
+    """-> tokens of the repository's charge for this file that the sets
+    copied into it account for: the file rendered without the brought sets,
+    less the same render without the copied sets too. 0 when either
+    rendering fails. A copy-in moves a set the person brought into the
+    repository's own declaration, so its share leaves the person's brought
+    budget and lands on the repository's ceiling (2026-10-28, a consumer's
+    file went from ~334 to ~414 against a 400 ceiling on its copy-in)."""
+    import contextlib, io
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with_copies = render(*collect(repo, skip_brought=True), repo=repo)
+            without = render(*collect(repo, skip_brought=True,
+                                      skip_copied=True), repo=repo)
+    except Exception:                                        # noqa: BLE001
+        return 0
+    return max(0, bv._approx_tokens(with_copies) - bv._approx_tokens(without))
 
 
 def individual_share(repo):
