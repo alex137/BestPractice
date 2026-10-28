@@ -65561,8 +65561,12 @@ def check_session_file_over_ceiling_names_the_individual_share():
     import precedent_resolve as pr
     cases = []
     saved_share, saved_load = getattr(psp, 'individual_share', None), pr.load_config
+    saved_brought = psp.brought_budget
     try:
         psp.individual_share = lambda repo: 1176
+        # This machine's own individual set may declare a budget of its own,
+        # which makes _individual_part stand aside; the fixture owns that.
+        psp.brought_budget = lambda repo=None, key=None: (None, None)
         part = getattr(psc, '_individual_part', lambda n, cap: '')(1510, 400)
         cases.append(('THE DISCRIMINATING CASE: the row names the individual '
                       "set's share and the repository's own",
@@ -65593,6 +65597,7 @@ def check_session_file_over_ceiling_names_the_individual_share():
     finally:
         if saved_share is not None:
             psp.individual_share = saved_share
+        psp.brought_budget = saved_brought
         pr.load_config = saved_load
         sys.path.pop(0)
     bad = [(n, d) for n, ok, d in cases if not ok]
