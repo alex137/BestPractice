@@ -1916,6 +1916,22 @@ def attach_clone_rules(root):
     return clone_allow_rules(source_owners(root))
 
 
+def _refresh_allow_rules(kind, template_text, root):
+    """-> (allow, ask) the refresh adds to a repository of `kind`. A
+    consumer gets the settings template's engine rules and the attach
+    rules; a practice set (kind 'source') only the attach rules, since a
+    session rooted in a set attaches the sets it brings too, and its
+    settings come from precedent_bootstrap_source.py, not the template
+    (2026-10-28: sessions rooted in practice sets still prompted). A
+    manifest with no kind gets nothing guessed for it."""
+    if kind == 'consumer':
+        return (read_only_allow_rules(template_text) + attach_clone_rules(root),
+                engine_ask_rules(template_text))
+    if kind == 'source':
+        return list(ATTACH_ALLOW_RULES) + attach_clone_rules(root), []
+    return [], []
+
+
 def is_attach_allow_rule(rule):
     """True for a rule that lets a session attach and clone a practice
     source without a prompt: ATTACH_ALLOW_RULES and the clone rules."""
@@ -9861,9 +9877,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                               or individual_hook_copy_state(
                                   ROOT, clone, new_commit)[0] == 'past')
         _tmpl = _template_settings_text(clone, new_commit)
-        allow_pending = (manifest.get('kind') == 'consumer' and bool(_read_only_allow_missing(
-            ROOT, read_only_allow_rules(_tmpl) + attach_clone_rules(ROOT),
-            engine_ask_rules(_tmpl))))
+        _allow, _ask = _refresh_allow_rules(manifest.get('kind'), _tmpl, ROOT)
+        allow_pending = bool(_read_only_allow_missing(ROOT, _allow, _ask))
 
         if new_commit == manifest.get('source_commit') and not force \
                 and not set_incomplete and not hooks_incomplete and not ci_incomplete \
@@ -9966,9 +9981,8 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
         # into_an_installed_repo's control, which main's test failed on
         # 2026-10-14 when this ran for every repo).
         _tmpl = _template_settings_text(clone, new_commit)
-        if manifest.get('kind') == 'consumer' and _apply_read_only_allow(
-                ROOT, read_only_allow_rules(_tmpl) + attach_clone_rules(ROOT),
-                engine_ask_rules(_tmpl)):
+        if _apply_read_only_allow(
+                ROOT, *_refresh_allow_rules(manifest.get('kind'), _tmpl, ROOT)):
             if ROOT / '.claude' / 'settings.json' not in written:
                 written.append(ROOT / '.claude' / 'settings.json')
         # Before the next session start, when a hook just wired may write a
