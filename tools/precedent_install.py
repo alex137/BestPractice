@@ -1019,14 +1019,15 @@ def install(dest, project, about=None, base_branch=None, visibility=None,
                     f'config ({_pa.LOGIN_CONFIG_KEY}) so its sessions know who you are')
         except Exception:                                     # noqa: BLE001
             pass
-    # The owner's own zone for what runs where no identity reaches, offered
-    # and never written (2026-10-08; precedent_vendor_engine.timezone_offer).
+    # The owner's own zone for what runs where no identity reaches, written
+    # (2026-10-28; precedent_vendor_engine.apply_owner_timezone).
     try:
-        _offer = _pve.timezone_offer(dest)
+        _tz = _pve.apply_owner_timezone(dest)
     except Exception:                                         # noqa: BLE001
-        _offer = None
-    if _offer:
-        say(f'  time zone, an offer: {_offer}')
+        _tz = None
+    if _tz:
+        say(f'  time zone: wrote "fallback_timezone": "{_tz[1]}" to precedent.json '
+            f'(@{_tz[0]}\'s declared zone, for what runs where no identity reaches)')
     # Whether to copy in each set the person brings or offers: asked once,
     # here, and the answer recorded (spec/VENDORED_SHARED_SETS.md, Part 6).
     for line in _copy_in(dest, copy_in or {}, answered_by):
