@@ -2118,7 +2118,17 @@ def github_test_state(root, sha, tests, gh=None, via_pulls=True,
                                f'git remote set-url origin to the new one)')
         return 'none', ', '.join(missing) + ' never ran on it'
     if busy:
-        return 'running', ', '.join(busy) + ' has not finished'
+        # Say WHICH run is still going. 2026-10-28: the run on the commit
+        # itself had finished green in 21 seconds, having tested nothing and
+        # left the verdict to its pull request's run, which took eleven more
+        # minutes; "still running on <commit>" read as a misreading of a
+        # finished run, and a session went looking for a bug.
+        deferred = any(id(x) in hollow for x in pool)
+        return 'running', ', '.join(
+            p + ' has not finished' + (f' on {newest[p]["_via"]}'
+                                       if newest[p].get('_via') else '')
+            for p in busy) + ('; the run on the commit itself tested nothing '
+                              'and left the verdict to it' if deferred else '')
     return 'passed', ', '.join(f'{p} passed' + (f' on {r["_via"]}' if r.get('_via') else '')
                                for p, r in sorted(newest.items()))
 
