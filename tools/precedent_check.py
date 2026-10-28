@@ -1632,7 +1632,14 @@ def _code_owner_logins(root, cfg):
     for m in (cfg.get('maintainers') or []) if isinstance(cfg, dict) else []:
         if isinstance(m, dict) and str(m.get('github') or '').lstrip(
                 '@').lower() in logins and m.get('name'):
-            names.add(str(m['name']).strip().lower())
+            full = str(m['name']).strip().lower()
+            names.add(full)
+            # An approval names a person the way they sign one: "Morgan,
+            # 2026-10-20: ..." for a maintainer named "Morgan F". Any code
+            # owner's yes is enough, so a first name that is a code owner's
+            # names one (2026-10-28).
+            if full.split():
+                names.add(full.split()[0])
     return names, where
 
 

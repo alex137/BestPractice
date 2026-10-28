@@ -65651,6 +65651,34 @@ def check_install_and_update_name_the_code_owners():
         cases.append(('a list already set is never rewritten',
                       got2 == [] and 'already names' in how2, how2))
 
+        # 2026-10-28: an approval names its person ("Name, date: ..."), and
+        # a login alone matched none, so two consumers were fixed by hand.
+        import precedent_identity as _pid
+        saved_decl = _pid.declared_identity
+        _pid.declared_identity = lambda repo, user_config=None: {
+            'name': 'Fx Owner', 'github': 'fxowner', 'email': 'fx@example.invalid'}
+        try:
+            n1 = fresh('named')
+            pve.seed_maintainers(n1, logins=['fxowner', 'other'], today='2026-10-28')
+            m1 = json.loads((n1 / 'precedent.json').read_text(encoding='utf-8'))['maintainers']
+            cases.append(("the person's own entry is written with their declared name, "
+                          "and nobody else's is",
+                          m1 == [{'github': 'fxowner', 'name': 'Fx Owner'},
+                                 {'github': 'other'}], str(m1)))
+            n2 = fresh('unnamed', '{\n  "maintainers": [{"github": "fxowner"}, '
+                       '{"github": "other"}],\n  "sources": []\n}\n')
+            got_n = pve.name_the_persons_maintainer(n2)
+            m2 = json.loads((n2 / 'precedent.json').read_text(encoding='utf-8'))['maintainers']
+            cases.append(("an existing entry with the person's login and no name gets "
+                          "their name, and only that",
+                          got_n == 'fxowner' and m2 == [
+                              {'github': 'fxowner', 'name': 'Fx Owner'},
+                              {'github': 'other'}], f'{got_n} {m2}'))
+            cases.append(('...and a second run changes nothing',
+                          pve.name_the_persons_maintainer(n2) == '', ''))
+        finally:
+            _pid.declared_identity = saved_decl
+
         b = fresh('b')
         (b / 'CODEOWNERS').write_text('* @carol\n', encoding='utf-8')
         got3, how3 = pve.seed_maintainers(b, logins=['dave'])
@@ -83440,6 +83468,9 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                 ({'sets': ['ladder-set'],
                   'approved_by': 'fxowner, 2026-10-19: "yes"'}, None, 0,
                  'a code owner, by login, binds everyone'),
+                ({'sets': ['ladder-set'],
+                  'approved_by': 'Fx, 2026-10-19: "yes"'}, None, 0,
+                 'a code owner, by the first name they sign with, binds everyone'),
                 ({'sets': ['ladder-set'],
                   'approved_by': 'Someone Else, 2026-10-19: "yes"'}, None, 1,
                  'NEGATIVE CONTROL: a quote from someone who is not a code owner'),
