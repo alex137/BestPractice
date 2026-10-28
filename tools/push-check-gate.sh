@@ -132,19 +132,31 @@ push_rest="$(printf '%s' "$push_args" \
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
 
-# The repository being pushed: the push's own `git -C <dir>`, else a
-# leading `cd <dir>`, else the tool call's working directory, else the
-# project. Read off $push_args, never the whole command: a later
+# The repository being pushed: the push's own `git -C <dir>`, else the
+# LAST `cd <dir>` before the push, else the tool call's working directory,
+# else the project. Read off $push_args, never the whole command: a later
 # `git -C /other worktree remove` names a repository nothing is pushed to.
 # `|| true` on each grep is load-bearing under pipefail: no match is the
 # ordinary case.
 target="$(printf '%s' "$push_args" \
   | grep -oE '^git[[:space:]]+-C[[:space:]]+[^[:space:]]+' \
   | head -n1 | sed -E 's/^git[[:space:]]+-C[[:space:]]+//' || true)"
+# The last `cd`, not the first (2026-10-28): `cd /a && git worktree add
+# ...; cd /b && git push` pushes /b, and reading /a refused a feature-branch
+# push as a push to /a's main. Found in $bare, so a `cd` inside a quoted
+# message is not one, and sliced from $cmd at the same offset ($bare keeps
+# every offset), so a quoted directory keeps its name.
 if [[ -z "$target" ]]; then
-    target="$(printf '%s' "$cmd" \
-      | grep -oE '^[[:space:]]*cd[[:space:]]+[^[:space:];&|]+' \
-      | head -n1 | sed -E 's/^[[:space:]]*cd[[:space:]]+//' || true)"
+    target="$(GATE_CMD="$cmd" GATE_BARE="$bare" python3 -c '
+import os, re
+s, b = os.environ["GATE_CMD"], os.environ["GATE_BARE"]
+if len(s) != len(b):
+    b = s
+m = re.search(r"(?:^|[|;&(]|\$\()\s*git\s+(?:-C\s+\S+\s+)?push\b", b, re.M)
+pre = b[:m.start() if m else len(b)]
+cds = list(re.finditer(r"(?:^|[;&|(])\s*cd\s+([^\s;&|)]+)", pre, re.M))
+print(s[cds[-1].start(1):cds[-1].end(1)] if cds else "")
+' 2>/dev/null || true)"
 fi
 target="${target%\"}"; target="${target#\"}"
 target="${target%\'}"; target="${target#\'}"

@@ -41741,6 +41741,21 @@ def check_push_check_gate():
                          cwd=elsewhere, project=elsewhere)
         cases.append(('a later `git -C <other> ...` does not make <other> '
                       'the repository pushed', not denied))
+        # Two `cd`s, the push belonging to the second (2026-10-28: a
+        # feature-branch push in one repo was refused as a push to another
+        # repo's main, because the gate read the command's FIRST `cd`).
+        denied, _ = gate(f'cd {elsewhere} && ls; cd {work} && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('with two `cd`s, the repository pushed is the one the '
+                      'last `cd` before the push enters', denied))
+        denied, _ = gate(f'cd {work} && ls; cd {elsewhere} && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('and an earlier `cd <repo>` does not make <repo> the '
+                      'repository pushed', not denied))
+        denied, _ = gate(f'git commit -q -m "cd {work}" && git push origin main',
+                         cwd=elsewhere, project=elsewhere)
+        cases.append(('a `cd` inside a quoted message is not a `cd`',
+                      not denied))
 
         (work / 'FAIL').write_text('zero', encoding='utf-8')
         git(work, 'commit', '-q', '-am', 'a run that checks nothing')
@@ -66623,6 +66638,27 @@ def check_gate_refusals_are_worded_by_their_tools():
                       'commit-identity push gate REFUSED' in reason
                       and 0 <= reason.find('Nothing in the refused command ran')
                       < reason.find('AUTHOR-FINDING-9')))
+        # A `git -C` on an earlier command names no repository pushed
+        # (2026-10-28): the gate once read the command's first `-C` and
+        # skipped every check on a push to this repo.
+        other = td / 'other'
+        subprocess.run(['git', 'init', '-q', str(other)], capture_output=True)
+        payload = json.dumps({'tool_input': {'command':
+                              f'git -C {other} status; git push origin x'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        cases.append(('an earlier `git -C <other> ...` does not skip the '
+                      'commit-identity push gate', '"deny"' in r.stdout))
+        payload = json.dumps({'tool_input': {'command':
+                              f'git -C {other} push origin x'},
+                              'cwd': str(repo)})
+        r = subprocess.run(['bash', str(hooks / 'commit-identity-push-gate.sh')],
+                           input=payload, capture_output=True, text=True,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(repo)))
+        cases.append(('while the push\'s own `git -C <other> push` still does',
+                      '"deny"' not in r.stdout))
     bad = [n for n, ok in cases if not ok]
     check(f'the gates refuse in their tools\' words ({len(cases)} stated cases)',
           not bad, '; '.join(bad))
