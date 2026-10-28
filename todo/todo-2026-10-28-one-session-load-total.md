@@ -24,8 +24,10 @@ any change to which budget pays for a rule asks him again.
 
 The analysis and the proposal are in
 [spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](../spec/SESSION_LOAD_ONE_TOTAL_PLAN.md):
-one refusing number per session, the total it loads, declared once by the
-person; every part's cap becomes a notice.
+one refusing number per session, the total it loads from its generated
+files, declared once by the person and copied into each repository so CI
+reads it too; no per-part number is stored or approved. Revised the same
+day after an independent review.
 
 ## Closes when
 

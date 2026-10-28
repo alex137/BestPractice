@@ -7,14 +7,16 @@ closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "Token-budget blocks came back on 2026-10-27/28 because tokens moved between budgets, not because sessions got heavier. Proposal: one refusing number per session, the total it loads, declared once by the person; every part's cap becomes a notice."
+summary:       "Token-budget blocks came back on 2026-10-27/28 because tokens moved between budgets, not because sessions got heavier. Proposal, revised after an independent review: one refusing number, the total a session loads from its generated files, declared once by the person and copied into each repository so CI sees it; the per-part numbers stop being stored or approved."
 ---
 
 # One total per session instead of a budget per part
 
-**Status: proposed, waiting on Morgan's go.** Measured 2026-10-28 on the
-`main` branches of BestPractice and the three private sources this session
-had attached.
+**Status: proposed, revised after review, waiting on Morgan's go.**
+Measured 2026-10-28 on the `main` branches of BestPractice and the three
+private sources this session had attached. An independent session reviewed
+the first draft the same day; what it found and what changed is in
+[Review](#review).
 
 ## What happened
 
@@ -45,8 +47,9 @@ made a session meaningfully heavier:
    approval automatically when the rise is within the copied sets' shares.
 3. **An accounting fix.** Commit `9936acc9` (2026-10-28) counted the moved
    rules under the brought set instead of the individual set. Measured in
-   BestPractice, brought went 413 to 812 and individual 1,103 to 704. The
-   total did not change. A session predicted the brought budget would need
+   BestPractice, brought went 413 to 812 and individual 1,103 to 704 (the
+   commit's own figures; individual measured about 656 later the same day).
+   The total did not change. A session predicted the brought budget would need
    about 1,800 and prepared to ask; the consumer measured about 1,134 and no
    raise was needed that time.
 
@@ -84,11 +87,19 @@ copy-in auto-approval each handle one way tokens move. The next new way (a
 rule moving from universal into a shared set, say, or a set leaving
 `brings` for a repository's own declaration) asks again.
 
-**Meanwhile the whole is not capped.** The practice's own rule says "a cap
-on one part is not a cap on the whole." In this session the session-start
-hook put about 3,900 tokens into context; the session file it carries
-measures about 2,300. The other 1,500 or so (the list of spoken commands and
-the source-resolution notes) is in no budget.
+**And the budgets that pay for one set are literals that repeat each
+other.** On 2026-09-29 Morgan decided "give each practice set its own
+allowance ... and set each repo's cap to the sum of the allowances for the
+sets it uses" (strength: decided). `brought_sets_tokens` (2026-10-03) and
+`individual_set_tokens` (2026-10-20) are hand-set totals beside those
+per-set allowances, not sums of them. Event 1 is that duplicate failing to
+follow a share move Morgan had already approved.
+
+**Meanwhile per-turn and hook text is in no budget.** The session-start
+hook adds a list of spoken commands and source-resolution notes on top of
+the session file, and the reply gate's list is injected again on every
+turn. Both vary with the session's state, so neither is a stable thing to
+cap (see [Review](#review)).
 
 **The next two blocks are already visible.** The ladder set's occasion share
 is at 695 of 750 (93%) and its AGENTS.md at 1,352 of 1,400 (97%). The next
@@ -96,92 +107,157 @@ rule added to that set refuses.
 
 ## Options considered
 
-### A. Keep the pots, and make every move between them automatic
+### A. Keep the pots, and write an offset for every route
 
-Write an offset for each route: when a rule moves between sets, move its
-tokens between the budgets that pay for it; when a set is copied in, move
-its share from brought to the repository (done today for that one route).
+When a rule moves between sets, move its tokens between the budgets that
+pay for it; when a set is copied in, move its share from brought to the
+repository (done for that one route on 2026-10-28, `953254be` and
+`64d0b49b`).
 
-**Holes.** The routes are open-ended, so this is the same route-by-route
-patching that has not held. The pots live in different repositories (the
-ladder share in the ladder set, the brought budget in the individual set,
-the ceiling in each consumer), so one move has to write approvals in three
-repositories together, which no tool does atomically. And it leaves every
-pot as tight as before, so ordinary growth still asks. **Rejected.**
+**Holes.** The routes are open-ended, so this is the route-by-route
+patching that has not held. The pots live in different repositories, so
+one move has to write approvals in several at once. It leaves every pot as
+tight as before. **Rejected.**
 
 ### B. Raise every pot with real headroom
 
-Raise each budget to, say, 50% over what it measures.
-
-**Holes.** Quick, and it stops the asks for a while. But tokens moving
-between pots still overflow the smaller ones, and the asks come back as
-soon as any one pot fills. It is the band-aid. **Rejected.**
+**Holes.** It stops the asks for a while, but tokens moving between pots
+still overflow the smaller ones. It is the band-aid. **Rejected.**
 
 ### C. Remove the budgets
 
-**Holes.** Before 2026-09-11 AGENTS.md grew every day with nobody deciding
-it (the occasion index alone grew about 160 tokens a day). That problem
-comes straight back. **Rejected.**
+**Holes.** Before 2026-09-11 the occasion index grew about 160 tokens a day
+with nobody deciding it. That comes straight back. **Rejected.**
 
-### D. One total per session, and the parts become notices (proposed)
+### D. One total per session, parts as notices (the first draft)
 
-**Only one number refuses: the total a session in a given repository loads**
--- every always-loaded file, plus what the session-start hook adds, from
-every source. Every part's number (resident cap, occasion share, brought,
-individual, each surface's ceiling) stays as a **notice** that says which
-part grew, and never refuses.
+One refusing number, the total a session loads including the session-start
+hook's output, declared once in the person's individual set; every part's
+number kept as a non-refusing notice.
 
-**The total is declared once, by the person, in their individual set**
-(`session_load_tokens`), so it travels to every repository they work in,
-the way `brought_sets_tokens` does now. One number, one approval. A
-repository may declare its own total only when it needs to differ.
+**Holes the review found** (all checked against the code):
 
-**Attacking it:**
+- **CI cannot see the person's number.** The daily and post-merge checks
+  run with only the workflow's own token and cannot read the individual
+  set. With no total resolvable there, every per-part check would still
+  refuse in CI, so the asks come back through the "merge and get notified"
+  route.
+- **Hook output is the wrong thing to measure.** It changes with the
+  session's state (a source that fails to resolve adds a block), so a
+  broken environment would raise the total and refuse a push. Measuring it
+  means running hooks that fetch and write, which a check cannot do. And
+  large hook output is truncated before the model sees it.
+- **Parts kept as notices go stale.** Nobody raises them any more, so they
+  sit under what they measure and their notice fires every session until it
+  is ignored.
+- **The effort was underestimated** (about three to four hours stated).
 
-- *Moves, copy-ins and accounting fixes.* They do not change the total, so
-  they never ask. This is the point.
-- *"The total must fit BestPractice, so consumers get a loose limit."*
-  True: BestPractice's own AGENTS.md is the largest. But the cost that
-  matters is what one session pays, and if a session in BestPractice may pay
-  N, a session in a consumer paying N is the same cost. A repository that
-  wants tighter declares its own.
-- *"It loses the forcing decision the tight occasion cap was for"* (Morgan,
-  2026-09-14, option D: "the cap is meant to be met soon and often"). Yes,
-  and that is the trade being asked for: a decision per index line was the
-  frustration. The notices keep the information -- which part grew, by how
-  much -- and a headroom notice at 90% of the total says when a reduction
-  pass is due, before anything refuses.
-- *Real growth still asks.* Yes, when the total crosses, after a reduction
-  pass, exactly as the practice says today. That should be rare: real
-  growth is slow next to the structural moves above.
-- *Other people's installs* (Alex's, or anyone's who does not declare a
-  total). Nothing changes for them: the per-part refusals stay in force
-  wherever no total is declared. It is opt-in.
-- *The uncounted hook output.* Counting it makes the total honest, and it
-  goes in the same measurement.
+### E. One total over the generated files, nothing else stored (proposed)
+
+D's direction, with each hole closed. Described in full below.
 
 ## The proposal
 
-1. **Engine (BestPractice).** `build_views.effective_budgets()` and the
-   session check compute one `session_load_total` per repository: AGENTS.md,
-   CLAUDE.md, and the session-start hook's full output. Where the person (or
-   the repository) declares `session_load_tokens`, that total is the one
-   check that refuses (`session-load-budget`), and `loader-within-caps`,
-   `session-file-allowances-fit`, the brought and individual rows of the
-   session check, and [build_views.py](../tools/build_views.py)'s occasion-share refusal report
-   instead of refuse. `budget-within-approval` covers the total and stops
-   requiring an approval for each part. With no total declared, everything
-   behaves as today. Tests in [tools/verify_harness.py](../tools/verify_harness.py) for both paths, plus
-   one that moves a rule between two sets and asserts nothing refuses.
-2. **Practice text.** [session-load-budget](../practices/session-load-budget.md)
-   and [reduction-pass](../practices/reduction-pass.md) say the total is what
-   refuses where one is declared, and the parts are where to look when it
-   grows.
-3. **Morgan's number** goes in the individual set as `session_load_tokens`,
-   with his words in its approvals. Suggested: the largest total measured
-   across his repositories plus 20%, given to him measured before he picks.
-4. **Rollout** by Update Vendors to every consuming repository; each one's
-   per-part approvals stay in place as notices until a later cleanup.
+**One number refuses: the total a session in a given repository loads from
+its generated files** -- AGENTS.md, CLAUDE.md, the session-start practices file
+the private sources write, and the generated spoken-command list. Each is rendered deterministically,
+so the same tree measures the same everywhere. Hook extras and the per-turn
+gate list are reported as a notice, never refused.
 
-**Effort:** about three to four hours of session work for steps 1 and 2,
-then an Update Vendors run.
+**The person declares it once** (`session_load_tokens` in their individual
+set), and **Update Vendors writes it into each repository's own registry**
+with the approval words, the way `953254be` records a copy-in's occasion
+cap. CI, other people's checkouts and Morgan's sessions then read the same
+number, and the same tree passes or fails the same for all of them.
+
+**Nothing else is stored or approved.** `brought_sets_tokens` and
+`individual_set_tokens` are deleted: what the sets cost is measured, not
+declared. The per-set allowances, the resident caps and each surface's
+ceiling stop refusing where a total is in force. In their place the merge
+and push gates print **which part this change grew, and by how much** --
+computed from the change, so there is no stored number to go stale. A
+repository with no total keeps today's behaviour, so other people's
+installs are untouched.
+
+**Moving a rule, copying a set in, or fixing how a share is counted never
+asks**, because none changes the total. The 2026-10-28 copy-in approval
+code becomes unneeded and is removed.
+
+### Where refusals happen, before and after
+
+| Check | Today | With a total in force |
+|---|---|---|
+| `budget-within-approval` | refuses at every tier, for every part | refuses only when the total is above its approved max |
+| `session-load-budget` | warns at the quick check, refuses at the full one | refuses the total at the full check; warns at the quick one |
+| `loader-within-caps`, `session-file-allowances-fit` | warn quick, refuse full | report only |
+| [build_views.py](../tools/build_views.py) occasion and resident caps | warn, or fail with strict budgets | report only |
+| Session check's brought and individual rows | a failing row at session start | removed; the total's row replaces them |
+
+### What it gives up
+
+**It reverses Morgan's decision of 2026-09-14** (option D, strength:
+decided): the occasion cap was set "deliberately tight ... meant to be met
+soon and often", so each new index line forced a decision. Under this
+plan, index lines no longer ask. The per-change growth line still shows
+each one.
+
+**One person-wide total is loose for the smaller repositories.** Measured
+2026-10-28 from the generated files: BestPractice about 8,100 tokens, the
+ladder set's repository about 4,800. A single number sized for
+BestPractice gives a consumer nearly twice its load before anything
+refuses. Two ways to choose, for Morgan:
+
+- **One number everywhere.** Simplest; the 90% notice and the per-change
+  growth line are the only brakes in a smaller repository.
+- **One number per kind of repository** (a source set, BestPractice, a
+  project). Tighter, at the cost of a few numbers instead of one.
+
+The go comes with each repository's measured load beside the number
+proposed, so the slack is visible when he picks.
+
+### Build order
+
+1. **Engine (BestPractice):** the total over the generated files; its
+   approval in `budget-within-approval`; the refusal table above; the
+   per-change growth line; Update Vendors writing the total into each
+   registry; tests for both paths and one that moves a rule between two
+   sets and asserts nothing refuses.
+2. **Remove what it replaces:** the brought and individual literals and
+   their session-check rows, the copy-in approval code, the per-part
+   rows in `very_deep_check.budget_rows`.
+3. **Practice text:** [session-load-budget](../practices/session-load-budget.md)
+   and [reduction-pass](../practices/reduction-pass.md).
+4. **Morgan's number** in the individual set, then Update Vendors across his
+   repositories.
+
+**Effort:** about a day of session work for steps 1-3, then the Update
+Vendors run. Step 1 alone closes the asks on every route; steps 2 and 3 can
+land after it.
+
+## Review
+
+An independent session (Opus, read-only) reviewed the first draft on
+2026-10-28 and recommended adopting it with seven changes. Each is taken:
+
+1. **CI could not see the total** -> Update Vendors writes it into each
+   repository's registry (checked: the daily workflow runs with only its
+   own token).
+2. **Hook output is unstable to measure** -> the total covers the
+   generated files only; hook extras and the gate list are a notice.
+3. **The brought and individual literals duplicate the per-set allowances**
+   against the 2026-09-29 rule -> deleted; named as part of the cause.
+4. **Parts as notices go stale** -> no per-part numbers stored; a
+   per-change growth line instead.
+5. **No list of refusal sites by tier** -> the table above (checked: the
+   size checks already only warn at the quick check).
+6. **The 2026-09-14 decision is reversed, and should be said so** -> said,
+   with the loose-total trade and a choice for Morgan.
+7. **Effort and two figures** -> re-estimated at about a day. The draft's
+   "about 1,500 unbudgeted hook tokens" was one session's measurement and
+   varies with session state, so it is dropped; the 704 is the commit's own
+   figure, now marked as such.
+
+The reviewer also proposed deriving one share per set and keeping
+approvals per set. This plan goes one step further and stores no per-set
+numbers at all: a share that refuses nothing and needs no approval is a
+measurement, and the growth line already reports it.
