@@ -1609,7 +1609,11 @@ def _binds_everyone(root, cfg):
     logins, where = _code_owner_logins(root, cfg)
     if who not in logins:
         return set(), (f'{who!r} is not one of this repository\'s code owners '
-                       f'({where or "none are named"})')
+                       f'({where or "none are named"}). A code owner named by '
+                       f'name rather than GitHub login is matched through '
+                       f'precedent.json\'s "maintainers": add '
+                       f'{{"github": "<login>", "name": "{who.title()}"}} there, '
+                       f'or start approved_by with the login')
     return {str(n) for n in entry['sets']}, ''
 
 
@@ -2787,6 +2791,11 @@ def _filename_separator(ctx):
     # reason as the fixed names below (_engine_shipped_paths has the
     # incident).
     shipped = _engine_shipped_paths()
+    # Copy-in names each copied set's record process/manifest_<set>.json, the
+    # set's own hyphens included: a name the engine fixes per set, so no
+    # *_NAME constant can carry it (2026-10-28, a consumer's light check
+    # counted its two as "-" against its own "_" files).
+    shipped |= {f'process/manifest_{n}.json' for n in _copied_in_sets()[0]}
     # Tracked files PLUS untracked-but-not-ignored ones. This is a tree-scope
     # check, so the question is what the repository CONTAINS -- and a file
     # just added and not yet committed is exactly when the answer is most
