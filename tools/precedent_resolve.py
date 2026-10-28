@@ -2132,7 +2132,9 @@ def resolve(sources, context=()):
     provided = set(ENGINE_CAPABILITIES)
     for _s, _loaded in by_source:
         provided |= source_provides(_s['path'])
-    in_context = set()
+    # slug -> the brought set it is in force in, for a caller saying where
+    # a deduplicated rule went (precedent_sync_views, 2026-10-28).
+    in_context = {}
     # What a brought set provides counts for the PERSON's own rules only (an
     # individual set's "for me, the ladder"). A rule a repository declares
     # stays keyed to what the repository declares, so a committed view comes
@@ -2141,9 +2143,9 @@ def resolve(sources, context=()):
     for _s in context or ():
         provided_for_person |= source_provides(_s['path'])
         _loaded, _why = load_source(_s)
-        in_context |= {slug for slug, p in (_loaded or {}).items()
-                       if bv._json_str(p['fm'].get('status', 'active'))
-                       == IN_FORCE_STATUS}
+        for slug, p in (_loaded or {}).items():
+            if bv._json_str(p['fm'].get('status', 'active')) == IN_FORCE_STATUS:
+                in_context.setdefault(slug, _s.get('name'))
     for _s, loaded in by_source:                      # lowest precedence first
         claims = override_claims_by_level.setdefault(_s['level'], {})
         for slug, practice in sorted(loaded.items()):
@@ -2314,7 +2316,7 @@ def resolve(sources, context=()):
         resolved.setdefault(practice['slug'], dict(practice, kept_in_force=msg))
     return {'practices': resolved, 'shadowed': shadowed, 'blocked': blocked,
             'missing': missing, 'retired': retired, 'dangling': dangling,
-            'copies': copies}
+            'copies': copies, 'in_context': in_context}
 
 
 def _same_bytes(a, b):

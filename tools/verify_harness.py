@@ -86976,6 +86976,35 @@ def check_consumer_sync_counts_what_a_brought_set_provides():
                     results.append(('4: CONTROL: a person who brings nothing does '
                                     'not get it', 'needs-ladder.md' not in tree
                                     and 'plain-rule.md' in tree, sorted(tree)))
+            # 5. A rule the individual set held, synced into the tree, then
+            # moved to the brought set on purpose (2026-10-28: eleven such
+            # moves read "the rule is LOST here", and a session relayed it
+            # as a loss). The copy still goes; the line says where it went.
+            ind = tmp / 'brings' / 'precedent-individual'
+            stub = (ind / 'practices' / 'old-stage.md').read_text(encoding='utf-8')
+            (ind / 'practices' / 'old-stage.md').write_text(
+                rule('old-stage'), encoding='utf-8')
+            repo = tmp / 'consumer-brings'
+            with contextlib.redirect_stderr(io.StringIO()):
+                psv.sync(str(repo), user_config=str(tmp / 'brings.json'))
+            before = (repo / 'practices' / 'old-stage.md').exists()
+            # The removal guard reads the COMMITTED MANIFEST.json.
+            for a in (['init', '-q'], ['add', '-A'],
+                      ['-c', 'user.name=T', '-c', 'user.email=t@example.com',
+                       '-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 's']):
+                subprocess.run(['git', '-C', str(repo), *a], capture_output=True)
+            (ind / 'practices' / 'old-stage.md').write_text(stub, encoding='utf-8')
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                psv.sync(str(repo), user_config=str(tmp / 'brings.json'))
+            said = err.getvalue()
+            results.append(('5: a rule moved to a brought set is removed from '
+                            'the tree and said to load from that set, not LOST',
+                            before and not (repo / 'practices' / 'old-stage.md').exists()
+                            and 'LOST' not in said and 'IN FORCE NOWHERE' not in said
+                            and 'now loads as fx-stage from `fx-ladder`, brought '
+                                'by your individual set' in said,
+                            said[-600:]))
     finally:
         for k, v in saved.items():
             if v is None:
