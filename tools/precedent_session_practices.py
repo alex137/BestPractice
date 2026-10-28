@@ -473,7 +473,9 @@ def render(extra, levels, notes, repo=None):
             block_dir=_repo / OUT_DIR, repo_root=_repo,
             budget_tokens=e.tokens, carried=carried, regen_comment=False,
             omit_commands=True)
-        head += [
+        # Under a declared session-load total the parts are measured, not
+        # capped (build_views.TOTAL_KEY), so there is no part to be over.
+        head += [] if bv.session_load_total(_repo) is not None else [
             f'> **Over budget: this block is ~{e.tokens} tokens against a '
             f'declared ceiling of {e.budget}.** It is written anyway, because '
             f'a session bound by practices it was never shown is worse than a '
@@ -521,7 +523,12 @@ def _with_target_warning(repo, text, brought=0):
     This file is loaded into every session, so the warning is too: over
     target, every session is told to bring it down (Morgan, 2026-09-29,
     strength: decided).
+
+    Not under a declared session-load total: a target is a part's number,
+    and the total is the only one held there (build_views.TOTAL_KEY).
     """
+    if bv.session_load_total(repo) is not None:
+        return text
     try:
         reg = json.loads((pathlib.Path(repo) / 'tools' /
                           'session_load_budgets.json').read_text(encoding='utf-8'))

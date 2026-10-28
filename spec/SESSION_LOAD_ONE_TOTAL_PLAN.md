@@ -1,7 +1,7 @@
 ---
 title:         One total per session instead of a budget per part
-kind:          plan
-status:        proposed
+kind:          proposal
+status:        accepted
 opened:        2026-10-28
 closed:        null
 superseded_by: null
@@ -12,7 +12,8 @@ summary:       "Token-budget blocks came back on 2026-10-27/28 because tokens mo
 
 # One total per session instead of a budget per part
 
-**Status: proposed, revised after review, waiting on Morgan's go.**
+**Status: accepted.** Morgan, 2026-10-28 (strength: decided): "Go, one
+number everywhere". Revised after review before the go.
 Measured 2026-10-28 on the `main` branches of BestPractice and the three
 private sources this session had attached. An independent session reviewed
 the first draft the same day; what it found and what changed is in
@@ -202,12 +203,14 @@ plan, index lines no longer ask. The per-change growth line still shows
 each one.
 
 **One person-wide total is loose for the smaller repositories.** Measured
-2026-10-28 from the generated files: BestPractice about 8,100 tokens, the
-ladder set's repository about 4,800. A single number sized for
-BestPractice gives a consumer nearly twice its load before anything
+2026-10-28 from the generated files, the session-start file counted in
+full: BestPractice about 8,100 tokens, the three practice-set repositories
+about 5,900 to 6,300. A single number sized for BestPractice gives a
+smaller repository well over half again its load before anything
 refuses. Two ways to choose, for Morgan:
 
-- **One number everywhere.** Simplest; the 90% notice and the per-change
+- **One number everywhere.** Simplest; the headroom notice (within the registry's
+  `headroom_floor_pct` of the total) and the per-change
   growth line are the only brakes in a smaller repository.
 - **One number per kind of repository** (a source set, BestPractice, a
   project). Tighter, at the cost of a few numbers instead of one.

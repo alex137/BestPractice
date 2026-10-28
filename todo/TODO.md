@@ -126,7 +126,7 @@ as_of: 2026-10-28
 | [`todo-2026-10-03-generated-files-are-never-hand-edited`](todo-2026-10-03-generated-files-are-never-hand-edited.md) | Every generated file, in every repository, is generated and never hand-edited. | 25d | ask |  |
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 20d | ask |  |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | 17d | wait |  |
-| [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 0d | wait | Morgan's go on the plan (needs: decision -- Morgan) |
+| [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 0d | wait |  |
 
 ## Unblocked Work
 

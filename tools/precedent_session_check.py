@@ -1274,6 +1274,22 @@ def _session_load_rows():
     except Exception:                                        # noqa: BLE001
         return []
     reg = slt.registry() or {}
+    total_cap = reg.get('session_load_tokens')
+    if isinstance(total_cap, int) and not isinstance(total_cap, bool):
+        # One total (build_views.TOTAL_KEY): the parts have no ceiling of
+        # their own, so the only row is the sum against the total.
+        sizes, total = slt.total_tokens(ROOT)
+        if not sizes:
+            return []
+        parts = ' + '.join(f'{rel} ~{n:,}' for rel, n in sizes.items())
+        name = "what this session loads fits this repository's session-load total"
+        if total > total_cap:
+            return [(name, False, f'~{total:,} tokens ({parts}), over the '
+                     f'{total_cap:,}-token session_load_tokens total. All of '
+                     f'it is read before any work; a reduction pass on the '
+                     f'part that grew brings it back (practice: '
+                     f'session-load-budget)')]
+        return [(name, True, f'~{total:,} of {total_cap:,} ({parts})')]
     surfaces = reg.get('surfaces') or {}
     over, measured = [], []
     for rel in ('AGENTS.md', '.precedent/SESSION_PRACTICES.md'):

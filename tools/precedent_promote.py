@@ -204,6 +204,12 @@ def check_budget(fm, against_paths):
                 current_tokens += bv._approx_tokens(sections.get('rule', ''))
     proposed_tokens = bv._approx_tokens(fm.get('_proposed_rule_text', ''))
     total = current_tokens + proposed_tokens
+    # Under a declared session-load total the resident tier is a part with
+    # no cap of its own (build_views.TOTAL_KEY); the total is held instead.
+    if bv.session_load_total() is not None:
+        return (f"resident tier: ~{current_tokens} current + ~{proposed_tokens} "
+                f"proposed = ~{total}, measured; a session-load total is in "
+                f"force, so session-load-budget holds the sum")
     if total > bv.RESIDENT_BUDGET_TOKENS:
         raise PromoteRefused(
             4, 'budget',

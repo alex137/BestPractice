@@ -148,6 +148,37 @@ OCCASION_INDEX_BUDGET_TOKENS = _budget('occasion_index_tokens', 4000)
 REPO_LOCAL_OCCASION_TOKENS = _budget('repo_local_occasion_tokens', 400)
 
 
+# code-cites-practice: session-load-budget -- ONE TOTAL PER SESSION. Where a
+# repository's registry declares `session_load_tokens`, that total of
+# everything a session loads before it works (SESSION_LOAD_SURFACES in
+# precedent_check.py) is the one budget that refuses, and every part's
+# number -- resident cap, occasion cap, a source's occasion share, each
+# surface's ceiling, the brought and individual budgets -- is measured and
+# reported, never refused. Morgan, 2026-10-28 (strength: decided): "Go, one
+# number everywhere", on spec/SESSION_LOAD_ONE_TOTAL_PLAN.md. WHY: each part
+# was a tight number only the person raises, so moving a rule between sets,
+# copying a set into a repository or fixing how a share is counted moved
+# tokens from one part to another and asked again, while the session paid
+# the same. A registry with no total keeps the per-part budgets, so an
+# install that never declares one behaves exactly as before.
+TOTAL_KEY = 'session_load_tokens'
+
+
+def session_load_total(root=None, registry=None):
+    """-> the `session_load_tokens` total a repository declares, or None.
+
+    `registry` is read when given; else `root`'s own
+    tools/session_load_budgets.json (only that one: another repository's
+    total never binds this one); else the registry beside this engine."""
+    if registry is None:
+        registry = (pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+                    if root is not None else None)
+        if registry is not None and not registry.is_file():
+            return None
+    v = _budget(TOTAL_KEY, None, registry)
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
 def surface_budget(name, default, registry=None):
     """The declared ceiling for ONE named surface in session_load_budgets.json.
 
@@ -361,6 +392,12 @@ def effective_budgets(root, registry=None):
     unapproved raise (2026-10-06). The repo's own engine copy is not imported
     to get them: importing a repo's script runs it."""
     root = pathlib.Path(root)
+    # A declared total is the one budget in force: the parts are measured
+    # and reported, never held to a number, so none of them needs an
+    # approval (TOTAL_KEY says why).
+    total = session_load_total(root, registry)
+    if total is not None:
+        return {TOTAL_KEY: total}
     out = {'resident_block_tokens':
            _budget('resident_block_tokens', 2000, registry) if registry
            else RESIDENT_BUDGET_TOKENS}
@@ -2479,6 +2516,9 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
     resident_budget = None
     occ_budget = (occasion_budget if occasion_budget is not None
                   else OCCASION_INDEX_BUDGET_TOKENS)
+    # Under a declared total the parts are measured, not capped (TOTAL_KEY):
+    # an over-cap part is written without a warning and never exits.
+    capped = session_load_total(agents_md.parent) is None
     while True:
         try:
             block, tokens, n_resident = build_loader_block(
@@ -2488,17 +2528,19 @@ def render_agents_md(practices, agents_md=None, source_levels=None,
             break
         except OccasionIndexBudgetExceeded as e:
             msg = str(e)
-            if STRICT_BUDGETS:
+            if capped and STRICT_BUDGETS:
                 sys.exit(f"build_views FAIL: {msg}")
-            _over_cap_warning(msg)
+            if capped:
+                _over_cap_warning(msg)
             occ_budget = e.tokens
         except ResidentBudgetExceeded as e:
             msg = (f"resident block is ~{e.tokens} tokens, over the "
                    f"{e.budget}-token hard cap -- demote or retire a resident "
                    f"practice before adding another.")
-            if STRICT_BUDGETS:
+            if capped and STRICT_BUDGETS:
                 sys.exit(f"build_views FAIL: {msg}")
-            _over_cap_warning(msg)
+            if capped:
+                _over_cap_warning(msg)
             resident_budget = e.tokens
     if BEGIN_MARKER not in original or END_MARKER not in original:
         sys.exit(f"build_views FAIL: {agents_md} has no "
@@ -3517,7 +3559,8 @@ def main():
         new_agents, (block_tokens, n_resident, n_total) = render_agents_md(
             block_practices, agents_md, source_levels=levels,
             defers_sources=defers_any_source(root), occasion_budget=_cap)
-    _own = own_occasion_allowance(root)
+    _total = session_load_total(root)
+    _own = own_occasion_allowance(root) if _total is None else None
     if _own is not None:
         share = occasion_share(practices)
         if share > _own:
@@ -3533,6 +3576,12 @@ def main():
                 f"longest index_clause values; raising the allowance is the "
                 f"person's decision, with the reason recorded there.")
     if STRICT_BUDGETS:
+        if _total is not None:
+            print(f"build_views --budgets OK: a session-load total is in "
+                  f"force ({TOTAL_KEY} {_total:,}), so the resident block, the "
+                  f"occasion index and this source's occasion share are "
+                  f"measured, not capped; session-load-budget holds the total")
+            return 0
         print("build_views --budgets OK: the resident block, the occasion "
               "index and this source's occasion share are within their caps")
         return 0

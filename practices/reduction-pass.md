@@ -45,6 +45,11 @@ text is still somewhere it already reads.
 6. **Move a whole surface out of the always-loaded set.** Last, and usually
    empty: most such surfaces are the only channel something has.
 
+**Under a declared session-load total** (session-load-budget), moves 4 and
+5 are about the total: no part carries a cap of its own, and the line the
+merge and push gates print, naming which part a branch grew, says where to
+start.
+
 **Over a target, review the generated half practice by practice.** The
 menu cannot trim the occasion index or the resident block, because their
 text lives in the practices. So read every practice in both, with evidence,

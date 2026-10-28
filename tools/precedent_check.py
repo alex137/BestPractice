@@ -13530,6 +13530,11 @@ def _loader_within_caps(ctx):
     # build_views.py writes an over-cap block with a warning since
     # 2026-09-30, so a branch can still land; this is where the cap
     # is held, at the tier that must hold it.
+    if _session_load_total() is not None:
+        raise NotApplicable('a session-load total is declared '
+                            '(session_load_tokens), so the loader block\'s '
+                            'parts are measured, not capped: '
+                            'session-load-budget holds the total')
     builder = _tool_path('tools/build_views.py')
     if builder is None:
         raise NotApplicable('tools/build_views.py is absent')
@@ -13568,6 +13573,10 @@ def _loader_within_caps(ctx):
        practice_backed=False,
        selects_on=(_BUDGET_REGISTRY, 'precedent.json'))
 def _session_file_allowances_fit(ctx):
+    if _session_load_total() is not None:
+        raise NotApplicable('a session-load total is declared '
+                            '(session_load_tokens), so the session file\'s '
+                            'sources are measured, not held to allowances')
     reg = _session_load_budgets() or {}
     row = (reg.get('surfaces') or {}).get(_SESSION_FILE) or {}
     hard = row.get('hard_ceiling')
@@ -13631,6 +13640,14 @@ def _session_load_budgets():
         return json.loads(f.read_text(encoding='utf-8'))
     except (ValueError, OSError):
         return None
+
+
+def _session_load_total():
+    """-> the `session_load_tokens` total this repository declares, or None.
+    Declared, it is the one session-load budget that refuses; the parts are
+    measured and reported (build_views.TOTAL_KEY says why)."""
+    v = (_session_load_budgets() or {}).get('session_load_tokens')
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
 
 
 def _charge_brought_share(n):
@@ -13771,39 +13788,68 @@ def _session_load_budget(ctx):
     except Exception:
         def approx(text):
             return int(len(text.split()) * 1.3)
+    total_cap = _session_load_total()
+    if total_cap is not None:
+        # ONE TOTAL (build_views.TOTAL_KEY): the sum of what a session loads
+        # is held to the declared number, and no part has a ceiling of its
+        # own, so moving tokens from one part to another never refuses.
+        sizes, grew = {}, False
+        for rel in SESSION_LOAD_SURFACES:
+            f = ROOT / rel
+            if not f.is_file():
+                continue
+            sizes[rel] = approx(_as_measured(
+                rel, f.read_text(encoding='utf-8', errors='replace')))
+            grew = grew or _change_grew_surface(ctx, rel, sizes[rel], approx)
+        total = sum(sizes.values())
+        if total > total_cap and grew:
+            parts = ' + '.join(f'{rel} {n:,}' for rel, n in sizes.items())
+            out.append(Finding(
+                'tools/session_load_budgets.json',
+                f'a session here loads {total:,} tokens before it works '
+                f'({parts}), over the {total_cap:,}-token session_load_tokens '
+                f'total. Run the reduction pass on whichever part grew -- '
+                f'delete what is duplicated, retire what cannot happen any '
+                f'more, move what is live and long behind a path or a gate -- '
+                f'rather than raising the total; only the person raises it '
+                f'(practice: session-load-budget)'))
     for rel in SESSION_LOAD_SURFACES:
         f = ROOT / rel
         if not f.is_file():
             continue
         text = f.read_text(encoding='utf-8', errors='replace')
         n = approx(_as_measured(rel, text))
-        entry = surfaces.get(rel)
-        if entry is None:
-            out.append(Finding(rel, f'is loaded into every session '
-                                    f'({n:,} tokens) and has no ceiling in '
-                                    f'tools/session_load_budgets.json, so '
-                                    f'nothing can tell you it grew'))
-            continue
-        ceiling = entry.get('ceiling')
-        if not isinstance(ceiling, int):
-            out.append(Finding(rel, 'has a registry entry with no integer '
-                                    '"ceiling"'))
-            continue
-        if rel == '.precedent/SESSION_PRACTICES.md':
-            # The sets a person brings are charged to that person's own
-            # budget, not to this repository's ceiling (Morgan, 2026-10-03,
-            # strength: assented; precedent_session_practices.brought_share).
-            n, brought_finding = _charge_brought_share(n)
-            if brought_finding:
-                out.append(brought_finding)
-        if n > ceiling and _change_grew_surface(ctx, rel, n, approx):
-            out.append(Finding(rel, f'{n:,} tokens, every session, over its '
-                                    f'declared ceiling of {ceiling:,}. Run the '
-                                    f'reduction pass -- delete what is '
-                                    f'duplicated, retire what cannot happen '
-                                    f'any more, split what is still live and '
-                                    f'still long -- rather than raising the '
-                                    f'number'))
+        # Under a total no file has a ceiling of its own; only the
+        # duplication half below still applies to each one.
+        if total_cap is None:
+            entry = surfaces.get(rel)
+            if entry is None:
+                out.append(Finding(rel, f'is loaded into every session '
+                                        f'({n:,} tokens) and has no ceiling in '
+                                        f'tools/session_load_budgets.json, so '
+                                        f'nothing can tell you it grew'))
+                continue
+            ceiling = entry.get('ceiling')
+            if not isinstance(ceiling, int):
+                out.append(Finding(rel, 'has a registry entry with no integer '
+                                        '"ceiling"'))
+                continue
+            if rel == '.precedent/SESSION_PRACTICES.md':
+                # The sets a person brings are charged to that person's own
+                # budget, not to this repository's ceiling (Morgan,
+                # 2026-10-03, strength: assented;
+                # precedent_session_practices.brought_share).
+                n, brought_finding = _charge_brought_share(n)
+                if brought_finding:
+                    out.append(brought_finding)
+            if n > ceiling and _change_grew_surface(ctx, rel, n, approx):
+                out.append(Finding(rel, f'{n:,} tokens, every session, over '
+                                        f'its declared ceiling of {ceiling:,}. '
+                                        f'Run the reduction pass -- delete '
+                                        f'what is duplicated, retire what '
+                                        f'cannot happen any more, split what '
+                                        f'is still live and still long -- '
+                                        f'rather than raising the number'))
         # ...and whether this CHANGE added text the catalogue already holds.
         # Scoped to what the change adds, deliberately: reporting every
         # pre-existing overlap would fail forever on day one and get switched

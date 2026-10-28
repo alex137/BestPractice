@@ -3737,6 +3737,9 @@ def check_loader_caps_unmeasured_without_a_declared_source():
         (c / 'tools').mkdir(parents=True)
         for f in list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tools').glob('*.json')):
             shutil.copy(f, c / 'tools' / f.name)
+        # Per-part caps bind only where no session-load total is declared
+        # (build_views.TOTAL_KEY); this fixture tests them, so it has none.
+        _drop_session_load_total(c / 'tools' / 'session_load_budgets.json')
         shutil.copytree(ROOT / 'practices', c / 'up' / 'practices')
         (c / 'precedent.json').write_text(json.dumps({'visibility': 'private', 'sources': [
             {'level': 'universal', 'name': 'precedent', 'path': 'up'},
@@ -19766,6 +19769,9 @@ def check_changed_files_only_judges_the_change():
         start = git('rev-parse', 'HEAD').stdout.strip()
         reg = wt / 'tools' / 'session_load_budgets.json'
         data = json.loads(reg.read_text(encoding='utf-8'))
+        # Per-part caps bind only where no session-load total is declared
+        # (build_views.TOTAL_KEY); this fixture tests them, so it has none.
+        data.pop('session_load_tokens', None)
         data['resident_block_tokens'] = 100
         reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
         bv = subprocess.run([sys.executable, 'tools/build_views.py'], cwd=wt,
@@ -25684,6 +25690,9 @@ def check_precedent_check_fires():
             # happened to this case too, within the hour.
             def _lower(t):
                 d = json.loads(t)
+                # The per-surface ceilings bind only with no session-load
+                # total declared (build_views.TOTAL_KEY); this plants them.
+                d.pop('session_load_tokens', None)
                 for e in d['surfaces'].values():
                     e['ceiling'] = 10
                 return json.dumps(d, indent=2) + '\n'
@@ -25907,6 +25916,8 @@ def check_precedent_check_fires():
         def _plant_small_resident_cap(repo):
             reg = repo / 'tools' / 'session_load_budgets.json'
             data = json.loads(reg.read_text(encoding='utf-8'))
+            # Caps bind only with no session-load total declared.
+            data.pop('session_load_tokens', None)
             data['resident_block_tokens'] = 100
             reg.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
         case('loader-within-caps', _plant_small_resident_cap)
@@ -66331,6 +66342,153 @@ def check_copy_in_records_the_budget_it_brings():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def _drop_session_load_total(reg_path):
+    """Remove `session_load_tokens` from a fixture's copied registry, so a
+    test of the per-part budgets sees them in force: a declared total turns
+    them into measurements (build_views.TOTAL_KEY)."""
+    try:
+        data = json.loads(pathlib.Path(reg_path).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    if isinstance(data, dict) and data.pop('session_load_tokens', None) is not None:
+        pathlib.Path(reg_path).write_text(json.dumps(data, indent=2) + '\n',
+                                          encoding='utf-8')
+
+
+def check_session_load_total_is_the_one_budget():
+    """Where a repository declares `session_load_tokens`, the total of what a
+    session loads is the one budget that refuses: tokens moving from one
+    always-loaded file to another never refuse, the per-part checks stand
+    aside, budget-within-approval asks only about the total, and Update
+    Vendors copies the person's total, with their words, into the
+    repository. A repository with no total keeps every per-part ceiling.
+
+    WHY. Morgan, 2026-10-28 (strength: decided): "Go, one number
+    everywhere", on spec/SESSION_LOAD_ONE_TOTAL_PLAN.md. Rules moved between
+    sets, sets copied in and a fix to how a share is counted each moved
+    tokens from one budget to another, and each asked him again while the
+    session paid the same."""
+    import tempfile
+    import types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import build_views as bv
+        import precedent_check as pc
+        import precedent_update as pu
+        import precedent_session_practices as psp
+    finally:
+        sys.path.pop(0)
+    words = 'Zz, 2026-10-28: "one number everywhere"'
+    cases = []
+    saved_root, saved_bb = pc.ROOT, psp.brought_budget
+    ctx = types.SimpleNamespace(base=None, changed=(), read_base=lambda rel: None)
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'repo'
+        (repo / 'tools').mkdir(parents=True)
+        (repo / '.precedent').mkdir()
+        reg_path = repo / 'tools' / 'session_load_budgets.json'
+
+        def files(agents, session):
+            (repo / 'AGENTS.md').write_text('w ' * agents)
+            (repo / 'CLAUDE.md').write_text('@AGENTS.md\n')
+            (repo / '.precedent' / 'SESSION_PRACTICES.md').write_text('w ' * session)
+
+        def registry(total=None, total_max=None):
+            reg = {'headroom_floor_pct': 5,
+                   'surfaces': {'AGENTS.md': {'ceiling': 1000},
+                                'CLAUDE.md': {'ceiling': 100},
+                                '.precedent/SESSION_PRACTICES.md': {'ceiling': 1000}},
+                   'approved_budgets': {}}
+            if total is not None:
+                reg['session_load_tokens'] = total
+                reg['approved_budgets']['session_load_tokens'] = {
+                    'max': total if total_max is None else total_max,
+                    'strength': 'decided', 'approved_by': words}
+            reg_path.write_text(json.dumps(reg))
+
+        def findings(fn):
+            try:
+                return [str(f) for f in fn(ctx)]
+            except pc.NotApplicable:
+                return None
+        try:
+            pc.ROOT = repo
+            registry(total=3000)
+            cases.append(('a declared total is the only budget in force',
+                          bv.effective_budgets(repo, registry=reg_path)
+                          == {'session_load_tokens': 3000},
+                          str(bv.effective_budgets(repo, registry=reg_path))))
+            # About 1,300 tokens each side: a rule "moved" from the
+            # session file into AGENTS.md puts AGENTS.md over its old
+            # 1,000 ceiling with the total unchanged.
+            files(agents=1500, session=500)
+            got = findings(pc._session_load_budget)
+            cases.append(('tokens moved between files under the total: no '
+                          'finding, though AGENTS.md is over its old ceiling',
+                          got == [], str(got)))
+            cases.append(('loader-within-caps stands aside under a total',
+                          findings(pc._loader_within_caps) is None))
+            cases.append(('session-file-allowances-fit stands aside under a total',
+                          findings(pc._session_file_allowances_fit) is None))
+            cases.append(('budget-within-approval passes the approved total',
+                          findings(pc._budget_within_approval) == [],
+                          str(findings(pc._budget_within_approval))))
+            files(agents=1500, session=1500)
+            got = findings(pc._session_load_budget)
+            cases.append(('the total over its number refuses, naming each part',
+                          bool(got) and any('session_load_tokens' in g
+                                            and 'AGENTS.md' in g for g in got),
+                          str(got)))
+            registry(total=5000, total_max=3000)
+            got = findings(pc._budget_within_approval)
+            cases.append(('a total above what the person approved refuses',
+                          bool(got) and any('session_load_tokens' in g for g in got),
+                          str(got)))
+            # CONTROL: no total, the same move refuses on the part's ceiling.
+            registry()
+            files(agents=1500, session=500)
+            got = findings(pc._session_load_budget)
+            cases.append(('CONTROL: with no total, a part over its own ceiling '
+                          'still refuses', bool(got)
+                          and any('AGENTS.md' in g for g in got), str(got)))
+            # Update Vendors copies the person's total and their words.
+            ind = pathlib.Path(td) / 'individual'
+            ind.mkdir()
+
+            def person(approval):
+                man = {'name': 'zz-individual', 'session_load_tokens': 4000}
+                if approval:
+                    man['session_load_approval'] = {'strength': 'decided',
+                                                    'approved_by': words}
+                (ind / 'precedent-source.json').write_text(json.dumps(man))
+            psp.brought_budget = lambda r=None, key='brought_sets_tokens': (
+                (4000, str(ind)) if key == 'session_load_tokens' else (None, str(ind)))
+            person(approval=False)
+            said = pu.record_person_total(repo, today='2026-10-28')
+            cases.append(('CONTROL: a total with no approval beside it is not '
+                          'copied', said is None and 'session_load_tokens'
+                          not in json.loads(reg_path.read_text()), str(said)))
+            person(approval=True)
+            said = pu.record_person_total(repo, today='2026-10-28')
+            reg = json.loads(reg_path.read_text())
+            entry = reg['approved_budgets'].get('session_load_tokens') or {}
+            cases.append(("the person's total is copied with their words",
+                          bool(said) and reg.get('session_load_tokens') == 4000
+                          and entry.get('max') == 4000
+                          and words in entry.get('approved_by', ''),
+                          f'{said} {entry}'))
+            cases.append(('copying it again changes nothing',
+                          pu.record_person_total(repo, today='2026-10-29') is None))
+            (repo / 'precedent.json').write_text(json.dumps({'sources': []}))
+            cases.append(('a copy-in records nothing under a total',
+                          pu.record_copy_in_budget(repo) is None))
+        finally:
+            pc.ROOT, psp.brought_budget = saved_root, saved_bb
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a declared session-load total is the one budget that refuses '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_private_scrub_names_a_copied_set_by_its_own_repo():
     """private-repo-scrub names a private set copied INTO a repository by
     the repository its precedent.json entry declares, never by git's
@@ -69951,6 +70109,10 @@ def check_universal_occasion_share_is_capped():
     # warns at the quick check and refuses at the full check
     # (Morgan, 2026-09-30, strength: decided).
     real, argv, strict = bv.own_occasion_allowance, sys.argv, bv.STRICT_BUDGETS
+    # The share's cap binds only where no session-load total is declared
+    # (build_views.TOTAL_KEY); this tests it, so the total is set aside.
+    real_total = bv.session_load_total
+    bv.session_load_total = lambda *a, **k: None
     bv.own_occasion_allowance = lambda root: 10
     for flag in ('--check', '--budgets'):
         sys.argv = ['build_views.py', flag]
@@ -69976,6 +70138,7 @@ def check_universal_occasion_share_is_capped():
             cases.append(('...and --budgets, the full check\'s, refuses it',
                           refused, why))
     bv.own_occasion_allowance = real
+    bv.session_load_total = real_total
     d = pathlib.Path(tempfile.mkdtemp())
     try:
         for name, level, share_ in (('uni', 'universal', 2000),
@@ -70797,6 +70960,9 @@ def check_budget_approvals_see_computed_raises():
         shutil.copytree(ROOT, repo, ignore=shutil.ignore_patterns(
             '.git', '__pycache__', '*.pyc', 'prompts'))
         reg_p = repo / 'tools' / 'session_load_budgets.json'
+        # Per-part caps bind only where no session-load total is declared
+        # (build_views.TOTAL_KEY); this fixture tests them, so it has none.
+        _drop_session_load_total(reg_p)
         bv_p = repo / 'tools' / 'build_views.py'
         src_p = repo / 'precedent-source.json'
         pristine = {p: p.read_text(encoding='utf-8') for p in (reg_p, bv_p, src_p)}
@@ -91304,6 +91470,7 @@ def main():
     check_update_all_reads_what_the_update_prints()
     check_private_scrub_names_a_copied_set_by_its_own_repo()
     check_copy_in_records_the_budget_it_brings()
+    check_session_load_total_is_the_one_budget()
     check_legacy_workflow_sweep_honours_the_persons_approval()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()

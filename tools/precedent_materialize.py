@@ -1997,7 +1997,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
               "upstream-bug-stops-here) -- " + _three_answers() + ": "
               + ', '.join(ahead), file=sys.stderr)
 
-    rstats = pr.resident_stats(res)
+    rstats = pr.resident_stats(res, out_dir)
     if rstats['over_budget']:
         raise MaterializeError(
             f"combined resident block is ~{rstats['tokens']} tokens, over "

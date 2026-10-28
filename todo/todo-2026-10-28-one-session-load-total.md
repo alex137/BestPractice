@@ -6,10 +6,10 @@ severity:          medium
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "Morgan's go on the plan (needs: decision -- Morgan)"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "go, one number everywhere"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-28
 closed:            null
@@ -28,6 +28,30 @@ one refusing number per session, the total it loads from its generated
 files, declared once by the person and copied into each repository so CI
 reads it too; no per-part number is stored or approved. Revised the same
 day after an independent review.
+
+## Decided
+
+Morgan, 2026-10-28 (strength: decided): "Go, one number everywhere" --
+the revised plan, with one person-wide total rather than one per kind of
+repository.
+
+## Built
+
+2026-10-28, on branch 2026-10-28-themorgan-one-session-load-total-ayyyj-mtcmv:
+the total is the one refusing budget wherever a registry declares
+`session_load_tokens`; Update Vendors copies the person's total and their
+words from the individual set (`record_person_total` in
+[tools/precedent_update.py](../tools/precedent_update.py)); the gates print
+which part a branch grew; tests in
+[tools/verify_harness.py](../tools/verify_harness.py)
+(`check_session_load_total_is_the_one_budget`).
+
+Left on purpose (needs: every repository to carry the total first -- an
+Update Vendors run on each): deleting `brought_sets_tokens` and
+`individual_set_tokens` from the individual set, and the copy-in approval
+code in Update Vendors. Under a total they are already ignored; deleted
+before a repository has its total, they would charge the brought sets to
+that repository's ceiling and refuse there.
 
 ## Closes when
 

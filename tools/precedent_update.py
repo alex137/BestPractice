@@ -428,6 +428,10 @@ def record_copy_in_budget(repo, today=None):
     approved = data.get('approved_budgets') if isinstance(data, dict) else None
     if not isinstance(approved, dict) or not isinstance(cfg, dict):
         return None
+    # Under a session-load total a copy-in moves tokens between parts that
+    # carry no budget, so there is nothing to record (record_person_total).
+    if isinstance(data.get('session_load_tokens'), int):
+        return None
     answers = cfg.get('copy_in') if isinstance(cfg.get('copy_in'), dict) else {}
     shares, words, unanswered = {}, [], []
     for e in cfg.get('sources') or []:
@@ -508,6 +512,70 @@ def record_copy_in_budget(repo, today=None):
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return ('; '.join(said) + ': it stands on the person\'s copy-in answer, '
             'recorded with it')
+
+
+def record_person_total(repo, today=None):
+    """-> a sentence for the report when it wrote the person's session-load
+    total into this repository's registry, else None.
+
+    code-cites-practice: session-load-budget
+
+    The person declares one total for every repository they work in --
+    `session_load_tokens` in their individual set's precedent-source.json,
+    with their words for it in `session_load_approval` -- and it binds here
+    only once it is in THIS repository's tools/session_load_budgets.json:
+    the daily and post-merge checks run without the individual set, so a
+    total that lived only there would leave every per-part budget refusing
+    in CI (spec/SESSION_LOAD_ONE_TOTAL_PLAN.md, from its review). Morgan,
+    2026-10-28 (strength: decided): "Go, one number everywhere".
+
+    The approval is copied with the number, so budget-within-approval reads
+    the person's own words here; a total with no valid approval beside it is
+    not copied. A registry that does not exist yet is left to
+    seed_budgets_step, and the next run records the total."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        import precedent_session_practices as _psp
+        total, ind_path = _psp.brought_budget(str(repo), 'session_load_tokens')
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not isinstance(total, int) or isinstance(total, bool) or not ind_path:
+        return None
+    try:
+        man = json.loads((pathlib.Path(ind_path) / 'precedent-source.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    appr = man.get('session_load_approval') if isinstance(man, dict) else None
+    if not (isinstance(appr, dict) and appr.get('strength') in ('decided', 'assented')
+            and str(appr.get('approved_by') or '').strip()):
+        return None
+    approved = data.get('approved_budgets')
+    if not isinstance(approved, dict):
+        approved = data['approved_budgets'] = {}
+    was = data.get('session_load_tokens')
+    entry = approved.get('session_load_tokens')
+    if was == total and isinstance(entry, dict) and entry.get('max') == total:
+        return None
+    import time as _time
+    day = today or _time.strftime('%Y-%m-%d')
+    data['session_load_tokens'] = total
+    approved['session_load_tokens'] = {
+        'max': total, 'strength': appr['strength'],
+        'approved_by': (f"{appr['approved_by']} -- the person's one total, "
+                        f"copied from their individual set by Update Vendors "
+                        f"on {day}")}
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return (f'session_load_tokens set to {total:,} from the person\'s individual '
+            f'set' + (f' (was {was:,})' if isinstance(was, int) else '')
+            + ': the one session-load total that refuses here; the parts are '
+            'measured and reported')
 
 
 def approval_gap(repo):
@@ -5938,6 +6006,9 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     gap = approval_gap(repo)
     if gap:
         rep.step('session-load budget', gap)
+    total = record_person_total(repo)
+    if total:
+        rep.step('session-load budget', total)
     raised = record_copy_in_budget(repo)
     if raised:
         rep.step('session-load budget', raised)
