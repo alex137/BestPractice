@@ -48785,7 +48785,41 @@ def check_leftover_pack_is_flagged_after_migration():
         cases.append(('an unparseable pack manifest is still flagged -- '
                       'unreadable is not absent', MARK in out))
 
-    failed = [n for n, ok in cases if not ok]
+        # 2026-10-28: copy-in records a copied set at the old pack's own
+        # file name; a consumer's main went red on two of them.
+        def _copied(base, entry, manifest='{}', carries=None):
+            _repo(base, migrated=True, pack=False)
+            (base / 'precedent.json').write_text(json.dumps({'sources': [
+                {'level': 'universal', 'name': 'precedent', 'path': '.'}, entry]}),
+                encoding='utf-8')
+            if carries is not None:
+                (base / entry['path']).mkdir(parents=True, exist_ok=True)
+                (base / entry['path'] / 'precedent-source.json').write_text(
+                    json.dumps({'carries': carries}), encoding='utf-8')
+            for n in ['zz-set'] + [c['name'] for c in carries or []]:
+                (base / 'process' / f'manifest_{n}.json').write_text(
+                    manifest, encoding='utf-8')
+            r = subprocess.run(
+                [sys.executable, str(base / 'process' / 'upstream' / 'tools'
+                                     / 'precedent_check.py'),
+                 '--only', 'migration-scrubs-vocabulary'],
+                capture_output=True, text=True, cwd=str(base), timeout=180)
+            return r.stdout + r.stderr
+        copied = {'level': 'shared', 'name': 'zz-set', 'path': 'process/zz-set',
+                  'vendored': True}
+        out = _copied(tmp / 'f', copied,
+                      carries=[{'name': 'zz-inner', 'path': 'inner'}])
+        cases.append(('a copied-in set\'s manifest, and one a copy carries, '
+                      'are not leftover packs', MARK not in out, ))
+        out = _copied(tmp / 'g', dict(copied, vendored=False))
+        cases.append(('CONTROL: the same manifest with no copy-in declared is '
+                      'still flagged', MARK in out and 'manifest_zz-set' in out))
+        out = _copied(tmp / 'h', dict(copied, name='zz-other'),
+                      manifest='{"upstream": {"vendored_at": "process/zz-set"}}')
+        cases.append(('a copied-in set recorded by its tree, under another '
+                      'file name, is not a leftover pack', MARK not in out))
+
+    failed = [c[0] for c in cases if not c[1]]
     check(f'a leftover pre-migration practice pack is flagged after migration '
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
@@ -66062,6 +66096,56 @@ def check_update_all_vendors_skips_its_own_source():
     bad = [n for n, ok in cases if not ok]
     check(f'Update All Vendors skips its own source '
           f'({len(cases)} stated cases)', not bad and cases, '; '.join(bad))
+
+
+def check_legacy_workflow_sweep_honours_the_persons_approval():
+    """A workflow on the pre-Precedent names list that the person approved
+    in github_ci_approved, in their own words and pinned to its content, is
+    not left for the person again; one with no approval, or whose content
+    has changed since, still is.
+
+    WHY. 2026-10-28: a consumer's update dropped its local_ci_workflows
+    declaration, which a consumer does not honour, and then stopped on its
+    three approved checks, because this sweep read only that declaration."""
+    import hashlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+    finally:
+        sys.path.pop(0)
+    rel = '.github/workflows/status-claims-check.yml'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        wf = root / rel
+        wf.parent.mkdir(parents=True)
+        wf.write_text('on: pull_request\njobs: {}\n', encoding='utf-8')
+
+        def run(entry):
+            (root / 'precedent.json').write_text(json.dumps(
+                {'github_ci_approved': {rel: entry} if entry else {}}),
+                encoding='utf-8')
+            got = []
+            orig = pve._left
+            pve._left = lambda what, why: got.append(what)
+            try:
+                pve._retire_legacy_workflows(root, {}, 'consumer', None)
+            finally:
+                pve._left = orig
+            return rel in got
+        sha = hashlib.sha256(wf.read_bytes()).hexdigest()
+        ok = {'sha256': sha,
+              'approved_by': 'Zz, 2026-10-19: "yes, keep it"'}
+        cases.append(('approved in the person\'s words, content unchanged: '
+                      'not left again', not run(ok)))
+        cases.append(('CONTROL: no approval: left for the person', run(None)))
+        cases.append(('approved, but the content changed since: left',
+                      run(dict(ok, sha256='0' * 64))))
+        cases.append(('an approval that quotes nobody: left',
+                      run(dict(ok, approved_by='Zz, 2026-10-19'))))
+    bad = [n for n, ok_ in cases if not ok_]
+    check(f'the pre-Precedent workflow sweep honours the person\'s approval '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_update_all_reads_what_the_update_prints():
@@ -90951,6 +91035,7 @@ def main():
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_legacy_workflow_sweep_honours_the_persons_approval()
     check_promote_commits_carry_a_session_trailer()
     check_promote_marks_other_sessions_commits()
     check_sync_names_files_still_naming_removed_checks()

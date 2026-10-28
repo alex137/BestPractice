@@ -4241,6 +4241,30 @@ def _retire_one(dest_root, pd, rel, reason, refusals=None):
     return True
 
 
+def _person_approved_workflow(dest_root, rel, approval_problem=None):
+    """True when precedent.json's github_ci_approved keeps `rel`: an entry
+    in the person's own words (not an install's `template`), that the
+    approval check finds no problem with, pinned to the file's current
+    content. The one test both workflow sweeps ask. A judgment that cannot
+    be made (the approval check does not import) keeps nothing."""
+    if approval_problem is None:
+        try:
+            sys.path.insert(0, str(ENGINE_DIR))
+            import precedent_check as _pc
+            approval_problem = _pc._approval_problem
+        except Exception:                                      # noqa: BLE001
+            return False
+    try:
+        entry = (json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(GITHUB_CI_APPROVED_KEY) or {}).get(rel)
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return False
+    path = dest_root / rel
+    return (isinstance(entry, dict) and path.is_file()
+            and approval_problem(entry) is None and not entry.get('template')
+            and entry.get('sha256') == _sha256(path))
+
+
 def _retire_legacy_workflows(dest_root, manifest, kind, pd):
     """-> ({rel: text} deleted, [rel kept]). See the block comment above."""
     tracked = set(manifest.get('ci_workflow_files') or ())
@@ -4275,6 +4299,12 @@ def _retire_legacy_workflows(dest_root, manifest, kind, pd):
         if kinds is not None and kind not in kinds:
             continue
         if not (dest_root / rel).is_file() or rel in tracked or rel in declared:
+            continue
+        if _person_approved_workflow(dest_root, rel):
+            # The person kept it in their own words, pinned to this content
+            # (2026-10-28: a consumer's three approved checks stopped its
+            # update here once the update dropped the local_ci_workflows
+            # declaration a consumer does not honour).
             continue
         _left(rel, 'a workflow name from before Precedent with no stock shape '
                    'to recognise it by, so nothing here deletes it. Read what '
@@ -4365,13 +4395,6 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
     # left for the person. Whatever this engine ships is not that, whoever
     # said it first.
     _CARRIED_LEFT[:] = [(i, w) for i, w in _CARRIED_LEFT if i not in shipped]
-    try:
-        approved = json.loads((dest_root / 'precedent.json').read_text(
-            encoding='utf-8')).get(GITHUB_CI_APPROVED_KEY) or {}
-    except (OSError, ValueError, AttributeError):             # noqa: BLE001
-        approved = {}
-    if not isinstance(approved, dict):
-        approved = {}
     removed = {}
     for path in sorted(wf_dir.iterdir()):
         if not (path.is_file() and path.suffix in ('.yml', '.yaml')):
@@ -4386,10 +4409,7 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         # already covered, deleting it").
         if rel in shipped:
             continue
-        entry = approved.get(rel)
-        if (isinstance(entry, dict) and approval_problem(entry) is None
-                and not entry.get('template')
-                and entry.get('sha256') == _sha256(path)):
+        if _person_approved_workflow(dest_root, rel, approval_problem):
             continue                  # the person asked for this one
         why = _unsafe_to_replace(dest_root, rel)
         if why:
