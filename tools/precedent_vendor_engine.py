@@ -5829,15 +5829,14 @@ def parse_copy_in_answers(values):
     return out, bad
 
 
-def timezone_offer(dest_root, user_config=None):
-    """-> one line offering the owner's own zone as precedent.json's
-    `fallback_timezone`, or None. Offered, never written: the person says
-    yes, and the session adds the line.
+def owner_timezone(dest_root, user_config=None):
+    """-> (login, zone) when precedent.json should carry the owner's own zone
+    as its `fallback_timezone`, or None.
 
-    Offered only when all of it holds: precedent.json declares no
-    fallback_timezone; it names exactly one maintainer; the person running
-    this is that maintainer (their declared GitHub username); and their
-    identity.json declares a zone that loads.
+    Only when all of it holds: precedent.json declares no fallback_timezone;
+    it names exactly one maintainer; the person running this is that
+    maintainer (their declared GitHub username); and their identity.json
+    declares a zone that loads.
 
     WHY (2026-10-08, from a consumer). A single person's repository never
     declared fallback_timezone, so its GitHub Actions job -- where no
@@ -5849,7 +5848,7 @@ def timezone_offer(dest_root, user_config=None):
         cfg = json.loads((root / 'precedent.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
-    if not isinstance(cfg, dict) or cfg.get('fallback_timezone'):
+    if not isinstance(cfg, dict) or 'fallback_timezone' in cfg:
         return None
     people = [m for m in cfg.get('maintainers') or [] if isinstance(m, dict)]
     if len(people) != 1:
@@ -5870,17 +5869,46 @@ def timezone_offer(dest_root, user_config=None):
         ZoneInfo(zone)
     except Exception:                                           # noqa: BLE001
         return None
+    return login, zone
+
+
+def apply_owner_timezone(dest_root, user_config=None):
+    """Write the owner's own zone as precedent.json's `fallback_timezone`
+    when owner_timezone says it belongs there. -> (login, zone) written, or
+    None. Never touches a precedent.json that already has the key, whatever
+    its value: a team's or a shared set's zone is its own decision.
+
+    WHY WRITTEN, NOT OFFERED (Morgan, 2026-10-28, strength: decided: "Go,
+    fix it in the engine; leave the shared sets"). Until then this was a
+    question every update asked the only maintainer, whose identity already
+    declares the zone -- asking for what the person has declared is the
+    failure declared-default-is-applied names. The report says what was
+    written, and the line is the repository's to change."""
+    got = owner_timezone(dest_root, user_config)
+    if not got:
+        return None
+    path = pathlib.Path(dest_root) / 'precedent.json'
     try:
-        import precedent_time as _pt
-        last = _pt.FALLBACK_TZ
-    except Exception:                                           # noqa: BLE001
-        last = 'the engine\'s last-resort zone'
-    return (f'@{login} is this repository\'s only maintainer -- you -- and '
-            f'precedent.json declares no fallback_timezone, so whatever runs '
-            f'where your identity does not reach (a GitHub Actions job, its '
-            f'failure records and issue stamps) dates in {last}. Say yes to '
-            f'add "fallback_timezone": "{zone}" (your zone, from your '
-            f'identity.json) to precedent.json.')
+        text = path.read_text(encoding='utf-8')
+        cfg = json.loads(text)
+    except (OSError, ValueError):
+        return None
+    line = '  "fallback_timezone": ' + json.dumps(got[1]) + ','
+    if text.startswith('{\n') and len(cfg) > 0:
+        path.write_text('{\n' + line + '\n' + text[2:], encoding='utf-8')
+    else:
+        cfg = dict({'fallback_timezone': got[1]}, **cfg)
+        path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    try:
+        if json.loads(path.read_text(encoding='utf-8')).get(
+                'fallback_timezone') != got[1]:
+            path.write_text(text, encoding='utf-8')
+            return None
+    except (OSError, ValueError):
+        path.write_text(text, encoding='utf-8')
+        return None
+    return got
 
 
 def _rev_text(repo_dir, *args):
