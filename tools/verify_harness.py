@@ -67839,6 +67839,15 @@ def check_attaching_a_source_needs_no_prompt():
                     os.environ[k] = v
     cases.append(('the owners are the individual set and the sets it brings',
                   owners == ['example', 'owner'], owners))
+    tpl_allow, _ = pve._refresh_allow_rules('consumer', tpl, ROOT)
+    src_allow, src_ask = pve._refresh_allow_rules('source', tpl, ROOT)
+    cases.append(('THE DISCRIMINATING CASE for sets: a practice set gets the attach '
+                  'rules too, and none of the engine tool rules',
+                  all(r in src_allow for r in pve.ATTACH_ALLOW_RULES)
+                  and pve.ENGINE_ALLOW_RULE not in src_allow and src_ask == []
+                  and pve.ENGINE_ALLOW_RULE in tpl_allow, src_allow))
+    cases.append(('a manifest with no kind gets nothing',
+                  pve._refresh_allow_rules(None, tpl, ROOT) == ([], []), ''))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'attaching a declared practice source needs no prompt ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
