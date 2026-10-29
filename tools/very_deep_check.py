@@ -8903,6 +8903,8 @@ STAGES_EMBED = 'checks-by-stage'
 # work already on the branch. 'moves-nothing': the Debut.
 STAGE_ROUTES = {
     '_land_composed': ('Booked: the land onto staging', 'before', 'staging'),
+    'land_confirm': ('Booked: --land-confirm, what staging took after the merge',
+                     'after', 'staging'),
     '_promote_to_main_fast': ('Produce: the fast move into main (the default)',
                               'before', 'main'),
     '_promote_to_main': ('Produce: the --full route, on the person\'s own words',
