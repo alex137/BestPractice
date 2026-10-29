@@ -7268,15 +7268,16 @@ def template_text_at(clone, rev, path, pinned_sha, limit=200):
     back the template text its decision was made on."""
     if not clone or not rev or not pinned_sha:
         return None
-    for sha in _rev_text(clone, 'log', f'-{limit}', '--format=%H', rev,
-                         '--', path).split():
-        try:
-            r = subprocess.run(['git', '-C', str(clone), 'show', f'{sha}:{path}'],
-                               capture_output=True, timeout=30)
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if r.returncode == 0 and hashlib.sha256(r.stdout).hexdigest() == pinned_sha:
-            return r.stdout.decode('utf-8', errors='replace')
+    specs = [f'{sha}:{path}' for sha in _rev_text(
+        clone, 'log', f'-{limit}', '--format=%H', rev, '--', path).split()]
+    try:
+        blobs = _read_blobs(clone, specs)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    for spec in specs:
+        b = blobs.get(spec)
+        if b is not None and hashlib.sha256(b).hexdigest() == pinned_sha:
+            return b.decode('utf-8', errors='replace')
     return None
 
 
@@ -7668,21 +7669,22 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
                             '--name-only', commit, '--', src_rel)
         if not ok:
             continue
-        sha = None
+        sha, specs = None, []
         for line in log.splitlines():
             line = line.strip()
             if line.startswith('@'):
                 sha = line[1:]
             elif line and sha:
-                old = subprocess.run(['git', '-C', str(clone), 'show',
-                                      f'{sha}:{line}'], capture_output=True)
-                if old.returncode != 0:
-                    continue
-                text = old.stdout.decode('utf-8', errors='replace')
-                for key, (_n, sec) in _template_sections(text).items():
-                    seen = history.setdefault(key, [])
-                    if sec not in seen:
-                        seen.append(sec)
+                specs.append(f'{sha}:{line}')
+        blobs = _read_blobs(clone, specs)
+        for spec in specs:
+            if blobs.get(spec) is None:
+                continue
+            text = blobs[spec].decode('utf-8', errors='replace')
+            for key, (_n, sec) in _template_sections(text).items():
+                seen = history.setdefault(key, [])
+                if sec not in seen:
+                    seen.append(sec)
     (out_dir / _AGENTS_MD_HISTORY_NAME).write_text(json.dumps(history),
                                                    encoding='utf-8')
 
@@ -8632,6 +8634,39 @@ def tracking_refspec(branch):
     return f'+refs/heads/{branch}:refs/remotes/origin/{branch}'
 
 
+def _read_blobs(repo_dir, specs):
+    """-> {spec: bytes or None} for each 'REV:PATH' in `specs`, read through
+    one `git cat-file --batch` process; None where git has no such blob.
+
+    WHY (2026-10-29). Walking a template's history ran one `git show` per
+    past version: about 440 processes in one Update Vendors seed, the
+    largest share of an Update Vendors test's 4,710 git calls."""
+    specs = list(dict.fromkeys(specs))
+    if not specs:
+        return {}
+    if any('\n' in s for s in specs):
+        raise ValueError('a REV:PATH spec holds a newline')
+    r = subprocess.run(['git', '-C', str(repo_dir), 'cat-file', '--batch'],
+                       input=''.join(s + '\n' for s in specs).encode('utf-8'),
+                       capture_output=True)
+    out, data, i = {}, r.stdout, 0
+    for spec in specs:
+        nl = data.find(b'\n', i)
+        if r.returncode != 0 or nl < 0:
+            out[spec] = None
+            continue
+        head = data[i:nl].split()
+        i = nl + 1
+        if len(head) == 3 and head[1] in (b'blob', b'commit', b'tree', b'tag') \
+                and head[2].isdigit():
+            size = int(head[2])
+            out[spec] = data[i:i + size] if head[1] == b'blob' else None
+            i += size + 1
+        else:
+            out[spec] = None     # "<spec> missing" or "ambiguous"
+    return out
+
+
 def _git_read(cwd, *args):
     """Run git and return (ok, stdout) so a caller can tell empty output apart
     from a failed command."""
@@ -9145,9 +9180,16 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
             modes[name] = meta.split()[0]
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-engine-source-'))
-    for name in KINDS[kind] + ['routing_scope.json']:
-        blob = subprocess.run(['git', '-C', str(clone), 'show', f'{commit}:tools/{name}'],
-                              capture_output=True)
+    names = KINDS[kind] + ['routing_scope.json']
+    # One cat-file process for every file, not a `git show` each (about 300
+    # processes a refresh, 2026-10-29); one that reads as missing is asked
+    # again the old way before it counts as gone.
+    batch = _read_blobs(clone, [f'{commit}:tools/{n}' for n in names])
+    for name in names:
+        data = batch.get(f'{commit}:tools/{name}')
+        blob = (subprocess.CompletedProcess([], 0, data, b'') if data is not None
+                else subprocess.run(['git', '-C', str(clone), 'show',
+                                     f'{commit}:tools/{name}'], capture_output=True))
         if blob.returncode != 0:
             # A FILE UPSTREAM NO LONGER HAS IS A REMOVAL, NOT A BROKEN CLONE.
             # KINDS here is the list in the RUNNING copy of this tool, and in a
@@ -9205,14 +9247,19 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
                 hook_names.append(name)
         hooks_tmp = tmp / 'hooks'
         hooks_tmp.mkdir(exist_ok=True)
+        hook_batch = _read_blobs(
+            clone, [f'{commit}:{HOOK_SOURCE_DIR}/{n}' for n in hook_names])
         for name in hook_names:
-            blob = subprocess.run(
-                ['git', '-C', str(clone), 'show', f'{commit}:{HOOK_SOURCE_DIR}/{name}'],
-                capture_output=True)
-            if blob.returncode != 0:
-                continue  # listed but unreadable -- treat like any other transient git failure
+            data = hook_batch.get(f'{commit}:{HOOK_SOURCE_DIR}/{name}')
+            if data is None:
+                blob = subprocess.run(
+                    ['git', '-C', str(clone), 'show', f'{commit}:{HOOK_SOURCE_DIR}/{name}'],
+                    capture_output=True)
+                if blob.returncode != 0:
+                    continue  # listed but unreadable -- treat like any other transient git failure
+                data = blob.stdout
             out = hooks_tmp / name
-            out.write_bytes(blob.stdout)
+            out.write_bytes(data)
             if hook_modes.get(name, '').endswith('755'):
                 out.chmod(0o755)
     # else: this commit predates HOOK_SOURCE_DIR, or the clone cannot list it
