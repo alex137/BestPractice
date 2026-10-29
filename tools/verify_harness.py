@@ -12985,6 +12985,35 @@ def _shard_failure_detail(proc, tail_lines=20):
     return out
 
 
+def _failing_case_lines(label, proc):
+    """-> [str] one line per failing case a failed shard names: its FAIL:
+    verdict, without the failure text below it. A shard that died before
+    its first verdict gets one line saying so."""
+    fails = _fail_blocks(proc.stdout or '')
+    if not fails:
+        return [f'shard {label}: exit {proc.returncode} with no FAIL: line '
+                '(it died before a verdict; its stderr is in the run log)']
+    return [b[0].removeprefix('FAIL:').strip() for b in fails]
+
+
+def _write_failing_cases(lines):
+    """Write `lines` to the file PRECEDENT_HARNESS_FAILURES names, if it
+    names one; nothing otherwise. GitHub's "main's test failed" issue read
+    the failing step's name from the jobs API and came back empty on
+    2026-10-29 (issue #1402: "could not be read; open the run"), and a step
+    name would only have said "the harness" anyway. The issue step reads
+    this file and names the failing cases itself. Written on a green run
+    too, empty, so a stale file never speaks for this one."""
+    target = os.environ.get('PRECEDENT_HARNESS_FAILURES')
+    if not target:
+        return
+    try:
+        pathlib.Path(target).write_text(''.join(f'{l}\n' for l in lines),
+                                        encoding='utf-8')
+    except OSError as e:
+        print(f'--as-ci: could not write the failing cases to {target}: {e}')
+
+
 # WHAT EACH CHECK TOOK, committed, so the deal below is the same on every
 # machine that runs `--as-ci` -- a session's and GitHub's runner alike. A
 # record kept under .precedent/ would deal differently on each one, and the
@@ -13534,7 +13563,7 @@ def run_as_ci(every_case=False, record_times=False):
             print(f'  -- {len(started) - len(running)} of {len(started)} shard '
                   f'process(es) done, {time.monotonic() - t0:.0f}s elapsed',
                   flush=True)
-    failed = []
+    failed, failing_cases = [], []
     for label, proc, out, err in started:
         out.seek(0)
         err.seek(0)
@@ -13553,9 +13582,11 @@ def run_as_ci(every_case=False, record_times=False):
             print(line)
         if done.returncode != 0:
             failed.append(label)
+            failing_cases += _failing_case_lines(label, done)
             print(f'  SHARD FAILED (exit {done.returncode})')
             for line in _shard_failure_detail(done):
                 print(line)
+    _write_failing_cases(failing_cases)
     recorded = {}
     if record_times and not failed:
         for f in sorted(tmp.glob('*.times.json')):
@@ -14153,6 +14184,59 @@ def check_as_ci_shards_match_the_workflow():
     check(f'GitHub runs the suite through --as-ci, the one split '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
+
+
+def check_main_test_issue_names_the_failing_cases():
+    """--as-ci writes one line per failing case to the file
+    PRECEDENT_HARNESS_FAILURES names, and the workflow's "main's test
+    failed" issue reads it. Issue #1402 (2026-10-29) said only "could not
+    be read; open the run", and the failing case had to be dug out of the
+    job log by hand."""
+    import tempfile
+    cases = []
+    two = subprocess.CompletedProcess([], 1, stdout=(
+        'PASS: fine\nFAIL: the first thing broke\n  why it broke\n'
+        'N/A: skipped\nFAIL: the second thing broke\n'), stderr='')
+    got = _failing_case_lines('heavy', two)
+    cases.append(('each FAIL: verdict is one line, without its failure text',
+                  got == ['the first thing broke', 'the second thing broke'], got))
+    died = subprocess.CompletedProcess([], 1, stdout='PASS: fine\n',
+                                       stderr='Traceback\nKeyError\n')
+    got = _failing_case_lines('part 2 of 3', died)
+    cases.append(('a shard that died before a verdict is named as such',
+                  len(got) == 1 and got[0].startswith('shard part 2 of 3: exit 1')
+                  and 'no FAIL: line' in got[0], got))
+    saved = os.environ.get('PRECEDENT_HARNESS_FAILURES')
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            f = pathlib.Path(td) / 'failures.txt'
+            f.write_text('a stale case from an earlier run\n', encoding='utf-8')
+            os.environ['PRECEDENT_HARNESS_FAILURES'] = str(f)
+            _write_failing_cases(['one', 'two'])
+            got = f.read_text(encoding='utf-8')
+            cases.append(('the file holds one line per case', got == 'one\ntwo\n', got))
+            _write_failing_cases([])
+            got = f.read_text(encoding='utf-8')
+            cases.append(('a green run empties it, so a stale file never speaks',
+                          got == '', got))
+            os.environ.pop('PRECEDENT_HARNESS_FAILURES')
+            _write_failing_cases(['three'])
+            cases.append(('with the variable unset nothing is written',
+                          f.read_text(encoding='utf-8') == '', ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_HARNESS_FAILURES', None)
+        else:
+            os.environ['PRECEDENT_HARNESS_FAILURES'] = saved
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    if wf.is_file():
+        text = wf.read_text(encoding='utf-8')
+        cases.append(('deep-check.yml sets the file for the harness and the issue reads it',
+                      'PRECEDENT_HARNESS_FAILURES: ${{ runner.temp }}/harness-failures.txt' in text
+                      and '"$RUNNER_TEMP/harness-failures.txt"' in text, ''))
+    bad = [f'{c[0]}: {c[2]!r}' for c in cases if not c[1]]
+    check(f"main's test-failed issue names the failing cases ({len(cases)} stated cases)",
+          not bad, '; '.join(bad))
 
 def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None,
                          named=None):
@@ -92688,6 +92772,7 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_main_test_issue_names_the_failing_cases()
     check_harness_reach_selects_what_a_change_reaches()
     check_isolated_run_matches_the_runner()
     check_isolated_copy_carries_uncommitted_changes()

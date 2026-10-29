@@ -330,6 +330,8 @@ jobs:
         env:
           PRECEDENT_HARNESS_FULL: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '' }}
           PRECEDENT_HARNESS_RECORD_FULL: ${{ ((github.event_name == 'pull_request' && github.base_ref == 'main') || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')) && '1' || '' }}
+          # One line per failing case, for the issue step below to name.
+          PRECEDENT_HARNESS_FAILURES: ${{ runner.temp }}/harness-failures.txt
         run: python3 tools/verify_harness.py --as-ci
 
       # A whole-suite run into or on main that passed leaves the ledger the
@@ -430,9 +432,23 @@ jobs:
           else
             where="main @ ${GITHUB_SHA:0:12}"
           fi
-          failing=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/jobs" \
-            --jq '[.jobs[].steps[]? | select(.conclusion == "failure") | .name] | join(", ")' \
-            2>/dev/null) || failing=''
+          # The harness names its own failing cases (issue #1402 could
+          # not). A step that failed before the harness ran is named from
+          # the jobs API; its error goes to the log, so an empty answer
+          # says why next time.
+          cases="$RUNNER_TEMP/harness-failures.txt"
+          if [ -s "$cases" ]; then
+            failing=$(head -n 20 "$cases" | sed 's/^/- /')
+            n=$(wc -l < "$cases")
+            [ "$n" -gt 20 ] && failing="$failing
+          - ... and $((n - 20)) more in the run log"
+            failing="the harness, $n case(s):
+          $failing"
+          else
+            failing=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/jobs" \
+              --jq '[.jobs[].steps[]? | select(.conclusion == "failure") | .name] | join(", ")') \
+              || failing=''
+          fi
           body="GitHub's test failed on $where.
 
           Run: $RUN_URL
