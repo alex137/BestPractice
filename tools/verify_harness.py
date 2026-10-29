@@ -10374,13 +10374,23 @@ def _raw_level_comparisons(text):
             return n.id.upper().endswith('LEVELS')
         return isinstance(n, ast.Attribute) and n.attr.upper().endswith('LEVELS')
 
+    def own(scope):
+        # The scope's own nodes: a nested function is a scope of its own, so
+        # a name bound raw in one function never taints another's `level`.
+        todo = list(ast.iter_child_nodes(scope))
+        while todo:
+            n = todo.pop()
+            yield n
+            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                todo.extend(ast.iter_child_nodes(n))
+
     out = set()
     tree = ast.parse(text)
     for scope in ast.walk(tree):
         if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         bound = set()
-        for a in ast.walk(scope):
+        for a in own(scope):
             if not isinstance(a, ast.Assign):
                 continue
             for t in a.targets:
@@ -10389,7 +10399,7 @@ def _raw_level_comparisons(text):
                 if isinstance(t, ast.Tuple) and isinstance(a.value, ast.Tuple):
                     bound |= {te.id for te, ve in zip(t.elts, a.value.elts)
                               if isinstance(te, ast.Name) and raw(ve)}
-        for c in ast.walk(scope):
+        for c in own(scope):
             if not isinstance(c, ast.Compare):
                 continue
             sides = [c.left] + list(c.comparators)
@@ -10431,6 +10441,8 @@ def check_source_level_reads_go_through_the_normalizer():
         "def f(s):\n    return pr.declared_level(s) == 'shared'\n": False,
         "def f(s):\n    return pr.normalize_level(s.get('level')) in ('shared',)\n": False,
         "def f(s):\n    return s.get('level') == 'repo-local'\n": False,
+        "def f(s):\n    level = s.get('level')\n\ndef g(s):\n    level = pr.declared_level(s)\n    return level == 'shared'\n": False,
+        "def f(s):\n    level = s.get('level')\n    return level == 'shared'\n": True,
     }
     for code, want in injected.items():
         got = bool(_raw_level_comparisons(code))
