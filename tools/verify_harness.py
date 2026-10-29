@@ -67511,6 +67511,28 @@ def check_session_load_total_is_the_one_budget():
             cases.append(('a total copied into a repository already loading more '
                           'says so, and names a Reduction pass as the next step',
                           'over it' in said and 'Reduction pass' in said, said))
+            # 2026-10-29: the same run then reported DONE with nothing for the
+            # person. Its close measures the total the way the session check
+            # does and asks, so the overrun reaches the reply.
+            import contextlib
+            import io
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.session_load_total_step(repo, rep)
+            asked = ' '.join(q for w, q in rep.asks if w == 'session-load total')
+            cases.append(('an update that sets a total the repository already '
+                          'exceeds asks the person at its close, with the parts',
+                          'over the 3,500-token session_load_tokens total' in asked
+                          and 'AGENTS.md ~' in asked
+                          and 'reduction-pass' in asked, asked or rep.asks))
+            files(agents=1500, session=500)
+            rep = pu.Report()
+            with contextlib.redirect_stdout(io.StringIO()):
+                pu.session_load_total_step(repo, rep)
+            cases.append(('CONTROL: within the total, the close asks nothing',
+                          rep.asks == [] and any(n == 'session-load total'
+                                                 for n, _o in rep.steps),
+                          rep.asks or rep.steps))
             (repo / 'precedent.json').write_text(json.dumps({'sources': []}))
             cases.append(('a copy-in records nothing under a total',
                           pu.record_copy_in_budget(repo) is None))

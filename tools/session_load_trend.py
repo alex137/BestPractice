@@ -438,6 +438,22 @@ def total_tokens(root=None):
     return sizes, sum(sizes.values())
 
 
+def total_against_cap(root=None):
+    """-> (sizes, total, cap) where `root`'s registry declares a
+    `session_load_tokens` total, else None. The one measurement the session
+    check's row and Update Vendors' closing report both read, so the two
+    can never disagree about whether a repository is over (2026-10-29: an
+    update set the total from the person's individual set, left the
+    repository ~886 over it and reported DONE; the next session check
+    failed the row)."""
+    base = pathlib.Path(root) if root else ROOT
+    cap = (_registry_at(base) or {}).get('session_load_tokens')
+    if not isinstance(cap, int) or isinstance(cap, bool):
+        return None
+    sizes, total = total_tokens(base)
+    return sizes, total, cap
+
+
 def _total_notice(base, total_cap, floor_pct):
     """The headroom notice under a declared session-load total
     (`session_load_tokens`; build_views.TOTAL_KEY): one line when the total
