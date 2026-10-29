@@ -91078,6 +91078,12 @@ def check_carry_check_never_invents_lost_content():
         subprocess.run(['git', 'clone', '-q', '--depth', '1',
                         f'file://{up}', str(shallow)],
                        capture_output=True, text=True, check=True)
+        # checkin.py fetches a recorded commit a shallow clone lacks
+        # (fetch_recorded_commit, 2026-10-29), so the base must be one origin
+        # cannot hand over either -- a rewritten or unreachable history.
+        subprocess.run(['git', '-C', str(shallow), 'remote', 'set-url', 'origin',
+                        f'file://{tmp}/no-such-upstream'],
+                       capture_output=True, text=True, check=True)
         holds_base = subprocess.run(
             ['git', '-C', str(shallow), 'cat-file', '-e', f'{base_sha}^{{commit}}'],
             capture_output=True, text=True).returncode == 0
