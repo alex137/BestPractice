@@ -2397,7 +2397,7 @@ def _practice_links_travel(ctx):
                        f'{base[3:]}' if u_slug
                        else 'an absolute URL into the universal source')
                 out.append(Finding(
-                    where, f'`{target}` is an engine file, and {"an" if level == "individual" else "a"} {level} '
+                    where, f'`{target}` is an engine file, and {"an" if level[0] in "aeiou" else "a"} {level} '
                            f'set\'s copy-in (process/<set>/) does not carry '
                            f'the engine, so the link is dead in every '
                            f'consumer that copies this set in. Link it as '
@@ -2496,11 +2496,12 @@ def _copy_in_level_and_files():
     engine is vendored into the consumer's own tools/."""
     try:
         import precedent_resolve as pr
-        level = pr.declared_level(pr.read_source_manifest(ROOT) or {})
+        manifest = pr.read_source_manifest(ROOT) or {}
     except Exception:                              # practice: fail-gracefully
         return None, None
-    if level not in ('shared', 'individual'):
+    if pr.declared_level(manifest) not in ('shared', 'individual'):
         return None, None
+    level = pr.declared_level(manifest)
     try:
         import checkin
         return level, list(checkin._files_rules_name(ROOT))
