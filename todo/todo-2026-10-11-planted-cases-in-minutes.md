@@ -76,6 +76,19 @@ Step 2's units are also the first move toward
 [todo-2026-09-29-planted-case-lives-beside-its-check](todo-2026-09-29-planted-case-lives-beside-its-check.md):
 a case that is one unit per slug can later move beside its check.
 
+**Asked again, 2026-10-29.** After the Produce that day, Morgan asked why
+the test does not reuse one repository instead of building a fresh one per
+case. That was tried on 2026-09-19 and reverted
+([spec/VERIFY_HARNESS_PERFORMANCE.md](../spec/VERIFY_HARNESS_PERFORMANCE.md#reverted-reusing-one-fixture-directory-instead-of-copying-fresh-per-case)):
+a 10-20% gain, because the cases that make commits, remotes or branches
+need a full rebuild anyway, bought with three safety mechanisms in the one
+test that exists to catch a check that never fires. Since step 1 a copy
+costs about a third of a second, so reuse would save less today. The same
+day, GitHub's `--as-ci` run timed this test at 519 s, against 188-218 s
+locally after step 1; that gap is not measured. This is the third time the
+test's length has come up (2026-10-06, 2026-10-11, 2026-10-29). Steps 2
+and 3 still wait on a go-ahead.
+
 ## How It Closes
 
 The whole function runs in under a third of its 2026-10-11 time (487 s) on
