@@ -440,6 +440,7 @@
   "check_practice_declared_hooks_are_wired": 0.0,
   "check_practice_file_shape_judges_one_file_at_a_time": 0.0,
   "check_practice_heading_parsing": 0.0,
+  "check_practice_links_travel_holds_a_set_to_its_copy_in": 2.7,
   "check_practice_links_travel_skips_a_consumers_repo_local_practices": 2.1,
   "check_practice_refs_sorts_live_from_history": 0.3,
   "check_practice_set_workflows_converge": 0.5,
