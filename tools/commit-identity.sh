@@ -1326,6 +1326,12 @@ PASSTHROUGH
   _write_pre_push "$dir"
   _write_ci_cadence "$dir"
   printf '%s\n' "$GLOBAL_HOOKS_VERSION" > "$dir/.precedent-hooks-version" 2>/dev/null || true
+  # Which writer wrote them, by content: the push check's
+  # refresh_global_hooks reruns this file only when its sha256 differs from
+  # this stamp. A file's write time said nothing about its content -- a
+  # clone checked out after session start looked newer than its hooks.
+  _writer_sha="$( (sha256sum "${BASH_SOURCE[0]}" 2>/dev/null || shasum -a 256 "${BASH_SOURCE[0]}" 2>/dev/null) | cut -c1-64)"
+  [ -n "$_writer_sha" ] && printf '%s\n' "$_writer_sha" > "$dir/.precedent-hooks-writer" 2>/dev/null || true
 
   if [ "$existing" != "$dir" ] && ! _global_config_writable; then
     echo "NOTE: commit-identity: GIT_CONFIG_GLOBAL is $GIT_CONFIG_GLOBAL, which is not a regular file, so core.hooksPath is not set globally (writing it would replace that file); the hooks are written to $dir." >&2
