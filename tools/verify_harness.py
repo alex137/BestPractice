@@ -14451,6 +14451,47 @@ def check_a_source_set_ships_no_ci_workflow():
                       'somebody else\'s manifest must not delete their CI',
                       all((repo2 / r).exists() for r in old),
                       str([r for r in old if not (repo2 / r).exists()])))
+
+        # THE ONE EXCEPTION (2026-10-28): a PUBLIC source gets the branch
+        # cleanup workflow, so the branch cleanup page can show its button.
+        # It runs only on a click, and a public repository is not billed.
+        cleanup = '.github/workflows/precedent-branch-cleanup.yml'
+        src = ROOT / 'templates' / 'github-actions'
+        for name, vis in (('pub', 'public'), ('priv', 'private'), ('undeclared', None)):
+            r = tmp / name
+            (r / 'tools').mkdir(parents=True)
+            if vis:
+                (r / 'precedent.json').write_text(json.dumps({'visibility': vis}),
+                                                  encoding='utf-8')
+            m = {'kind': 'source'}
+            (r / 'tools' / pve.MANIFEST_NAME).write_text(json.dumps(m), encoding='utf-8')
+            pve._refresh_ci_workflow_files(r, 'source', src, m)
+        pub, priv, und = tmp / 'pub', tmp / 'priv', tmp / 'undeclared'
+        ships = [rel for _t, rel in pve.ci_workflow_templates('source', pub)]
+        cases.append(('a PUBLIC source ships the cleanup workflow and nothing else',
+                      ships == [cleanup], str(ships)))
+        cases.append(('a refresh writes it into a public source that has no '
+                      'workflow at all', (pub / cleanup).is_file(), ''))
+        cases.append(('...and records it, so no later check calls it unapproved',
+                      cleanup in json.loads((pub / 'tools' / pve.MANIFEST_NAME)
+                                            .read_text(encoding='utf-8'))
+                      .get('ci_workflows_sha256', {}), ''))
+        cases.append(('CONTROL: a private source ships none, and gets none',
+                      pve.ci_workflow_templates('source', priv) == ()
+                      and not (priv / '.github').exists(), ''))
+        cases.append(('CONTROL: an undeclared visibility counts as private',
+                      pve.ci_workflow_templates('source', und) == ()
+                      and not (und / '.github').exists(), ''))
+        # A set that goes private loses the copy on its next refresh.
+        m = json.loads((pub / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
+        kept = pve._remove_retired_ci_workflow_files(pub, dict(m), 'source')
+        cases.append(('while public, the sweep keeps it', not kept
+                      and (pub / cleanup).is_file(), str(kept)))
+        (pub / 'precedent.json').write_text(json.dumps({'visibility': 'private'}),
+                                            encoding='utf-8')
+        gone = pve._remove_retired_ci_workflow_files(pub, dict(m), 'source')
+        cases.append(('once private, the sweep deletes it', gone == [cleanup]
+                      and not (pub / cleanup).exists(), str(gone)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
