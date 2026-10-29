@@ -422,6 +422,7 @@
   "check_one_python": 0.1,
   "check_one_tree_per_source_whichever_way_links_run": 2.5,
   "check_one_upstream_move_is_said_once_at_session_start": 0.0,
+  "check_one_way_to_fetch_a_missing_commit": 2.8,
   "check_orphan_scan_reads_who_claims_a_script": 0.0,
   "check_outbound_privacy_gate_refuses_and_scan_finds": 1.0,
   "check_over_target_line_says_whose_load_and_how_to_break_it_down": 0.0,
