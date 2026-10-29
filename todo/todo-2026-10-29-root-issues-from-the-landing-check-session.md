@@ -6,10 +6,10 @@ severity:          high
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "handed to a new session by Morgan's Root issues on 2026-10-29, as one prompt rooted in BestPractice with the three practice sets attached for pushing"
+blocked_on:        "item 3: whether every repository that brings the ladder set runs an engine with _inherit_pair, checked by session_01Xcy6U3WL4YwCwzUTd35AhC before the trim reaches the set's main"
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "item 1: the practice-file checks stay at the Debut, and at Produce when no Debut ran; the quick check does not run them"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-29
 closed:            null
@@ -129,3 +129,19 @@ pushing. Each test below was run on the old code and the new.
 Found on the way, not this item's: `check_precedent_check_fires` fails on
 staging as it stands (8cb7c991d), for the planted cases of
 budget-within-approval and session-file-allowances-fit.
+
+## Decisions, 2026-10-29
+
+- **Item 1:** Morgan, 2026-10-29, strength: decided: "#1 - yet let's leave
+  them to debut (and, as always, produce if there was no debut)". The full
+  tier already runs every practice check, so nothing is added to the quick
+  check. **Branch disposition:** `2026-10-29-themorgan-quick-check-practice-file-checks-g6cxn-0oh9k`
+  (BestPractice) -- drop: its one change is the quick-check wiring this
+  decision declines, and `--practice-file-checks` itself landed with #1389.
+- **Item 3:** Morgan, the same message: "#2 - you can open a new session to
+  do that", and "you can take the branches and put them on staging:
+  booked". The trim lands on the ladder set's staging, which no repository
+  reads until a Produce moves it to the set's main; the engine check across
+  the repositories that bring the set runs in
+  [session_01Xcy6U3WL4YwCwzUTd35AhC](https://claude.ai/code/session_01Xcy6U3WL4YwCwzUTd35AhC)
+  before that Produce.
