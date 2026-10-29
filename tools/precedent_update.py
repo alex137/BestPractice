@@ -3273,6 +3273,29 @@ def feature_branch_line(repo):
     return None
 
 
+# GOING LIVE (2026-10-28). On the ladder, DONE's "land it on your landing
+# branch" put the update on staging and the session stopped there, so it
+# never reached main without a second command. Morgan: "I just want to run a
+# command and have it update and go live" (strength: decided). The ladder
+# set's vendor-update-on-the-ladder makes the phrase carry the move into main;
+# DONE says so where the session reads its next step.
+def live_line(repo):
+    """-> the line DONE prints when the update lands below main for a person
+    on the ladder: the move into main follows; None otherwise."""
+    if repo is None or pb.ladder_in_force(repo) is not True:
+        return None
+    try:
+        landing = pb.landing_branch(repo)[0]
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not landing or landing == pb.MAIN:
+        return None
+    return (f"Then take it live: once it is on {landing}, move {landing} into "
+            f"{pb.MAIN} -- the phrase carries that too "
+            f"(vendor-update-on-the-ladder). It moves everything waiting on "
+            f"{landing}, so name what else goes live with the update.")
+
+
 def _person_is_code_owner(repo):
     """True when the person running the update is one of `repo`'s code
     owners; False in doubt (precedent_audience)."""
@@ -3539,6 +3562,9 @@ class Report:
                   "commit, then land it on your landing branch.")
         if switch:
             print(switch)
+        live = live_line(self.pin_repo)
+        if live:
+            print(live)
         self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:

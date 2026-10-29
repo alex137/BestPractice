@@ -61,7 +61,12 @@ the BestPractice clone:
    stop and ask once for all of them by name: "Merge the N update pull
    requests". A QUESTION line under a PUSHED or CURRENT one is optional
    (the update was complete without it) and still the person's: carry it
-   into the one message step 5 ends with.
+   into the one message step 5 ends with. **Then take each merged update
+   as far as the sets in force take a single one:** what they add to
+   [vendor-update-runbook](vendor-update-runbook.md)'s step 12 holds here
+   for every repository. With the ladder, that is a Produce, so the update
+   goes live (Morgan, 2026-10-28, strength: decided: "I just want to run a
+   command and have it update and go live").
 5. **Hand each ASK, LEFT or FAILED repository to its own subagent**, with a
    fresh context. Give it the clone and log paths the line names, and tell
    it to read that repository's own instructions, work the update per

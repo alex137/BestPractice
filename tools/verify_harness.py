@@ -67158,6 +67158,27 @@ def check_update_done_names_the_branch_to_commit_on():
         done = inspect.getsource(_pu.Report.close)
         cases.append(('DONE calls it, and says nothing of "Go update"',
                       'feature_branch_line(' in done and 'Go update' not in done, ''))
+        # 2026-10-28: on the ladder, landing below main is not the end --
+        # the phrase carries the move into main, and DONE says so.
+        cases.append(('DONE prints the line about going live',
+                      'live_line(' in done, ''))
+        saved = (_pu.pb.ladder_in_force, _pu.pb.landing_branch)
+        try:
+            here = pathlib.Path('.')
+            for ladder, landing, want, what in (
+                    (True, 'staging', True, 'on the ladder, landing on staging'),
+                    (True, 'main', False, 'on the ladder, landing on main'),
+                    (False, 'main', False, 'off the ladder'),
+                    (None, 'staging', False, 'with no ladder helper')):
+                _pu.pb.ladder_in_force = lambda r, u=None, v=ladder: v
+                _pu.pb.landing_branch = lambda r, u=None, b=landing: (b, '')
+                line = _pu.live_line(here)
+                ok = (bool(line) and 'into main' in line) if want else line is None
+                cases.append((f'{what}, DONE '
+                              f'{"says" if want else "says nothing of"} going live',
+                              ok, line or ''))
+        finally:
+            _pu.pb.ladder_in_force, _pu.pb.landing_branch = saved
     finally:
         sys.path.pop(0)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
