@@ -67736,6 +67736,27 @@ def check_private_scrub_names_a_copied_set_by_its_own_repo():
             names = pc._private_source_names(host)
             cases.append(('a copy that declares no repo names nothing, never the '
                           'host', names == [], names))
+            # 2026-10-29: a consumer's full suite went red on its own
+            # repo-local practice naming its own private repository, which
+            # ships nowhere. Only the practice MANIFEST.json says is
+            # repo-local is skipped; a shared one saying the same is caught.
+            import types
+            pr.load_config = lambda root: [entry]
+            (host / 'practices').mkdir()
+            line = 'see zz-owner/zz-set for the voice notes\n'
+            (host / 'practices' / 'zz-local.md').write_text(line)
+            (host / 'practices' / 'zz-shared.md').write_text(line)
+            (host / 'MANIFEST.json').write_text(json.dumps({'practices': [
+                {'slug': 'zz-local', 'level': 'repo-local'},
+                {'slug': 'zz-shared', 'level': 'shared'}]}))
+            got = [str(f) for f in pc._private_repo_scrub(
+                types.SimpleNamespace(root=host))]
+            cases.append(('a repo-local practice naming a private repo is not '
+                          'flagged', not any('zz-local' in g for g in got), got))
+            cases.append(('CONTROL: a shared practice naming it is flagged',
+                          any('practices/zz-shared.md:1' in g
+                              and "names the private repository 'zz-owner/zz-set'"
+                              in g for g in got), got))
         finally:
             pr.load_config = saved
     bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]

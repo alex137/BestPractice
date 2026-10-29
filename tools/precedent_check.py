@@ -8243,14 +8243,7 @@ def _vocabulary_reaches_the_consumer(ctx):
     # practice's level; a repo-local one must name scripts the repo has,
     # and every other level is judged against the engine lists as before.
     # No MANIFEST.json, or a practice it does not list: today's rule.
-    levels = {}
-    try:
-        _man = json.loads((ctx.root / 'MANIFEST.json').read_text(encoding='utf-8'))
-        for _row in (_man.get('practices') or []) if isinstance(_man, dict) else []:
-            if isinstance(_row, dict) and _row.get('slug'):
-                levels[_row['slug']] = _row.get('level')
-    except (OSError, ValueError):
-        pass
+    levels = _manifest_levels(ctx.root)
 
     findings = []
     for path, text in command_practices:
@@ -9030,6 +9023,21 @@ def _light_check(ctx):
     return out
 
 
+def _manifest_levels(root):
+    """-> {slug: level} from `root`'s MANIFEST.json, which
+    precedent_materialize writes beside the practices/ tree it fills from
+    every source; {} where there is none."""
+    levels = {}
+    try:
+        man = json.loads((root / 'MANIFEST.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return levels
+    for row in (man.get('practices') or []) if isinstance(man, dict) else []:
+        if isinstance(row, dict) and row.get('slug'):
+            levels[row['slug']] = row.get('level')
+    return levels
+
+
 def _private_source_names(root):
     """-> sorted owner-qualified names ("owner/repo") of every source in
     force here that declares itself private, read from its own
@@ -9074,8 +9082,9 @@ def _private_source_names(root):
 
 
 @check('private-repo-scrub', 'tree',
-       'no practice file -- the content that ships into other repositories -- '
-       'names a private source by its owner-qualified name ("owner/repo", or '
+       'no practice file -- the content that ships into other repositories; '
+       'a repository\'s own (repo-local) practice ships nowhere and is not '
+       'read -- names a private source by its owner-qualified name ("owner/repo", or '
        'its github.com URL)',
        'a private repository this run does not have in force, since the names '
        'come from the sources resolved here; a bare convention name such as '
@@ -9093,9 +9102,17 @@ def _private_repo_scrub(ctx):
     names = _private_source_names(ctx.root)
     if not names:
         raise NotApplicable('no source in force here declares itself private')
+    # A repository's own practice (level repo-local, from MANIFEST.json)
+    # never ships anywhere, and the rule lets content that stays in its
+    # authoring repo name the real repo. 2026-10-29: a consumer's full
+    # suite went red on main over its local practice naming its own private
+    # repository (practice: private-repo-scrub).
+    levels = _manifest_levels(ctx.root)
     out = []
     for f in sorted((ctx.root / 'practices').glob('*.md')):
         rel = f'practices/{f.name}'
+        if levels.get(f.stem) == 'repo-local':
+            continue
         try:
             lines = f.read_text(encoding='utf-8').splitlines()
         except (UnicodeDecodeError, OSError):
