@@ -19700,6 +19700,44 @@ def check_changed_files_only_judges_the_change():
         git('checkout', '-q', start, '--', str(practice.relative_to(wt)))
         git('commit', '-qam', 'undo the materialized fixture')
 
+        # --practice-file-checks runs the checks whose subject is a published
+        # practice file, in one process (2026-10-29: 5fd34d4b3 landed a
+        # relative ../gotchas/ link in a practice, which only
+        # practice-links-travel reports).
+        def practice_file_checks(since):
+            p = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                                '--practice-file-checks', '--range',
+                                f'{since}...HEAD', '--changed-files-only'],
+                               cwd=wt, capture_output=True, text=True, env=env)
+            return p.returncode, p.stdout + p.stderr
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        with open(practice, 'a', encoding='utf-8') as f:
+            f.write('\nThe fixture\'s [trap](../gotchas/INDEX.md).\n')
+        git('commit', '-qam', 'a practice link that does not travel')
+        rc, out = practice_file_checks(start)
+        # How many checks ran: an engine without the flag ran the whole
+        # audit, over a hundred checks, and found the same link.
+        summary = next((l for l in out.splitlines()
+                        if l.startswith('precedent_check: ')), '')
+        ran = sum(int(n) for n in re.findall(
+            r'(\d+) (?:passed|violated|advisory|errored|skipped|exempted)\b',
+            summary))
+        cases.append(('--practice-file-checks refuses a changed practice whose '
+                      'relative link does not travel, running only the '
+                      'practice-file checks',
+                      rc == 1 and 'VIOLATION  practice-links-travel' in out
+                      and 'does not travel' in out and 0 < ran < 40,
+                      f'{ran} checks ran: ' + out[-800:]))
+        linked = git('rev-parse', 'HEAD').stdout.strip()
+        with open(wt / 'README.md', 'a', encoding='utf-8') as f:
+            f.write('\nA line beside the practice fixture.\n')
+        git('commit', '-qam', 'touch another file')
+        rc, out = practice_file_checks(linked)
+        cases.append(('...and a later change to another file is not refused for it',
+                      rc == 0, out[-800:]))
+        git('checkout', '-q', start, '--', str(practice.relative_to(wt)), 'README.md')
+        git('commit', '-qam', 'undo the link fixture')
+
         # A deletion strands its mentions in files the change never touches.
         # Those are still this change's doing, and must be refused here, not
         # one stage later (2026-09-30: a consumer's Update Vendors passed
@@ -42096,6 +42134,73 @@ def check_push_check_gate():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_push_check_rewrites_global_hooks_older_than_their_writer():
+    """The push check rewrites the machine-wide git hooks when the script
+    that writes them changed after they were written.
+
+    THE BUG (2026-10-29). commit-identity.sh writes the global pre-push,
+    refusal text and all, at session start only. A fix to that text
+    (3dd840e70) merged into a running container's checkout left pushes
+    refused with the old words until the next session start. Hermetic: a
+    global git config of its own, a hooks directory holding an old pre-push,
+    and a stand-in writer, so the machine's real hooks are never touched.
+
+    A. a writer newer than the hook runs, and the hook carries its text;
+    B. CONTROL: a writer older than the hook does not run;
+    C. CONTROL: a hooks directory this engine never wrote is left alone.
+
+    Negative control, measured 2026-10-29: before refresh_global_hooks the
+    push check had no such step, and case A fails."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_push_check as ppc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='global-hooks-refresh-'))
+    saved = os.environ.get('GIT_CONFIG_GLOBAL')
+    try:
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        cfg = tmp / 'gitconfig'
+        cfg.write_text(f'[core]\n\thooksPath = {hooks}\n', encoding='utf-8')
+        os.environ['GIT_CONFIG_GLOBAL'] = str(cfg)
+        pre_push = hooks / 'pre-push'
+        writer = tmp / 'commit-identity.sh'
+        writer.write_text(f'#!/bin/bash\nprintf "# precedent:commit-identity\\nNEW TEXT\\n" > "{pre_push}"\n',
+                          encoding='utf-8')
+
+        def old_hook(age):
+            pre_push.write_text('# precedent:commit-identity\nOLD TEXT\n', encoding='utf-8')
+            t0 = time.time()
+            os.utime(pre_push, (t0 + age, t0 + age))
+            os.utime(writer, (t0, t0))
+        refresh = getattr(ppc, 'refresh_global_hooks', None)
+        old_hook(-60)
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('A. a writer newer than the hook rewrites it, and says so',
+                      'NEW TEXT' in pre_push.read_text(encoding='utf-8')
+                      and bool(note) and 'rewrote' in note, f'{note!r}'))
+        old_hook(+60)
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('B. CONTROL: a writer older than the hook does not run',
+                      'OLD TEXT' in pre_push.read_text(encoding='utf-8')
+                      and note is None, f'{note!r}'))
+        pre_push.write_text('#!/bin/sh\necho somebody else\n', encoding='utf-8')
+        os.utime(pre_push, (time.time() - 60,) * 2)
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('C. CONTROL: a hook this engine never wrote is left alone',
+                      'somebody else' in pre_push.read_text(encoding='utf-8')
+                      and note is None, f'{note!r}'))
+    finally:
+        if saved is None:
+            os.environ.pop('GIT_CONFIG_GLOBAL', None)
+        else:
+            os.environ['GIT_CONFIG_GLOBAL'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + ' -- ' + c[2] for c in cases if not c[1]]
+    check(f'the push check rewrites global hooks older than their writer '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_global_pre_push_runs_the_leak_gate():
     """The global pre-push hook commit-identity.sh writes runs the leak gate
     over every commit a push would publish, on any branch, before the
@@ -55550,6 +55655,65 @@ def check_refresh_sources_branch_line_only_when_the_tree_is_older():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_refresh_sources_reads_a_fetched_main():
+    """The engine tip session start compares each set's engine against is
+    BestPractice's main as origin has it now, never the last copy this
+    clone happened to fetch.
+
+    THE BUG (2026-10-29). Session start reported all three sets' engines
+    STALE against origin/main d04672e86b31, nine days old in a clone that
+    had not fetched it; the real main was aa34219d3. Real git, hermetic: a
+    bare origin, a clone, one commit pushed to origin's main after the
+    clone. CONTROL: with origin unreachable, the old copy is named, with
+    its date.
+
+    Negative control, measured 2026-10-29: head_commit as it was reads the
+    clone's old origin/main, so the first case fails."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    saved_root = prs.ROOT
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-fetched-main-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t',
+               GIT_COMMITTER_DATE='2026-10-20T12:00:00+00:00',
+               GIT_AUTHOR_DATE='2026-10-20T12:00:00+00:00')
+
+    def g(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), '-c', 'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env).stdout.strip()
+    try:
+        origin, seed, clone = tmp / 'origin.git', tmp / 'seed', tmp / 'clone'
+        g(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        g(tmp, 'clone', '-q', str(origin), str(seed))
+        (seed / 'f.txt').write_text('one\n', encoding='utf-8')
+        g(seed, 'add', '-A'); g(seed, 'commit', '-qm', 'one'); g(seed, 'push', '-q', 'origin', 'main')
+        g(tmp, 'clone', '-q', str(origin), str(clone))
+        old = g(clone, 'rev-parse', 'origin/main')
+        (seed / 'f.txt').write_text('two\n', encoding='utf-8')
+        g(seed, 'commit', '-qam', 'two'); g(seed, 'push', '-q', 'origin', 'main')
+        new = g(seed, 'rev-parse', 'HEAD')
+        prs.ROOT = clone                  # what the tool reads as BestPractice
+        tip, ref = prs.head_commit()
+        cases.append(('main pushed after the clone: the tip is the new main',
+                      tip == new and ref == 'origin/main', f'{tip} {ref}'))
+        g(seed, 'commit', '-q', '--allow-empty', '-m', 'three')
+        g(seed, 'push', '-q', 'origin', 'main')
+        g(clone, 'remote', 'set-url', 'origin', str(tmp / 'gone.git'))
+        tip, ref = prs.head_commit()
+        cases.append(('CONTROL: origin unreachable -- the copy here is used, '
+                      'and the ref says it was not fetched and how old it is',
+                      tip == new and 'could not fetch' in ref
+                      and '2026-10-20' in ref and old != new, f'{tip} {ref}'))
+    finally:
+        prs.ROOT = saved_root
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + ' -- ' + c[2] for c in cases if not c[1]]
+    check(f'session start compares engines against a fetched main '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_refresh_sources_never_fetches_the_branch_a_clone_sits_on():
     """THE BUG (2026-10-14). A session that attaches a set gets the clone
     on the session's own branch, which origin has never had. For a set
@@ -61355,6 +61519,116 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-400:],
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'--land tells the push\'s hooks what it lands ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_land_confirm_says_whether_what_landed_was_checked():
+    """--land-confirm COMMIT, after a landing's pull request was merged by
+    hand, says whether staging took the checked composition as it was, and
+    when staging had moved first, runs the quick checks on what landed.
+
+    THE BUG (2026-10-29). On #1334 staging moved while the landing's pull
+    request was open; GitHub merged it into the newer staging, so what
+    landed was a tree no quick check had run on, and nothing said so.
+    Hermetic: a bare origin, a composition commit, staging taking it four
+    ways; the quick check is a stub that records what it was run on.
+
+    Negative control, measured 2026-10-29: before land_confirm there was no
+    such step, and the fixture fails at its first call."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-confirm-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), '-c', 'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+base = g('rev-parse', 'HEAD').stdout.strip()
+ran = []
+verdict = [True]
+pb._check = lambda root, wt, *a, **k: (ran.append(subprocess.run(
+    ['git', '-C', str(wt), 'rev-parse', 'HEAD'], capture_output=True,
+    text=True).stdout.strip()) or (verdict[0], 'stub check output'))
+def comp(name):                   # --land composes on staging's tip
+    g('fetch', '-q', 'origin')
+    g('checkout', '-q', '-B', name, 'origin/staging')
+    (work / (name + '.md')).write_text(name + '\\n'); g('add', '-A'); g('commit', '-qm', name)
+    return g('rev-parse', 'HEAD').stdout.strip()
+def confirm(sha):
+    said = []
+    rc = pb.land_confirm(work, sha, said.append)
+    return rc, '\\n'.join(said)
+out = {{}}
+a = comp('a')
+out['not_landed'] = confirm(a)
+g('push', '-q', 'origin', a + ':refs/heads/staging')
+out['ff'] = confirm(a)
+b = comp('b')
+g('checkout', '-q', '-B', 's', 'origin/staging'); g('merge', '-q', '--no-ff', '--no-edit', b)
+g('push', '-q', 'origin', 's:staging')
+out['no_ff'] = confirm(b)
+# staging moves while the pull request for c is open, then GitHub merges c
+c = comp('c')
+g('checkout', '-q', '-B', 's', 'origin/staging')
+(work / 'other.md').write_text('o\\n'); g('add', '-A'); g('commit', '-qm', 'someone else landed')
+g('merge', '-q', '--no-ff', '--no-edit', c)
+landed = g('rev-parse', 'HEAD').stdout.strip()
+g('push', '-q', 'origin', 's:staging')
+ran.clear()
+out['moved_pass'] = confirm(c) + (list(ran),)
+verdict[0] = False
+ran.clear()
+out['moved_fail'] = confirm(c) + (list(ran),)
+out['landed'] = landed
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        if not out:
+            cases.append(('the fixture ran', False, why))
+        else:
+            r = out['not_landed']
+            cases.append(('a composition staging does not hold: NOT LANDED, exit 1',
+                          r[0] == 1 and 'NOT LANDED' in r[1], str(r)))
+            r = out['ff']
+            cases.append(('staging took the composition itself: LANDED AS CHECKED',
+                          r[0] == 0 and 'LANDED AS CHECKED' in r[1], str(r)))
+            r = out['no_ff']
+            cases.append(('a merge commit onto an unmoved staging: LANDED AS CHECKED',
+                          r[0] == 0 and 'LANDED AS CHECKED' in r[1], str(r)))
+            r = out['moved_pass']
+            cases.append(('THE DISCRIMINATING CASE: staging moved first -- said, and '
+                          'the quick checks run on the commit that landed',
+                          r[0] == 0 and 'moved before the pull request merged' in r[1]
+                          and 'CHECKED NOW' in r[1] and r[2] == [out['landed']], str(r)))
+            r = out['moved_fail']
+            cases.append(('...and when they fail there: LANDED, AND FAILING, exit 1',
+                          r[0] == 1 and 'LANDED, AND FAILING' in r[1], str(r)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + ' -- ' + c[2][:300] for c in cases if not c[1]]
+    check(f'--land-confirm says whether what landed was checked '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
 
 def check_land_sent_to_a_pull_request_carries_mains_work():
     """A landing refused for the pull-request route pushes the composition
@@ -92026,6 +92300,7 @@ def main():
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_refresh_sources_branch_line_only_when_the_tree_is_older()
+    check_refresh_sources_reads_a_fetched_main()
     check_removed_engine_path_is_found_in_the_sets_beside()
     check_land_refusal_says_whether_a_pull_request_gets_checks()
     check_leak_gate_reads_a_declared_visibility_before_the_owner_default()
@@ -92254,6 +92529,7 @@ def main():
     check_rename_links_spares_a_longer_path_and_manifest_notes()
     check_reply_gate_counts_staging_as_a_landing_branch()
     check_global_pre_push_runs_the_leak_gate()
+    check_push_check_rewrites_global_hooks_older_than_their_writer()
     check_archived_set_question_names_the_attach_fix()
     check_update_repoints_engine_paths_that_moved()
     check_update_derives_engine_moves_from_git()
@@ -92264,6 +92540,7 @@ def main():
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_land_tells_the_push_hooks_what_it_lands()
     check_land_sent_to_a_pull_request_carries_mains_work()
+    check_land_confirm_says_whether_what_landed_was_checked()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
     check_update_stages_what_a_late_step_writes()
