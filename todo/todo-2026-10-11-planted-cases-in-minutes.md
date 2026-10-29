@@ -89,6 +89,12 @@ locally after step 1; that gap is not measured. This is the third time the
 test's length has come up (2026-10-06, 2026-10-11, 2026-10-29). Steps 2
 and 3 still wait on a go-ahead.
 
+**Moved out of the everyday runs, 2026-10-29.** By Morgan's decision that
+day ([todo-2026-10-29-landing-runs-the-tests-it-reaches](todo-2026-10-29-landing-runs-the-tests-it-reaches.md)),
+this test now runs only in the nightly run, a by-hand GitHub run and the
+very deep check. Steps 2 and 3 still matter there, and step 3 would let a
+landing run just the planted cases of the checks it touched.
+
 ## How It Closes
 
 The whole function runs in under a third of its 2026-10-11 time (487 s) on

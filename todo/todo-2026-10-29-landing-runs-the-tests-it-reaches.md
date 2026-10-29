@@ -3,16 +3,16 @@ slug:              todo-2026-10-29-landing-runs-the-tests-it-reaches
 kind:              manual
 domain:            mechanism
 severity:          null
-status:            open
-disposition:       ask
+status:            done
+disposition:       wait
 remind_on:         null
-blocked_on:        "a go-ahead: the 2026-10-29 ask was a question, answered with options"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "Morgan, 2026-10-29: scoped harness run after each landing on staging and on main; the planted-case sweep only nightly and in the very deep check"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-29
-closed:            null
+closed:            2026-10-29
 ---
 ## What
 
@@ -61,6 +61,36 @@ which keep it cheap:
 
 A session reading the tests for staleness was set aside: none of the five
 looked wrong on reading; each failed only when run.
+
+## Decided and Built
+
+Morgan, 2026-10-29 (strength: decided), choosing a fourth shape over the
+three above: "Let's have the test of only what's relevant (what you built
+for alex) run upon each staging; and also, upon each produce, let's have
+it run *afterwards* after the push to main, in what runs now; AND let's NO
+LONGER RUN the full 519 second test of everything on main. *BUT* let's add
+back that full 519 second test two places: it should run when I do a 'very
+deep test'; and also ... in the nightly tests".
+
+Built the same day:
+
+- **After each landing**, [`tools/precedent_branches.py`](../tools/precedent_branches.py)
+  prints the command for the checks that landing reaches, measured from
+  the tip it landed on (`PRECEDENT_HARNESS_SINCE`, read by
+  [`tools/harness_reach.py`](../tools/harness_reach.py)), to run in the
+  background; `--land-confirm` prints it too.
+- **`check_precedent_check_fires` runs only in a whole-suite run asked for
+  by name** (`--all`, which the very deep check runs, and
+  `PRECEDENT_HARNESS_FULL=1`, which GitHub's nightly and by-hand runs set),
+  in [`tools/verify_harness.py`](../tools/verify_harness.py)'s
+  `_planted_sweep_runs`. The pull request into main, the push after a
+  Produce and a Debut leave it out, even when the change reaches most of
+  the suite.
+
+Estimated from the recorded check times (2026-10-09 basis, 4 cores), a
+landing's run is about ten minutes, in the background; most of it is the
+Update Vendors checks, which are picked every time because their reach is
+not fully seen. Not measured as a run.
 
 ## How It Closes
 
