@@ -42329,7 +42329,7 @@ def check_push_check_gate():
 
 def check_push_check_rewrites_global_hooks_older_than_their_writer():
     """The push check rewrites the machine-wide git hooks when the script
-    that writes them changed after they were written.
+    that writes them differs from the one that wrote them -- by content.
 
     THE BUG (2026-10-29). commit-identity.sh writes the global pre-push,
     refusal text and all, at session start only. A fix to that text
@@ -42338,12 +42338,20 @@ def check_push_check_rewrites_global_hooks_older_than_their_writer():
     global git config of its own, a hooks directory holding an old pre-push,
     and a stand-in writer, so the machine's real hooks are never touched.
 
-    A. a writer newer than the hook runs, and the hook carries its text;
-    B. CONTROL: a writer older than the hook does not run;
-    C. CONTROL: a hooks directory this engine never wrote is left alone.
+    THE SECOND BUG (the same day). The first fix compared write times: four
+    clones with a byte-identical writer, one checked out after the hooks
+    were written, and every --land printed "rewrote the global git hooks"
+    over nothing. Now the writer stamps its sha256 beside the hooks.
 
-    Negative control, measured 2026-10-29: before refresh_global_hooks the
-    push check had no such step, and case A fails."""
+    A. hooks with no stamp and old text are rewritten, and it says so;
+    B. the same writer, written later than the hooks, does not run (the
+       second bug: before the content stamp, B printed the note);
+    C. a changed writer reruns and says so;
+    D. hooks with no stamp whose bytes the writer leaves as they are are
+       rewritten silently;
+    E. a writer that leaves the hooks alone (a newer engine's) is quiet;
+    F. CONTROL: a hooks directory this engine never wrote is left alone;
+    G. the real commit-identity.sh writes the stamp this reads."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_push_check as ppc
@@ -42357,32 +42365,68 @@ def check_push_check_rewrites_global_hooks_older_than_their_writer():
         cfg.write_text(f'[core]\n\thooksPath = {hooks}\n', encoding='utf-8')
         os.environ['GIT_CONFIG_GLOBAL'] = str(cfg)
         pre_push = hooks / 'pre-push'
+        stamp = hooks / '.precedent-hooks-writer'
         writer = tmp / 'commit-identity.sh'
-        writer.write_text(f'#!/bin/bash\nprintf "# precedent:commit-identity\\nNEW TEXT\\n" > "{pre_push}"\n',
-                          encoding='utf-8')
 
-        def old_hook(age):
-            pre_push.write_text('# precedent:commit-identity\nOLD TEXT\n', encoding='utf-8')
-            t0 = time.time()
-            os.utime(pre_push, (t0 + age, t0 + age))
-            os.utime(writer, (t0, t0))
+        def write_writer(text):
+            writer.write_text(
+                f'#!/bin/bash\nprintf "# precedent:commit-identity\\n{text}\\n" '
+                f'> "{pre_push}"\n'
+                f'sha256sum "$0" | cut -c1-64 > "{stamp}"\n', encoding='utf-8')
+
+        def hook(text, stamped=None):
+            pre_push.write_text(f'# precedent:commit-identity\n{text}\n',
+                                encoding='utf-8')
+            if stamped is None:
+                stamp.unlink(missing_ok=True)
+            else:
+                stamp.write_text(stamped + '\n', encoding='utf-8')
+        sha = lambda: hashlib.sha256(writer.read_bytes()).hexdigest()
         refresh = getattr(ppc, 'refresh_global_hooks', None)
-        old_hook(-60)
+        text = lambda: pre_push.read_text(encoding='utf-8')
+
+        write_writer('NEW TEXT')
+        hook('OLD TEXT')
         note = refresh(ROOT, script=writer) if refresh else None
-        cases.append(('A. a writer newer than the hook rewrites it, and says so',
-                      'NEW TEXT' in pre_push.read_text(encoding='utf-8')
-                      and bool(note) and 'rewrote' in note, f'{note!r}'))
-        old_hook(+60)
+        cases.append(('A. unstamped hooks with old text are rewritten, and '
+                      'it says so',
+                      'NEW TEXT' in text() and bool(note) and 'rewrote' in note,
+                      f'{note!r}'))
+        hook('OLD TEXT', stamped=sha())
+        t0 = time.time()
+        os.utime(pre_push, (t0 - 60,) * 2)
+        os.utime(writer, (t0,) * 2)
         note = refresh(ROOT, script=writer) if refresh else None
-        cases.append(('B. CONTROL: a writer older than the hook does not run',
-                      'OLD TEXT' in pre_push.read_text(encoding='utf-8')
-                      and note is None, f'{note!r}'))
+        cases.append(('B. the same writer, written after the hooks, does not '
+                      'run and prints nothing',
+                      'OLD TEXT' in text() and note is None, f'{note!r}'))
+        old_sha = sha()
+        write_writer('CHANGED TEXT')
+        hook('NEW TEXT', stamped=old_sha)
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('C. a changed writer reruns and says so',
+                      'CHANGED TEXT' in text() and bool(note)
+                      and 'rewrote' in note, f'{note!r}'))
+        hook('CHANGED TEXT')
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('D. unstamped hooks the writer leaves byte-identical '
+                      'are stamped silently',
+                      note is None and stamp.is_file()
+                      and stamp.read_text().strip() == sha(), f'{note!r}'))
+        writer.write_text('#!/bin/bash\nexit 0\n', encoding='utf-8')
+        hook('NEWER ENGINE', stamped='0' * 64)
+        note = refresh(ROOT, script=writer) if refresh else None
+        cases.append(('E. a writer that leaves the hooks alone is quiet',
+                      'NEWER ENGINE' in text() and note is None, f'{note!r}'))
+        write_writer('NEW TEXT')
         pre_push.write_text('#!/bin/sh\necho somebody else\n', encoding='utf-8')
-        os.utime(pre_push, (time.time() - 60,) * 2)
+        stamp.unlink(missing_ok=True)
         note = refresh(ROOT, script=writer) if refresh else None
-        cases.append(('C. CONTROL: a hook this engine never wrote is left alone',
-                      'somebody else' in pre_push.read_text(encoding='utf-8')
-                      and note is None, f'{note!r}'))
+        cases.append(('F. CONTROL: a hook this engine never wrote is left alone',
+                      'somebody else' in text() and note is None, f'{note!r}'))
+        real = (ROOT / 'tools' / 'commit-identity.sh').read_text(encoding='utf-8')
+        cases.append(('G. commit-identity.sh writes the writer stamp',
+                      '.precedent-hooks-writer' in real, ''))
     finally:
         if saved is None:
             os.environ.pop('GIT_CONFIG_GLOBAL', None)
@@ -42390,8 +42434,8 @@ def check_push_check_rewrites_global_hooks_older_than_their_writer():
             os.environ['GIT_CONFIG_GLOBAL'] = saved
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [c[0] + ' -- ' + c[2] for c in cases if not c[1]]
-    check(f'the push check rewrites global hooks older than their writer '
-          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+    check(f'the push check rewrites global hooks whose writer changed, by '
+          f'content ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_global_pre_push_runs_the_leak_gate():

@@ -1524,8 +1524,8 @@ def _retired_engine_files_unanswered(root, since):
 
 
 def refresh_global_hooks(root, script=None):
-    """Rewrite the machine-wide git hooks when this engine's writer is newer
-    than the pre-push hook it last wrote. -> the note to print, or None.
+    """Rewrite the machine-wide git hooks when this engine's writer differs
+    from the one that last wrote them. -> the note to print, or None.
 
     WHY (2026-10-29). The global pre-push carries its refusal text in
     itself, written by commit-identity.sh at session start only. A fix to
@@ -1533,26 +1533,49 @@ def refresh_global_hooks(root, script=None):
     checkout kept refusing pushes with the old words until the next session
     start. The push check runs before every push, so a writer whose file is
     newer than the hook it wrote runs again here, in about 0.3 seconds. The
-    writer itself still leaves a newer engine's hooks alone."""
+    writer itself still leaves a newer engine's hooks alone.
+
+    BY CONTENT, NOT TIME (2026-10-29, the same day). Four clones held a
+    byte-identical commit-identity.sh; one checked out after session start
+    was newer than the hooks, so every --land reran it and printed the
+    "rewrote" note over nothing. The writer stamps its own sha256 in
+    .precedent-hooks-writer; this reruns it only when that differs. Hooks
+    from an engine older than the stamp are rewritten, and the note printed
+    only if pre-push's bytes changed."""
     script = script or (HERE / 'commit-identity.sh')
     hooks = git(root, 'config', '--global', '--get', 'core.hooksPath') or ''
     installed = Path(hooks.strip()).expanduser() / 'pre-push' \
         if hooks.strip() else None
     if installed is None or not installed.is_file() or not script.is_file():
         return None
+    stamp = installed.parent / '.precedent-hooks-writer'
     try:
-        if 'precedent:commit-identity' not in installed.read_text(
-                encoding='utf-8', errors='replace') \
-                or script.stat().st_mtime <= installed.stat().st_mtime:
+        before = installed.read_bytes()
+        if b'precedent:commit-identity' not in before:
             return None
+        want = hashlib.sha256(script.read_bytes()).hexdigest()
+        had = stamp.read_text(encoding='utf-8').strip() \
+            if stamp.is_file() else None
     except OSError:
+        return None
+    if had == want:
         return None
     r = subprocess.run(['bash', str(script)], cwd=root, stdin=subprocess.DEVNULL,
                        capture_output=True, text=True)
     if r.returncode != 0:
-        return (f'NOTE: the global git hooks at {installed.parent} are older '
-                f'than {script.name} and could not be rewritten: '
-                + (r.stderr or r.stdout).strip()[-300:])
+        return (f'NOTE: the global git hooks at {installed.parent} were '
+                f'written by another {script.name} and could not be '
+                f'rewritten: ' + (r.stderr or r.stdout).strip()[-300:])
+    try:
+        after = installed.read_bytes()
+        now = stamp.read_text(encoding='utf-8').strip() \
+            if stamp.is_file() else None
+    except OSError:
+        return None
+    # The writer left them alone (a newer engine's hooks), or rewrote them
+    # to the same bytes: nothing this push runs has changed.
+    if (had is not None and now == had) or (had is None and after == before):
+        return None
     return (f'NOTE: rewrote the global git hooks at {installed.parent} from '
             f'{script.name}, which changed after they were written; this push '
             f'runs the current ones.')
