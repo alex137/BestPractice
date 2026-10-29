@@ -19818,6 +19818,21 @@ def check_changed_files_only_judges_the_change():
                       rc == 1 and 'zz_broken_fixture.sh: does not parse' in out, out[-400:]))
         git('rm', '-q', 'zz_broken_fixture.sh')
         git('commit', '-qm', 'clean up')
+        # A changed practice is judged by the checks whose subject it is
+        # (2026-10-29: 5fd34d4b3's relative ../gotchas/ link passed this
+        # step with 0 problems).
+        start = git('rev-parse', 'HEAD').stdout.strip()
+        linked = next(iter(sorted((wt / 'practices').glob('*.md'))))
+        with open(linked, 'a', encoding='utf-8') as f:
+            f.write('\nThe fixture\'s [trap](../gotchas/INDEX.md).\n')
+        git('commit', '-qam', 'a practice link that does not travel')
+        rc, out = files_check(start)
+        cases.append(('a changed practice whose relative link does not travel '
+                      'is refused, by its line and check',
+                      rc == 1 and '../gotchas/INDEX.md' in out
+                      and '(practice-links-travel)' in out, out[-600:]))
+        git('checkout', '-q', start, '--', str(linked.relative_to(wt)))
+        git('commit', '-qam', 'undo the link fixture')
         start = git('rev-parse', 'HEAD').stdout.strip()
         practice = next(iter(sorted((wt / 'practices').glob('*.md'))))
         # Its occasion, which MAP.md renders -- an edit the views must follow.

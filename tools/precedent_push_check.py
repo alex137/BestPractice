@@ -1673,6 +1673,31 @@ def changed_files_check(root, since):
                 f'changed, and the generated views were not regenerated with '
                 f'it -- run `python3 tools/build_views.py` and commit what it '
                 f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
+    # A CHANGED PRACTICE FILE IS JUDGED BY THE CHECKS WHOSE SUBJECT IT IS
+    # (2026-10-29). 5fd34d4b3 landed a relative ../gotchas/ link in
+    # practices/prompt-please.md: --only practice-links-travel reported it,
+    # this step reported 0 problems, and staging carried it until a later
+    # branch's baseline refused it. precedent_check.py's
+    # practice_file_checks() names the checks, about three seconds;
+    # --changed-files-only keeps only findings on this change.
+    pcheck = HERE / 'precedent_check.py'
+    if practice and pcheck.is_file():
+        r = subprocess.run([sys.executable, str(pcheck), '--practice-file-checks',
+                            '--changed-files-only', '--range', f'{since}...HEAD'],
+                           cwd=root, capture_output=True, text=True)
+        if r.returncode != 0:
+            slug, found = None, []
+            for line in r.stdout.splitlines():
+                if line.startswith(('VIOLATION  ', 'ERROR  ')):
+                    slug = line.split()[1]
+                elif line.startswith('  the rule:'):
+                    slug = None
+                elif slug and line.startswith('    '):
+                    found.append(f'{line.strip()} ({slug})')
+            problems += found or [
+                f'{practice[0]}: precedent_check.py --practice-file-checks '
+                f'failed -- ' + ((r.stdout + r.stderr).strip().splitlines()
+                                 or ['no output'])[-1][:300]]
     # THE GENERATED COUNTS FOLLOW A NEW PRACTICE (2026-09-29). doc_sync's
     # blocks (the catalogue count in spec/LOADER.md, the enforced count,
     # the routing table) move when a practice is added or its front matter
