@@ -16,7 +16,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-26"
-approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\" Commits that change no file are never mentioned, and ahead/behind counts are of commits that changed files: Morgan, 2026-09-27 -- \"let's have the system stop describing and/or reporting and/or mentioning empty merges\" (strength: decided). The unchanged-backlog sentence absorbed the working-style set's quiet-checks on 2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 - all are great, approved\" (strength: decided)."
+approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR NOT, I DON'T KNOW WHAT STOP HOOKS ARE, SO YOU NEED TO EVALUATE THE STOP HOOKS AND MAKE A RECOMMENDATION, AND THE SAME FOR OTHER SIMILAR ISSUES NOT JUST STOP HOOKS.\" Commits that change no file are never mentioned, and ahead/behind counts are of commits that changed files: Morgan, 2026-09-27 -- \"let's have the system stop describing and/or reporting and/or mentioning empty merges\" (strength: decided). The unchanged-backlog sentence absorbed the working-style set's quiet-checks on 2026-10-01, in the reduction pass Morgan approved that day: \"Question 3 - all are great, approved\" (strength: decided). Leftovers that need nothing are never listed: Morgan, 2026-10-29 -- \"Just tell me there's nothing else needed\" (strength: decided)."
 strength:    decided
 ---
 ## Rule
@@ -50,6 +50,21 @@ are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
 *"let's have the system stop describing and/or reporting and/or mentioning
 empty merges"*, and on the branch lines, count *"the number of commits
 ahead/behind that made changes to the repo"*.
+
+**A leftover that needs nothing from the person is never listed: the reply
+says "Nothing needed is left unpushed."** When a reply reports what is left
+-- unpushed, unmerged, open, still running -- it names only what someone
+would want kept or must act on, and what is being done about it. Branches a
+hook made on its own, scratch copies, caches, a tool's bookkeeping: delete
+what can go, and leave all of it out. "Nothing is left unpushed except X and
+Y" hands the person a list to sort, and they cannot tell from it whether X
+matters. The same holds for anything else reported as left over: when none
+of it needs them, the sentence is "Nothing needed is left \<unpushed, open,
+running\>", and nothing more. Where a shared set asks for "fine to lose,
+and why" (`loss-comes-with-a-verdict`), that sentence is for what the person knows about or asked for -- their own edits, a draft
+they saw -- never for what a tool or the session made by itself. Morgan,
+2026-10-29 (strength: decided): *"Just tell me there's nothing else
+needed."*
 
 **An unchanged, known backlog in a check's output is never re-explained.**
 "Pre-existing warnings only, unrelated to my edit", said again at every
@@ -120,6 +135,14 @@ about a check's output instead of a branch's, so the reduction pass Morgan
 approved that day ("Question 3 - all are great, approved", strength:
 decided) added it here as one sentence. Retiring quiet-checks in that set
 is a separate change, made there.
+
+**2026-10-29.** A session closing out reported: "Nothing is left unpushed
+except three engine-refresh branches the start-up hook made on its own,
+plus my scratch test copies." None of it needed anything from Morgan, yet
+the "except" sent him into working out which items mattered. He asked for
+"Nothing needed is left unpushed" instead, and for the session to find the
+general form; it is the paragraph after the empty-commit one, since a
+harmless leftover is the same kind of noise as an empty merge.
 
 ## Install
 Nothing to install. It fires at the `reply` gate
