@@ -1271,7 +1271,7 @@ def maintainers_step(repo, rep):
                  f'there any time -- it is never rewritten once set')
     named = pve.name_the_persons_maintainer(repo)
     if named:
-        rep.step('code owners', f'added your declared name to @{named}\'s entry '
+        rep.step('code owners', f'wrote your declared name to @{named}\'s entry '
                  f'in precedent.json\'s maintainers, so an approval that names '
                  f'you ("Name, YYYY-MM-DD: ...") is read as yours')
     # A single owner's own zone, for the records nobody's identity reaches
@@ -1296,6 +1296,12 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
     every set still unanswered becomes one question for the person. A
     recorded answer is never asked again."""
     answers = answers or {}
+    try:
+        for what in pve.fetch_offered_clones(
+                repo, [n for n, a in answers.items() if a == 'yes']):
+            rep.step('copy in', what)
+    except Exception as exc:                                  # noqa: BLE001
+        rep.step('copy in', f'an offered set could not be cloned ({exc})')
     try:
         for _ok, what in pve.copy_in_pending(repo):
             rep.step('copy in', what)

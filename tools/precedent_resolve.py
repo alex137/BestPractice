@@ -899,7 +899,34 @@ def _declared_path(repo_root, raw):
         main = _main_checkout(repo_root)
         if main is not None and (main / raw).exists():
             entry_path = (main / raw).resolve()
+        else:
+            known = _known_clone(entry_path.name)
+            if known is not None:
+                entry_path = known
     return entry_path
+
+
+def _known_clone(name):
+    """-> this machine's clone of practice source `name` beside the person's
+    individual set -- where session start clones every set it brings -- or
+    None.
+
+    WHY (2026-10-28, a Produce run from a clone made outside the session's
+    project folder). A repository declares a set as its sibling
+    (`../precedent-shared-writing`); a clone made anywhere else has no such
+    sibling, so its pre-push refused for a set that was on disk all along,
+    and the session symlinked the set in by hand. The sibling still wins
+    when it is there."""
+    ind = person_individual_path()
+    if ind is None or not name:
+        return None
+    cand = ind.parent / name
+    try:
+        if (cand / '.git').exists() and (cand / 'practices').is_dir():
+            return cand.resolve()
+    except OSError:
+        pass
+    return None
 
 
 # SETS A PERSON BRINGS (spec/LADDER_OPT_IN_PLAN.md D2, 2026-10-02).
