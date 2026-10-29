@@ -31393,6 +31393,9 @@ def check_reply_check_refuses_a_repeated_boildown():
     guard's own message and its say-nothing repair; the controls prove a new
     fact, a changed branch, the one-line form, a first reply and a missing
     transcript all pass.
+
+    Negative control, measured 2026-10-29: with previous_section skipping
+    only a last entry equal to the judged text, the woken-turn case fails.
     """
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repeat-'))
@@ -31486,6 +31489,36 @@ def check_reply_check_refuses_a_repeated_boildown():
         r6 = run(tmp / 'no-such-transcript.jsonl')
         cases.append(('negative control: no transcript, no refusal',
                       r6.returncode == 0, f'exit {r6.returncode}: {r6.stderr[:200]}'))
+
+        # 2026-10-28: a turn a background job woke, with short notes before
+        # its final message. The wake path judges every text block of the
+        # turn joined, which matched no timeline entry, so the reply was
+        # compared with its own Boildown and refused.
+        def woken(name, final, notes=('Checking the result.',)):
+            note = '<task-notification><task-id>b1</task-id><status>completed</status></task-notification>'
+            rows = [{'type': 'assistant', 'message': {
+                        'usage': {'input_tokens': 2},
+                        'content': [{'type': 'text', 'text': first}]}},
+                    {'type': 'user', 'origin': {'kind': 'task-notification'},
+                     'message': {'role': 'user', 'content': note}}]
+            rows += [{'type': 'assistant', 'message': {
+                        'usage': {'input_tokens': 2},
+                        'content': [{'type': 'text', 'text': t}]}}
+                     for t in [*notes, final]]
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps(r) for r in rows) + '\n',
+                            encoding='utf-8')
+            return path
+
+        r7 = run(woken('woken-news.jsonl', news))
+        cases.append(('a woken turn with notes before its final message is '
+                      'compared with the previous turn, never with itself '
+                      '(2026-10-28)',
+                      r7.returncode == 0, f'exit {r7.returncode}: {r7.stderr[:200]}'))
+        r8 = run(woken('woken-again.jsonl', again))
+        cases.append(('...and a real repeat on such a turn is still refused',
+                      r8.returncode == 2 and 'previous reply' in r8.stderr,
+                      f'exit {r8.returncode}: {r8.stderr[:200]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
