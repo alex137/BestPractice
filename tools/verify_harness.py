@@ -12985,6 +12985,35 @@ def _shard_failure_detail(proc, tail_lines=20):
     return out
 
 
+def _failing_case_lines(label, proc):
+    """-> [str] one line per failing case a failed shard names: its FAIL:
+    verdict, without the failure text below it. A shard that died before
+    its first verdict gets one line saying so."""
+    fails = _fail_blocks(proc.stdout or '')
+    if not fails:
+        return [f'shard {label}: exit {proc.returncode} with no FAIL: line '
+                '(it died before a verdict; its stderr is in the run log)']
+    return [b[0].removeprefix('FAIL:').strip() for b in fails]
+
+
+def _write_failing_cases(lines):
+    """Write `lines` to the file PRECEDENT_HARNESS_FAILURES names, if it
+    names one; nothing otherwise. GitHub's "main's test failed" issue read
+    the failing step's name from the jobs API and came back empty on
+    2026-10-29 (issue #1402: "could not be read; open the run"), and a step
+    name would only have said "the harness" anyway. The issue step reads
+    this file and names the failing cases itself. Written on a green run
+    too, empty, so a stale file never speaks for this one."""
+    target = os.environ.get('PRECEDENT_HARNESS_FAILURES')
+    if not target:
+        return
+    try:
+        pathlib.Path(target).write_text(''.join(f'{l}\n' for l in lines),
+                                        encoding='utf-8')
+    except OSError as e:
+        print(f'--as-ci: could not write the failing cases to {target}: {e}')
+
+
 # WHAT EACH CHECK TOOK, committed, so the deal below is the same on every
 # machine that runs `--as-ci` -- a session's and GitHub's runner alike. A
 # record kept under .precedent/ would deal differently on each one, and the
@@ -13534,7 +13563,7 @@ def run_as_ci(every_case=False, record_times=False):
             print(f'  -- {len(started) - len(running)} of {len(started)} shard '
                   f'process(es) done, {time.monotonic() - t0:.0f}s elapsed',
                   flush=True)
-    failed = []
+    failed, failing_cases = [], []
     for label, proc, out, err in started:
         out.seek(0)
         err.seek(0)
@@ -13553,9 +13582,11 @@ def run_as_ci(every_case=False, record_times=False):
             print(line)
         if done.returncode != 0:
             failed.append(label)
+            failing_cases += _failing_case_lines(label, done)
             print(f'  SHARD FAILED (exit {done.returncode})')
             for line in _shard_failure_detail(done):
                 print(line)
+    _write_failing_cases(failing_cases)
     recorded = {}
     if record_times and not failed:
         for f in sorted(tmp.glob('*.times.json')):
@@ -14153,6 +14184,129 @@ def check_as_ci_shards_match_the_workflow():
     check(f'GitHub runs the suite through --as-ci, the one split '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
+
+
+
+def check_one_way_to_fetch_a_missing_commit():
+    """precedent_local_edits.fetch_commit is the engine's one way to fetch a
+    commit a clone lacks (2026-10-29); checkin.fetch_recorded_commit and
+    precedent_update.range_readable go through it. Until then they were
+    three implementations, and checkin's ran `--depth=1000` even in a full
+    clone, which writes .git/shallow and turns that clone shallow."""
+    import tempfile
+    import precedent_local_edits as le
+    import precedent_update as pu
+    cases = []
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env={**os.environ, 'GIT_AUTHOR_NAME': 'f',
+                              'GIT_AUTHOR_EMAIL': 'f@x', 'GIT_COMMITTER_NAME': 'f',
+                              'GIT_COMMITTER_EMAIL': 'f@x'})
+    with tempfile.TemporaryDirectory() as td:
+        up = pathlib.Path(td) / 'up'
+        git(td, 'init', '-q', '-b', 'main', str(up))
+        for i in range(6):
+            (up / 'f.txt').write_text(f'{i}\n')
+            git(up, 'add', '-A')
+            git(up, 'commit', '-q', '-m', f'c{i}')
+        old = git(up, 'rev-parse', 'HEAD~4').stdout.strip()
+        tip = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        # An old commit off main, as a force-pushed branch leaves one.
+        git(up, 'checkout', '-q', '-b', 'side', old)
+        (up / 'g.txt').write_text('side\n')
+        git(up, 'add', '-A')
+        git(up, 'commit', '-q', '-m', 'side')
+        side = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        git(up, 'checkout', '-q', 'main')
+        git(up, 'config', 'uploadpack.allowAnySHA1InWant', 'true')
+        def shallow(c):
+            return git(c, 'rev-parse', '--is-shallow-repository').stdout.strip() == 'true'
+
+        full = pathlib.Path(td) / 'full'
+        git(td, 'clone', '-q', '--single-branch', '--branch', 'main', str(up), str(full))
+        # A bound shorter than the fixture's history, so a --depth fetch
+        # into this full clone would visibly turn it shallow.
+        saved_depth, le.FETCH_DEPTH = le.FETCH_DEPTH, 2
+        try:
+            got = le.fetch_commit(full, side, branch='main')
+        finally:
+            le.FETCH_DEPTH = saved_depth
+        cases.append(('a full clone gets a commit off its branch by name',
+                      got, str(got)))
+        cases.append(('...and is still a full clone afterwards', not shallow(full),
+                      'it turned shallow'))
+
+        thin = pathlib.Path(td) / 'thin'
+        git(td, 'clone', '-q', '--depth', '1', f'file://{up}', str(thin))
+        cases.append(('the fixture clone starts without the old commit',
+                      git(thin, 'cat-file', '-e', f'{old}^{{commit}}').returncode != 0, ''))
+        got = le.fetch_commit(thin, old, branch='main')
+        cases.append(('a depth-1 clone gets an old commit of its branch back', got, str(got)))
+
+        thin2 = pathlib.Path(td) / 'thin2'
+        git(td, 'clone', '-q', '--depth', '1', f'file://{up}', str(thin2))
+        ok, why = pu.range_readable(thin2, old, tip)
+        cases.append(('range_readable reads a range a depth-1 clone lacked', ok, why))
+        ok, why = pu.range_readable(thin2, side, tip)
+        cases.append(('...and says no for a commit that is not an ancestor',
+                      not ok and 'not hold' in why, why))
+        cases.append(('a missing commit with nowhere to fetch it from is False',
+                      not le.fetch_commit(thin2, '0' * 40), ''))
+    bad = [f'{c[0]}: {c[2]}' for c in cases if not c[1]]
+    check(f'one way to fetch a commit a clone lacks ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+def check_main_test_issue_names_the_failing_cases():
+    """--as-ci writes one line per failing case to the file
+    PRECEDENT_HARNESS_FAILURES names, and the workflow's "main's test
+    failed" issue reads it. Issue #1402 (2026-10-29) said only "could not
+    be read; open the run", and the failing case had to be dug out of the
+    job log by hand."""
+    import tempfile
+    cases = []
+    two = subprocess.CompletedProcess([], 1, stdout=(
+        'PASS: fine\nFAIL: the first thing broke\n  why it broke\n'
+        'N/A: skipped\nFAIL: the second thing broke\n'), stderr='')
+    got = _failing_case_lines('heavy', two)
+    cases.append(('each FAIL: verdict is one line, without its failure text',
+                  got == ['the first thing broke', 'the second thing broke'], got))
+    died = subprocess.CompletedProcess([], 1, stdout='PASS: fine\n',
+                                       stderr='Traceback\nKeyError\n')
+    got = _failing_case_lines('part 2 of 3', died)
+    cases.append(('a shard that died before a verdict is named as such',
+                  len(got) == 1 and got[0].startswith('shard part 2 of 3: exit 1')
+                  and 'no FAIL: line' in got[0], got))
+    saved = os.environ.get('PRECEDENT_HARNESS_FAILURES')
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            f = pathlib.Path(td) / 'failures.txt'
+            f.write_text('a stale case from an earlier run\n', encoding='utf-8')
+            os.environ['PRECEDENT_HARNESS_FAILURES'] = str(f)
+            _write_failing_cases(['one', 'two'])
+            got = f.read_text(encoding='utf-8')
+            cases.append(('the file holds one line per case', got == 'one\ntwo\n', got))
+            _write_failing_cases([])
+            got = f.read_text(encoding='utf-8')
+            cases.append(('a green run empties it, so a stale file never speaks',
+                          got == '', got))
+            os.environ.pop('PRECEDENT_HARNESS_FAILURES')
+            _write_failing_cases(['three'])
+            cases.append(('with the variable unset nothing is written',
+                          f.read_text(encoding='utf-8') == '', ''))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_HARNESS_FAILURES', None)
+        else:
+            os.environ['PRECEDENT_HARNESS_FAILURES'] = saved
+    wf = ROOT / '.github' / 'workflows' / 'deep-check.yml'
+    if wf.is_file():
+        text = wf.read_text(encoding='utf-8')
+        cases.append(('deep-check.yml sets the file for the harness and the issue reads it',
+                      'PRECEDENT_HARNESS_FAILURES: ${{ runner.temp }}/harness-failures.txt' in text
+                      and '"$RUNNER_TEMP/harness-failures.txt"' in text, ''))
+    bad = [f'{c[0]}: {c[2]!r}' for c in cases if not c[1]]
+    check(f"main's test-failed issue names the failing cases ({len(cases)} stated cases)",
+          not bad, '; '.join(bad))
 
 def _selected_case_slugs(all_slugs, touched=None, count=None, forced=None,
                          named=None):
@@ -80542,6 +80696,25 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
         cases.append(('...and is named with both fixes: declare it, or wire .claude/hooks/',
                       stale and 'bootstrap/left-stale.sh' in stale[0]
                       and f'{pve.HOOK_DEST_DIR}/left-stale.sh' in stale[0], out[:600]))
+        # The engine keeps "NOTE:" for what a person must judge, so the
+        # ladder set's upstream review lists only those
+        # (gotcha-2026-10-29-a-note-line-that-reports-a-state-lands-in-the-upstream-review).
+        # "Nothing to do" is a state; the undeclared copy is a thing to judge.
+        cases.append(('the "nothing to do" line is not a NOTE: line',
+                      nothing and not any('NOTE:' in l for l in nothing), out[:600]))
+        cases.append(('...and the undeclared copy, a thing to judge, still is',
+                      stale and stale[0].startswith('NOTE:'), out[:600]))
+        review = ROOT / 'tools' / 'ladder' / 'upstream_review.py'
+        if review.is_file():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('_ladder_review', review)
+            lr = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(lr)
+            listed = [l for _, l in lr.extract(out)]
+            cases.append(("the ladder set's upstream review lists the undeclared copy "
+                          'and not the "nothing to do" line',
+                          any('left-stale.sh' in l for l in listed)
+                          and not any('NOTHING TO DO' in l for l in listed), listed))
         manifest = json.loads((repo / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
@@ -92764,6 +92937,8 @@ def main():
     check('a stale source clone is made current, and a skip is never a success',
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
+    check_main_test_issue_names_the_failing_cases()
+    check_one_way_to_fetch_a_missing_commit()
     check_harness_reach_selects_what_a_change_reaches()
     check_isolated_run_matches_the_runner()
     check_isolated_copy_carries_uncommitted_changes()

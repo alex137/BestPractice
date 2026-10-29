@@ -3511,6 +3511,10 @@ def _reach_merge_base(root, a, b, refs=()):
         if r not in names and _git(root, 'rev-parse', '--verify', '--quiet',
                                    f'refs/remotes/origin/{r}'):
             names.append(r)
+    # Where two branches part, not one known commit, so this deepens the
+    # branches together rather than going through
+    # precedent_local_edits.fetch_commit; bounded the same way, never
+    # --unshallow on its own.
     for n in DEEPEN_STEPS:
         _run(root, 'fetch', '-q', f'--deepen={n}', 'origin', *names)
         if _run(root, 'merge-base', a, b).returncode == 0:
