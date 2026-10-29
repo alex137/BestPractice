@@ -67,6 +67,8 @@ HARNESS = 'tools/verify_harness.py'
 # Above this share of the suite, a scoped run saves too little to be worth
 # a run that is not a full one.
 FULL_ABOVE = 0.6
+# The commit a scoped run measures its change from, when not the ledger's.
+SINCE_ENV = 'PRECEDENT_HARNESS_SINCE'
 VERSION = 1
 
 SITECUSTOMIZE = r'''
@@ -404,14 +406,18 @@ def plan(names, head=None, fetch=True):
         # A failing check may have stopped before it reached everything it
         # would: its record can be short, and a short record picks too few.
         return None, 'the whole suite: the only ledger here is from a run that failed'
-    sel, reasons, full = select(ledger, ledger['commit'], head, names)
+    # SINCE_ENV: a landing measures its own change, from the tip it landed
+    # on, not everything since the ledger's commit (Morgan, 2026-10-29: the
+    # checks "of only what's relevant ... upon each staging").
+    base = os.environ.get(SINCE_ENV) or ledger['commit']
+    sel, reasons, full = select(ledger, base, head, names)
     if full:
         return None, f'the whole suite: {full}'
     if len(sel) > FULL_ABOVE * len(names):
         return None, (f'the whole suite: this change reaches {len(sel)} of '
                       f'{len(names)} checks')
     return sel, (f'{len(sel)} of {len(names)} checks: the ones this change '
-                 f'reaches since {ledger["commit"][:12]}')
+                 f'reaches since {base[:12]}')
 
 
 def _names():
