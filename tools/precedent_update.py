@@ -6422,6 +6422,49 @@ def seed_budgets_step(repo, rep):
              f'the largest, and a reduction pass is how it comes down')
 
 
+def session_load_total_step(repo, rep):
+    """Measure what a session in `repo` loads against the
+    `session_load_tokens` total, after everything this run writes, and put
+    an overrun to the person.
+
+    WHY (2026-10-29, a consuming repository). The update set the total to
+    10,000 from the person's individual set and reported DONE; the next
+    session check failed "what this session loads fits this repository's
+    session-load total" at ~10,886 (AGENTS.md ~9,751 +
+    .precedent/SESSION_PRACTICES.md ~1,134). The full check refuses only a
+    change that grew a part, so a total that arrives under a repository
+    already over it passed every gate here. The measurement is
+    session_load_trend.total_against_cap, the one the session check's row
+    reads. A question, not an item left for the repository: bringing it
+    under is a reduction pass, and only the person raises the total
+    (practice: session-load-budget)."""
+    try:
+        import session_load_trend as _slt
+    except Exception:                                        # noqa: BLE001
+        return
+    renderer = repo / 'tools' / 'precedent_session_practices.py'
+    if renderer.is_file():
+        # The session-start file as the next session will have it, rendered
+        # by the engine this update just vendored.
+        run([sys.executable, str(renderer), '--repo', '.', '--quiet'], repo)
+    measured = _slt.total_against_cap(repo)
+    if measured is None:
+        return
+    sizes, total, cap = measured
+    parts = ' + '.join(f'{rel} ~{n:,}' for rel, n in sizes.items())
+    if total <= cap:
+        rep.step('session-load total', f'~{total:,} of {cap:,} ({parts})')
+        return
+    rep.step('session-load total', f'OVER: ~{total:,} of {cap:,} ({parts})')
+    rep.ask('session-load total',
+            f'a session here loads ~{total:,} tokens before it works '
+            f'({parts}), over the {cap:,}-token session_load_tokens total, so '
+            f'every session check here fails until it comes under. A '
+            f'reduction pass on the largest part brings it back (`python3 '
+            f'tools/precedent_show.py reduction-pass`); only you can raise '
+            f'the total instead (practice: session-load-budget).')
+
+
 def full_check_after(repo):
     """precedent.json's `update_full_check` is "after": the update runs the
     basic check only, and the full one runs after the push, in the
@@ -6491,6 +6534,7 @@ def set_tests_step(repo, rep):
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
+    session_load_total_step(repo, rep)
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full

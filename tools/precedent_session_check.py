@@ -1274,11 +1274,11 @@ def _session_load_rows():
     except Exception:                                        # noqa: BLE001
         return []
     reg = slt.registry() or {}
-    total_cap = reg.get('session_load_tokens')
-    if isinstance(total_cap, int) and not isinstance(total_cap, bool):
+    measured_total = slt.total_against_cap(ROOT)
+    if measured_total is not None:
         # One total (build_views.TOTAL_KEY): the parts have no ceiling of
         # their own, so the only row is the sum against the total.
-        sizes, total = slt.total_tokens(ROOT)
+        sizes, total, total_cap = measured_total
         if not sizes:
             return []
         parts = ' + '.join(f'{rel} ~{n:,}' for rel, n in sizes.items())
