@@ -3884,15 +3884,41 @@ def _land_composed(root, sha, label, staging, why, say):
             f'checked with the rest:\n  ' + '\n  '.join(commits))
     if rebuilt:
         say(f'REBUILT what those left stale: {", ".join(rebuilt)}.')
-    say(f'{staging} is at {new[:12]} now. The full suite has not run on it: '
-        f'`python3 tools/precedent_branches.py --run-tests` runs it, moving '
-        f'nothing.')
+    say(f'{staging} is at {new[:12]} now.')
+    nxt = reached_checks_next(root, stip, label)
+    if nxt:
+        say(nxt)
     for line in review:
         say(line)
     note = update_vendors_note(root, stip, new)
     if note:
         say(note)
     return 0, f'LANDED at {new}'
+
+
+def reached_checks_next(root, since, label):
+    """-> the line telling the landing session to run, in the background,
+    the harness checks this landing reaches, or '' where the repository
+    has no harness to scope (a consumer vendors neither file).
+
+    WHY (Morgan, 2026-10-29, strength: decided: "Let's have the test of
+    only what's relevant (what you built for alex) run upon each staging").
+    That day's Produce turned main red on five tests a landing had left
+    stale, each one reached by its own landing (todo-2026-10-29-landing-
+    runs-the-tests-it-reaches). After the push, not before it: the quick
+    tier stays closed (quick-tier-is-closed), and the session that made the
+    change is still there to fix what fails."""
+    tools = pathlib.Path(root) / 'tools'
+    if not since or not (tools / 'verify_harness.py').is_file() \
+            or not (tools / 'harness_reach.py').is_file():
+        return ''
+    return (f'NEXT, IN THE BACKGROUND (do not wait on it to reply): the harness '
+            f'checks this landing reaches, without the planted-case sweep, '
+            f'which only the nightly run and the very deep check run:\n'
+            f'  PRECEDENT_HARNESS_SINCE={since} python3 tools/verify_harness.py '
+            f'--as-ci --because "landing {label} on staging: the checks it reaches"\n'
+            f'Fix what fails on a branch and land the fix before this session '
+            f'ends; a red one left here turns main red at the next Produce.')
 
 
 def land_confirm(root, sha, say=print):
@@ -3932,6 +3958,10 @@ def land_confirm(root, sha, say=print):
     if _git(root, 'rev-parse', f'{landed}^{{tree}}') == _git(root, 'rev-parse', f'{full}^{{tree}}'):
         say(f'LANDED AS CHECKED: {staging} took {full[:12]} at {landed[:12]}, '
             f'with exactly the tree the quick checks passed.')
+        nxt = reached_checks_next(
+            root, _git(root, 'rev-parse', '--verify', '--quiet', f'{landed}^1'), full[:12])
+        if nxt:
+            say(nxt)
         return 0
     base = _git(root, 'rev-parse', '--verify', '--quiet', f'{landed}^1') or full
     say(f'{staging} moved before the pull request merged: {landed[:12]} is '
@@ -3942,6 +3972,9 @@ def land_confirm(root, sha, say=print):
     if ok:
         say(f'LANDED, AND CHECKED NOW: the quick checks pass on {landed[:12]}, '
             f'what {staging} took.')
+        nxt = reached_checks_next(root, base, full[:12])
+        if nxt:
+            say(nxt)
         return 0
     say(f'LANDED, AND FAILING: the quick checks fail on {landed[:12]}, what '
         f'{staging} took.\n\n{out}\n\nFix it on a branch and land the fix.')

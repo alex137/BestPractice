@@ -4456,6 +4456,21 @@ def record_staged_output(repo, paths):
     _write_record(repo, data)
 
 
+def _changed_paths(repo, cached=False):
+    """-> the set of paths `git diff [--cached]` reports in `repo`: what
+    `git diff [--cached] --quiet -- PATH` fails on, for every path at once.
+    One process instead of one per file: the per-file calls were 1,490 of
+    4,710 git processes in one Update Vendors test (2026-10-29).
+    --no-renames, so a staged rename names both paths, as the per-path
+    form judges each."""
+    r = subprocess.run(['git', '-C', str(repo), 'diff', '--name-only', '-z',
+                        '--no-renames', *(['--cached'] if cached else [])],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    return {p for p in r.stdout.split('\0') if p}
+
+
 def record_kept_output(repo, paths):
     """Write down what this run leaves staged as the update's output, in
     every outcome, under the record's `staged` key: each path and the hash
@@ -4466,8 +4481,10 @@ def record_kept_output(repo, paths):
     data = _read_record(repo)
     g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
                                   capture_output=True, text=True)
+    unstaged = _changed_paths(repo)
     kept = {p: _content_hash(repo / p) for p in sorted(paths)
-            if g('diff', '--quiet', '--', p).returncode == 0}
+            if (p not in unstaged if unstaged is not None
+                else g('diff', '--quiet', '--', p).returncode == 0)}
     if kept:
         data['staged'] = kept
     else:
@@ -4529,12 +4546,15 @@ def earlier_runs_output(repo, before, failed_paths=None):
     g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
                                   capture_output=True, text=True)
     out = set()
+    unstaged, staged = _changed_paths(repo), _changed_paths(repo, cached=True)
     for rel in sorted(set(before) & set(known)):
         if _content_hash(repo / rel) != known[rel]:
             continue
-        if g('diff', '--quiet', '--', rel).returncode != 0:
+        if (rel in unstaged if unstaged is not None
+                else g('diff', '--quiet', '--', rel).returncode != 0):
             continue        # an unstaged change on top: someone's
-        if g('diff', '--cached', '--quiet', '--', rel).returncode == 0:
+        if (rel not in staged if staged is not None
+                else g('diff', '--cached', '--quiet', '--', rel).returncode == 0):
             continue        # not staged (untracked, or back to HEAD)
         out.add(rel)
     return out
@@ -4710,9 +4730,12 @@ def restore_own_staged_output(repo, select):
     g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
                                   capture_output=True, text=True)
     back = []
+    unstaged = _changed_paths(repo)
     for rel in sorted(select(repo, paths)):
         f = repo / rel
-        if _content_hash(f) != paths[rel] or g('diff', '--quiet', '--', rel).returncode != 0:
+        if _content_hash(f) != paths[rel] or (
+                rel in unstaged if unstaged is not None
+                else g('diff', '--quiet', '--', rel).returncode != 0):
             continue
         if g('cat-file', '-e', f'HEAD:{rel}').returncode == 0:
             g('checkout', '-q', 'HEAD', '--', rel)

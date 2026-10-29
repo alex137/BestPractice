@@ -13353,6 +13353,7 @@ def check_bare_all_runs_across_the_cores():
          not _bare_all_runs_in_parallel(['--all'],
                                         {'PRECEDENT_HARNESS_SERIAL': '1'})),
     ]
+    import inspect
     src = inspect.getsource(run_as_ci)
     cases.append(('every_case gives each process PRECEDENT_HARNESS_ALL=1',
                   "env['PRECEDENT_HARNESS_ALL'] = '1'" in src
@@ -13396,6 +13397,26 @@ def _as_ci_scope(every_case):
     except Exception as e:                    # noqa: BLE001
         return None, f'the whole suite: the change scope could not be worked out ({e})', hr
     return selected, account, hr
+
+
+def _planted_sweep_runs(every_case, environ=None):
+    """-> True when this --as-ci run includes _PLANTED_SUITE.
+
+    ONLY IN A WHOLE-SUITE RUN ASKED FOR BY NAME (Morgan, 2026-10-29,
+    strength: decided: "let's NO LONGER RUN the full 519 second test of
+    everything on main ... it should run when I do a 'very deep test'; and
+    also ... in the nightly tests"): `--all` (the very deep check runs it
+    that way), PRECEDENT_HARNESS_FULL=1 (deep-check.yml's nightly and
+    by-hand runs) or a ledger recording. Every other run -- the pull
+    request into main, the push after a Produce, a Debut, a landing's
+    scoped run -- leaves it out, even when the change reaches most of the
+    suite. It read files nearly every commit touches, so a scoped run
+    always picked it, and it alone took 519 s of GitHub's run that day.
+    What is given up: a check that stops firing is found by the nightly
+    run, up to a day later, instead of at the merge."""
+    environ = os.environ if environ is None else environ
+    return bool(every_case or environ.get('PRECEDENT_HARNESS_FULL') == '1'
+                or environ.get('HARNESS_REACH_RECORD'))
 
 
 def run_as_ci(every_case=False, record_times=False):
@@ -13452,6 +13473,14 @@ def run_as_ci(every_case=False, record_times=False):
             print('--as-ci: not recording what each check reaches -- that '
                   'needs Python 3.12', flush=True)
     runs = _as_ci_runs(jobs, names=sorted(selected) if selected is not None else None)
+    if not _planted_sweep_runs(every_case):
+        if selected is not None:
+            selected = selected - {_PLANTED_SUITE}
+        runs = [(label, e) for label, e in runs
+                if e.get('PRECEDENT_CHECK_ONLY') != _PLANTED_SUITE]
+        print(f'--as-ci: {_PLANTED_SUITE} is left out: it runs every planted '
+              f'case only in a whole-suite run asked for by name -- the nightly '
+              f'run, one started by hand, --all, the very deep check', flush=True)
     if selected is not None:
         # A shard that runs only named checks, none of them reached, has
         # nothing to do.
@@ -85373,6 +85402,105 @@ def check_harness_times_merge_without_a_conflict():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_planted_sweep_runs_only_in_a_named_whole_suite_run():
+    """check_precedent_check_fires, every planted case, runs only in a
+    whole-suite run asked for by name: the nightly and by-hand GitHub runs,
+    --all (the very deep check), a ledger recording. A scoped run -- the
+    pull request into main, the push after a Produce, a Debut, a landing's
+    run -- leaves it out, even when the change reaches most of the suite.
+
+    WHY. Morgan, 2026-10-29 (strength: decided): "let's NO LONGER RUN the
+    full 519 second test of everything on main ... it should run when I do
+    a 'very deep test'; and also ... in the nightly tests". It read files
+    nearly every commit touches, so every scoped run picked it."""
+    cases = []
+    for env, every, want in (
+            ({}, False, False),
+            ({'PRECEDENT_HARNESS_FULL': ''}, False, False),
+            ({'PRECEDENT_HARNESS_FULL': '0'}, False, False),
+            ({'PRECEDENT_HARNESS_FULL': '1'}, False, True),
+            ({'HARNESS_REACH_RECORD': '/tmp/x'}, False, True),
+            ({}, True, True)):
+        got = _planted_sweep_runs(every, env)
+        cases.append((f'env={env} --all={every}: planted sweep runs={want}',
+                      got == want, f'got {got}'))
+    import inspect
+    src = inspect.getsource(run_as_ci)
+    cases.append(('run_as_ci drops the planted shard and the name when the sweep '
+                  'is not asked for',
+                  'if not _planted_sweep_runs(every_case):' in src
+                  and "!= _PLANTED_SUITE" in src
+                  and 'selected - {_PLANTED_SUITE}' in src, ''))
+    wf = (ROOT / '.github' / 'workflows' / 'deep-check.yml').read_text(encoding='utf-8')
+    cases.append(("the nightly and by-hand GitHub runs still ask for the whole suite",
+                  "PRECEDENT_HARNESS_FULL: ${{ (github.event_name == 'schedule' || "
+                  "github.event_name == 'workflow_dispatch') && '1' || '' }}" in wf
+                  and "cron: '17 7 * * *'" in wf, ''))
+    vdc = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+    cases.append(('the very deep check still runs verify_harness --all',
+                  'verify_harness.py --all' in vdc, ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the planted-case sweep runs only in a whole-suite run asked for by '
+          f'name ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_a_landing_names_the_checks_it_reaches():
+    """After a landing on staging, the land tool prints the command that
+    runs, in the background, the harness checks that landing reaches --
+    measured from the tip it landed on (PRECEDENT_HARNESS_SINCE), not from
+    the ledger's commit -- and prints nothing where there is no harness.
+
+    WHY. Morgan, 2026-10-29 (strength: decided): "Let's have the test of
+    only what's relevant (what you built for alex) run upon each staging".
+    That day's Produce turned main red on five tests left stale by landings
+    that each reached them."""
+    import tempfile, importlib.util
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    cases = []
+    line = pb.reached_checks_next(ROOT, 'abc123', 'my-branch')
+    cases.append(('the line names the since-commit, --as-ci and a reason',
+                  'PRECEDENT_HARNESS_SINCE=abc123 python3 tools/verify_harness.py --as-ci'
+                  in line and '--because "landing my-branch on staging' in line
+                  and 'IN THE BACKGROUND' in line, line[:200]))
+    cases.append(('no since-commit, no line', pb.reached_checks_next(ROOT, '', 'b') == '', ''))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-reached-next-'))
+    try:
+        (tmp / 'tools').mkdir()
+        cases.append(('a repository without the harness gets no line',
+                      pb.reached_checks_next(tmp, 'abc123', 'b') == '', ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    spec = importlib.util.spec_from_file_location(
+        '_hr_since', ROOT / 'tools' / 'harness_reach.py')
+    hr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(hr)
+    seen = []
+    hr.load_ledger = lambda fetch=True: {'commit': 'ledgercommit', 'checks': {}}
+    hr.select = lambda ledger, base, head, names, root=None: (
+        seen.append(base) or (set(names[:1]), {}, None))
+    saved = os.environ.pop(hr.SINCE_ENV, None), os.environ.pop('PRECEDENT_HARNESS_FULL', None)
+    try:
+        _sel, acc = hr.plan(['check_x', 'check_y'])
+        os.environ[hr.SINCE_ENV] = 'landedontip'
+        _sel, acc2 = hr.plan(['check_x', 'check_y'])
+    finally:
+        os.environ.pop(hr.SINCE_ENV, None)
+        if saved[0] is not None:
+            os.environ[hr.SINCE_ENV] = saved[0]
+        if saved[1] is not None:
+            os.environ['PRECEDENT_HARNESS_FULL'] = saved[1]
+    cases.append(('unset, the plan measures from the ledger commit',
+                  seen[:1] == ['ledgercommit'] and 'since ledgercommi' in acc, f'{seen} {acc}'))
+    cases.append(('set, it measures from the landed-on tip',
+                  seen[1:2] == ['landedontip'] and 'since landedontip' in acc2, f'{seen} {acc2}'))
+    sys.path.pop(0)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a landing names the checks it reaches ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_as_ci_parts_partition_the_suite():
     """`--as-ci` runs its shards side by side and deals CI's rest shard into
     parts (_as_ci_runs). Whatever the job count, every check must run in
@@ -92758,6 +92886,8 @@ def main():
     check_bootstrapped_shared_set_carries_current_codeowners()
     check_codeowners_stamp_hashes_only_the_registry()
     check_as_ci_says_why_a_shard_failed()
+    check_planted_sweep_runs_only_in_a_named_whole_suite_run()
+    check_a_landing_names_the_checks_it_reaches()
     check_as_ci_parts_partition_the_suite()
     check_harness_times_merge_without_a_conflict()
     check_land_times_fallback_keeps_a_deleted_test_deleted()
