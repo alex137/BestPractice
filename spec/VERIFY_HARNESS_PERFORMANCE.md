@@ -632,19 +632,63 @@ both pairs on the same quiet 4-core container. Every real Update Vendors
 run saves the same calls.
 
 **Two levers weighed and not taken** (Morgan, 2026-10-29, strength:
-assented: "If we don't do levers 1 or 3 for now"):
+assented: "If we don't do levers 1 or 3 for now"). They stay open to
+revisit; each is explained here so the next session starts from this, not
+from scratch.
 
-- *Skip these checks when a change touches no shipped file.* 84 of the 495
-  commits on staging since 2026-10-15 touched no shipped file. But the
-  checks read whole trees at a commit (`git archive` with no path, `ls-tree
-  -r`, `log --raw`), so recording their reads precisely still reaches every
-  change; skipping them needs a declared list of what Update Vendors reads,
-  which nothing checks. A scoped run that skips a test it should have run is
-  how main went red on 2026-10-29.
-- *Share one update run between checks.* The setup they share (the seeded
-  consuming project) is cached since 2026-10-09; what is left is each check's
-  own update against its own scenario. Sharing one means merging scenarios,
-  the leak the 2026-09-19 reuse attempt was reverted over.
+### Lever 1: skip the Update Vendors checks when no shipped file changed
+
+**Shipped and stay-home files.** Update Vendors copies some of this
+repository into every repository that uses it: the engine in `tools/`, the
+hooks, `templates/`, the practices. Those are shipped. The rest stays here:
+open items in `todo/`, plans in `spec/`, `gotchas/`, What's New. **84 of
+the 495 commits on staging since 2026-10-15 touched only stay-home files**,
+about one in six. For those, a check of what Update Vendors copies could
+plausibly be skipped.
+
+**Why the change-scoped run picks these checks anyway.** To build a
+consuming project, a check, or the update it runs, reads this repository's
+history at a commit: `git archive` of a whole commit with no path, `git
+ls-tree -r`, `git log --raw`, `git show` of file after file. The recorder
+([`tools/harness_reach_hook.py`](../tools/harness_reach_hook.py)) cannot see
+which files a git command against the repository reads, so it marks the
+check's reach "not fully seen", and
+[`tools/harness_reach.py`](../tools/harness_reach.py) runs every such check
+on every change. Teaching the recorder to read git's arguments would not
+help these: a whole-commit archive really does read every file, an open
+item included, so the precise record says the same thing.
+
+**What skipping would take, and its risk.** Only a statement that these
+checks depend on shipped files alone -- something the recorder cannot
+confirm. Written by hand, nothing would ever check it: the day a check
+began to depend on a stay-home file, a landing's run would skip it, pass,
+and main would go red at the next Produce, which is what happened on
+2026-10-29 and what that day's change-scoped landing runs exist to stop.
+
+**The gain.** At most one landing in six, each saving the Update Vendors
+checks' share of a landing's background run: about 900 seconds of check
+time, roughly four minutes across four processes. That is estimated from
+[`tools/harness_check_times.json`](../tools/harness_check_times.json), not
+measured as a run.
+
+**A safer version, if this is revisited.** Take the list from the place
+Update Vendors decides what to copy, so the two cannot drift apart, and
+keep the nightly whole-suite run as the backstop: a check that does depend
+on a stay-home file would then be caught within a day instead of never.
+About one more round of work like the one this section records.
+
+### Lever 3: share one update run between checks
+
+The setup these checks repeat -- seeding a consuming project -- has been
+cached since 2026-10-09 (the section above, from Morgan's *"share the fake
+project"*). What each check still pays for is its own update against its
+own scenario: a different upstream change, a different local edit, a
+decline then a re-decision. Two checks can share an update run only by
+testing the same scenario, so sharing means merging scenarios into one
+project, where one check's leftovers can change another's result. That is
+the leak the 2026-09-19 fixture-reuse attempt was reverted over (above).
+The lever that did pay was making each update run cheaper, which is this
+section's change.
 
 ## Open follow-ups
 
