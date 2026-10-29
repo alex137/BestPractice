@@ -93,6 +93,18 @@ named harness check); `precedent_push_check.py` passed on the branch.
    precedent-shared-ladder's pair to those keys) waits until consumers'
    engines carry this, because an older engine would read the trimmed pair
    with no triggers.
+   Sequence, measured 2026-10-20: the engine landed on staging with #1335,
+   and Update Vendors takes only a main that passed, so it is Produce, main's
+   test passing, then Update All Vendors (Morgan's individual set brings the
+   ladder set, so every repository he works in carries the rule, and the
+   ladder set's own vendored engine needs it too). Then, in a session rooted
+   in precedent-shared-ladder, after its PR #126 is merged or folded in:
+   cut the pair to landing_branches "staging|main", adds_if_matches (the
+   stage-word trigger and --promote) and its quoted-Booked must_also_match;
+   drop the restated triggers and exemptions; make
+   test_landing_authority_reply_check.sh judge the pair through _settle with
+   universal's. About 20 minutes; it rides the next routine Produce, since
+   nothing breaks until universal's rule changes again.
 3. Fixed, mechanism only. In this harness a seeded prompt is recorded with
    origin `task-notification`, which the gate never reads; the refused session
    must have received the prompt as a typed message. The incident itself was
