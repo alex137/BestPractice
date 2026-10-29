@@ -1687,10 +1687,12 @@ def update(clone, force=False, allow_pinned=False, ref=None):
         if not recorded:
             sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
                      "cannot tell local work from upstream drift; pass --force to mirror anyway")
+        fetch_recorded_commit(clone, recorded)
         drift = local_changes(clone, recorded)
         if drift is None:
-            sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in the clone — "
-                     f"fetch it there, or pass --force")
+            sys.exit(f"checkin FAIL: recorded commit {recorded[:12]} not found in {clone}, "
+                     f"even after fetching for it -- deepen that clone "
+                     f"(git -C {clone} fetch --depth=5000 origin), or pass --force")
         if drift:
             for p in drift:
                 print(f"  local change: {p}")
@@ -1997,6 +1999,33 @@ def _base_is_present(clone, base):
     return _git_rc(clone, 'cat-file', '-e', f'{base}^{{commit}}')[0] == 0
 
 
+def fetch_recorded_commit(clone, commit):
+    """-> True once `clone` holds `commit`, fetching for it if it has to.
+
+    THE ONE WAY a recorded commit missing from a source clone is fetched:
+    the mirror's guard, the carry check and its committed stamps all go
+    through here. Attaching a repository mid-session clones it --depth 1,
+    so the commit a copy was last mirrored from is usually absent, and
+    update() refused with "fetch it there" (a consumer's Update Vendors on
+    a copied-in set, 2026-10-29). One bounded deepen of the tracked branch,
+    then the commit itself; never --unshallow, which some git policy hooks
+    refuse outright and which costs minutes on a long history."""
+    if _base_is_present(clone, commit):
+        return True
+    subprocess.run(['git', '-C', str(clone), 'fetch', '-q', '--depth=1000', 'origin',
+                    _tracked_branch(clone)], capture_output=True, text=True)
+    if _base_is_present(clone, commit):
+        return True
+    # The commit by name, for one off the tracked branch. Bounded only in a
+    # clone already shallow: a --depth fetch into a full clone would write
+    # .git/shallow and turn it shallow (precedent_local_edits.py, 2026-10-04).
+    shallow = _git_rc(clone, 'rev-parse', '--is-shallow-repository')[1].strip() == 'true'
+    subprocess.run(['git', '-C', str(clone), 'fetch', '-q']
+                   + (['--depth=1000'] if shallow else []) + ['origin', commit],
+                   capture_output=True, text=True)
+    return _base_is_present(clone, commit)
+
+
 def _committed_tree_bases(clone, base, dep_ref):
     """-> every upstream commit the vendored tree committed on `dep_ref`
     could have been mirrored from: `base` (the working manifest's
@@ -2017,10 +2046,7 @@ def _committed_tree_bases(clone, base, dep_ref):
     for s in stamps:
         if not isinstance(s, str) or not s.strip() or any(_same_commit(s, b) for b in bases):
             continue
-        if not _base_is_present(clone, s):
-            subprocess.run(['git', '-C', str(clone), 'fetch', '--depth=1000', 'origin',
-                            _tracked_branch(clone)], capture_output=True, text=True)
-        if _base_is_present(clone, s):
+        if fetch_recorded_commit(clone, s):
             bases.append(s)
         else:
             print(f"NOTICE: carry check: {dep_ref}'s committed {rel} records upstream "
@@ -2130,14 +2156,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
     _dep_git('fetch', 'origin')
 
     # -- the precondition, before a single line is compared ---------------
-    if not _base_is_present(clone, base):
-        # One bounded deepen, then re-ask. Bounded rather than --unshallow:
-        # some git policy hooks refuse that outright, and a fetch that is
-        # refused leaves the clone exactly as shallow as before.
-        branch = _tracked_branch(clone)
-        subprocess.run(['git', '-C', str(clone), 'fetch', '--depth=1000',
-                        'origin', branch], capture_output=True, text=True)
-    if not _base_is_present(clone, base):
+    if not fetch_recorded_commit(clone, base):
         sys.exit(
             f"checkin FAIL: the carry check cannot run -- the recorded base "
             f"commit {base[:12]} is not in this clone of the upstream repo, "

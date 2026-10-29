@@ -1576,7 +1576,11 @@ def refresh_global_hooks(root, script=None):
     # to the same bytes: nothing this push runs has changed.
     if (had is not None and now == had) or (had is None and after == before):
         return None
-    return (f'NOTE: rewrote the global git hooks at {installed.parent} from '
+    # Plain information, never "NOTE:": the repair is done and leaves nothing
+    # to judge, but a NOTE line lands in Update Vendors' upstream review as
+    # an item (a consumer's run, 2026-10-29). The could-not case above is
+    # one, and keeps its NOTE.
+    return (f'global git hooks: rewrote them at {installed.parent} from '
             f'{script.name}, which changed after they were written; this push '
             f'runs the current ones.')
 
