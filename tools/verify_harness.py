@@ -36956,6 +36956,50 @@ def check_practice_ships_its_files():
                       and 'REPLACED' in out and 'declined_ships' in out,
                       out[-300:]))
 
+        # Delivered last time and unchanged since: the 2026-10-29 incident.
+        # The manifest names a delivery whose hash disagrees with the file,
+        # yet the file is byte for byte what the set shipped -- nothing of
+        # this repository's is at stake, so the set's newer copy replaces it.
+        def stale_manifest_row(m):
+            m['ships'] = [dict(r, sha256_16='0' * 16) for r in m.get('ships', [])]
+            m.setdefault('ships', []).append({'path': 'tools/helper.py',
+                                              'sha256_16': '0' * 16})
+            mf.write_text(json.dumps(m), encoding='utf-8')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'the set\'s v2, delivered')
+        stale_manifest_row(json.loads(mf.read_text(encoding='utf-8')))
+        helper.write_text('print("v3")\n', encoding='utf-8')
+        rc, out = grun()
+        cases.append(('a delivered file unchanged since, which the committed '
+                      'manifest records, takes the set\'s newer copy and is '
+                      'not kept as the repository\'s own',
+                      rc == 0 and 'v3' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' not in out, out[-300:]))
+        # The same, with no committed manifest row: the set's own history
+        # holds the bytes.
+        helper.write_text('print("v2")\n', encoding='utf-8')
+        fixture_git(team, 'init', '-q')
+        fixture_git(team, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(team, 'config', 'user.name', 'fixture')
+        fixture_git(team, 'add', '-A')
+        fixture_git(team, 'commit', '-qm', 'set v2')
+        put(gdelivered, 'print("v2")\n')
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'v2 again, no delivery recorded')
+        stale_manifest_row(m)
+        helper.write_text('print("v3")\n', encoding='utf-8')
+        fixture_git(team, 'commit', '-qam', 'set v3')
+        rc, out = grun()
+        cases.append(('...and so does one whose bytes only the set\'s own '
+                      'history holds',
+                      rc == 0 and 'v3' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' not in out, out[-300:]))
+        shutil.rmtree(team / '.git')
+        helper.write_text('print("v2")\n', encoding='utf-8')
+
         # --- decline --------------------------------------------------------
         config({'declined_ships': {'tools/helper.py': 'we have our own'}})
         put(delivered, 'print("ours")\n')
@@ -51624,7 +51668,8 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         root = pathlib.Path(td)
         engine = root / 'engine'
         (engine / 'tools').mkdir(parents=True)
-        for name in ('precedent_run_repo_hooks.py', 'precedent_hooks.py'):
+        for name in ('precedent_run_repo_hooks.py', 'precedent_hooks.py',
+                     'precedent_session_check.py', 'harness_times_merge.py'):
             shutil.copy(ROOT / 'tools' / name, engine / 'tools' / name)
         (engine / '.claude').mkdir()
         (engine / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
@@ -51685,6 +51730,26 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         r = run('Nonsense', {})
         cases.append(('an unknown moment runs nothing', r.returncode == 0
                       and 'usage' in r.stdout, r.stdout))
+        # 2026-10-29: a clone made after session start (the attach tool's)
+        # never had its merge drivers set, and its session check warned on
+        # every turn. The switchboard sets them before running its hooks.
+        a_tools = a / 'tools'
+        a_tools.mkdir()
+        shutil.copy(ROOT / 'tools' / 'harness_times_merge.py', a_tools)
+        (a / '.gitattributes').write_text(
+            'tools/harness_check_times.json merge=precedent-harness-times\n',
+            encoding='utf-8')
+
+        def driver():
+            return subprocess.run(['git', '-C', str(a), 'config', '--get',
+                                   'merge.precedent-harness-times.driver'],
+                                  capture_output=True, text=True).stdout.strip()
+        before = driver()
+        r = run('UserPromptSubmit', {'cwd': str(a), 'prompt': 'hi'})
+        cases.append(('running a late clone\'s hooks sets the merge driver its '
+                      '.gitattributes names, which no session start set',
+                      not before and 'harness_times_merge.py' in driver(),
+                      (before, driver(), r.stderr)))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the switchboard runs the hooks of the repository an action is about '
           f'({len(cases)} stated cases)', not bad,
@@ -67435,6 +67500,17 @@ def check_session_load_total_is_the_one_budget():
                           f'{said} {entry}'))
             cases.append(('copying it again changes nothing',
                           pu.record_person_total(repo, today='2026-10-29') is None))
+            cases.append(('CONTROL: a repository within the copied total is not '
+                          'told to reduce', 'Reduction pass' not in (said or '')))
+            # 2026-10-29: a repository already over the person's total heard
+            # only "set to 10,000", and every session check after was red.
+            files(agents=40000, session=500)
+            psp.brought_budget = lambda r=None, key='brought_sets_tokens': (
+                (3500, str(ind)) if key == 'session_load_tokens' else (None, str(ind)))
+            said = pu.record_person_total(repo, today='2026-10-29') or ''
+            cases.append(('a total copied into a repository already loading more '
+                          'says so, and names a Reduction pass as the next step',
+                          'over it' in said and 'Reduction pass' in said, said))
             (repo / 'precedent.json').write_text(json.dumps({'sources': []}))
             cases.append(('a copy-in records nothing under a total',
                           pu.record_copy_in_budget(repo) is None))

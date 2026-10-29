@@ -183,6 +183,7 @@ def run(event, raw, project):
         import precedent_hooks as ph
     finally:
         sys.path.pop(0)
+    _set_merge_drivers(repo)
     env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
     cwd = os.getcwd()
     os.chdir(repo)          # each hook runs from its repository, as natively
@@ -195,6 +196,24 @@ def run(event, raw, project):
         os.chdir(cwd)
     code, out, err = ph.combine(event, results)
     return code, (out + '\n') if out and not out.endswith('\n') else out, err
+
+
+def _set_merge_drivers(repo):
+    """Configure the merge drivers `repo`'s .gitattributes names, as its
+    session start would have. A clone made after session start -- the
+    attach tool's, made mid-session, often the BestPractice clone Update
+    Vendors runs from -- never had that hook, and with the session opened
+    above every repository it is the one a prompt falls back to: its
+    session check warned on every turn that a driver was named but not
+    configured (2026-10-29). Additive and idempotent; never blocks."""
+    sys.path.insert(0, str(HERE))
+    try:
+        import precedent_session_check as psc
+        psc.configure_merge_drivers(repo)
+    except Exception:                                        # noqa: BLE001
+        pass
+    finally:
+        sys.path.pop(0)
 
 
 def main(argv):
