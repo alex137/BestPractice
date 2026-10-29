@@ -351,6 +351,50 @@ def _inherit_pair(earlier, pair):
     return merged
 
 
+def inherit_requirement(earlier, r):
+    """-> `r` merged over the `earlier` requirement it replaces with
+    "inherits": true: every key of `earlier` that `r` does not set, and each
+    require_in_fence_paired_with pair merged with the earlier pair at the
+    same position (_inherit_pair)."""
+    merged = {**earlier, **r}
+    key = 'require_in_fence_paired_with'
+    if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
+        merged[key] = [
+            _inherit_pair(earlier[key][i] if i < len(earlier[key]) else {}, pair)
+            for i, pair in enumerate(r[key])]
+    return merged
+
+
+def inherited_from(repo, rid):
+    """-> the requirement with id `rid` that `repo`'s own requirement of that
+    id replaces: the last one declared by a source weaker than `repo` itself,
+    or None when no such source declares one or none can be read.
+
+    A set's requirement that says "inherits": true is only whole merged over
+    this one, so a check that tests the set's requirement by its examples
+    needs it too (2026-10-29: the ladder set's landing pair, trimmed to what
+    it adds, let its own refused example through when tested alone)."""
+    try:
+        import precedent_resolve as pr
+        root = pathlib.Path(repo).resolve()
+        sources = _with_own_set(pr, repo, pr.load_config(repo))
+    except Exception:                                       # noqa: BLE001
+        return None
+    found = None
+    for s in sources:
+        if pr._same_repository(s['path'], root):
+            break
+        try:
+            d = json.loads((pathlib.Path(s['path']) / CONFIG_NAME).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        for item in (d if isinstance(d, list) else [d]):
+            if isinstance(item, dict) and item.get('id') == rid:
+                found = item
+    return found
+
+
 def _settle(reqs, repo):
     """Two generic keys a requirement may carry (spec/LADDER_OPT_IN_PLAN.md
     D11, 2026-10-02):
@@ -386,13 +430,7 @@ def _settle(reqs, repo):
     for rid, r in list(last.items()):
         earlier = next((x for x in reqs if x.get('id') == rid), None)
         if r.get('inherits') is True and earlier is not None and earlier is not r:
-            merged = {**earlier, **r}
-            key = 'require_in_fence_paired_with'
-            if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
-                merged[key] = [
-                    _inherit_pair(earlier[key][i] if i < len(earlier[key]) else {}, pair)
-                    for i, pair in enumerate(r[key])]
-            last[rid] = merged
+            last[rid] = inherit_requirement(earlier, r)
     kept = []
     for i, r in enumerate(reqs):
         rid = r.get('id')
