@@ -22796,6 +22796,61 @@ def check_reply_gate_prints_a_note_from_a_set_tool():
           '; '.join(f'{n} -- {d}' for n, d in bad))
 
 
+def check_reply_examples_are_tested_with_what_they_inherit():
+    """A set's requirement that says "inherits": true is tested by its
+    examples merged over the requirement it replaces, as a session merges it.
+
+    2026-10-29: the ladder set's landing pair, trimmed to what it adds over
+    universal's, had its "land it on staging" trigger from universal alone.
+    reply-rules-hold-their-examples tested the set's copy by itself, so its
+    own refused example went through, and the set's full sweep failed on a
+    rule that worked in every session."""
+    import tempfile
+    import precedent_check as pc
+    cases = []
+    with tempfile.TemporaryDirectory(prefix='precedent-inherit-examples-') as d:
+        tmp = pathlib.Path(d)
+        uni = tmp / 'universal'
+        (uni / 'practices').mkdir(parents=True)
+        (uni / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'precedent', 'level': 'universal'}), encoding='utf-8')
+        (uni / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'p', 'id': 'zz-rule',
+             'require_one_of': ['ZZ-OK']}]), encoding='utf-8')
+        st = tmp / 'a-set'
+        (st / 'practices').mkdir(parents=True)
+        (st / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'fixture-set', 'level': 'shared'}), encoding='utf-8')
+        (st / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent',
+             'path': '../universal'}]}), encoding='utf-8')
+        # The set states only its id and examples: the predicate is
+        # universal's, so tested alone it refuses nothing.
+        examples = [{'reply': 'done.', 'refused': True},
+                    {'reply': 'done. ZZ-OK', 'refused': False}]
+        (st / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'p', 'id': 'zz-rule', 'inherits': True,
+             '_examples': examples}]), encoding='utf-8')
+        got = pc._reply_example_problems(st)
+        cases.append(('an inheriting requirement answers its examples with '
+                      'the predicate it inherits', got == ([], []), str(got)))
+        # Control: without "inherits" the same requirement replaces
+        # universal's outright, has no predicate, and its refused example
+        # goes through -- the check still reports that.
+        (st / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'p', 'id': 'zz-rule', '_examples': examples}]),
+            encoding='utf-8')
+        got = pc._reply_example_problems(st)
+        cases.append(('control: one that does not inherit is tested alone, '
+                      'and its wrong example is reported',
+                      isinstance(got, tuple) and any(
+                          'lets through' in p for _i, p in got[0]), str(got)))
+    bad = [(n, x) for n, ok, x in cases if not ok]
+    check(f'a reply rule\'s examples are tested with what it inherits '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {x}' for n, x in bad))
+
+
 def check_reply_check_names_what_it_cannot_evaluate():
     """A reply requirement nobody can evaluate, and a source nobody can
     reach, must both say so.
@@ -92318,6 +92373,7 @@ def main():
           *check_a_consumer_may_declare_a_ci_workflow_its_own())
     check('the reply check names every predicate it cannot evaluate',
           *check_reply_check_names_what_it_cannot_evaluate())
+    check_reply_examples_are_tested_with_what_they_inherit()
     check_reply_gate_prints_a_note_from_a_set_tool()
     check('the archive check sees work left in a scratch folder',
           *check_archive_check_sees_work_left_in_a_scratch_folder())
