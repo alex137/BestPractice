@@ -10374,13 +10374,23 @@ def _raw_level_comparisons(text):
             return n.id.upper().endswith('LEVELS')
         return isinstance(n, ast.Attribute) and n.attr.upper().endswith('LEVELS')
 
+    def own(scope):
+        # The scope's own nodes: a nested function is a scope of its own, so
+        # a name bound raw in one function never taints another's `level`.
+        todo = list(ast.iter_child_nodes(scope))
+        while todo:
+            n = todo.pop()
+            yield n
+            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                todo.extend(ast.iter_child_nodes(n))
+
     out = set()
     tree = ast.parse(text)
     for scope in ast.walk(tree):
         if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         bound = set()
-        for a in ast.walk(scope):
+        for a in own(scope):
             if not isinstance(a, ast.Assign):
                 continue
             for t in a.targets:
@@ -10389,7 +10399,7 @@ def _raw_level_comparisons(text):
                 if isinstance(t, ast.Tuple) and isinstance(a.value, ast.Tuple):
                     bound |= {te.id for te, ve in zip(t.elts, a.value.elts)
                               if isinstance(te, ast.Name) and raw(ve)}
-        for c in ast.walk(scope):
+        for c in own(scope):
             if not isinstance(c, ast.Compare):
                 continue
             sides = [c.left] + list(c.comparators)
@@ -10431,6 +10441,8 @@ def check_source_level_reads_go_through_the_normalizer():
         "def f(s):\n    return pr.declared_level(s) == 'shared'\n": False,
         "def f(s):\n    return pr.normalize_level(s.get('level')) in ('shared',)\n": False,
         "def f(s):\n    return s.get('level') == 'repo-local'\n": False,
+        "def f(s):\n    level = s.get('level')\n\ndef g(s):\n    level = pr.declared_level(s)\n    return level == 'shared'\n": False,
+        "def f(s):\n    level = s.get('level')\n    return level == 'shared'\n": True,
     }
     for code, want in injected.items():
         got = bool(_raw_level_comparisons(code))
@@ -16405,6 +16417,79 @@ def check_merge_takes_the_vendor_update():
     bad = [(n, d) for n, ok, d in cases if not ok]
     return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_mirrors_from_a_depth_1_source_clone():
+    """checkin.py update and record fetch the recorded commit a depth-1
+    source clone lacks, bounded, instead of refusing.
+
+    2026-10-29, a consumer's Update Vendors: the copied-in set's clone came
+    from add_repo's `--depth 1`, so the commit its checkin recorded was not
+    in it, and update refused with "recorded commit ... not found in the
+    clone -- fetch it there, or pass --force". A bounded fetch by hand fixed
+    it. Negative control, measured the same day: staging's checkin.py
+    before this refuses the first case with exactly that message."""
+    import tempfile as _tf
+    cases = []
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    tmp = pathlib.Path(_tf.mkdtemp(prefix='precedent-shallow-source-'))
+    try:
+        def git(cwd, *a):
+            return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                                  text=True, env=env)
+
+        up, consumer = tmp / 'up', tmp / 'consumer'
+        for d in (up, consumer):
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(d)], env=env)
+        (up / 'practices').mkdir()
+        (up / 'practices' / 'a.md').write_text('one\n', encoding='utf-8')
+        git(up, 'add', '.'); git(up, 'commit', '-qm', 'c1')
+        c1 = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        (up / 'practices' / 'a.md').write_text('one\ntwo\n', encoding='utf-8')
+        git(up, 'commit', '-qam', 'c2')
+        (up / 'practices' / 'b.md').write_text('three\n', encoding='utf-8')
+        git(up, 'add', '.'); git(up, 'commit', '-qm', 'c3')
+        tip = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        vendored = consumer / 'process' / 'upstream' / 'practices'
+        vendored.mkdir(parents=True)
+        (vendored / 'a.md').write_text('one\n', encoding='utf-8')
+        (consumer / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': f'file://{up}', 'vendored_at': 'process/upstream',
+                         'branch': 'main', 'commit': c1}, 'entries': []}) + '\n',
+            encoding='utf-8')
+        git(consumer, 'add', '.'); git(consumer, 'commit', '-qm', 'vendored at c1')
+
+        def shallow_clone():
+            clone = tmp / 'clone'
+            shutil.rmtree(clone, ignore_errors=True)
+            subprocess.run(['git', 'clone', '-q', '--depth', '1', f'file://{up}',
+                            str(clone)], env=env)
+            return clone
+
+        def checkin(*a):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'checkin.py'), *a],
+                               capture_output=True, text=True, env=env, cwd=consumer)
+            return r.returncode, r.stdout + r.stderr
+
+        clone = shallow_clone()
+        cases.append(('the fixture clone is shallow and lacks the recorded commit',
+                      git(clone, 'cat-file', '-e', f'{c1}^{{commit}}').returncode != 0, ''))
+        rc, out = checkin('update', str(clone), '--repo', str(consumer))
+        cases.append(('update mirrors from it',
+                      rc == 0 and (vendored / 'b.md').is_file()
+                      and (vendored / 'a.md').read_text(encoding='utf-8') == 'one\ntwo\n',
+                      out[-600:]))
+        clone = shallow_clone()
+        rc, out = checkin('record', str(clone), '--repo', str(consumer))
+        m = json.loads((consumer / 'process' / 'manifest.json').read_text(encoding='utf-8'))
+        cases.append(('record\'s carry check runs against a fresh depth-1 clone too',
+                      rc == 0 and m['upstream']['commit'] == tip, out[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f' ({c[2]})' if c[2] else '') for c in cases if not c[1]]
+    check(f'Update Vendors mirrors from a depth-1 source clone without refusing '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
 def check_update_vendors_resolves_a_catalogue_edit():
@@ -42404,9 +42489,10 @@ def check_push_check_rewrites_global_hooks_older_than_their_writer():
         write_writer('CHANGED TEXT')
         hook('NEW TEXT', stamped=old_sha)
         note = refresh(ROOT, script=writer) if refresh else None
-        cases.append(('C. a changed writer reruns and says so',
+        cases.append(('C. a changed writer reruns and says so, as information '
+                      'rather than a NOTE an upstream review would list',
                       'CHANGED TEXT' in text() and bool(note)
-                      and 'rewrote' in note, f'{note!r}'))
+                      and 'rewrote' in note and 'NOTE' not in note, f'{note!r}'))
         hook('CHANGED TEXT')
         note = refresh(ROOT, script=writer) if refresh else None
         cases.append(('D. unstamped hooks the writer leaves byte-identical '
@@ -92403,6 +92489,7 @@ def main():
           *check_section0_catalogue_resolves_a_committed_edit())
     check('a merge is judged by the repo\'s landing-tier check, and taken back only if it is the cause',
           *check_merge_is_judged_by_the_landing_check())
+    check_update_mirrors_from_a_depth_1_source_clone()
     check_update_vendors_resolves_a_catalogue_edit()
     check('a decline re-decided between two Update Vendors runs stays decided',
           *check_update_vendors_redecided_decline_sticks())
