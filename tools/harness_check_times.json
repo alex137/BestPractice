@@ -528,6 +528,7 @@
   "check_reply_gate_reports_only_this_sessions_flow": 0.5,
   "check_reply_gate_sees_every_source": 1.9,
   "check_reply_gate_trims_for_standing_sessions_and_one_line_forms": 0.5,
+  "check_repo_attach_gate_refuses_a_sweep_nobody_asked_for": 4.4,
   "check_repo_may_declare_its_own_fallback_zone": 21.7,
   "check_repo_reference_allowlist": 31.4,
   "check_resident_rule_links_are_placed_for_the_block": 0.0,
