@@ -3721,6 +3721,9 @@ def _occasion_index_tokens(agents_text):
     return bv._approx_tokens(parts[1]) if len(parts) > 2 else None
 
 
+_SESSION_LOAD_FILES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
+
+
 def budget_rows(repo_dir, label=None):
     """-> [row] for every token budget in force in `repo_dir`, passing or
     not. A row is a dict: repo, what, measured (None when it cannot be
@@ -3747,6 +3750,23 @@ def budget_rows(repo_dir, label=None):
                      'limit': limit, 'kind': kind, 'approved': approved.get(key),
                      'note': note})
 
+    total_cap = force.get(bv.TOTAL_KEY) if hasattr(bv, 'TOTAL_KEY') else None
+    if isinstance(total_cap, int):
+        # One total (build_views.TOTAL_KEY): the sum is the only budget;
+        # the parts are listed by size so a reduction pass knows where to
+        # start, and carry no limit of their own.
+        n = 0
+        parts = []
+        for rel in _SESSION_LOAD_FILES:
+            f = root / rel
+            if f.is_file():
+                m = bv._approx_tokens(f.read_text(encoding='utf-8',
+                                                  errors='replace'))
+                n += m
+                parts.append(f'{rel} {m:,}')
+        row('session-load total', n if parts else None, total_cap, 'ceiling',
+            bv.TOTAL_KEY, ' + '.join(parts) or 'nothing on disk here to measure')
+        return rows
     agents = root / 'AGENTS.md'
     agents_text = (agents.read_text(encoding='utf-8', errors='replace')
                    if agents.is_file() else '')
@@ -3831,6 +3851,16 @@ _FIRE_PLANTS = (
     ('resident-block cap lowered under its size', 'loader-within-caps',
      lambda d: d.__setitem__('resident_block_tokens', 1)),
 )
+# Under a declared session-load total (build_views.TOTAL_KEY) the parts
+# carry no ceiling, so these are the plants instead.
+_TOTAL_FIRE_PLANTS = (
+    ('session-load total lowered under its size', 'session-load-budget',
+     lambda d: d.__setitem__('session_load_tokens', 1)),
+    ('session-load total raised 5,000 with no approval',
+     'budget-within-approval',
+     lambda d: d.__setitem__('session_load_tokens',
+                             d['session_load_tokens'] + 5000)),
+)
 _VIOLATED = re.compile(r'precedent_check: \d+ passed, (\d+) violated')
 
 
@@ -3877,10 +3907,12 @@ def budget_fire_test(repo_dir, label=None, timeout=180):
                 return None, 'printed no summary line'
             return int(m.group(1)), ''
 
+        plants = (_TOTAL_FIRE_PLANTS if isinstance(
+            json.loads(clean).get('session_load_tokens'), int) else _FIRE_PLANTS)
         baseline = {}
-        for slug in sorted({p[1] for p in _FIRE_PLANTS}):
+        for slug in sorted({p[1] for p in plants}):
             baseline[slug] = run(slug)
-        for what, slug, edit in _FIRE_PLANTS:
+        for what, slug, edit in plants:
             data = json.loads(clean)
             try:
                 edit(data)

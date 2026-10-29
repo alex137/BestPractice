@@ -2556,7 +2556,7 @@ def _is_blocking(practice):
             and practice['level'] != PRECEDENCE[0])
 
 
-def resident_stats(res):
+def resident_stats(res, root=None):
     """The combined resident block across EVERY resolved source, using the
     same word*1.3 approximation build_views.py uses for its own hard cap.
 
@@ -2583,13 +2583,17 @@ def resident_stats(res):
     return {
         'tokens': tokens,
         'budget': bv.RESIDENT_BUDGET_TOKENS,
-        'over_budget': tokens > bv.RESIDENT_BUDGET_TOKENS,
+        # Under a declared session-load total the resident block is a part
+        # with no cap of its own (build_views.TOTAL_KEY).
+        # `root` is the repository resolved, whose registry decides.
+        'over_budget': (tokens > bv.RESIDENT_BUDGET_TOKENS
+                        and bv.session_load_total(root) is None),
         'practices': [{'slug': p['slug'], 'level': p['level'],
                        'source': p['source']} for p in resident],
     }
 
 
-def _report(res, sources, out=sys.stdout):
+def _report(res, sources, out=sys.stdout, root=None):
     counts = {}
     for p in res['practices'].values():
         counts[p['level']] = counts.get(p['level'], 0) + 1
@@ -2619,7 +2623,7 @@ def _report(res, sources, out=sys.stdout):
     if res.get('dangling'):
         print(f"  {len(res['dangling'])} deduplication(s) unreachable from "
               f"here -- rerun with --strict to fail on this", file=out)
-    rstats = resident_stats(res)
+    rstats = resident_stats(res, root)
     if rstats['practices']:
         who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
         detail = f"{len(rstats['practices'])} practice(s): {who}"
@@ -2698,7 +2702,7 @@ def main():
     if explain:
         return _explain(explain, res, sources)
 
-    rstats = resident_stats(res)
+    rstats = resident_stats(res, repo)
     # A dedup pointing IN FORCE NOWHERE is real exposure -- a rule someone
     # believes is still binding is reachable by nobody, for this repo -- but
     # it is a PRE-EXISTING condition every consumer inherited silently, not
@@ -2744,7 +2748,7 @@ def main():
                   f"~{rstats['tokens']} tokens, over the {rstats['budget']}-"
                   f"token cross-source cap.", file=sys.stderr)
         return rc
-    _report(res, sources)
+    _report(res, sources, root=repo)
     return rc
 
 

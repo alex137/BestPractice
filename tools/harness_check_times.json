@@ -573,6 +573,7 @@
   "check_session_hooks_run_for_a_session_opened_above_the_repos": 0.0,
   "check_session_load_reports_a_file_over_its_own_declared_ceiling": 0.0,
   "check_session_load_target_is_reported_each_reply": 0.2,
+  "check_session_load_total_is_the_one_budget": 0.3,
   "check_session_practices_drop_what_agents_md_carries": 0.0,
   "check_session_practices_load_without_publishing": 0.8,
   "check_session_share_keeps_a_moved_rule_with_its_brought_set": 0.1,

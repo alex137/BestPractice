@@ -337,6 +337,10 @@ def over_target(root=None):
     reg = _registry_at(base)
     if not reg:
         return []
+    # A target is a part's number; under a declared session-load total only
+    # the total is held, and headroom_notice reports it.
+    if isinstance(reg.get('session_load_tokens'), int):
+        return []
     out = []
     for rel in SURFACES:
         entry = (reg.get('surfaces') or {}).get(rel) or {}
@@ -372,6 +376,9 @@ def headroom_notice(root=None, floor_pct=None):
     if not isinstance(floor_pct, (int, float)):
         return None
     base = pathlib.Path(root) if root else ROOT
+    total_cap = reg.get('session_load_tokens')
+    if isinstance(total_cap, int) and not isinstance(total_cap, bool) and total_cap > 0:
+        return _total_notice(base, total_cap, floor_pct)
     surfaces = reg.get('surfaces') or {}
     tight = []
     for rel in SURFACES:
@@ -416,6 +423,100 @@ def headroom_notice(root=None, floor_pct=None):
     out.append("  session-load-budget: reduce by moving, and never raise the "
                "ceiling to clear the warning.")
     return "\n".join(out)
+
+
+def total_tokens(root=None):
+    """-> ({surface: tokens}, total) for what a session in `root` loads
+    before it works, measured the way session-load-budget measures it."""
+    base = pathlib.Path(root) if root else ROOT
+    sizes = {}
+    for rel in SURFACES:
+        f = base / rel
+        if f.is_file():
+            sizes[rel] = approx_tokens(as_measured(
+                rel, f.read_text(encoding='utf-8', errors='replace')))
+    return sizes, sum(sizes.values())
+
+
+def _total_notice(base, total_cap, floor_pct):
+    """The headroom notice under a declared session-load total
+    (`session_load_tokens`; build_views.TOTAL_KEY): one line when the total
+    is within `floor_pct` of it, then which change grew which part, so the
+    reduction pass starts where the growth is. Parts carry no ceiling of
+    their own here; growth_notice() reports them."""
+    sizes, total = total_tokens(base)
+    out = []
+    room = total_cap - total
+    pct = 100.0 * room / total_cap
+    if pct <= floor_pct:
+        state = 'OVER by' if room < 0 else 'headroom'
+        out.append(f"NOTE: a session here loads {total:,} of its "
+                   f"{total_cap:,}-token session-load total, {state} "
+                   f"{abs(room):,} ({pct:.1f}%). session-load-budget: do a "
+                   f"reduction pass on the part that grew; only the person "
+                   f"raises the total.")
+    grew = growth_notice(base)
+    if grew:
+        out.append(grew)
+    return '\n'.join(out) or None
+
+
+def _base_ref(base):
+    """-> the commit this branch forked from its landing branch, or None."""
+    landing = None
+    try:
+        import precedent_branches
+        landing = precedent_branches.landing_branch(str(base))
+    except Exception:                                         # noqa: BLE001
+        landing = None
+    for ref in ([f'origin/{landing}'] if landing else []) + ['origin/main']:
+        p = subprocess.run(['git', '-C', str(base), 'merge-base', 'HEAD', ref],
+                           capture_output=True, text=True)
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout.strip()
+    return None
+
+
+def growth_notice(root=None):
+    """-> one line naming each part of the tracked always-loaded files this
+    branch grew since it left its landing branch, and by how much, or None.
+
+    code-cites-practice: session-load-budget
+
+    Under a declared total no part has a ceiling, so nothing is stored for
+    a part to go stale against: what a change grew is computed from the
+    change itself (spec/SESSION_LOAD_ONE_TOTAL_PLAN.md). Only tracked files
+    have a base to compare with; the session-start file is regenerated
+    every session and is counted in the total instead."""
+    base = pathlib.Path(root) if root else ROOT
+    ref = _base_ref(base)
+    if ref is None:
+        return None
+    grew = []
+    for rel in ('AGENTS.md', 'CLAUDE.md'):
+        f = base / rel
+        if not f.is_file():
+            continue
+        p = subprocess.run(['git', '-C', str(base), 'show', f'{ref}:{rel}'],
+                           capture_output=True, text=True)
+        if p.returncode != 0:
+            continue
+        now_text = f.read_text(encoding='utf-8', errors='replace')
+        was, now = approx_tokens(p.stdout), approx_tokens(now_text)
+        if now <= was:
+            continue
+        if rel == 'AGENTS.md':
+            (h0, g0), (h1, g1) = split_generated(p.stdout), split_generated(now_text)
+            grew.append(f'{rel} +{now - was:,} (hand-written {h1 - h0:+,}, '
+                        f'generated resident block and occasion index '
+                        f'{g1 - g0:+,})')
+        else:
+            grew.append(f'{rel} +{now - was:,}')
+    if not grew:
+        return None
+    return ('NOTE: this branch grows what every session loads: '
+            + '; '.join(grew) + '. Counted in the session-load total; never '
+            'refused on its own.')
 
 
 _RESIDENT_ENTRY = re.compile(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', re.M)
