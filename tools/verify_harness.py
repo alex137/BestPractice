@@ -83497,6 +83497,16 @@ def check_bound_set_tools_and_reply_examples_are_held_in_any_set():
         cases.append(('THE DISCRIMINATING CASE: an example the requirement answers '
                       'otherwise is named, advisory or not', len(wrong) == 1
                       and 'refuses' in wrong[0][1], wrong))
+        (root / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'zz', 'require_quiet_while_background_runs': {'why': 'zz'},
+             '_examples': [{'reply': 'One passed, two run.', 'refused': True,
+                            'wake': {'quiet_owed': True, 'running': ['b1']}},
+                           {'reply': 'One passed, two run.', 'refused': False}]},
+            {'practice': 'zz2', 'require_plan_done_if_says': ['ZZ-ARCHIVE']}]))
+        got = pc._reply_example_problems(root)
+        cases.append(('2026-10-29: an example carries the wake it is judged under, '
+                      'and a rule that reads the machine is not asked for examples',
+                      got == ([], []), got))
     for path in sorted(p for p in ROOT.parent.iterdir()
                        if p != ROOT and (p / 'precedent-source.json').is_file()):
         got = pr.undeclared_bound_calls(path)
