@@ -6,7 +6,7 @@ severity:          high
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        "item 3: whether every repository that brings the ladder set runs an engine with _inherit_pair, checked by session_01Xcy6U3WL4YwCwzUTd35AhC before the trim reaches the set's main"
+blocked_on:        "item 3: Morgan runs Update Vendors in each repository that brings the ladder set, one by one; the trim reaches the set's main only after that"
 batch:             null
 decision:          "item 1: the practice-file checks stay at the Debut, and at Produce when no Debut ran; the quick check does not run them"
 decision_strength: decided
@@ -145,3 +145,13 @@ budget-within-approval and session-file-allowances-fit.
   the repositories that bring the set runs in
   [session_01Xcy6U3WL4YwCwzUTd35AhC](https://claude.ai/code/session_01Xcy6U3WL4YwCwzUTd35AhC)
   before that Produce.
+- **Item 3, the fleet check withdrawn:** Morgan, 2026-10-29, strength:
+  decided: "Don't check every session. I didn't intend that. I want you to
+  fix what you need to here, and then I will do an update vendors one by
+  one", and "And I will roll it out". So no session opens the other
+  repositories to read their engines. The order instead: Update Vendors in
+  each repository brings an engine with `_inherit_pair` (16e89051a or
+  later) along with the sets, and only once Morgan has done that does a
+  Produce move the trim to the ladder set's main. A repository not yet
+  updated keeps reading the set's main as it stands today, which is the
+  untrimmed pair, so nothing breaks in the meantime.
