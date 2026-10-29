@@ -24355,6 +24355,50 @@ def check_precedent_check_fires():
         case('universal-change-reaches-overrides', _plant_override_drift,
              advisory=True)
 
+        # bound-set-tool-calls-only-declared-names -- a set's bound tool
+        # reads an engine name the engine does not declare for its key.
+        def _bound_tool_setup(repo):
+            src_f = repo / 'precedent-source.json'
+            src = json.loads(src_f.read_text(encoding='utf-8'))
+            src['branch_moves'] = 'tools/zz_moves.py'
+            src_f.write_text(json.dumps(src, indent=2), encoding='utf-8')
+            (repo / 'tools' / 'zz_moves.py').write_text(
+                'core = None\n\ndef bind(engine):\n    global core\n'
+                '    core = engine\n\ndef main():\n    return core.MAIN\n',
+                encoding='utf-8')
+
+        def _plant_undeclared_engine_call(repo):
+            f = repo / 'tools' / 'zz_moves.py'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                'core.MAIN', 'core.zz_never_declared()'), encoding='utf-8')
+        case('bound-set-tool-calls-only-declared-names', _plant_undeclared_engine_call,
+             setup=_bound_tool_setup)
+
+        # reply-rules-hold-their-examples / reply-rules-carry-examples -- a
+        # requirement whose example the reply check answers otherwise, and
+        # one with no examples at all.
+        def _reply_examples_setup(repo):
+            (repo / 'reply_check.json').write_text(json.dumps([
+                {'practice': 'zz', 'require_one_of': ['ZZ-OK'],
+                 '_examples': [{'reply': 'done. ZZ-OK', 'refused': False},
+                               {'reply': 'done.', 'refused': True}]}]),
+                encoding='utf-8')
+
+        def _plant_wrong_example(repo):
+            f = repo / 'reply_check.json'
+            f.write_text(f.read_text(encoding='utf-8').replace(
+                '"refused": true', '"refused": false'), encoding='utf-8')
+        case('reply-rules-hold-their-examples', _plant_wrong_example,
+             setup=_reply_examples_setup)
+
+        def _plant_no_examples(repo):
+            f = repo / 'reply_check.json'
+            reqs = json.loads(f.read_text(encoding='utf-8'))
+            reqs.append({'practice': 'zz2', 'require_one_of': ['ZZ2']})
+            f.write_text(json.dumps(reqs), encoding='utf-8')
+        case('reply-rules-carry-examples', _plant_no_examples,
+             setup=_reply_examples_setup, advisory=True)
+
         # todo-is-a-handoff -- a line added to an open item that leaves work
         # undone names nothing blocking it (2026-10-20: "Not built." in an
         # item's notes, with nothing blocking it).
