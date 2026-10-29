@@ -61233,7 +61233,10 @@ def check_land_sent_to_a_pull_request_carries_mains_work():
 
     Negative control, measured 2026-10-19: without
     _carry_composition_to_branch the branch on origin lacks main's commit
-    and the first case fails."""
+    and the first case fails.
+
+    Negative control, measured 2026-10-29: without the `local` comparison in
+    _carry_composition_to_branch the unpushed-commit case fails."""
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-pr-'))
     cases = []
@@ -61288,6 +61291,19 @@ said2 = []
 pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
 g('fetch', '-q', 'origin')
 fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
+# 2026-10-28: a branch cut from main whose LOCAL tip holds a commit never
+# pushed. Origin's tip carries all of main, so the old shortcut said
+# "lacks nothing" and the unpushed commit was left out of the pull request.
+g('checkout', '-q', '-b', 'claude/unpushed-abcdef', 'origin/main')
+(work / 'u.md').write_text('u\\n'); g('add', '-A'); g('commit', '-qm', 'pushed')
+g('push', '-q', 'origin', 'claude/unpushed-abcdef')
+(work / 'v.md').write_text('v\\n'); g('add', '-A'); g('commit', '-qm', 'never pushed')
+unpushed = g('rev-parse', 'HEAD').stdout.strip()
+said4 = []
+pb._land_composed(work, unpushed, 'claude/unpushed-abcdef', 'staging', 'the fixture', said4.append)
+g('fetch', '-q', 'origin')
+unpushed_carried = g('merge-base', '--is-ancestor', unpushed,
+                     'origin/claude/unpushed-abcdef').returncode == 0
 # 2026-10-20: a branch carrying all of main's work that does NOT merge
 # cleanly into staging (staging moved on) gets the checked composition,
 # never "lacks nothing".
@@ -61306,6 +61322,8 @@ behind_moved = behind_moved and comp != g('rev-parse', 'HEAD^1').stdout.strip()
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
                       fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
                       said3=said3, behind_moved=behind_moved,
+                      unpushed_carried=unpushed_carried,
+                      said4='\\n'.join(said4)[-300:],
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -61334,6 +61352,12 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
                       'staging gets the checked composition, not "lacks nothing"',
                       out.get('behind_moved') is True
                       and 'now carries the composition' in (out.get('said3') or ''),
+                      str(out) or why))
+        cases.append(('a branch whose local tip holds a commit origin lacks gets '
+                      'the checked composition pushed, never "lacks nothing" '
+                      '(2026-10-28)',
+                      out.get('unpushed_carried') is True
+                      and 'as it stands lacks nothing' not in (out.get('said4') or ''),
                       str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
