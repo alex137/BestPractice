@@ -30173,6 +30173,106 @@ def check_practice_links_travel_skips_a_consumers_repo_local_practices():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_practice_links_travel_holds_a_set_to_its_copy_in():
+    """A shared or individual set is copied in to process/<set>/, so a
+    `../tools/X` link from one of its practices resolves inside that copy,
+    which carries tools/checks/ and the files its practices name
+    (checkin._files_rules_name) -- never the engine.
+
+    Found 2026-10-29: precedent-shared-ladder had 18 links like
+    `../tools/precedent_branch_name.py`, dead in every copy-in consumer,
+    and practice-links-travel counted each one as a vendored engine file
+    that travels. One fixture, three runs, each asserting printed text:
+      1. a shared set's engine link IS reported, with an absolute URL;
+      2. its link to a file a practice names in `checked_by` is not;
+      3. the same tree declared universal does not report the engine link
+         -- the engine is vendored into a consumer's own tools/ there --
+         while it still reads the file (the runner link, which a
+         universal source does not carry, is reported).
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='links-travel-copy-in-'))
+    try:
+        fx = tmp / 'precedent-shared-fixture'
+        (fx / 'tools' / 'fixture_tool').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        for name in ('precedent_check.py', 'checkin.py', 'precedent_time.py'):
+            shutil.copy(ROOT / 'tools' / name, fx / 'tools' / name)
+        (fx / 'tools' / 'fixture_tool' / 'run.py').write_text(
+            'print(1)\n', encoding='utf-8')
+        (fx / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+            'kind': 'source',
+            'source_repo': 'https://github.com/example/upstream',
+            'source_branch': 'main',
+            'files': ['precedent_check.py'],
+        }), encoding='utf-8')
+        (fx / 'practices' / 'fixture-copy-in.md').write_text(
+            '---\nslug:        fixture-copy-in\ntitle:       A set rule\n'
+            'tier:        on-demand\nseverity:    default\n'
+            'applies_to:  []\noccasion:    "the fixture runs"\n'
+            'gates:       []\nindex_clause: "the fixture runs"\n'
+            'checked_by:  "tools/fixture_tool/run.py"\ndefines:     []\n'
+            'status:      active\nsupersedes:  []\noverrides:   null\n'
+            'added:       2026-10-29\napproved_by: "fixture"\n---\n'
+            '## Rule\nStamp it with [the clock](../tools/precedent_time.py); '
+            '[the runner](../tools/fixture_tool/run.py) checks it.\n\n'
+            '## Story\nWritten for this control; no incident is claimed.\n',
+            encoding='utf-8')
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main',
+             'visibility': 'public',
+             'sources': [{'level': 'universal', 'name': 'precedent',
+                          'path': os.path.relpath(ROOT, fx)}]}),
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+        subprocess.run(['git', 'remote', 'add', 'origin',
+                        'https://github.com/example/precedent-shared-fixture.git'],
+                       cwd=fx, capture_output=True)
+
+        def run(level):
+            (fx / 'precedent-source.json').write_text(json.dumps(
+                {'name': 'precedent-shared-fixture', 'level': level,
+                 'visibility': 'public'}), encoding='utf-8')
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only',
+                 'practice-links-travel'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        shared = run('shared')
+        cases.append(('a shared set\'s ../tools/ engine link is reported, '
+                      'with an absolute URL as the repair',
+                      shared.returncode != 0
+                      and 'fixture-copy-in.md:' in shared.stdout
+                      and '../tools/precedent_time.py` is an engine file'
+                      in shared.stdout
+                      and ('/tools/precedent_time.py' in shared.stdout),
+                      f'rc={shared.returncode} ' + shared.stdout[-500:]))
+        cases.append(('its link to a file a practice names in checked_by '
+                      'travels with the copy-in',
+                      'fixture_tool/run.py' not in shared.stdout,
+                      shared.stdout[-500:]))
+        universal = run('universal')
+        cases.append(('the same engine link from a universal source travels',
+                      'fixture-copy-in.md:' in universal.stdout
+                      and 'precedent_time.py' not in universal.stdout,
+                      f'rc={universal.returncode} ' + universal.stdout[-500:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'practice-links-travel holds a shared or individual set to what '
+          f'its copy-in carries ({len(cases)} stated cases, each asserting '
+          f'the printed text)',
+          not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_gate_channel():
     """The gate channel, as stated cases against the real registry.
 
@@ -92486,6 +92586,7 @@ def main():
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
     check_practice_links_travel_skips_a_consumers_repo_local_practices()
+    check_practice_links_travel_holds_a_set_to_its_copy_in()
     check_gate_channel()
     check_reply_gate_sees_every_source()
     check_advisory_requirement_never_blocks()

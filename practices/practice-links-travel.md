@@ -24,7 +24,8 @@ catalogue, so a relative link in one only works if the target travels with
 it.** Four things do, the first three here: **another practice file in the same directory that is
 still in force**, cited the normal way as a markdown link to its own
 `<slug>.md`; **the vendored
-engine files under `../tools/`** that every consumer receives; and **a
+engine files under `../tools/`** that every consumer receives, from a
+universal source only; and **a
 source's own check scripts and their tests under `../tools/checks/`**, which
 materialization copies alongside the practices — the `check_*.py` scripts
 and the `test_*.sh` files under `tests/` — a practice citing the script that
@@ -33,6 +34,13 @@ a correct one. **A file a practice here declares in `ships:` travels too**
 ([practice-carries-its-files](practice-carries-its-files.md)): materialization
 delivers it to the same path in every consumer, so `../tools/<script>` to a
 shipped script is a correct relative link.
+
+**A shared or individual set links an engine file by its absolute URL in
+BestPractice**, `https://github.com/alex137/BestPractice/blob/staging/tools/<file>`.
+Such a set is copied in to `process/<set>/` in the consumer, so `../tools/`
+resolves inside that copy, which carries `tools/checks/` and the files its
+practices name in `ships:`, `checked_by` or a hook's `run` -- never the
+engine. Those named files still travel and are linked relatively.
 
 **A sibling that is no longer in force does not travel either**, and this is
 the one shape that looks correct from inside the publishing repository. A
@@ -284,6 +292,14 @@ consuming session rewrote its links to satisfy the check
 rather than wait. Fixed at the source: the check skips a practice whose
 manifest entry is `repo-local`, and suggests a URL only in a repository that
 declares itself public.
+
+**2026-10-29: engine links from a set died under copy-in.** A session in
+precedent-shared-ladder found 18 `../tools/<engine file>` links in its
+practices, dead in every consumer that copies the set in, and fixed them by
+hand; this check had counted each as travelling, because it judged a set as
+if it were the universal source. It now holds a shared or individual set to
+what its copy-in carries (`checkin._files_rules_name`) and prints the
+absolute URL as the repair.
 
 ## Install
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) enforces it, as a
