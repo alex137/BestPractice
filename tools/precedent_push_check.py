@@ -1523,6 +1523,41 @@ def _retired_engine_files_unanswered(root, since):
             and pd.was_vendored(root, rel, since)]
 
 
+def refresh_global_hooks(root, script=None):
+    """Rewrite the machine-wide git hooks when this engine's writer is newer
+    than the pre-push hook it last wrote. -> the note to print, or None.
+
+    WHY (2026-10-29). The global pre-push carries its refusal text in
+    itself, written by commit-identity.sh at session start only. A fix to
+    that text (3dd840e70, 2026-10-20) merged into a running container's
+    checkout kept refusing pushes with the old words until the next session
+    start. The push check runs before every push, so a writer whose file is
+    newer than the hook it wrote runs again here, in about 0.3 seconds. The
+    writer itself still leaves a newer engine's hooks alone."""
+    script = script or (HERE / 'commit-identity.sh')
+    hooks = git(root, 'config', '--global', '--get', 'core.hooksPath') or ''
+    installed = Path(hooks.strip()).expanduser() / 'pre-push' \
+        if hooks.strip() else None
+    if installed is None or not installed.is_file() or not script.is_file():
+        return None
+    try:
+        if 'precedent:commit-identity' not in installed.read_text(
+                encoding='utf-8', errors='replace') \
+                or script.stat().st_mtime <= installed.stat().st_mtime:
+            return None
+    except OSError:
+        return None
+    r = subprocess.run(['bash', str(script)], cwd=root, stdin=subprocess.DEVNULL,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return (f'NOTE: the global git hooks at {installed.parent} are older '
+                f'than {script.name} and could not be rewritten: '
+                + (r.stderr or r.stdout).strip()[-300:])
+    return (f'NOTE: rewrote the global git hooks at {installed.parent} from '
+            f'{script.name}, which changed after they were written; this push '
+            f'runs the current ones.')
+
+
 def changed_files_check(root, since):
     """-> 0 when every file the change touches is sound, 1 with each
     problem named. Reads nothing but the changed files, and the views a
@@ -2396,6 +2431,9 @@ def main(argv):
         i = argv.index('--changed-files-check')
         return changed_files_check(root, argv[i + 1] if i + 1 < len(argv)
                                    else 'origin/staging')
+    note = refresh_global_hooks(root)
+    if note:
+        print(note, file=sys.stderr)
     since = _changed_since(root, argv) if tier == BASIC else None
     # Where the push goes and what it changes, for the checks this runs: a
     # practice set's own check may judge a push by its destination -- the

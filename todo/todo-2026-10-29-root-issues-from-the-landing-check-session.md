@@ -67,3 +67,65 @@ since text written between tool calls does not reach the transcript (the
 Items 1, 2, 4 and 6 have a test that fails on the old code and passes on the
 new; item 3's trim is in the ladder set, judged with universal's rule; item 5's
 sets record an engine from a main that passed.
+
+## Progress, 2026-10-29
+
+Worked by a session rooted in BestPractice with the three sets attached for
+pushing. Each test below was run on the old code and the new.
+
+1. **Half fixed; the rest waits on Morgan.** The quick check runs no
+   practice check at all since 2026-10-16, by Morgan's decision, and
+   [quick-tier-is-closed](../practices/quick-tier-is-closed.md) lets a check
+   join it only on his own words and its time. So the fix is in two parts.
+   Built here: `precedent_check.py --practice-file-checks` runs the checks
+   marked `binds_publishers` (whose subject is a published practice file)
+   except two left to the Debut for cost, measured on 5fd34d4b3:
+   generated-artifact-provenance (7.4 s) and cite-the-incident (3.1 s). With
+   `--changed-files-only` it reports the 5fd34d4b3 link in about 3.1 s
+   (three runs: 3.0, 3.3, 3.1). Tested in
+   `check_changed_files_only_judges_the_change`; on the old engine the flag
+   is ignored and the whole audit runs (76 checks), so the case fails.
+   Held: calling it from `changed_files_check`, which on 5fd34d4b3 turns "0
+   problem(s)" into the link finding. It is on its own branch, not landed,
+   until Morgan says whether he wants it before a push.
+2. **The confirming half fixed.** The engine cannot open or merge a pull
+   request from a cloud container (no GitHub token reaches its tools;
+   sessions use the GitHub connector), and it cannot read a set's high-risk
+   list without naming the set's file. What it can do is say whether what
+   landed is what was checked: `precedent_branches.py --land-confirm COMMIT`
+   finds the commit on staging that brought the composition in, compares
+   trees, and when staging had moved runs the quick checks on what actually
+   landed. `--land`'s pull-request refusal now names that command. Tested in
+   `check_land_confirm_says_whether_what_landed_was_checked`. The archived
+   session_01Xcy6U3S7ohZ4fFxgcEAqU4 covered only unpushed commits in the
+   carried composition (#1386), so nothing here overlaps it.
+3. **Built, not landed.** precedent-shared-ladder branch
+   `2026-10-29-themorgan-ladder-trim-landing-pair-g6cxn-g9904`: the pair
+   names `landing_branches`, its stage-word and `--promote` triggers, its
+   quoted Booked and its Act narration, and inherits the rest; the test
+   judges it with universal's rule through `_settle`, and fails when the
+   pair is judged alone, as an old engine would. Comparing the settled
+   triggers with the old copy, the only differences are universal's newer
+   wording. Measured: an engine with `inherits` but older than
+   `_inherit_pair` (16e89051a) reads universal's triggers for main only; one
+   older than `inherits` reads none. The three sets and the four
+   repositories the 2026-10-28 Update Vendors chain covered run 009d950be61b,
+   which has it. The other repositories that bring the set were not opened
+   (about a dozen, private), so the trim waits on that check.
+4. **Fixed.** `precedent_refresh_sources.head_commit` fetches main before
+   reading it, and when the fetch fails the ref names the date of the copy
+   it read. Tested in `check_refresh_sources_reads_a_fetched_main`.
+5. **Recorded.** session_01Xcy6U3ru5Kd3Hp4PbLsAYP finished on 2026-10-28
+   with BestPractice and all seven repositories on main and tests passing.
+   The sets' engines (009d950be61b) fell behind because main moved after,
+   and Update Vendors takes only a main whose GitHub test passed. Not run
+   here, as the handoff asked.
+6. **Fixed.** Before every push, [`precedent_push_check.py`](../tools/precedent_push_check.py) rewrites the
+   machine-wide git hooks when `commit-identity.sh` is newer than the
+   pre-push it wrote (about 0.3 s); the writer still leaves a newer engine's
+   hooks alone. Tested in
+   `check_push_check_rewrites_global_hooks_older_than_their_writer`.
+
+Found on the way, not this item's: `check_precedent_check_fires` fails on
+staging as it stands (8cb7c991d), for the planted cases of
+budget-within-approval and session-file-allowances-fit.

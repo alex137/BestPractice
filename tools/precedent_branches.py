@@ -119,6 +119,13 @@ CLI:
   precedent_branches.py --land [BRANCH]     for a person who lands on staging: BRANCH
                                             (default HEAD) onto staging, composed
                                             with main's direct work, quick checks
+  precedent_branches.py --land-confirm COMMIT
+                                            after a landing's pull request merged
+                                            by hand: did staging take COMMIT, the
+                                            composition --land checked, as it was?
+                                            If staging moved first, the quick checks
+                                            on what landed. 0 landed as checked or
+                                            passing, 1 not landed or failing
   precedent_branches.py --run-tests [BRANCH]
                                             the full local suite on BRANCH (default:
                                             the landing branch) with main's direct
@@ -3853,6 +3860,10 @@ def _land_composed(root, sha, label, staging, why, say):
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
         if 'pull request' in said:
+            say(f'Once its pull request merges, run `python3 tools/'
+                f'precedent_branches.py --land-confirm {new}`: {staging} may '
+                f'move while it is open, and that says whether what landed is '
+                f'what was checked.')
             say(_carry_composition_to_branch(root, label, new, staging, sha))
             say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
@@ -3876,6 +3887,59 @@ def _land_composed(root, sha, label, staging, why, say):
     if note:
         say(note)
     return 0, f'LANDED at {new}'
+
+
+def land_confirm(root, sha, say=print):
+    """After a landing's pull request was merged by hand: did staging take
+    `sha`, the composition --land checked, exactly? -> 0 landed as checked
+    (or staging had moved and the quick checks pass on what landed), 1 not
+    landed, or the quick checks fail on what landed.
+
+    WHY (2026-10-29). A change the landing branch takes only by pull request
+    is refused at --land's push; the composition goes to the branch and the
+    session opens and merges the pull request itself. In one session that
+    happened three times, and on #1334 staging moved while the pull request
+    was open: GitHub merged it into the newer staging, so what landed was a
+    tree no quick check had run on, and nothing said so. This finds the
+    commit on staging's first-parent line that brought `sha` in, compares
+    its tree with the one checked, and when they differ runs the quick
+    checks on what actually landed."""
+    staging = staging_branch(root)
+    _run(root, 'fetch', '-q', 'origin', staging)
+    stip = _remote_tip(root, staging)
+    full = _git(root, 'rev-parse', '--verify', '--quiet', f'{sha}^{{commit}}')
+    if not stip or not full:
+        say(f'{"origin has no " + staging if not stip else repr(sha) + " is no commit here"}'
+            f', so nothing can be confirmed.')
+        return 1
+    if _run(root, 'merge-base', '--is-ancestor', full, stip).returncode != 0:
+        say(f'NOT LANDED: {staging} ({stip[:12]}) does not contain {full[:12]}. '
+            f'Merge its pull request, then run this again.')
+        return 1
+    path = (_git(root, 'rev-list', '--first-parent', '--ancestry-path',
+                 f'{full}..{stip}') or '').split()
+    # The oldest of them is the merge that brought it in -- unless its first
+    # parent is `sha` itself, which staging then took as it was.
+    landed = path[-1] if path else full
+    if _git(root, 'rev-parse', '--verify', '--quiet', f'{landed}^1') == full:
+        landed = full
+    if _git(root, 'rev-parse', f'{landed}^{{tree}}') == _git(root, 'rev-parse', f'{full}^{{tree}}'):
+        say(f'LANDED AS CHECKED: {staging} took {full[:12]} at {landed[:12]}, '
+            f'with exactly the tree the quick checks passed.')
+        return 0
+    base = _git(root, 'rev-parse', '--verify', '--quiet', f'{landed}^1') or full
+    say(f'{staging} moved before the pull request merged: {landed[:12]} is '
+        f'{full[:12]} merged into a newer {staging}, a tree no quick check ran '
+        f'on. Running the quick checks on what landed...')
+    with _Worktree(root, landed) as wt:
+        ok, out = _check(root, wt, BASIC, dest=staging, since=base)
+    if ok:
+        say(f'LANDED, AND CHECKED NOW: the quick checks pass on {landed[:12]}, '
+            f'what {staging} took.')
+        return 0
+    say(f'LANDED, AND FAILING: the quick checks fail on {landed[:12]}, what '
+        f'{staging} took.\n\n{out}\n\nFix it on a branch and land the fix.')
+    return 1
 
 
 # --run-tests: THE FULL SUITE, ASKED FOR, MOVING NOTHING (2026-10-09). The
@@ -4261,6 +4325,8 @@ def _main(argv):
         return moves.main(root, argv)
     if argv[:1] == ['--land'] and len(argv) <= 2:
         return land(root, argv[1] if len(argv) == 2 else None)
+    if argv[:1] == ['--land-confirm'] and len(argv) == 2:
+        return land_confirm(root, argv[1])
     if argv[:1] == ['--run-tests'] and len(argv) <= 2:
         return run_tests(root, argv[1] if len(argv) == 2 else None)
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:

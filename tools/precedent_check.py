@@ -97,7 +97,11 @@ Scopes, because a practice is not always a property of a file:
 Run:
   python3 tools/precedent_check.py                  # tree + change scopes
   python3 tools/precedent_check.py --turn-end       # the end-of-turn scope
-  python3 tools/precedent_check.py --only SLUG      # one practice
+  python3 tools/precedent_check.py --only SLUG      # one practice (A,B for several)
+  python3 tools/precedent_check.py --practice-file-checks
+                                                    # the checks whose subject
+                                                    # is a published practice
+                                                    # file (the quick check's)
   python3 tools/precedent_check.py --paths A B      # explicit change scope
   python3 tools/precedent_check.py --all            # change scope = whole tree,
                                                     # AND every tree-scope check
@@ -13666,6 +13670,27 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                              'session-file-allowances-fit'})
 
 
+# THE CHECKS A LANDING RUNS ON A CHANGED PRACTICE FILE (2026-10-29). The
+# landing tier's quick check ran no practice check at all once they moved
+# to the Debut (2026-10-16), so a relative ../gotchas/ link in
+# practices/prompt-please.md (5fd34d4b3) passed it with 0 problems while
+# --only practice-links-travel reported it, and only a later branch's
+# clean-tree baseline caught it on staging. A check marked binds_publishers
+# judges the published practice files themselves, so with
+# --changed-files-only it judges the changed one: --practice-file-checks
+# runs those, in about three seconds. Two are left to the Debut for cost,
+# measured on that commit: generated-artifact-provenance (7.4 s) and
+# cite-the-incident (3.1 s, a change check reading history).
+PRACTICE_FILE_CHECKS_LEFT_TO_DEBUT = frozenset({
+    'generated-artifact-provenance', 'cite-the-incident'})
+
+
+def practice_file_checks():
+    """-> the slugs --practice-file-checks runs, in registration order."""
+    return [s for s, c in CHECKS.items() if c.get('binds_publishers')
+            and s not in PRACTICE_FILE_CHECKS_LEFT_TO_DEBUT]
+
+
 @check('loader-within-caps', 'tree',
        'the generated loader block is within its caps: the resident block, '
        'the occasion index and this source\'s own occasion share, as '
@@ -14741,10 +14766,16 @@ def main():
         return 0
 
     only = None
-    if '--only' in args:
+    if '--practice-file-checks' in flags:
+        only = ','.join(practice_file_checks())
+    elif '--only' in args:
+        # A comma-separated list runs several checks in one process: the
+        # landing tier's quick check asks for the checks whose subject is a
+        # practice file, and one import is most of each one's cost.
         only = args[args.index('--only') + 1]
-        if only not in CHECKS:
-            sys.exit(f'precedent_check FAIL: no check registered for {only!r} '
+        unknown = [s for s in only.split(',') if s not in CHECKS]
+        if unknown:
+            sys.exit(f'precedent_check FAIL: no check registered for {unknown[0]!r} '
                      f'— run --list.')
     rng = args[args.index('--range') + 1] if '--range' in args else None
     paths = None
@@ -14765,7 +14796,7 @@ def main():
     coverage_note = None
     exempt, refused_exemptions = load_exemptions()
     if only:
-        slugs = [only]
+        slugs = only.split(',')
         results = run(slugs, ctx, scopes, exempt=exempt)
     else:
         tree_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] == 'tree')
