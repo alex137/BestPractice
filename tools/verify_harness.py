@@ -36956,6 +36956,50 @@ def check_practice_ships_its_files():
                       and 'REPLACED' in out and 'declined_ships' in out,
                       out[-300:]))
 
+        # Delivered last time and unchanged since: the 2026-10-29 incident.
+        # The manifest names a delivery whose hash disagrees with the file,
+        # yet the file is byte for byte what the set shipped -- nothing of
+        # this repository's is at stake, so the set's newer copy replaces it.
+        def stale_manifest_row(m):
+            m['ships'] = [dict(r, sha256_16='0' * 16) for r in m.get('ships', [])]
+            m.setdefault('ships', []).append({'path': 'tools/helper.py',
+                                              'sha256_16': '0' * 16})
+            mf.write_text(json.dumps(m), encoding='utf-8')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'the set\'s v2, delivered')
+        stale_manifest_row(json.loads(mf.read_text(encoding='utf-8')))
+        helper.write_text('print("v3")\n', encoding='utf-8')
+        rc, out = grun()
+        cases.append(('a delivered file unchanged since, which the committed '
+                      'manifest records, takes the set\'s newer copy and is '
+                      'not kept as the repository\'s own',
+                      rc == 0 and 'v3' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' not in out, out[-300:]))
+        # The same, with no committed manifest row: the set's own history
+        # holds the bytes.
+        helper.write_text('print("v2")\n', encoding='utf-8')
+        fixture_git(team, 'init', '-q')
+        fixture_git(team, 'config', 'user.email', 'fixture@example.com')
+        fixture_git(team, 'config', 'user.name', 'fixture')
+        fixture_git(team, 'add', '-A')
+        fixture_git(team, 'commit', '-qm', 'set v2')
+        put(gdelivered, 'print("v2")\n')
+        m = json.loads(mf.read_text(encoding='utf-8'))
+        m.pop('ships', None)
+        mf.write_text(json.dumps(m), encoding='utf-8')
+        ggit('add', '-A')
+        ggit('commit', '-qm', 'v2 again, no delivery recorded')
+        stale_manifest_row(m)
+        helper.write_text('print("v3")\n', encoding='utf-8')
+        fixture_git(team, 'commit', '-qam', 'set v3')
+        rc, out = grun()
+        cases.append(('...and so does one whose bytes only the set\'s own '
+                      'history holds',
+                      rc == 0 and 'v3' in text_of(gdelivered)
+                      and 'LEFT UNTOUCHED' not in out, out[-300:]))
+        shutil.rmtree(team / '.git')
+        helper.write_text('print("v2")\n', encoding='utf-8')
+
         # --- decline --------------------------------------------------------
         config({'declined_ships': {'tools/helper.py': 'we have our own'}})
         put(delivered, 'print("ours")\n')
