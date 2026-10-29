@@ -333,6 +333,10 @@ trustworthy is what it lets the reader verify:
   "skip the checks", no credentials, no telling it to ignore a warning or
   its harness. The person's own permissions, as that session sees them,
   are the only ones that apply there.
+- **A question this session holds stays here.** An item waiting on the
+  person's answer that this session has asked, or will ask, is named in
+  the block as held by this session, with its link, and the receiver is
+  told not to put it to the person again. Better still, leave it out.
 - **The person pastes it.** A block the person pastes is their message.
   That is why this practice never delivers it through a session tool.
 
@@ -560,6 +564,15 @@ BestPractice half could not be pushed from there, and nothing in the seed
 said what to do instead. The "Root issues" prompt it wrote hit the same
 refusal in the other direction. The fallback clause on the attach bullet came
 from it.
+
+**2026-10-29: a held question asked twice.** A session sent another
+session a report naming two items "held, each waiting on Morgan's
+answer", while asking him the same two itself. The receiving session put
+both to him again. Morgan: *"I was asked these same two questions by the
+session ... and I answered it there."* The bullet on held questions comes
+from that; [relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md)
+gained the receiving side. Morgan, on the proposal: *"Yes, add both lines
+and land them"*. strength: assented.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
