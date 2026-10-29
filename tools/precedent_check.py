@@ -1604,6 +1604,12 @@ def _reply_example_problems(root):
                 bare.append(i)
             continue
         one = {k: v for k, v in req.items() if k != '_examples'}
+        # A requirement that inherits is only whole merged over the one it
+        # replaces, as the reply check merges it in a session (2026-10-29).
+        if one.get('inherits') is True and isinstance(one.get('id'), str):
+            earlier = _prc.inherited_from(root, one['id'])
+            if earlier is not None:
+                one = _prc.inherit_requirement(earlier, one)
         one['advisory'] = False
         for ex in examples:
             if not isinstance(ex, dict) or 'reply' not in ex or 'refused' not in ex:
