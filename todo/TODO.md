@@ -114,7 +114,7 @@ as_of: 2026-10-29
 | [`todo-2026-10-16-enforcement-moves-waiting-on-morgan`](todo-2026-10-16-enforcement-moves-waiting-on-morgan.md) | Three calls left by | 13d | ask |  |
 | [`todo-2026-10-20-root-issues-from-ladder-landing-check`](todo-2026-10-20-root-issues-from-ladder-landing-check.md) | Found while fixing the ladder set's landing-authority reply rule on | 9d | wait | items 1-7 built on 2026-10-20-themorgan-ladder-landing-root-issues-v5nil-bz3kz a… |
 | [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 2d | ask | Morgan's call (needs: decision -- Morgan), asked again on 2026-11-10 |
-| [`todo-2026-10-29-staging-suite-and-reader-own-files`](todo-2026-10-29-staging-suite-and-reader-own-files.md) | Two root issues handed over by the set-tests session (2026-10-20 to | 0d | ask | Morgan's call on both choices below (needs: decision -- Morgan) |
+| [`todo-2026-10-29-staging-suite-and-reader-own-files`](todo-2026-10-29-staging-suite-and-reader-own-files.md) | Two root issues handed over by the set-tests session (2026-10-20 to | 0d | ask | Morgan's call on issue 2 (needs: decision -- Morgan) |
 
 ## Decisions (the Person's Call)
 

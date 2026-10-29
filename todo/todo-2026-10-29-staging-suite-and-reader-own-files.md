@@ -6,10 +6,10 @@ severity:          medium
 status:            open
 disposition:       ask
 remind_on:         null
-blocked_on:        "Morgan's call on both choices below (needs: decision -- Morgan)"
+blocked_on:        "Morgan's call on issue 2 (needs: decision -- Morgan)"
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "issue 1: leave the daily run as it is (2026-10-29)"
+decision_strength: decided
 waiting_on:        null
 noted:             2026-10-29
 closed:            null
@@ -47,8 +47,9 @@ Options:
   is up, and adds a second scheduler to keep alive.
 - **C. Accept it** and say so on AGENTS.md's schedules line.
 
-Pick: **A**. It catches a red staging within a day, costs nothing extra,
-and removes the repeated runs on an unchanged `main`.
+Pick was **A**. Decided: **leave it as it is**. Morgan, 2026-10-29: Alex
+likes the daily checks; Morgan prefers the checks run in a session, so the
+daily run stays exactly as it is.
 
 ### 2. Shipped practices name the reader's own files
 
@@ -79,3 +80,9 @@ Options:
 
 Pick: **A**, then link the engine-tool names in the files touched as they
 are touched, as the warning already asks.
+
+Morgan, 2026-10-29, also asked whether the very deep check should review
+every doc_lint warning. It already does: its step 24 and its strict
+Markdown sweep judge every warning group, fixed or excluded with a reason.
+Across the whole repository the unlinked-reference warning stands at 2,196
+today, so those steps are not keeping up.
