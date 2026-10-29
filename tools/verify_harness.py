@@ -91204,6 +91204,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_freshness_guard_lets_a_read_through_on_a_stale_branch()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
