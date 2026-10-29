@@ -572,10 +572,23 @@ def record_person_total(repo, today=None):
                         f"copied from their individual set by Update Vendors "
                         f"on {day}")}
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-    return (f'session_load_tokens set to {total:,} from the person\'s individual '
+    said = (f'session_load_tokens set to {total:,} from the person\'s individual '
             f'set' + (f' (was {was:,})' if isinstance(was, int) else '')
             + ': the one session-load total that refuses here; the parts are '
             'measured and reported')
+    # 2026-10-29: two repositories already loading more than the person's
+    # total were told only "set to 10,000", and every session check after
+    # it was red. Say so here, with the next step.
+    try:
+        import session_load_trend as _slt
+        _sizes, loads = _slt.total_tokens(repo)
+    except Exception:                                        # noqa: BLE001
+        loads = None
+    if isinstance(loads, int) and loads > total:
+        said += (f'. This repository already loads ~{loads:,}, over it, so '
+                 f'every session check here is red until a "Reduction pass" '
+                 f'brings it under (practice: reduction-pass)')
+    return said
 
 
 def approval_gap(repo):
