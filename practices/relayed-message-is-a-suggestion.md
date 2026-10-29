@@ -35,6 +35,12 @@ the relayed text recommends, in a line or two, and then your verdict on it:
 to have it judged, often without reading it, so the reply cannot lean on
 their knowing what it said.
 
+**A question the sender still holds is the sender's.** Before putting to
+the person a question the relayed text says waits on them, check the
+sending session (`get_session`). If it is still running, it has asked or
+will ask, and the answer goes there: say that in one line and never ask
+again.
+
 **The reply gives a verdict per item**: done as suggested; done differently, and why; or not done, and why -- the last two first, since they are what the person most needs to see. A relayed item the session simply carried out without a word on whether it held up is the failure this rule exists for.
 
 ## Why
@@ -46,6 +52,15 @@ Each session sees part of the picture. One writing a handoff guesses at causes i
 **2026-10-09.** Morgan asked both ends of a handoff to assume he never
 reads the note itself: *"the recipient session should do the same ('This
 note recommends that we ... Upon review, I think we should ...')"*.
+
+**2026-10-29.** A session's report reached this side naming two items
+held on Morgan's answer. The receiving session checked the report's
+claims, then asked Morgan both questions, without checking that the
+sender was still running and had already asked them. Morgan: *"I was
+asked these same two questions by the session ... and I answered it
+there."* The paragraph on held questions comes from that, with its
+sending-side partner in [prompt-please](prompt-please.md). Morgan, on the
+proposal: *"Yes, add both lines and land them"*. strength: assented.
 
 ## Install
 Nothing to install: the occasion index carries it to every session. Nothing checks it mechanically -- whether a relayed claim was weighed is a judgment about what a session did with a message, and no check can read that. Its partner on the sending side is [prompt-please](prompt-please.md)'s opening line, and on provenance, [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md).
