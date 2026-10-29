@@ -2199,9 +2199,11 @@ def _shipped_links_travel(ctx):
 
 @check('practice-links-travel', 'tree',
        'every link in a practice file THIS repo publishes either travels with the '
-       "file (a sibling practice, a vendored engine file, this source's own "
-       'tools/checks/ check script or tests/ test, or a file a practice here '
-       'declares in `ships:` -- each of which must exist here) or '
+       "file (a sibling practice, a vendored engine file -- from the "
+       'universal source only, since a shared or individual set\'s copy-in '
+       'carries just what checkin._files_rules_name names -- this source\'s '
+       'own tools/checks/ check script or tests/ test, or a file a practice '
+       'here declares in `ships:` -- each of which must exist here) or '
        'is an absolute URL into this repository on '
        'its declared base_branch, naming a path that exists. A sibling link '
        'from an ACTIVE practice must also point at one that is in force: a '
@@ -2281,6 +2283,7 @@ def _practice_links_travel(ctx):
     branch = _declared_base_branch(ROOT)
     slug = _origin_slug()
     shipped = _declared_ships(owned)
+    level, copied_in = _copy_in_level_and_files()
     try:
         visibility = json.loads((ROOT / 'precedent.json').read_text(
             encoding='utf-8')).get('visibility')
@@ -2369,8 +2372,37 @@ def _practice_links_travel(ctx):
                 if withdrawn:
                     out.append(Finding(where, withdrawn))
                 continue                        # a sibling practice file
-            if base.startswith('../') and base[3:] in travel:
+            if base.startswith('../') and base[3:] in travel \
+                    and copied_in is None:
                 continue                        # a vendored engine file
+            # A shared or individual set travels by copy-in too: the whole
+            # set lands at process/<set>/ in the consumer, so `../tools/`
+            # resolves inside that copy, which holds only what the set's
+            # practices name (checkin._files_rules_name) -- never the
+            # engine. Found 2026-10-29: precedent-shared-ladder carried 18
+            # such links, all dead in every copy-in consumer, and this
+            # check counted each one as travelling.
+            # practice: practice-links-travel
+            if copied_in is not None and base.startswith('../') \
+                    and (ROOT / base[3:]).exists() \
+                    and any(base[3:] == c or base[3:].startswith(c + '/')
+                            for c in copied_in):
+                continue                        # a file the copy-in brings
+            if copied_in is not None and base.startswith('../') \
+                    and base[3:] in travel:
+                uroot = _universal_source_root()
+                u_slug = _origin_slug(uroot) if uroot else None
+                url = (f'https://github.com/{u_slug}/blob/'
+                       f'{_declared_base_branch(uroot) or "<branch>"}/'
+                       f'{base[3:]}' if u_slug
+                       else 'an absolute URL into the universal source')
+                out.append(Finding(
+                    where, f'`{target}` is an engine file, and {"an" if level == "individual" else "a"} {level} '
+                           f'set\'s copy-in (process/<set>/) does not carry '
+                           f'the engine, so the link is dead in every '
+                           f'consumer that copies this set in. Link it as '
+                           f'{url}'))
+                continue
             # A file some practice here declares in `ships:` travels too:
             # precedent_materialize.py delivers it to the same path in every
             # consumer. It must exist here, which practice-carries-its-files
@@ -2454,6 +2486,29 @@ def _practice_links_travel(ctx):
                        f'live here and dead in every repository that receives '
                        f'the catalogue. {advice}'))
     return out
+
+
+def _copy_in_level_and_files():
+    """-> (level, [path]) for a shared or individual set: its level and
+    what a copy-in brings beside practices/ (checkin._files_rules_name, the
+    one answer). (None, None) for the universal source, a consumer, or
+    when that cannot be read -- there an engine link travels, because the
+    engine is vendored into the consumer's own tools/."""
+    try:
+        import precedent_resolve as pr
+        level = pr.declared_level(pr.read_source_manifest(ROOT) or {})
+    except Exception:                              # practice: fail-gracefully
+        return None, None
+    if level not in ('shared', 'individual'):
+        return None, None
+    try:
+        import checkin
+        return level, list(checkin._files_rules_name(ROOT))
+    except Exception:                              # practice: fail-gracefully
+        # An engine vendored before checkin.py travelled: still a set, so
+        # still judged, counting only tools/checks/ -- a `ships:` file and
+        # a check script are cleared by their own cases above.
+        return level, ['tools/checks']
 
 
 def _declared_ships(practice_files):
