@@ -2168,7 +2168,15 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
                   or 'main')
     prefix = UPSTREAM.relative_to(ROOT).as_posix()
     bases = _committed_tree_bases(clone, base, f'origin/{dep_branch}')
-    names = _dep_git('ls-tree', '-r', '--name-only', f'origin/{dep_branch}', prefix).split()
+    # One ls-tree gives every name with its blob id: asking git for each
+    # file's id one call at a time was 1,428 processes in one Update
+    # Vendors test (2026-10-29), about a quarter of its git time.
+    oids = {}
+    for row in _dep_git('ls-tree', '-r', '-z', f'origin/{dep_branch}', prefix).split('\0'):
+        meta, sep, path = row.partition('\t')
+        if sep and len(meta.split()) == 3:
+            oids[path] = meta.split()[2]
+    names = list(oids)
     landed_all = None
     lost = []
     upstream_deleted = upstream_older = upstream_whole = 0
@@ -2183,7 +2191,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
         # from another branch -- staging, before a repo followed main --
         # held every line "lost": eleven files in a consuming repository
         # whose whole copy was upstream text (2026-10-08).
-        oid = _dep_git('rev-parse', f'origin/{dep_branch}:{name}').strip()
+        oid = oids[name]
         if (up, oid) in upstream_blobs(clone, tip, *bases):
             upstream_whole += 1
             continue

@@ -11,7 +11,7 @@ summary:       "Why the deep-check suite ran ~250s, what actually made it slow, 
 ---
 # verify_harness.py Performance — What Was Actually Found
 
-**The question that started this**: why does `tools/verify_harness.py` — the
+**The question that started this**: why does [`tools/verify_harness.py`](../tools/verify_harness.py) — the
 deep check that gates a push, per [practices/two-check-levels.md](../practices/two-check-levels.md)
 — take "up to ~10 minutes" for a single push. Written the way
 [spec/PHASE5_DEEPCHECK.md](PHASE5_DEEPCHECK.md) is written: what was actually
@@ -50,7 +50,7 @@ directly**: "profile before declaring the remainder the next lever."
 
 This function is 2,091 lines. It builds ~60 `case()` invocations (~193
 stated assertions total), and each `case()` copies the entire repository
-tree (`shutil.copytree`) twice and launches `tools/precedent_check.py` as a
+tree (`shutil.copytree`) twice and launches [`tools/precedent_check.py`](../tools/precedent_check.py) as a
 subprocess twice — once against a planted violation, once against a clean
 copy. That's the real cost: ~120 full-repo copies plus ~120 fresh Python
 interpreter starts, sequentially.
@@ -106,7 +106,7 @@ was reverted rather than kept as unproven complexity.
 
 `check_very_deep_check_bootstrap_drift`, `check_very_deep_check_convergent_drift`,
 and `check_shallow_clone_never_fabricates_unlanded_work` together cost
-~70s. All three exist to test **`tools/very_deep_check.py`'s own drift and
+~70s. All three exist to test **[`tools/very_deep_check.py`](../tools/very_deep_check.py)'s own drift and
 unlanded-work-scanning logic** — not this repo's practice content — and
 that logic changes rarely relative to how often this deep-check suite runs
 on every push.
@@ -116,7 +116,7 @@ This repo already had the right pattern for exactly this shape of problem:
 *"Changed-scope on purpose. This gates a push and runs constantly, so its
 question is 'did I just break something', not 'is the whole repo well'.
 The whole-tree sweep is the very deep check's job
-(`tools/very_deep_check.py`), which is on-demand."* That check already uses
+([`tools/very_deep_check.py`](../tools/very_deep_check.py)), which is on-demand."* That check already uses
 a shared helper, `parse_check.changed(ROOT)`, which never silently
 narrows: with no base branch to diff against it falls back to the whole
 tracked tree and says so.
@@ -124,19 +124,19 @@ tracked tree and says so.
 A new shared helper, `_changed_touches(*rel_paths)`, reuses that same
 `parse_check.changed()` call. Each of the three checks now calls
 `not_applicable(...)` and returns immediately unless the push actually
-touched `tools/very_deep_check.py` (and, for the two drift checks,
-`tools/precedent_bootstrap_source.py` too — the generator whose output
+touched [`tools/very_deep_check.py`](../tools/very_deep_check.py) (and, for the two drift checks,
+[`tools/precedent_bootstrap_source.py`](../tools/precedent_bootstrap_source.py) too — the generator whose output
 they diff against). Verified both directions directly: ~14ms to skip when
 untouched, and the full original fixture (same result as before) when
-`tools/very_deep_check.py` is deliberately touched.
+[`tools/very_deep_check.py`](../tools/very_deep_check.py) is deliberately touched.
 
 **The accepted gap, documented in `_changed_touches()`'s own docstring**:
 this is scoped to the DIRECT file(s) named at each call site, not those
 files' full transitive import closure. A change to one of
-`very_deep_check.py`'s helper modules (it imports `precedent_resolve`,
+[`very_deep_check.py`](../tools/very_deep_check.py)'s helper modules (it imports `precedent_resolve`,
 `parse_check`, `precedent_bootstrap_source`, `split_practices`,
 `build_views`, `leak_gate`, `precedent_time`, `precedent_access_check`)
-that altered its behavior without touching `very_deep_check.py` or the
+that altered its behavior without touching [`very_deep_check.py`](../tools/very_deep_check.py) or the
 named file itself would not be caught by this scoped check at push time —
 only by a later on-demand very deep check run. Enumerating a full
 transitive closure by hand was deliberately not attempted: it goes stale
@@ -324,7 +324,7 @@ Morgan, 2026-09-21 (strength: decided), having read the 211.5s breakdown
 above: *"If it is 3.5 minutes to check every enforced rule every time, maybe
 we also add in a '10% each time' there as well?"*
 
-He had already invented the mechanism. `precedent_check.py`'s
+He had already invented the mechanism. [`precedent_check.py`](../tools/precedent_check.py)'s
 `_scoped_tree_slugs()`, from his own 2026-09-18 direction, runs three tiers
 — directly touched, indirectly touched, and a deterministic rotating slice
 keyed by commit count. This applies the same shape to the planted cases.
@@ -340,7 +340,7 @@ keyed by commit count. This applies the same shape to the planted cases.
   deeper assertion, and the failure surfaces months later as a `KeyError`
   in an unrelated case. Nine slugs, as of this change;
 - **everything**, when the change touches the check machinery itself
-  (`tools/precedent_check.py`, `tools/verify_harness.py`, or a
+  ([`tools/precedent_check.py`](../tools/precedent_check.py), [`tools/verify_harness.py`](../tools/verify_harness.py), or a
   `tools/checks/` script). A change there can alter any check's behaviour,
   so no slice is a safe sample of it;
 - **everything**, in CI. `deep-check.yml` sets `PRECEDENT_HARNESS_ALL=1`.
@@ -354,7 +354,7 @@ keyed by commit count. This applies the same shape to the planted cases.
 |---|---|
 | a documentation-only edit | 16 of 71 |
 | one practice file | 17 of 71 |
-| `tools/precedent_check.py` | 71 of 71 |
+| [`tools/precedent_check.py`](../tools/precedent_check.py) | 71 of 71 |
 
 At the ~1.5s per case this record already measured, that takes the function
 from 107.9s to roughly 25s on an ordinary change, and the whole suite from
@@ -380,7 +380,7 @@ reading the reason string in the result line.
 
 **Does it inherit the 2026-09-20 zero-coverage failure?** Morgan asked
 directly, and the answer is measured rather than argued. That day
-`precedent_check.py`'s rotation landed on a bucket where every slug it
+[`precedent_check.py`](../tools/precedent_check.py)'s rotation landed on a bucket where every slug it
 picked was inapplicable to the repo, reported `0 passed`, and CI's
 "refuse a run that checked nothing" backstop correctly refused it — on two
 real pull requests in two different sets (`_run_with_coverage_retry`'s
@@ -602,6 +602,94 @@ collecting results later did not hide a failure.
 The fix proposed from this is
 [todo-2026-10-11-planted-cases-in-minutes](../todo/todo-2026-10-11-planted-cases-in-minutes.md).
 
+## 2026-10-29: Update Vendors ran one git process per file
+
+Morgan, 2026-10-29: *"what tests is update vendors doing that takes so long
+every time?"* The 26 end-to-end Update Vendors checks are about 900 of the
+1,887 seconds of checks a scoped run always picks (their reach is not fully
+seen: they run git against the repository itself). Each builds a consuming
+project and runs the real update on it, some two to five times.
+
+**Measured** on `check_update_vendors_survives_an_upstream_deletion`, a git
+wrapper counting every call: **4,710 git processes, 30.7 seconds of them**
+in a 58-second run. Nearly all came from four loops asking git one file at
+a time:
+
+| loop | calls | where |
+|---|---|---|
+| `rev-parse origin/<branch>:<file>`, each file's blob id | 1,428 | [`checkin.py`](../tools/checkin.py), after a `ls-tree` that could give the ids itself |
+| `diff --quiet -- <file>`, does this file have an unstaged change | 1,490 | three loops in [`precedent_update.py`](../tools/precedent_update.py) |
+| `show <commit>:<file>`, every past version of the AGENTS.md templates | about 440 a process | [`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s template history, and `template_text_at` |
+| `show <commit>:tools/<file>`, each engine file and hook | about 300 a refresh | [`precedent_vendor_engine.py`](../tools/precedent_vendor_engine.py)'s `_source_tools_at` |
+
+**Changed:** the ids come from the one `ls-tree -z`; one `git diff
+--name-only -z --no-renames [--cached]` answers every path
+(`_changed_paths`); and the reads go through one `git cat-file --batch`
+process (`_read_blobs`), with a file the batch reads as missing asked again
+the old way before it counts as gone. The same check then ran **656 git
+processes, in 37 and 38 seconds, against 48 and 52 for the unchanged code**,
+both pairs on the same quiet 4-core container. Every real Update Vendors
+run saves the same calls.
+
+**Two levers weighed and not taken** (Morgan, 2026-10-29, strength:
+assented: "If we don't do levers 1 or 3 for now"). They stay open to
+revisit; each is explained here so the next session starts from this, not
+from scratch.
+
+### Lever 1: skip the Update Vendors checks when no shipped file changed
+
+**Shipped and stay-home files.** Update Vendors copies some of this
+repository into every repository that uses it: the engine in `tools/`, the
+hooks, `templates/`, the practices. Those are shipped. The rest stays here:
+open items in `todo/`, plans in `spec/`, `gotchas/`, What's New. **84 of
+the 495 commits on staging since 2026-10-15 touched only stay-home files**,
+about one in six. For those, a check of what Update Vendors copies could
+plausibly be skipped.
+
+**Why the change-scoped run picks these checks anyway.** To build a
+consuming project, a check, or the update it runs, reads this repository's
+history at a commit: `git archive` of a whole commit with no path, `git
+ls-tree -r`, `git log --raw`, `git show` of file after file. The recorder
+([`tools/harness_reach_hook.py`](../tools/harness_reach_hook.py)) cannot see
+which files a git command against the repository reads, so it marks the
+check's reach "not fully seen", and
+[`tools/harness_reach.py`](../tools/harness_reach.py) runs every such check
+on every change. Teaching the recorder to read git's arguments would not
+help these: a whole-commit archive really does read every file, an open
+item included, so the precise record says the same thing.
+
+**What skipping would take, and its risk.** Only a statement that these
+checks depend on shipped files alone -- something the recorder cannot
+confirm. Written by hand, nothing would ever check it: the day a check
+began to depend on a stay-home file, a landing's run would skip it, pass,
+and main would go red at the next Produce, which is what happened on
+2026-10-29 and what that day's change-scoped landing runs exist to stop.
+
+**The gain.** At most one landing in six, each saving the Update Vendors
+checks' share of a landing's background run: about 900 seconds of check
+time, roughly four minutes across four processes. That is estimated from
+[`tools/harness_check_times.json`](../tools/harness_check_times.json), not
+measured as a run.
+
+**A safer version, if this is revisited.** Take the list from the place
+Update Vendors decides what to copy, so the two cannot drift apart, and
+keep the nightly whole-suite run as the backstop: a check that does depend
+on a stay-home file would then be caught within a day instead of never.
+About one more round of work like the one this section records.
+
+### Lever 3: share one update run between checks
+
+The setup these checks repeat -- seeding a consuming project -- has been
+cached since 2026-10-09 (the section above, from Morgan's *"share the fake
+project"*). What each check still pays for is its own update against its
+own scenario: a different upstream change, a different local edit, a
+decline then a re-decision. Two checks can share an update run only by
+testing the same scenario, so sharing means merging scenarios into one
+project, where one check's leftovers can change another's result. That is
+the leak the 2026-09-19 fixture-reuse attempt was reverted over (above).
+The lever that did pay was making each update run cheaper, which is this
+section's change.
+
 ## Open follow-ups
 
 - **The cross-session copytree-under-threads discrepancy** (no measurable
@@ -639,5 +727,5 @@ The fix proposed from this is
   this session's narrower change achieved.
 - The three change-scoped checks' transitive-closure gap (above, from
   2026-09-16) is an accepted, documented tradeoff, not a task — revisit
-  only if a real regression in one of `very_deep_check.py`'s helper modules
+  only if a real regression in one of [`very_deep_check.py`](../tools/very_deep_check.py)'s helper modules
   is ever missed by it.
