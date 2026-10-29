@@ -35,6 +35,10 @@ Morgan, 2026-10-28 (strength: decided): "Go, one number everywhere" --
 the revised plan, with one person-wide total rather than one per kind of
 repository.
 
+The number: Morgan, 2026-10-28 (strength: decided): "okay, yes, let's do
+it, 10k approved" -- 10,000 tokens, against about 8,100 measured in
+BestPractice, the largest of the four repositories measured that day.
+
 ## Built
 
 2026-10-28, on branch 2026-10-28-themorgan-one-session-load-total-ayyyj-mtcmv:
@@ -55,5 +59,6 @@ that repository's ceiling and refuse there.
 
 ## Closes when
 
-Morgan says go or no to the plan. On go, the engine change lands and his
-total is recorded in the individual set; on no, the reason goes here.
+Every repository Morgan uses carries `session_load_tokens` (by Update
+Vendors, from his individual set), and the deletions left on purpose above
+are done.
