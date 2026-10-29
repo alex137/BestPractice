@@ -395,6 +395,8 @@ HOOK_SCRIPT_FILES = [
     'precedent-universal-catalogue.sh',
     'push-check-gate.sh',
     'reply-gate.sh',
+    # Its logic is repo_attach_gate.py, in ENGINE_FILES (2026-10-29).
+    'repo-attach-gate.sh',
     'seeded-prompt-gate.sh',
     'session-start.sh',
     'stop-git-check.sh',
@@ -412,6 +414,9 @@ ENGINE_FILES = [
     # (HOOK_SCRIPT_FILES), practice outbound-privacy (2026-10-18).
     'outbound_privacy_gate.py',
     'outbound_privacy_scan.py',
+    # What repo-attach-gate.sh runs (HOOK_SCRIPT_FILES), practice
+    # reach-or-ask (2026-10-29).
+    'repo_attach_gate.py',
     'build_views.py',
     # The one place this engine asks GitHub anything, and the counter behind
     # precedent_check.py's github-api-budget check (added 2026-09-14). It
