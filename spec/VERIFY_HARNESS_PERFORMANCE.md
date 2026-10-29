@@ -631,7 +631,8 @@ processes, in 37 and 38 seconds, against 48 and 52 for the unchanged code**,
 both pairs on the same quiet 4-core container. Every real Update Vendors
 run saves the same calls.
 
-**Two levers weighed and not taken:**
+**Two levers weighed and not taken** (Morgan, 2026-10-29, strength:
+assented: "If we don't do levers 1 or 3 for now"):
 
 - *Skip these checks when a change touches no shipped file.* 84 of the 495
   commits on staging since 2026-10-15 touched no shipped file. But the
