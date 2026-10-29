@@ -3860,11 +3860,17 @@ def _land_composed(root, sha, label, staging, why, say):
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
         if 'pull request' in said:
+            carried = _carry_composition_to_branch(root, label, new, staging, sha)
+            # The commit the pull request carries: the composition when it
+            # was pushed to the branch, else the branch as it stands, which
+            # holds the same tree. `new` alone may never reach origin.
+            branch = label[len('origin/'):] if label.startswith('origin/') else label
+            head = _remote_tip(root, branch) or new
             say(f'Once its pull request merges, run `python3 tools/'
-                f'precedent_branches.py --land-confirm {new}`: {staging} may '
+                f'precedent_branches.py --land-confirm {head}`: {staging} may '
                 f'move while it is open, and that says whether what landed is '
                 f'what was checked.')
-            say(_carry_composition_to_branch(root, label, new, staging, sha))
+            say(carried)
             say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'
