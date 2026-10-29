@@ -72718,6 +72718,53 @@ def check_copied_in_shared_sets():
                                   'precedent-source.json'],
                       f'{got} / {r1.stdout[-200:]}{r1.stderr[-200:]} / '
                       f'{r2.stdout[-200:]}{r2.stderr[-200:]}'))
+        # The carry check reads a set_root set at its folder too (2026-10-28,
+        # a consumer's Update Vendors: a line the voice set deleted itself
+        # was reported LOST, and the record asked for --accept-loss).
+        carry = make_set('zz-carry', 'public')
+        (carry / 'pack' / 'practices').mkdir(parents=True)
+        carried = carry / 'pack' / 'practices' / 'zz-carry-rule.md'
+        carried.write_text('---\nslug: zz-carry-rule\n---\n# c\n\n## Rule\n\n'
+                           'a line upstream keeps\na line upstream drops\n')
+        (carry / 'pack' / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-carry', 'level': 'shared', 'visibility': 'public'}))
+        git(carry, 'add', '-A')
+        git(carry, 'commit', '-qm', 'pack')
+        git(carry, 'push', '-q', 'origin', 'main')
+        dep = make_host('carry-host', 'zz-carry')
+        dcfg = json.loads((dep / 'precedent.json').read_text())
+        dcfg['sources'][0]['set_root'] = 'pack'
+        (dep / 'precedent.json').write_text(json.dumps(dcfg))
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(tmp / 'carry-host.git')], env=env, check=True)
+        git(dep, 'remote', 'add', 'origin', str(tmp / 'carry-host.git'))
+        checkin_run(dep, 'zz-carry', carry, 'update', '--force')
+        r1 = checkin_run(dep, 'zz-carry', carry, 'record')
+        git(dep, 'add', '-A')
+        git(dep, 'commit', '-qm', 'copy the set')
+        git(dep, 'push', '-q', 'origin', 'main')
+        carried.write_text(carried.read_text().replace(
+            'a line upstream drops\n', ''))
+        git(carry, 'commit', '-qam', 'upstream drops a line')
+        git(carry, 'push', '-q', 'origin', 'main')
+        checkin_run(dep, 'zz-carry', carry, 'update', '--force')
+        r2 = checkin_run(dep, 'zz-carry', carry, 'record')
+        out = r2.stdout + r2.stderr
+        cases.append(('a line a set_root set deleted itself is not reported '
+                      'lost: the record passes with no --accept-loss',
+                      r1.returncode == 0 and r2.returncode == 0
+                      and 'LOST' not in out and 'upstream drops' not in out,
+                      r1.stdout[-200:] + r1.stderr[-200:] + ' / ' + out[-600:]))
+        importlib.reload(checkin)
+        checkin.SET_ROOT = 'pack'
+        copied = dep / 'process' / 'zz-carry' / 'practices' / 'zz-carry-rule.md'
+        cases.append(('upstream_text knows a set_root set\'s unchanged file as '
+                      'upstream\'s own text',
+                      checkin.upstream_text(carry, copied,
+                                            'practices/zz-carry-rule.md', 'HEAD'),
+                      str(copied)))
+        checkin.SET_ROOT = ''
+
         cfg['sources'][0]['set_root'] = '../elsewhere'
         (sub / 'precedent.json').write_text(json.dumps(cfg))
         r = checkin_run(sub, 'zz-mixed', mixed, 'update')
