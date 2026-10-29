@@ -3,16 +3,16 @@ slug:              todo-2026-10-20-set-tests-and-engine-contract
 kind:              manual
 domain:            engine
 severity:          high
-status:            open
-disposition:       wait
+status:            done
+disposition:       null
 remind_on:         null
-blocked_on:        "the set halves need push access to precedent-shared-ladder and precedent-shared-writing, which this session was refused; the prompt below carries them"
+blocked_on:        null
 batch:             null
 decision:          "the revised plan: BestPractice first, set tests run at Update Vendors, set-words reads the printed words, sound-checker item dropped"
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-20
-closed:            null
+closed:            2026-10-28
 ---
 ## What
 
@@ -62,12 +62,17 @@ BestPractice:
 
 Sets, after Update Vendors brings them the engine above:
 
-- [ ] Ladder: drop the four cases' template half and the
-  `FileNotFoundError` catch; move [`ladder_branches_cases.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/ladder/ladder_branches_cases.py) beside its
-  test and out of promote.md's `ships`; a test that the moves module calls
-  only declared `core.` names.
-- [ ] Writing: `tools/checks/tests/test_reply_check.sh` with the
-  discriminating cases from BestPractice's test.
+- [x] Ladder: drop the four cases' engine halves and the
+  `FileNotFoundError` catch; move the cases file beside its test and out of
+  promote.md's `ships`. The "calls only declared names" test became a
+  general engine check instead (below), so the ladder carries none.
+- [x] Writing: its reply rules carry `_examples`, run by a general engine
+  check, instead of a test file of its own.
+
+Done 2026-10-28, generalized on Morgan's word that day (strength: decided):
+"Make sure these are root fixes. Delete the duplicate test parts. And the
+fixes shouldn't just be hardcoding for particular repos but the general
+pattern etc. Booked." 
 
 ## Findings
 
@@ -85,29 +90,26 @@ Sets, after Update Vendors brings them the engine above:
 - Item 5: BestPractice's own case already said it tests the mechanism with
   planted patterns, so nothing changed there.
 
-## Prompt Please
+## The general versions (2026-10-28)
 
-The set halves, for a session that can push to both sets. Push access to
-them was refused in the session that built the BestPractice half
-(2026-10-20).
-
-**Paste into:** a new session rooted in BestPractice, with
-precedent-shared-ladder and precedent-shared-writing attached with push
-access, after the BestPractice half has reached the branch Update Vendors
-follows.
-
-```
-From: the 2026-10-20 session that built the BestPractice half of todo/todo-2026-10-20-set-tests-and-engine-contract.md.
-For: a new session rooted in BestPractice, with precedent-shared-ladder and precedent-shared-writing attached with push access.
-
-Read todo/todo-2026-10-20-set-tests-and-engine-contract.md first. Its BestPractice boxes are ticked; do the two set boxes.
-
-1. Update Vendors in each set, so each gets MOVES_CORE, the _cases.py helper rule and the reply-check test claim. The update now runs each set's own tests itself.
-2. Ladder set:
-   - Move tools/ladder/ladder_branches_cases.py to tools/checks/tests/ladder_branches_cases.py, point test_ladder_branches.sh at it, and take it out of practices/promote.md's ships.
-   - In that cases file, drop the engine halves BestPractice now tests: check_main_test_minutes_rule keeps only part (3); check_private_repo_skipped_gate_is_not_main_test keeps only its wait cases; check_main_test_cadence keeps only the wait on a not-due copy and the _to_main_copy naming. check_promote_branches_are_named_like_session_branches plants a workflow carrying core.COPY_NAME_MARKER instead of reading templates/github-actions/light-check.yml.template.
-   - Remove the FileNotFoundError catch in _run_all; nothing should need it.
-   - Add a case: an ast scan of tools/ladder/ladder_branches.py finds every core.<name> in the engine's MOVES_CORE, with a planted undeclared name as the control.
-3. Writing set: add tools/checks/tests/test_reply_check.sh, running precedent_reply_check.violations() on this set's own reply_check.json, with the discriminating cases from BestPractice's check_reply_check_refuses_an_unlinked_branch_or_file.
-Then tick the boxes, close this item, and land each set the way it lands its work.
-```
+- **Bound set tools.** [precedent_resolve.py](../tools/precedent_resolve.py)'s
+  `BOUND_SET_TOOLS` maps each key the engine hands itself to (today
+  `branch_moves`) to the tuple declaring what such a tool may call. The
+  check `bound-set-tool-calls-only-declared-names` reads it in any set; the
+  harness holds every set cloned beside BestPractice. A new bound tool is
+  one line in the registry, no new test.
+- **Reply rules carry examples.** Any requirement in any reply_check.json
+  may carry `_examples` (replies it refuses and lets through);
+  `reply-rules-hold-their-examples` runs them through the real checker
+  wherever a reply_check.json exists, and the advisory
+  `reply-rules-carry-examples` names requirements with none. The
+  underscore keeps an older engine reading the file live from warning. This
+  replaced the 2026-10-20 special case for a set's own
+  `test_reply_check.sh`, removed.
+- **A skipped case is not a pass.** Measured: five of the ladder's cases
+  had reported "not applicable" in its own repository since they moved
+  there, two through guards written for BestPractice, two through the
+  2026-10-19 stopgap, one pairing them. Update Vendors' run of a set's own
+  tests now counts a not-applicable case as red, with its reason: that run
+  is in the set's own repository on a fresh engine, where a skip means the
+  case never runs anywhere that matters.

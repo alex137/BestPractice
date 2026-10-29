@@ -48,7 +48,9 @@ The session opens and merges each PUSHED pull request itself (the merge
 needs GitHub tools this script does not have), and hands an ASK, LEFT or
 FAILED repository to a subagent with a fresh context, so that repository's
 instructions never enter the main session. A clone an earlier run kept is
-reused, never cloned over (practice: repair-cannot-discard-work).
+reused, never cloned over (practice: repair-cannot-discard-work), and its
+update takes the newest passed main again rather than the commit that run
+was pinned to (--move); a SOURCE line under the repository says when it did.
 """
 import argparse
 import json
@@ -220,7 +222,8 @@ def run_one(repo, work, args):
     started = time.time()
     result = {}
     try:
-        if (dest / '.git').is_dir():
+        reused = (dest / '.git').is_dir()
+        if reused:
             # An earlier run left this clone (ASK, LEFT, FAILED), perhaps
             # with a subagent's work in it: reuse it, never re-clone over it
             # (practice: repair-cannot-discard-work).
@@ -245,10 +248,11 @@ def run_one(repo, work, args):
             git('switch', '-q', base, cwd=dest)
         result['base'] = base
         r = subprocess.run([sys.executable, str(UPDATE), '--repo', str(dest),
-                            *update_args(args)],
+                            *update_args(args, reused)],
                            capture_output=True, text=True)
         out = r.stdout + r.stderr
         log.write_text(out, encoding='utf-8')
+        result['moved'] = moved_off_pin(out)
         outcome = _outcome(r.returncode, out, dest)
         if outcome != 'ASK':
             result['questions'] = _questions(out)[0]
@@ -282,6 +286,8 @@ def run_one(repo, work, args):
     extra = (f"  {result['branch']} -> {result['base']}  head {result['head']}"
              if outcome == 'PUSHED' else '')
     print(f'{outcome:8} {repo}{extra}{where}  ({secs}s)', flush=True)
+    if result.get('moved'):
+        print(f'         SOURCE for {repo}: {result["moved"]}', flush=True)
     for question in result.get('questions', []):
         # Optional, so they held nothing back, and still the person's to
         # answer: the session passes them up.
@@ -290,12 +296,35 @@ def run_one(repo, work, args):
 
 
 
-def update_args(args):
+MOVED_MARK = 'moved, as asked, off '
+
+
+def moved_off_pin(out):
+    """-> the update's source line when it moved off an earlier run's pin
+    (precedent_update.take_pin), else ''."""
+    for line in out.splitlines():
+        if MOVED_MARK in line:
+            return line.strip()
+    return ''
+
+
+def update_args(args, reused=False):
     """-> the flags each repository's update is given beyond --repo: the
-    commit a rehearsal takes, and the person's copy-in answers."""
+    commit a rehearsal takes, the person's copy-in answers, and --move for
+    a clone an earlier run left.
+
+    WHY --move (2026-10-28, Update All over seven repositories). The clone
+    an earlier LEFT run kept also kept that run's pin, the source commit an
+    unfinished update reruns against; one repository stayed LEFT on a main
+    two fixes old until its clone was deleted by hand. The pin serves the
+    rounds of one update, run from that clone; a new Update All run asks for
+    the newest main whose GitHub test passed, and the line it prints says
+    when that moved the update off the pin."""
     out = []
     if args.rehearse:
         out += ['--from-ref', args.rehearse]
+    elif reused:
+        out += ['--move']
     for answer in args.copy_in:
         out += ['--copy-in', answer]
     if args.answered_by:

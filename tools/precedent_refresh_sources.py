@@ -176,18 +176,37 @@ def session_trailer():
     return 'Session: none available (tools/precedent_refresh_sources.py)'
 
 
-def head_commit():
+def head_commit(cwd=None):
     """This checkout's own tip for SOURCE_BRANCH -- what a source set that
     refreshed right now would end up recording.
 
     Prefers the remote-tracking ref over local HEAD: a session working on a
     feature branch here has a HEAD that is not what anyone would vendor, and
     recording a feature-branch commit into a source set's manifest would
-    make its provenance name a commit that may never reach the branch."""
-    ok, out = _git('rev-parse', '--verify', '--quiet', f'origin/{SOURCE_BRANCH}')
+    make its provenance name a commit that may never reach the branch.
+
+    FETCHED FIRST (2026-10-29). Session start reported all three sets'
+    engines STALE against origin/main d04672e86b31, a ref nine days old in a
+    clone that had not fetched it; the real main was aa34219d3. So the ref
+    is fetched before it is read, and when the fetch fails the ref it names
+    says how old it is."""
+    ref = f'origin/{SOURCE_BRANCH}'
+    try:
+        fetched = subprocess.run(
+            ['git', 'fetch', '--quiet', 'origin',
+             f'+refs/heads/{SOURCE_BRANCH}:refs/remotes/{ref}'],
+            cwd=str(cwd or ROOT), capture_output=True, text=True,
+            timeout=60).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        fetched = False
+    ok, out = _git('rev-parse', '--verify', '--quiet', ref, cwd=cwd)
     if ok and out:
-        return out, f'origin/{SOURCE_BRANCH}'
-    ok, out = _git('rev-parse', '--verify', '--quiet', SOURCE_BRANCH)
+        if not fetched:
+            _ok, day = _git('log', '-1', '--format=%cs', out, cwd=cwd)
+            ref += (f' (could not fetch it; the copy here is from '
+                    f'{day or "an unknown date"})')
+        return out, ref
+    ok, out = _git('rev-parse', '--verify', '--quiet', SOURCE_BRANCH, cwd=cwd)
     if ok and out:
         return out, SOURCE_BRANCH
     return None, None

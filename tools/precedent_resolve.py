@@ -899,7 +899,34 @@ def _declared_path(repo_root, raw):
         main = _main_checkout(repo_root)
         if main is not None and (main / raw).exists():
             entry_path = (main / raw).resolve()
+        else:
+            known = _known_clone(entry_path.name)
+            if known is not None:
+                entry_path = known
     return entry_path
+
+
+def _known_clone(name):
+    """-> this machine's clone of practice source `name` beside the person's
+    individual set -- where session start clones every set it brings -- or
+    None.
+
+    WHY (2026-10-28, a Produce run from a clone made outside the session's
+    project folder). A repository declares a set as its sibling
+    (`../precedent-shared-writing`); a clone made anywhere else has no such
+    sibling, so its pre-push refused for a set that was on disk all along,
+    and the session symlinked the set in by hand. The sibling still wins
+    when it is there."""
+    ind = person_individual_path()
+    if ind is None or not name:
+        return None
+    cand = ind.parent / name
+    try:
+        if (cand / '.git').exists() and (cand / 'practices').is_dir():
+            return cand.resolve()
+    except OSError:
+        pass
+    return None
 
 
 # SETS A PERSON BRINGS (spec/LADDER_OPT_IN_PLAN.md D2, 2026-10-02).
@@ -1205,6 +1232,70 @@ def set_tool(repo, key, user_config=None):
             if (base / rel).is_file():
                 return base / rel
     return None
+
+
+# THE SET TOOLS THE ENGINE HANDS ITSELF TO (2026-10-20). A set tool named
+# under one of these keys gets an engine module through its bind(), and
+# calls it as <global>.<name>. Each key names the engine module and the
+# tuple there that declares what such a tool may call: the contract. A
+# rename in the engine then fails in the engine's own harness (every
+# declared name exists) and in the set's own check (it calls only declared
+# names), never in a Promote in somebody's repository. A new key here is
+# the whole of adding a bound tool: the check reads this, not a list of
+# sets.
+BOUND_SET_TOOLS = {
+    'branch_moves': ('precedent_branches', 'MOVES_CORE'),
+}
+
+
+def bound_engine_names(path):
+    """-> {name: first line} for every `<g>.<name>` the module at `path`
+    reads, where <g> is a global its bind() sets from its argument. Empty
+    for a module with no bind(). Raises SyntaxError for one that does not
+    parse."""
+    import ast
+    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))
+    bound = set()
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == 'bind' and node.args.args:
+            arg = node.args.args[0].arg
+            for st in ast.walk(node):
+                if (isinstance(st, ast.Assign) and isinstance(st.value, ast.Name)
+                        and st.value.id == arg):
+                    bound.update(t.id for t in st.targets if isinstance(t, ast.Name))
+    found = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                and node.value.id in bound):
+            found.setdefault(node.attr, node.lineno)
+    return found
+
+
+def undeclared_bound_calls(source_root):
+    """-> [(key, tool path, name, line)] for every engine name a bound tool
+    the source at `source_root` names in its precedent-source.json calls
+    without the engine declaring it (BOUND_SET_TOOLS). A tool that is not
+    there, or an engine module without the declaring tuple, gives nothing:
+    the engine side is held by its own harness."""
+    import importlib
+    root = pathlib.Path(source_root)
+    try:
+        man = json.loads((root / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for key, (module, tuple_name) in BOUND_SET_TOOLS.items():
+        rel = man.get(key) if isinstance(man, dict) else None
+        if not isinstance(rel, str) or not (root / rel).is_file():
+            continue
+        try:
+            declared = set(getattr(importlib.import_module(module), tuple_name))
+        except (ImportError, AttributeError, TypeError):
+            continue
+        for name, line in sorted(bound_engine_names(root / rel).items()):
+            if name not in declared:
+                out.append((key, rel, name, line))
+    return out
 
 
 def load_set_tool(repo, key, user_config=None):
@@ -2556,7 +2647,7 @@ def _is_blocking(practice):
             and practice['level'] != PRECEDENCE[0])
 
 
-def resident_stats(res):
+def resident_stats(res, root=None):
     """The combined resident block across EVERY resolved source, using the
     same word*1.3 approximation build_views.py uses for its own hard cap.
 
@@ -2583,13 +2674,17 @@ def resident_stats(res):
     return {
         'tokens': tokens,
         'budget': bv.RESIDENT_BUDGET_TOKENS,
-        'over_budget': tokens > bv.RESIDENT_BUDGET_TOKENS,
+        # Under a declared session-load total the resident block is a part
+        # with no cap of its own (build_views.TOTAL_KEY).
+        # `root` is the repository resolved, whose registry decides.
+        'over_budget': (tokens > bv.RESIDENT_BUDGET_TOKENS
+                        and bv.session_load_total(root) is None),
         'practices': [{'slug': p['slug'], 'level': p['level'],
                        'source': p['source']} for p in resident],
     }
 
 
-def _report(res, sources, out=sys.stdout):
+def _report(res, sources, out=sys.stdout, root=None):
     counts = {}
     for p in res['practices'].values():
         counts[p['level']] = counts.get(p['level'], 0) + 1
@@ -2619,7 +2714,7 @@ def _report(res, sources, out=sys.stdout):
     if res.get('dangling'):
         print(f"  {len(res['dangling'])} deduplication(s) unreachable from "
               f"here -- rerun with --strict to fail on this", file=out)
-    rstats = resident_stats(res)
+    rstats = resident_stats(res, root)
     if rstats['practices']:
         who = ', '.join(f"{p['slug']} ({p['level']})" for p in rstats['practices'])
         detail = f"{len(rstats['practices'])} practice(s): {who}"
@@ -2698,7 +2793,7 @@ def main():
     if explain:
         return _explain(explain, res, sources)
 
-    rstats = resident_stats(res)
+    rstats = resident_stats(res, repo)
     # A dedup pointing IN FORCE NOWHERE is real exposure -- a rule someone
     # believes is still binding is reachable by nobody, for this repo -- but
     # it is a PRE-EXISTING condition every consumer inherited silently, not
@@ -2744,7 +2839,7 @@ def main():
                   f"~{rstats['tokens']} tokens, over the {rstats['budget']}-"
                   f"token cross-source cap.", file=sys.stderr)
         return rc
-    _report(res, sources)
+    _report(res, sources, root=repo)
     return rc
 
 

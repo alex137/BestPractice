@@ -428,6 +428,10 @@ def record_copy_in_budget(repo, today=None):
     approved = data.get('approved_budgets') if isinstance(data, dict) else None
     if not isinstance(approved, dict) or not isinstance(cfg, dict):
         return None
+    # Under a session-load total a copy-in moves tokens between parts that
+    # carry no budget, so there is nothing to record (record_person_total).
+    if isinstance(data.get('session_load_tokens'), int):
+        return None
     answers = cfg.get('copy_in') if isinstance(cfg.get('copy_in'), dict) else {}
     shares, words, unanswered = {}, [], []
     for e in cfg.get('sources') or []:
@@ -508,6 +512,70 @@ def record_copy_in_budget(repo, today=None):
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     return ('; '.join(said) + ': it stands on the person\'s copy-in answer, '
             'recorded with it')
+
+
+def record_person_total(repo, today=None):
+    """-> a sentence for the report when it wrote the person's session-load
+    total into this repository's registry, else None.
+
+    code-cites-practice: session-load-budget
+
+    The person declares one total for every repository they work in --
+    `session_load_tokens` in their individual set's precedent-source.json,
+    with their words for it in `session_load_approval` -- and it binds here
+    only once it is in THIS repository's tools/session_load_budgets.json:
+    the daily and post-merge checks run without the individual set, so a
+    total that lived only there would leave every per-part budget refusing
+    in CI (spec/SESSION_LOAD_ONE_TOTAL_PLAN.md, from its review). Morgan,
+    2026-10-28 (strength: decided): "Go, one number everywhere".
+
+    The approval is copied with the number, so budget-within-approval reads
+    the person's own words here; a total with no valid approval beside it is
+    not copied. A registry that does not exist yet is left to
+    seed_budgets_step, and the next run records the total."""
+    path = repo / 'tools' / 'session_load_budgets.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        import precedent_session_practices as _psp
+        total, ind_path = _psp.brought_budget(str(repo), 'session_load_tokens')
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not isinstance(total, int) or isinstance(total, bool) or not ind_path:
+        return None
+    try:
+        man = json.loads((pathlib.Path(ind_path) / 'precedent-source.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    appr = man.get('session_load_approval') if isinstance(man, dict) else None
+    if not (isinstance(appr, dict) and appr.get('strength') in ('decided', 'assented')
+            and str(appr.get('approved_by') or '').strip()):
+        return None
+    approved = data.get('approved_budgets')
+    if not isinstance(approved, dict):
+        approved = data['approved_budgets'] = {}
+    was = data.get('session_load_tokens')
+    entry = approved.get('session_load_tokens')
+    if was == total and isinstance(entry, dict) and entry.get('max') == total:
+        return None
+    import time as _time
+    day = today or _time.strftime('%Y-%m-%d')
+    data['session_load_tokens'] = total
+    approved['session_load_tokens'] = {
+        'max': total, 'strength': appr['strength'],
+        'approved_by': (f"{appr['approved_by']} -- the person's one total, "
+                        f"copied from their individual set by Update Vendors "
+                        f"on {day}")}
+    path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return (f'session_load_tokens set to {total:,} from the person\'s individual '
+            f'set' + (f' (was {was:,})' if isinstance(was, int) else '')
+            + ': the one session-load total that refuses here; the parts are '
+            'measured and reported')
 
 
 def approval_gap(repo):
@@ -1203,7 +1271,7 @@ def maintainers_step(repo, rep):
                  f'there any time -- it is never rewritten once set')
     named = pve.name_the_persons_maintainer(repo)
     if named:
-        rep.step('code owners', f'added your declared name to @{named}\'s entry '
+        rep.step('code owners', f'wrote your declared name to @{named}\'s entry '
                  f'in precedent.json\'s maintainers, so an approval that names '
                  f'you ("Name, YYYY-MM-DD: ...") is read as yours')
     # A single owner's own zone, for the records nobody's identity reaches
@@ -1228,6 +1296,12 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
     every set still unanswered becomes one question for the person. A
     recorded answer is never asked again."""
     answers = answers or {}
+    try:
+        for what in pve.fetch_offered_clones(
+                repo, [n for n, a in answers.items() if a == 'yes']):
+            rep.step('copy in', what)
+    except Exception as exc:                                  # noqa: BLE001
+        rep.step('copy in', f'an offered set could not be cloned ({exc})')
     try:
         for _ok, what in pve.copy_in_pending(repo):
             rep.step('copy in', what)
@@ -3205,6 +3279,29 @@ def feature_branch_line(repo):
     return None
 
 
+# GOING LIVE (2026-10-28). On the ladder, DONE's "land it on your landing
+# branch" put the update on staging and the session stopped there, so it
+# never reached main without a second command. Morgan: "I just want to run a
+# command and have it update and go live" (strength: decided). The ladder
+# set's vendor-update-on-the-ladder makes the phrase carry the move into main;
+# DONE says so where the session reads its next step.
+def live_line(repo):
+    """-> the line DONE prints when the update lands below main for a person
+    on the ladder: the move into main follows; None otherwise."""
+    if repo is None or pb.ladder_in_force(repo) is not True:
+        return None
+    try:
+        landing = pb.landing_branch(repo)[0]
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not landing or landing == pb.MAIN:
+        return None
+    return (f"Then take it live: once it is on {landing}, move {landing} into "
+            f"{pb.MAIN} -- the phrase carries that too "
+            f"(vendor-update-on-the-ladder). It moves everything waiting on "
+            f"{landing}, so name what else goes live with the update.")
+
+
 def _person_is_code_owner(repo):
     """True when the person running the update is one of `repo`'s code
     owners; False in doubt (precedent_audience)."""
@@ -3471,6 +3568,9 @@ class Report:
                   "commit, then land it on your landing branch.")
         if switch:
             print(switch)
+        live = live_line(self.pin_repo)
+        if live:
+            print(live)
         self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:
@@ -5942,6 +6042,9 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     gap = approval_gap(repo)
     if gap:
         rep.step('session-load budget', gap)
+    total = record_person_total(repo)
+    if total:
+        rep.step('session-load budget', total)
     raised = record_copy_in_budget(repo)
     if raised:
         rep.step('session-load budget', raised)
@@ -6314,6 +6417,9 @@ def full_check_after(repo):
     return isinstance(data, dict) and data.get('update_full_check') == 'after'
 
 
+NOT_APPLICABLE_RE = re.compile(r'^\s*N/A:')
+
+
 def set_tests_step(repo, rep):
     """A practice set's own tests, every tools/checks/tests/test_*.sh, when
     this update changed the set's engine copy: -> None when they pass or do
@@ -6338,14 +6444,25 @@ def set_tests_step(repo, rep):
     for t in tests:
         r = subprocess.run(['bash', str(t)], cwd=str(repo), capture_output=True,
                            text=True)
+        out = (r.stdout + r.stderr).strip()
+        # A case "not applicable" here never runs anywhere that matters:
+        # this is the set's own repository, on the engine it was just
+        # given. 2026-10-28: five of the ladder set's cases had reported
+        # N/A in its own repository since they moved there, because they
+        # read BestPractice-only files, and every run counted that as a
+        # pass. So here it is red, with its reason.
+        skipped = [l.strip() for l in out.splitlines() if NOT_APPLICABLE_RE.match(l)]
         if r.returncode != 0:
-            red.append((t.name, (r.stdout + r.stderr).strip()))
+            red.append((t.name, out))
+        elif skipped:
+            red.append((t.name, 'passed, but did not run here, in its own '
+                                'repository:\n' + '\n'.join(skipped)))
     if not red:
         rep.step('the set\'s own tests', f'all {len(tests)} pass on the '
                  f'refreshed engine')
         return None
-    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red on the '
-             f'refreshed engine: ' + ', '.join(n for n, _o in red))
+    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red or not run '
+             f'on the refreshed engine: ' + ', '.join(n for n, _o in red))
     return ('the set\'s own tests are red on the refreshed engine, so this '
             'update would break the set where it lands:\n'
             + '\n'.join(f'--- {n} ---\n{tail(o, repo=repo)}' for n, o in red))

@@ -97,7 +97,11 @@ Scopes, because a practice is not always a property of a file:
 Run:
   python3 tools/precedent_check.py                  # tree + change scopes
   python3 tools/precedent_check.py --turn-end       # the end-of-turn scope
-  python3 tools/precedent_check.py --only SLUG      # one practice
+  python3 tools/precedent_check.py --only SLUG      # one practice (A,B for several)
+  python3 tools/precedent_check.py --practice-file-checks
+                                                    # the checks whose subject
+                                                    # is a published practice
+                                                    # file (the quick check's)
   python3 tools/precedent_check.py --paths A B      # explicit change scope
   python3 tools/precedent_check.py --all            # change scope = whole tree,
                                                     # AND every tree-scope check
@@ -1523,6 +1527,157 @@ def _set_words_stay_in_their_set(ctx):
                             'own' if not owners else 'every set that declares '
                             'words of its own is brought by this set\'s person')
     return out
+
+
+@check('bound-set-tool-calls-only-declared-names', 'tree',
+       'a set tool the engine hands itself to (precedent_resolve.BOUND_SET_TOOLS: '
+       'a key in precedent-source.json naming a module with bind()) reads only '
+       'the engine names the engine declares for that key',
+       'a name reached any other way than <global>.<name> on what bind() set: '
+       'getattr with a string, or a second alias. A set whose engine copy is '
+       'too old to declare the names is passed over.',
+       practice_backed=False, binds_when=('precedent-source.json',),
+       selects_on=('precedent-source.json', 'tools/*.py', 'tools/**/*.py'))
+def _bound_set_tool_calls_only_declared_names(ctx):
+    """2026-10-19: the ladder set's moves module called 46 engine names with
+    no contract, so an engine rename broke Promote and Produce in every
+    repository on the ladder, and only the set's own test, once its engine
+    copy refreshed, would have said so. The engine now declares what each
+    bound tool may call; this holds every set to it, whichever set it is
+    (2026-10-20)."""
+    try:
+        import precedent_resolve as _pr
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if not getattr(_pr, 'BOUND_SET_TOOLS', None):
+        raise NotApplicable('this engine declares no bound set tools')
+    try:
+        found = _pr.undeclared_bound_calls(ROOT)
+    except SyntaxError as e:
+        return [Finding(f'{e.filename}:{e.lineno}', f'does not parse: {e.msg}')]
+    return [Finding(f'{rel}:{line}', f'{key} calls the engine\'s {name!r}, which '
+                    f'the engine does not declare for {key} '
+                    f'(precedent_resolve.BOUND_SET_TOOLS). Use a declared name, or '
+                    f'declare it in the engine first')
+            for key, rel, name, line in found]
+
+
+# Reply requirements whose answer depends on this machine -- the container,
+# git, a plan file, a fast move's record -- and so cannot be pinned by an
+# example reply: the same reply passes on one machine and is refused on
+# another. Their tests build that state in the harness; the advisory does
+# not ask them for examples (2026-10-29). `note_from_tool` is printed by the
+# gate and never evaluated against a reply at all.
+REPLY_KEYS_READING_THE_MACHINE = (
+    'require_container_safe_if_says', 'require_landed_if_says',
+    'require_plan_done_if_says', 'require_delete_link_when_landed',
+    'require_first_item_leads_with_unlanded',
+    'require_full_check_after_fast_main', 'note_from_tool')
+
+
+def _reply_example_problems(root):
+    """-> [(index, problem)] for reply_check.json's requirements whose own
+    `_examples` -- [{"reply": ..., "refused": true|false, "timeline"?: ...,
+    "wake"?: ...}, ...] -- the reply
+    check does not answer as declared, and the indexes of requirements that
+    carry none. -> None when there is no reply_check.json.
+
+    `_examples`, with the underscore: the reply check skips any key that
+    starts with one, so a source can add examples today and an engine
+    older than this check, reading that source live, neither evaluates nor
+    warns about them."""
+    import precedent_reply_check as _prc
+    path = pathlib.Path(root) / _prc.CONFIG_NAME
+    try:
+        reqs = json.loads(path.read_text(encoding='utf-8'))
+    except OSError:
+        return None
+    except ValueError as e:
+        return [(None, f'does not parse: {e}')]
+    wrong, bare = [], []
+    for i, req in enumerate(reqs if isinstance(reqs, list) else []):
+        if not isinstance(req, dict):
+            continue
+        examples = req.get('_examples')
+        if not examples:
+            if not any(k in req for k in REPLY_KEYS_READING_THE_MACHINE):
+                bare.append(i)
+            continue
+        one = {k: v for k, v in req.items() if k != '_examples'}
+        one['advisory'] = False
+        for ex in examples:
+            if not isinstance(ex, dict) or 'reply' not in ex or 'refused' not in ex:
+                wrong.append((i, f'an example is not {{"reply": ..., "refused": '
+                                 f'true|false}}: {str(ex)[:80]}'))
+                continue
+            # The context a requirement may read besides the reply: the
+            # replies before it (`timeline`, [[context tokens, text], ...],
+            # oldest first) and what woke the turn (`wake`).
+            timeline = ex.get('timeline')
+            got = bool(_prc.violations(
+                ex['reply'], [one],
+                timeline=[tuple(t) for t in timeline] if timeline else None,
+                wake=ex.get('wake')))
+            if got != bool(ex['refused']):
+                wrong.append((i, f'{"lets through" if not got else "refuses"} '
+                                 f'{ex["reply"][:80]!r}, which its example says it '
+                                 f'{"refuses" if ex["refused"] else "lets through"}'))
+    return wrong, bare
+
+
+@check('reply-rules-hold-their-examples', 'tree',
+       "each requirement in a repository's own reply_check.json answers its "
+       'own examples as declared: an example reply marked refused is refused '
+       'by that requirement alone, and one marked not refused passes',
+       'a requirement with no examples (the companion advisory check names '
+       'those), and anything the examples do not show: they are cases, not a '
+       'proof.',
+       practice_backed=False, binds_when=('reply_check.json',),
+       selects_on=('reply_check.json', 'tools/precedent_reply_check.py'))
+def _reply_rules_hold_their_examples(ctx):
+    """2026-10-19: the writing set's rule-links requirements moved out of
+    BestPractice and were tested nowhere with the real patterns; BestPractice
+    tested a planted copy that could drift. A reply rule now carries its own
+    example replies, the way a set's owned words carry theirs, and every
+    repository that has reply rules runs them with the real checker
+    (2026-10-20)."""
+    try:
+        got = _reply_example_problems(ROOT)
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if got is None:
+        raise NotApplicable('no reply_check.json here')
+    if isinstance(got, list):
+        return [Finding('reply_check.json', p) for _i, p in got]
+    wrong, _bare = got
+    return [Finding('reply_check.json', f'requirement {i}: {p}') for i, p in wrong]
+
+
+@check('reply-rules-carry-examples', 'tree',
+       "each requirement in a repository's own reply_check.json carries "
+       'examples of a reply it refuses and one it lets through',
+       'whether the examples are the discriminating ones: that is the '
+       'author\'s judgment.',
+       advisory=True, practice_backed=False, binds_when=('reply_check.json',),
+       advisory_term={'term': 'permanent',
+                      'why': 'requirements written before examples existed '
+                             'gain them as they are next changed; a missing '
+                             'example is a gap in the tests, not a wrong rule'},
+       selects_on=('reply_check.json',))
+def _reply_rules_carry_examples(ctx):
+    """The companion to reply-rules-hold-their-examples: names each
+    requirement with no examples, so the gap that left the writing set's
+    rule-links untested (2026-10-19) is visible wherever it remains."""
+    try:
+        got = _reply_example_problems(ROOT)
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if got is None or isinstance(got, list):
+        raise NotApplicable('no readable reply_check.json here')
+    _wrong, bare = got
+    return [Finding('reply_check.json', f'requirement {i} carries no examples: add '
+                    f'"_examples": [{{"reply": ..., "refused": true}}, '
+                    f'{{"reply": ..., "refused": false}}]') for i in bare]
 
 
 @check('ladder-set-is-brought-not-declared', 'tree',
@@ -7805,7 +7960,7 @@ def _ci_workflow_approved(ctx):
         import precedent_vendor_engine as _pve
         converges = manifest.get('kind') in _pve.CI_CONVERGES_KINDS
         shipped = {rel for _t, rel in
-                   _pve.CI_WORKFLOW_TEMPLATES.get(manifest.get('kind'), ())}
+                   _pve.ci_workflow_templates(manifest.get('kind'), ctx.root)}
     except Exception:                          # practice: fail-gracefully
         converges, shipped = False, set()
 
@@ -13515,6 +13670,27 @@ SIZE_CAP_CHECKS = frozenset({'loader-within-caps', 'session-load-budget',
                              'session-file-allowances-fit'})
 
 
+# THE CHECKS A LANDING RUNS ON A CHANGED PRACTICE FILE (2026-10-29). The
+# landing tier's quick check ran no practice check at all once they moved
+# to the Debut (2026-10-16), so a relative ../gotchas/ link in
+# practices/prompt-please.md (5fd34d4b3) passed it with 0 problems while
+# --only practice-links-travel reported it, and only a later branch's
+# clean-tree baseline caught it on staging. A check marked binds_publishers
+# judges the published practice files themselves, so with
+# --changed-files-only it judges the changed one: --practice-file-checks
+# runs those, in about three seconds. Two are left to the Debut for cost,
+# measured on that commit: generated-artifact-provenance (7.4 s) and
+# cite-the-incident (3.1 s, a change check reading history).
+PRACTICE_FILE_CHECKS_LEFT_TO_DEBUT = frozenset({
+    'generated-artifact-provenance', 'cite-the-incident'})
+
+
+def practice_file_checks():
+    """-> the slugs --practice-file-checks runs, in registration order."""
+    return [s for s, c in CHECKS.items() if c.get('binds_publishers')
+            and s not in PRACTICE_FILE_CHECKS_LEFT_TO_DEBUT]
+
+
 @check('loader-within-caps', 'tree',
        'the generated loader block is within its caps: the resident block, '
        'the occasion index and this source\'s own occasion share, as '
@@ -13530,6 +13706,11 @@ def _loader_within_caps(ctx):
     # build_views.py writes an over-cap block with a warning since
     # 2026-09-30, so a branch can still land; this is where the cap
     # is held, at the tier that must hold it.
+    if _session_load_total() is not None:
+        raise NotApplicable('a session-load total is declared '
+                            '(session_load_tokens), so the loader block\'s '
+                            'parts are measured, not capped: '
+                            'session-load-budget holds the total')
     builder = _tool_path('tools/build_views.py')
     if builder is None:
         raise NotApplicable('tools/build_views.py is absent')
@@ -13568,6 +13749,10 @@ def _loader_within_caps(ctx):
        practice_backed=False,
        selects_on=(_BUDGET_REGISTRY, 'precedent.json'))
 def _session_file_allowances_fit(ctx):
+    if _session_load_total() is not None:
+        raise NotApplicable('a session-load total is declared '
+                            '(session_load_tokens), so the session file\'s '
+                            'sources are measured, not held to allowances')
     reg = _session_load_budgets() or {}
     row = (reg.get('surfaces') or {}).get(_SESSION_FILE) or {}
     hard = row.get('hard_ceiling')
@@ -13631,6 +13816,14 @@ def _session_load_budgets():
         return json.loads(f.read_text(encoding='utf-8'))
     except (ValueError, OSError):
         return None
+
+
+def _session_load_total():
+    """-> the `session_load_tokens` total this repository declares, or None.
+    Declared, it is the one session-load budget that refuses; the parts are
+    measured and reported (build_views.TOTAL_KEY says why)."""
+    v = (_session_load_budgets() or {}).get('session_load_tokens')
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
 
 
 def _charge_brought_share(n):
@@ -13771,39 +13964,68 @@ def _session_load_budget(ctx):
     except Exception:
         def approx(text):
             return int(len(text.split()) * 1.3)
+    total_cap = _session_load_total()
+    if total_cap is not None:
+        # ONE TOTAL (build_views.TOTAL_KEY): the sum of what a session loads
+        # is held to the declared number, and no part has a ceiling of its
+        # own, so moving tokens from one part to another never refuses.
+        sizes, grew = {}, False
+        for rel in SESSION_LOAD_SURFACES:
+            f = ROOT / rel
+            if not f.is_file():
+                continue
+            sizes[rel] = approx(_as_measured(
+                rel, f.read_text(encoding='utf-8', errors='replace')))
+            grew = grew or _change_grew_surface(ctx, rel, sizes[rel], approx)
+        total = sum(sizes.values())
+        if total > total_cap and grew:
+            parts = ' + '.join(f'{rel} {n:,}' for rel, n in sizes.items())
+            out.append(Finding(
+                'tools/session_load_budgets.json',
+                f'a session here loads {total:,} tokens before it works '
+                f'({parts}), over the {total_cap:,}-token session_load_tokens '
+                f'total. Run the reduction pass on whichever part grew -- '
+                f'delete what is duplicated, retire what cannot happen any '
+                f'more, move what is live and long behind a path or a gate -- '
+                f'rather than raising the total; only the person raises it '
+                f'(practice: session-load-budget)'))
     for rel in SESSION_LOAD_SURFACES:
         f = ROOT / rel
         if not f.is_file():
             continue
         text = f.read_text(encoding='utf-8', errors='replace')
         n = approx(_as_measured(rel, text))
-        entry = surfaces.get(rel)
-        if entry is None:
-            out.append(Finding(rel, f'is loaded into every session '
-                                    f'({n:,} tokens) and has no ceiling in '
-                                    f'tools/session_load_budgets.json, so '
-                                    f'nothing can tell you it grew'))
-            continue
-        ceiling = entry.get('ceiling')
-        if not isinstance(ceiling, int):
-            out.append(Finding(rel, 'has a registry entry with no integer '
-                                    '"ceiling"'))
-            continue
-        if rel == '.precedent/SESSION_PRACTICES.md':
-            # The sets a person brings are charged to that person's own
-            # budget, not to this repository's ceiling (Morgan, 2026-10-03,
-            # strength: assented; precedent_session_practices.brought_share).
-            n, brought_finding = _charge_brought_share(n)
-            if brought_finding:
-                out.append(brought_finding)
-        if n > ceiling and _change_grew_surface(ctx, rel, n, approx):
-            out.append(Finding(rel, f'{n:,} tokens, every session, over its '
-                                    f'declared ceiling of {ceiling:,}. Run the '
-                                    f'reduction pass -- delete what is '
-                                    f'duplicated, retire what cannot happen '
-                                    f'any more, split what is still live and '
-                                    f'still long -- rather than raising the '
-                                    f'number'))
+        # Under a total no file has a ceiling of its own; only the
+        # duplication half below still applies to each one.
+        if total_cap is None:
+            entry = surfaces.get(rel)
+            if entry is None:
+                out.append(Finding(rel, f'is loaded into every session '
+                                        f'({n:,} tokens) and has no ceiling in '
+                                        f'tools/session_load_budgets.json, so '
+                                        f'nothing can tell you it grew'))
+                continue
+            ceiling = entry.get('ceiling')
+            if not isinstance(ceiling, int):
+                out.append(Finding(rel, 'has a registry entry with no integer '
+                                        '"ceiling"'))
+                continue
+            if rel == '.precedent/SESSION_PRACTICES.md':
+                # The sets a person brings are charged to that person's own
+                # budget, not to this repository's ceiling (Morgan,
+                # 2026-10-03, strength: assented;
+                # precedent_session_practices.brought_share).
+                n, brought_finding = _charge_brought_share(n)
+                if brought_finding:
+                    out.append(brought_finding)
+            if n > ceiling and _change_grew_surface(ctx, rel, n, approx):
+                out.append(Finding(rel, f'{n:,} tokens, every session, over '
+                                        f'its declared ceiling of {ceiling:,}. '
+                                        f'Run the reduction pass -- delete '
+                                        f'what is duplicated, retire what '
+                                        f'cannot happen any more, split what '
+                                        f'is still live and still long -- '
+                                        f'rather than raising the number'))
         # ...and whether this CHANGE added text the catalogue already holds.
         # Scoped to what the change adds, deliberately: reporting every
         # pre-existing overlap would fail forever on day one and get switched
@@ -14544,10 +14766,16 @@ def main():
         return 0
 
     only = None
-    if '--only' in args:
+    if '--practice-file-checks' in flags:
+        only = ','.join(practice_file_checks())
+    elif '--only' in args:
+        # A comma-separated list runs several checks in one process: the
+        # landing tier's quick check asks for the checks whose subject is a
+        # practice file, and one import is most of each one's cost.
         only = args[args.index('--only') + 1]
-        if only not in CHECKS:
-            sys.exit(f'precedent_check FAIL: no check registered for {only!r} '
+        unknown = [s for s in only.split(',') if s not in CHECKS]
+        if unknown:
+            sys.exit(f'precedent_check FAIL: no check registered for {unknown[0]!r} '
                      f'— run --list.')
     rng = args[args.index('--range') + 1] if '--range' in args else None
     paths = None
@@ -14568,7 +14796,7 @@ def main():
     coverage_note = None
     exempt, refused_exemptions = load_exemptions()
     if only:
-        slugs = [only]
+        slugs = only.split(',')
         results = run(slugs, ctx, scopes, exempt=exempt)
     else:
         tree_slugs = sorted(s for s in CHECKS if CHECKS[s]['scope'] == 'tree')

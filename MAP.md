@@ -330,6 +330,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_which_repo.py](tools/precedent_which_repo.py) | Names the repo an engine tool reads, and warns when it is run from inside a different one -- engine tools read their own file's repo, never the current directory |
 | [tools/qualified_mention.py](tools/qualified_mention.py) | Whether a line's mention of a path names another repository's file. |
 | [tools/reach_key.py](tools/reach_key.py) | A memo key over the code a solve can reach -- syntax trees of the definitions and constants an entry function touches, so an edit the solve never runs re-keys nothing |
+| [tools/repo_attach_gate.py](tools/repo_attach_gate.py) | Refuses a sweep of repository attaches the person did not ask for |
 | [tools/result_cache.py](tools/result_cache.py) | The shared result cache -- code-keyed memos on one snapshot branch, a leased cold solve that peers wait for |
 | [tools/routing_audit.py](tools/routing_audit.py) | The routing audit — mechanical coverage check plus a rotating deep-read slice |
 | [tools/routing_eval.py](tools/routing_eval.py) | Measures whether trigger-based loading actually beats carrying the whole catalogue |

@@ -248,6 +248,21 @@ ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
 # so "link the ones you touched" is advice nobody can take there. Only the
 # unlinked-reference warning is skipped; every other check still runs.
 UNLINKED_SKIP_FILES = {'todo/TODO.md', 'todo/CLOSED.md', 'gotchas/INDEX.md'}
+# Files every repository using Precedent has of its own. A practice or
+# template ships into those repositories, so when one names `AGENTS.md` it
+# means the reader's AGENTS.md, and no link written here can point there: a
+# relative link reaches this repository's copy. WHY (2026-10-29, measured
+# over practices/ and templates/): 164 of 437 unlinked-reference warnings
+# there were these names, unfixable, and every session editing a practice
+# learned to read past the whole list, real warnings included. Skipped only
+# in shipped files (SHIPPED_PREFIXES); anywhere else the name is this
+# repository's file and still warns.
+READER_OWN_FILES = {
+    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'README.md', 'TODO.md',
+    'MAP.md', 'MAP.source.md', 'GLOSSARY.md', 'GLOSSARY.source.md',
+    'WHERE_THINGS_ARE.md', 'precedent.json', '.precedent/SESSION_PRACTICES.md',
+}
+SHIPPED_PREFIXES = ('practices/', 'templates/')
 
 
 def received_practice_files(root=None):
@@ -1521,6 +1536,7 @@ def check_file(path, fix=False, known=None):
             (ROOT / path).read_text(encoding='utf-8', errors='ignore'),
             known, path)
     received = str(path).replace('\\', '/') in _received()
+    shipped = str(path).replace('\\', '/').startswith(SHIPPED_PREFIXES)
     for i, line in iter_prose_lines(path):
         if HAVE_GFM and renders_del(line) and '~~' not in line:
             if fix:
@@ -1531,7 +1547,8 @@ def check_file(path, fix=False, known=None):
         for m in REF_RE.finditer(line):
             after = line[m.end():m.end()+2]
             if (after != '](' and is_file_reference(m.group(1)) and not received
-                    and str(path).replace('\\', '/') not in UNLINKED_SKIP_FILES):
+                    and str(path).replace('\\', '/') not in UNLINKED_SKIP_FILES
+                    and not (shipped and m.group(1) in READER_OWN_FILES)):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
         # code spans stripped first so documenting the rule doesn't trip it

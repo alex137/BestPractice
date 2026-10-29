@@ -14,6 +14,12 @@
       "timeout": 10
     },
     {
+      "event": "PreToolUse",
+      "matcher": "mcp__.*__add_repo",
+      "script": "repo-attach-gate.sh",
+      "timeout": 10
+    },
+    {
       "event": "Stop",
       "script": "outbound-privacy-scan.sh",
       "timeout": 30
@@ -35,6 +41,12 @@
       "event": "PreToolUse",
       "matcher": "Bash|WebFetch|WebSearch|mcp__.*",
       "script": "outbound-privacy-gate.sh",
+      "timeout": 10
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": "mcp__.*__add_repo",
+      "script": "repo-attach-gate.sh",
       "timeout": 10
     },
     {

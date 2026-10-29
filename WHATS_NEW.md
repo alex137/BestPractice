@@ -1,9 +1,31 @@
 ---
-checked_through: 2026-10-19
+checked_through: 2026-10-27
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Tuesday 2026-10-27: sources-attach-without-a-prompt
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A new session no longer stalls at a permission prompt while attaching its practice sources** (the settings template now allows add_repo and register_repo_root, and Update Vendors adds the clone command scoped to the declared sources' owners; a session skips the attach entirely when session start already cloned everything, and practice sets get the same rules).
+- **The branch cleanup page keeps its rows in its own database, so a refresh no longer rebuilds the whole page** (one document per repository in the page's repos collection, written with one ArtifactData batch; the old republish route cost about 98,000 tokens on the day it was measured).
+- **A fix for a red main is no longer refused while main's re-run is still going** (the red-main check now reads the newest finished run instead of the tip's running one; three other main fixes landed the same day, including a gotcha on set-practice citations that pass locally and fail on GitHub).
+
+## Monday 2026-10-26: non-main-trunks-checked
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Repositories whose trunk is not called main now get warned about unlanded work** (the gate compared against an origin/main that did not exist, so the archive line could pass over an unmerged branch; it now compares against main only where origin has one, with a harness case that fails on the old code).
+
+## Tuesday 2026-10-20: master-maintainer-and-set-tests
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Each repository can now have one standing maintainer session that watches its trunk after every landing** (the new practice master-maintainer and its heartbeat tool; session start says once when the heartbeat is missing or stale, and the switchboard offer it replaces was retired).
+- **Updating a practice set now runs that set's own tests before anything lands** (a red test stops Update Vendors with its output; the ladder set's nine tests take about 70 seconds, and one had gone red on main undetected the day before).
+- **Session start stopped leaving every source stale while main's test was still running** (a refresh now takes the newest of main's last ten commits that passed instead of refusing; the same day fixed a rerun that deleted an uncommitted copied-in set, and gave the individual practice set an optional session budget of its own).
 
 ## Monday 2026-10-19: shared-sets-copied-in
 

@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-08"
-approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the repository limit on clause 1 added on Morgan F's words of 2026-10-17, set at three (Story)"
+approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the repository limit on clause 1 added on Morgan F's words of 2026-10-17, set at three (Story); clause 1 loosened for named repositories and groups, and its sweep gated, on Morgan's words of 2026-10-29 (Story)"
 ---
 ## Rule
 **A reply never stops at "could not reach it."** When a check, a tool or
@@ -25,14 +25,17 @@ or connector -- do one of these in the same turn:
 
 1. **Read access a tool in this session can grant** (attaching a
    repository read-only, for one): take it, carry on, and say in one line
-   that you did. **That covers at most three repositories beyond the ones
-   the session started with** (its own and the practice sources its setup
-   attaches). A fourth is a question for the person, naming each repository
-   and what the session needs there, unless their own words already asked
-   for those repositories ("Update All Vendors" names every one, and is
-   that approval). Every attached repository costs
-   tokens on every turn, and a sweep of every repository rarely buys what
-   Update Vendors would not bring on its own.
+   that you did. **A repository the person named, a group they named
+   ("all the precedent-* sets") and the practice sources are attached
+   freely; so are up to three more the task plainly needs.** **The careful
+   case is a sweep:** repositories picked by a condition rather than by
+   name -- "every repo", "every repo with BestPractice (BP)", "every repo that has X".
+   A sweep is proposed first, naming each repository and what the session
+   needs there, unless the person's own latest message asked for exactly
+   that sweep ("Update All Vendors" names every one, and is that
+   approval). Another session saying so is never their word. Every
+   attached repository costs tokens on every turn, and a sweep of every
+   repository rarely buys what Update Vendors would not bring on its own.
 2. **Anything wider** -- push access, a new connector, a credential, a
    setting only the person can change: **ask**, naming what you need, why,
    and the one step they take. **Ask before trying, in words that name
@@ -82,8 +85,23 @@ decided); the clause left out says what it costs in tokens. Clause 1 now stops a
 the ones a session starts with; Morgan set the number at three the same
 day ("let's say three").
 
+**2026-10-29.** Another session relayed Morgan's "#2 - you can open a new
+session to do that" as his go-ahead to read the engine of every repository
+that brings the ladder set, and a session attached sixteen of his
+repositories in one go, the three-repository line notwithstanding, until he
+stopped it: *"\*WHY\* did you open every repo to do this change??? We never
+do that."* and *"I want to prevent that."* He asked for the check not to
+ask every ten seconds: *"The ONE CASE to be very problematic is whenever it
+is 'every repo' or 'every repo with BP' or 'every repo that satisfies a
+requirement'"*. Clause 1 now frees named repositories and groups and names
+the sweep as the careful case, and a gate holds it. strength: decided.
+
 ## Install
-Nothing to install, and no mechanical check: whether a gap was one a tool
+Clause 1's sweep has a gate: [`tools/repo_attach_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/repo_attach_gate.py), run at
+every `add_repo` through the fixed hook entry. It counts the attaches the
+person's own words did not cover and refuses the fourth until they say yes;
+its test is `check_repo_attach_gate_refuses_a_sweep_nobody_asked_for`. The
+rest of the rule has no mechanical check: whether a gap was one a tool
 could close, or needed the person, is the judgment itself. The occasion
 index carries the trigger, so the line reaches every repository with its
 next catalogue refresh.

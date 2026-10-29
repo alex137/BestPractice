@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-09-11"
-approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule; caps warn on the way into pre-staging and refuse into staging, Morgan, 2026-09-30 (strength: decided); no raise before a reduction pass, offsets excepted, Morgan, 2026-10-08 (strength: decided)"
+approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very deep check reviews token cost across this repo and the repos it calls, and said the review and the reduction that follows it should be a rule; caps warn on the way into pre-staging and refuse into staging, Morgan, 2026-09-30 (strength: decided); no raise before a reduction pass, offsets excepted, Morgan, 2026-10-08 (strength: decided); one declared total refuses and the parts are reported, Morgan, 2026-10-28 (strength: decided): \"Go, one number everywhere\""
 ---
 ## Rule
 **Everything a session loads before it does any work carries a declared
@@ -27,6 +27,21 @@ is loaded and not in the registry is the finding; so is one over its ceiling
 that the change being checked grew. Growth from a source that change did not
 touch is not its finding: the merge and push gates print it as "OVER by", and
 the person decides between a reduction pass and a new ceiling.
+
+**Where a repository declares one total, that total is the only budget
+that refuses.** `session_load_tokens` in its registry holds the sum of what
+a session there loads -- the instructions file, CLAUDE.md and the
+session-start file -- and every part's number (the resident and occasion
+caps, a source's occasion share, each surface's ceiling, the brought and
+individual budgets) is measured and reported, never refused. Moving a rule
+between sets, copying a set in or fixing how a share is counted leaves the
+total where it was, so it asks nobody. The person declares the total once,
+in their individual set, and Update Vendors copies it with their words into
+each repository, so CI reads the same number; the merge and push gates
+print which part a branch grew. A repository with no total keeps the
+per-part budgets this rule describes. Morgan, 2026-10-28 (strength:
+decided): "Go, one number everywhere"
+([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
 
 **Measure every repo in force, not the one you are rooted in.** A session
 loads its own instructions file *and* whatever each attached team,

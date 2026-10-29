@@ -30,6 +30,19 @@
     "the next forced reduction pass, never room to spend."
   ],
   "headroom_floor_pct": 5,
+  "_session_load_total_comment": [
+    "THE ONE BUDGET THAT REFUSES (build_views.TOTAL_KEY). session_load_tokens",
+    "holds the sum of AGENTS.md, CLAUDE.md and .precedent/SESSION_PRACTICES.md",
+    "for a session rooted here; every number below it is a part, measured and",
+    "reported but never refused while this key is set. WHY: each part was a",
+    "tight number only the person raises, so rules moving between sets, sets",
+    "copied in and a recounted share each asked again while a session paid",
+    "the same (2026-10-27/28). Measured 2026-10-28: about 8,100 here, the",
+    "largest of the four repositories it was set from. Morgan's one number,",
+    "copied into each repository he uses by Update Vendors from his",
+    "individual set's session_load_tokens."
+  ],
+  "session_load_tokens": 10000,
   "_occasion_index_comment": [
     "Cap on the GENERATED occasion index inside the loader block, enforced by",
     "tools/build_views.py (OccasionIndexBudgetExceeded). The resident block has",
@@ -89,6 +102,7 @@
     "max in the same change, or a later re-raise to the old value passes."
   ],
   "approved_budgets": {
+    "session_load_tokens": {"max": 10000, "strength": "decided", "approved_by": "Morgan, 2026-10-28 (strength: decided): \"okay, yes, let's do it, 10k approved\", for one session-load total in every repository, on spec/SESSION_LOAD_ONE_TOTAL_PLAN.md (\"Go, one number everywhere\", the same day)"},
     "resident_block_tokens": {"max": 1750, "strength": "decided", "approved_by": "Morgan, 2026-10-02, on the plan whose D15 this is (spec/LADDER_OPT_IN_PLAN.md): \"Go, and yes Chief of Staff moves. Let's do it, Act on the plan!\" -- 250 carved off for the set that provides the five-stage ladder, whose resident rule left universal; was 2,000 since phase 2"},
     "occasion_index": {"max": 3600, "strength": "baseline", "approved_by": "baseline 2026-09-30: occasion_index_tokens, recorded above as Morgan's choice on 2026-09-14 (option D)"},
     "occasion_share_tokens": {"max": 2500, "strength": "assented", "approved_by": "Morgan, 2026-10-05, \"Act\" on a plan that named raising it, for the repository-maintenance set's rules moving into universal: measured about 2,260 with them, set at that plus about 10%; was 2,250 (Morgan, 2026-10-02, strength: decided)"},

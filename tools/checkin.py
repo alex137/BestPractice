@@ -168,6 +168,17 @@ def _declared_set_root(name):
     return ''
 
 
+def _in_set(rel):
+    """Copy-relative path `rel` -> the same file's path in the set's own
+    repository: under SET_ROOT for a set rooted in a folder there. Every
+    lookup in the source clone by a copy's path goes through this; one that
+    used `rel` bare read a voice set's files at the clone's top level, found
+    none, and called upstream's own text local and its deletions lost
+    (2026-10-28)."""
+    rel = pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix()
+    return f'{SET_ROOT}/{rel}' if SET_ROOT else rel
+
+
 def _read_source_manifest(clone):
     """-> the clone's own precedent-source.json (dict) or {}. Read from the
     tracked branch's remote ref when it has one, so the working tree's state
@@ -1043,8 +1054,7 @@ def upstream_text(clone, path, rel, *revs):
             return False
     except Exception:                                         # noqa: BLE001
         pass
-    return (pathlib.PurePosixPath(pathlib.Path(rel).as_posix()).as_posix(),
-            blob_id(path.read_bytes())) in upstream_blobs(clone, *revs)
+    return (_in_set(rel), blob_id(path.read_bytes())) in upstream_blobs(clone, *revs)
 
 
 def blob_id(data):
@@ -2166,6 +2176,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
         rel = name[len(prefix) + 1:]
         if rel in resolving:
             continue
+        up = _in_set(rel)
         # (4) A committed file that IS a version upstream shipped at that
         # path, on any ref the clone holds, carries no line of this repo's
         # (upstream_blobs). (3) reads only `tip`'s history, so a copy taken
@@ -2173,7 +2184,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
         # held every line "lost": eleven files in a consuming repository
         # whose whole copy was upstream text (2026-10-08).
         oid = _dep_git('rev-parse', f'origin/{dep_branch}:{name}').strip()
-        if (rel, oid) in upstream_blobs(clone, tip, *bases):
+        if (up, oid) in upstream_blobs(clone, tip, *bases):
             upstream_whole += 1
             continue
         committed = _dep_git('show', f'origin/{dep_branch}:{name}')
@@ -2183,7 +2194,7 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
         # genuinely new file there, every line of which really is pending.
         from_upstream = set()
         for b in bases:
-            rc, base_txt = _git_rc(clone, 'show', f'{b}:{rel}')
+            rc, base_txt = _git_rc(clone, 'show', f'{b}:{up}')
             if rc == 0:
                 from_upstream.update(base_txt.splitlines())
         pending = set(committed.splitlines()) - from_upstream
@@ -2200,11 +2211,11 @@ def _carry_check(clone, accept_loss, landed_root=None, tip='HEAD', resolving=())
                                         in ('.md', '.py', '.sh', '.json', '.yml', '.template'))
             missing = {l for l in missing if l not in landed_all}
         if missing:
-            deleted_upstream = _upstream_deleted_lines(clone, bases, rel, tip)
+            deleted_upstream = _upstream_deleted_lines(clone, bases, up, tip)
             upstream_deleted += len(missing & deleted_upstream)
             missing -= deleted_upstream
         if missing:
-            older = missing & _upstream_ever_wrote(clone, rel, tip)
+            older = missing & _upstream_ever_wrote(clone, up, tip)
             upstream_older += len(older)
             missing -= older
         if missing:

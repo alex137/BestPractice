@@ -548,8 +548,9 @@ def _declared_visibility(repo):
 
 
 def _is_source(repo):
-    """True for a practice set: it carries no GitHub workflow at all
-    (practice: source-sets-run-no-ci), so it never gets the button."""
+    """True for a practice set: a private one carries no GitHub workflow at
+    all, so it never gets the button; a public one carries the cleanup
+    workflow alone, and gets it (practice: source-sets-run-no-ci)."""
     for f in (pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json',
               pathlib.Path(repo) / 'precedent.json'):
         try:
