@@ -2002,28 +2002,18 @@ def _base_is_present(clone, base):
 def fetch_recorded_commit(clone, commit):
     """-> True once `clone` holds `commit`, fetching for it if it has to.
 
-    THE ONE WAY a recorded commit missing from a source clone is fetched:
-    the mirror's guard, the carry check and its committed stamps all go
+    The mirror's guard, the carry check and its committed stamps all go
     through here. Attaching a repository mid-session clones it --depth 1,
     so the commit a copy was last mirrored from is usually absent, and
     update() refused with "fetch it there" (a consumer's Update Vendors on
-    a copied-in set, 2026-10-29). One bounded deepen of the tracked branch,
-    then the commit itself; never --unshallow, which some git policy hooks
-    refuse outright and which costs minutes on a long history."""
+    a copied-in set, 2026-10-29). The fetch itself is the engine's one way,
+    precedent_local_edits.fetch_commit, which says the policy: bounded
+    deepen of the tracked branch, then the commit by name, never
+    --unshallow, and never a --depth fetch into a full clone."""
     if _base_is_present(clone, commit):
         return True
-    subprocess.run(['git', '-C', str(clone), 'fetch', '-q', '--depth=1000', 'origin',
-                    _tracked_branch(clone)], capture_output=True, text=True)
-    if _base_is_present(clone, commit):
-        return True
-    # The commit by name, for one off the tracked branch. Bounded only in a
-    # clone already shallow: a --depth fetch into a full clone would write
-    # .git/shallow and turn it shallow (precedent_local_edits.py, 2026-10-04).
-    shallow = _git_rc(clone, 'rev-parse', '--is-shallow-repository')[1].strip() == 'true'
-    subprocess.run(['git', '-C', str(clone), 'fetch', '-q']
-                   + (['--depth=1000'] if shallow else []) + ['origin', commit],
-                   capture_output=True, text=True)
-    return _base_is_present(clone, commit)
+    import precedent_local_edits
+    return precedent_local_edits.fetch_commit(clone, commit, branch=_tracked_branch(clone))
 
 
 def _committed_tree_bases(clone, base, dep_ref):

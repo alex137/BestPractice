@@ -2859,27 +2859,11 @@ def range_readable(clone, old, new):
     clone BestPractice with --depth 1, so the commit the repository last
     vendored was not in the clone, `git log old..new` failed, and the report
     said "could not be read here" over 110 commits, most of them a
-    colleague's. A shallow clone is deepened in steps, then unshallowed, then
-    asked for the commit itself; only then does this give up."""
-    def git(*args, timeout=300):
-        try:
-            return subprocess.run(['git', '-C', str(clone), *args], capture_output=True,
-                                  text=True, timeout=timeout).returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            return False
-
-    def holds():
-        return (git('cat-file', '-e', f'{old}^{{commit}}')
-                and git('merge-base', '--is-ancestor', old, new))
-    if holds():
+    colleague's. The fetch is the engine's one way,
+    precedent_local_edits.fetch_commit, in its range-read mode: deepened in
+    bounded steps, then unshallowed as a last resort."""
+    if le.fetch_commit(clone, old, ancestor_of=new):
         return True, ''
-    for step in (['fetch', '-q', '--deepen=300', 'origin'],
-                 ['fetch', '-q', '--deepen=3000', 'origin'],
-                 ['fetch', '-q', '--unshallow', 'origin'],
-                 ['fetch', '-q', 'origin', old]):
-        git(*step, timeout=600)
-        if holds():
-            return True, ''
     return False, (f'{pathlib.Path(clone).name} does not hold {str(old)[:12]} as '
                    f'an ancestor of {str(new)[:12]}, even after fetching more '
                    f'history; `git -C {clone} fetch --unshallow origin` and a '

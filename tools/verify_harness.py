@@ -14186,6 +14186,76 @@ def check_as_ci_shards_match_the_workflow():
 
 
 
+
+def check_one_way_to_fetch_a_missing_commit():
+    """precedent_local_edits.fetch_commit is the engine's one way to fetch a
+    commit a clone lacks (2026-10-29); checkin.fetch_recorded_commit and
+    precedent_update.range_readable go through it. Until then they were
+    three implementations, and checkin's ran `--depth=1000` even in a full
+    clone, which writes .git/shallow and turns that clone shallow."""
+    import tempfile
+    import precedent_local_edits as le
+    import precedent_update as pu
+    cases = []
+    def git(cwd, *a):
+        return subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                              text=True, env={**os.environ, 'GIT_AUTHOR_NAME': 'f',
+                              'GIT_AUTHOR_EMAIL': 'f@x', 'GIT_COMMITTER_NAME': 'f',
+                              'GIT_COMMITTER_EMAIL': 'f@x'})
+    with tempfile.TemporaryDirectory() as td:
+        up = pathlib.Path(td) / 'up'
+        git(td, 'init', '-q', '-b', 'main', str(up))
+        for i in range(6):
+            (up / 'f.txt').write_text(f'{i}\n')
+            git(up, 'add', '-A')
+            git(up, 'commit', '-q', '-m', f'c{i}')
+        old = git(up, 'rev-parse', 'HEAD~4').stdout.strip()
+        tip = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        # An old commit off main, as a force-pushed branch leaves one.
+        git(up, 'checkout', '-q', '-b', 'side', old)
+        (up / 'g.txt').write_text('side\n')
+        git(up, 'add', '-A')
+        git(up, 'commit', '-q', '-m', 'side')
+        side = git(up, 'rev-parse', 'HEAD').stdout.strip()
+        git(up, 'checkout', '-q', 'main')
+        git(up, 'config', 'uploadpack.allowAnySHA1InWant', 'true')
+        def shallow(c):
+            return git(c, 'rev-parse', '--is-shallow-repository').stdout.strip() == 'true'
+
+        full = pathlib.Path(td) / 'full'
+        git(td, 'clone', '-q', '--single-branch', '--branch', 'main', str(up), str(full))
+        # A bound shorter than the fixture's history, so a --depth fetch
+        # into this full clone would visibly turn it shallow.
+        saved_depth, le.FETCH_DEPTH = le.FETCH_DEPTH, 2
+        try:
+            got = le.fetch_commit(full, side, branch='main')
+        finally:
+            le.FETCH_DEPTH = saved_depth
+        cases.append(('a full clone gets a commit off its branch by name',
+                      got, str(got)))
+        cases.append(('...and is still a full clone afterwards', not shallow(full),
+                      'it turned shallow'))
+
+        thin = pathlib.Path(td) / 'thin'
+        git(td, 'clone', '-q', '--depth', '1', f'file://{up}', str(thin))
+        cases.append(('the fixture clone starts without the old commit',
+                      git(thin, 'cat-file', '-e', f'{old}^{{commit}}').returncode != 0, ''))
+        got = le.fetch_commit(thin, old, branch='main')
+        cases.append(('a depth-1 clone gets an old commit of its branch back', got, str(got)))
+
+        thin2 = pathlib.Path(td) / 'thin2'
+        git(td, 'clone', '-q', '--depth', '1', f'file://{up}', str(thin2))
+        ok, why = pu.range_readable(thin2, old, tip)
+        cases.append(('range_readable reads a range a depth-1 clone lacked', ok, why))
+        ok, why = pu.range_readable(thin2, side, tip)
+        cases.append(('...and says no for a commit that is not an ancestor',
+                      not ok and 'not hold' in why, why))
+        cases.append(('a missing commit with nowhere to fetch it from is False',
+                      not le.fetch_commit(thin2, '0' * 40), ''))
+    bad = [f'{c[0]}: {c[2]}' for c in cases if not c[1]]
+    check(f'one way to fetch a commit a clone lacks ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
 def check_main_test_issue_names_the_failing_cases():
     """--as-ci writes one line per failing case to the file
     PRECEDENT_HARNESS_FAILURES names, and the workflow's "main's test
@@ -92773,6 +92843,7 @@ def main():
           *check_a_stale_source_clone_is_made_current_not_reported_clean())
     check_as_ci_shards_match_the_workflow()
     check_main_test_issue_names_the_failing_cases()
+    check_one_way_to_fetch_a_missing_commit()
     check_harness_reach_selects_what_a_change_reaches()
     check_isolated_run_matches_the_runner()
     check_isolated_copy_carries_uncommitted_changes()
