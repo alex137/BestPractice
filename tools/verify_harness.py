@@ -27431,16 +27431,25 @@ def check_precedent_check_fires():
         # 2026-09-29 incident's SHAPE: the registry field is untouched and
         # the engine computes a bigger number. A check that read the field
         # (the first attempt at this) passes this plant; this one must not.
-        case('budget-within-approval', lambda repo: rewrite(
-            repo, 'tools/build_views.py', lambda t: t.replace(
+        # The plant raises a surface ceiling, a per-part budget, which this
+        # check asks about only where no session-load total is declared
+        # (build_views.TOTAL_KEY): the fixture drops the total first.
+        def _plant_ceiling_over_approval(repo):
+            _drop_session_load_total(repo / 'tools' / 'session_load_budgets.json')
+            rewrite(repo, 'tools/build_views.py', lambda t: t.replace(
                 "    v = row.get('ceiling')\n    return v if isinstance(v, int) else default",
-                "    v = row.get('ceiling')\n    return v + 1000 if isinstance(v, int) else default", 1)))
+                "    v = row.get('ceiling')\n    return v + 1000 if isinstance(v, int) else default", 1))
+
+        case('budget-within-approval', _plant_ceiling_over_approval)
 
         # session-file-allowances-fit (2026-09-30). Switched on by a
         # hard_ceiling; the plant declares one the file's own fixed
         # allowance already exceeds, so the sum cannot fit whatever sources
         # resolve in the fixture.
+        # Allowances are held only where no session-load total is declared
+        # (build_views.TOTAL_KEY), so the plant drops the total first.
         def _plant_allowances_over(repo):
+            _drop_session_load_total(repo / 'tools' / 'session_load_budgets.json')
             rewrite(repo, 'tools/session_load_budgets.json', lambda t: t.replace(
                 '"approved_budgets": {',
                 '"approved_budgets": {\n    "surfaces/.precedent/SESSION_PRACTICES.md/hard_ceiling": '
@@ -50575,9 +50584,27 @@ def check_creation_pipeline_fires():
         # --- criterion 4: budget ----------------------------------------------
         huge_rule = ' '.join(['word'] * 3000)  # ~3900 tokens at 1.3/word, alone over the 2000 cap
         f4 = make_candidate('pipeline-fixture-c4', recurrence=2, tier='resident', rule=huge_rule)
-        rc, out = pyrun(promote_tool, '--file', str(f4), '--level', 'individual')
+        # The cap binds only where no session-load total is declared
+        # (build_views.TOTAL_KEY), and the promote tool reads the registry
+        # beside its own engine -- so both are run from an engine copy, first
+        # with the total dropped (refuses), then with one planted (measures).
+        engine = tmp / 'engine'
+        shutil.copytree(ROOT / 'tools', engine / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        engine_reg = engine / 'tools' / 'session_load_budgets.json'
+        engine_promote = str(engine / 'tools' / 'precedent_promote.py')
+        _drop_session_load_total(engine_reg)
+        rc, out = pyrun(engine_promote, '--file', str(f4), '--level', 'individual')
         cases.append(('criterion 4 (budget) refuses a resident request that blows the cap',
                       rc == 1 and 'criterion 4' in out and 'budget' in out))
+        reg4 = json.loads(engine_reg.read_text(encoding='utf-8'))
+        reg4['session_load_tokens'] = 10000
+        engine_reg.write_text(json.dumps(reg4, indent=2) + '\n', encoding='utf-8')
+        rc, out = pyrun(engine_promote, '--file', str(f4), '--level', 'individual')
+        cases.append(('criterion 4 (budget) measures, never refuses, under a '
+                      'declared session-load total',
+                      'criterion 4' not in out
+                      and 'session-load-budget holds the sum' in out))
 
         # --- full pass: create, promote, land, and the file really parses -----
         f5 = make_candidate('pipeline-fixture-pass', recurrence=2, occasion='a fixture occasion')
@@ -65949,13 +65976,21 @@ def check_delete_links_and_one_line_boildown_agree():
             g('push', '-q', 'origin', f'{branch}:trunk')
             g('switch', '-q', 'trunk'); g('pull', '-q', 'origin', 'trunk')
 
-        def run(name, replies):
-            path = tmp / name
-            path.write_text('\n'.join(json.dumps({
-                'type': 'assistant', 'message': {
+        def run(name, replies, prompts=False):
+            # prompts: a person's prompt row before each reply, so each is a
+            # turn of its own; a reply is never compared with its own turn
+            # (precedent_reply_check.turn_text_count).
+            rows = []
+            for r in replies:
+                if prompts:
+                    rows.append({'type': 'user', 'message': {
+                        'role': 'user', 'content': 'go on'}})
+                rows.append({'type': 'assistant', 'message': {
                     'usage': {'input_tokens': 2},
                     'content': [{'type': 'text', 'text': r}]}})
-                for r in replies) + '\n', encoding='utf-8')
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps(d) for d in rows) + '\n',
+                            encoding='utf-8')
             return subprocess.run(
                 [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
                  '--repo', str(repo)],
@@ -66004,7 +66039,7 @@ def check_delete_links_and_one_line_boildown_agree():
         f.unlink() if f.is_file() else None
         padded = 'Checked.\n\n' + boildown(b2, "- Don't archive this session.\n",
                                              first=landed)
-        r4 = run('padded.jsonl', [padded, padded])
+        r4 = run('padded.jsonl', [padded, padded], prompts=True)
         cases.append(('negative control: a second repeated line beside the owed link '
                       'is still a repeat', r4.returncode == 2
                       and 'previous reply' in r4.stderr,
