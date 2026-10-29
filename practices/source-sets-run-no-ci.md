@@ -37,6 +37,13 @@ asked:** the session says in plain words what the file does and what would
 stop, recommends, and asks keep or delete. A keep is recorded as their
 approval, and no update asks again.
 
+**One exception: a public set gets the branch cleanup workflow, and only
+that** (Morgan, 2026-10-28, strength: decided: the branch cleanup page
+"should have that button for each public repo on the list"). It runs only
+when a person clicks it on the page, and GitHub bills a public repository
+nothing. "Public" means the set's `precedent.json` says `"visibility":
+"public"`; a private or undeclared set still gets no workflow at all.
+
 **It is the default for every future set, not a cleanup of four existing
 ones.** A new set created tomorrow gets no workflows, because the engine's
 shipping list for that kind is empty, and an existing set loses the ones it

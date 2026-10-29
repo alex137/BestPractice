@@ -2984,7 +2984,7 @@ def _engine_owned_paths(dest_root, manifest, kind):
     owned = {f'tools/{n}' for n in names}
     hooks = set(manifest.get('hook_files') or []) | _wired_hook_names(dest_root)
     owned |= {f'{HOOK_DEST_DIR}/{n}' for n in hooks}
-    owned |= {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    owned |= {rel for _t, rel in ci_workflow_templates(kind, dest_root)}
     owned |= {rel for _s, rel in TEMPLATE_INSTANCES.get(kind, ())}
     return owned
 
@@ -3248,8 +3248,10 @@ CI_WORKFLOWS_SOURCE_DIR = 'templates/github-actions'
 # and the report names every script it ran.
 #
 # A PRACTICE SOURCE CONVERGES TOO, since 2026-10-01, on the same terms as a
-# consumer: it ships no workflow (CI_WORKFLOW_TEMPLATES['source'] is empty),
-# so every workflow it still carries goes, unless removing it would stop
+# consumer: it ships no workflow (CI_WORKFLOW_TEMPLATES['source'] is empty;
+# a public one gets the branch cleanup workflow alone, from
+# CI_PUBLIC_WORKFLOW_TEMPLATES since 2026-10-28), so every other workflow
+# it still carries goes, unless removing it would stop
 # something running that nothing local runs. ONLY THEN IS THE PERSON ASKED
 # (Morgan, 2026-10-01: "Ask if genuinely in doubt"): the session says in
 # plain words what the file does and what would stop, recommends, and asks
@@ -3327,6 +3329,44 @@ CI_WORKFLOW_TEMPLATES = {
 # cleanup workflow is here because it costs nothing until a person clicks it
 # (2026-10-16, spec/BRANCH_CLEANUP_BUTTON_PLAN.md).
 CI_ADDED_ON_REFRESH = frozenset({'branch-cleanup.yml.template'})
+
+# A PUBLIC PRACTICE SOURCE GETS THE BRANCH CLEANUP WORKFLOW, AND ONLY THAT
+# (Morgan, 2026-10-28, strength: decided: the branch cleanup page "should
+# have that button for each public repo on the list"; he chose this over a
+# hand-placed copy). The one exception to a source running no workflow
+# (source-sets-run-no-ci): it runs only when a person clicks, and GitHub
+# bills a public repository nothing, so it costs nothing either way. A set
+# is public only when its precedent.json says "visibility": "public";
+# private or undeclared, it ships nothing, and a copy left from when it was
+# public goes on its next refresh. CI_WORKFLOW_TEMPLATES['source'] stays
+# empty; read a repository's list through ci_workflow_templates()
+# (practice: source-sets-run-no-ci).
+CI_PUBLIC_WORKFLOW_TEMPLATES = {
+    'source': (
+        ('branch-cleanup.yml.template', '.github/workflows/precedent-branch-cleanup.yml'),
+    ),
+}
+
+
+def _declares_public(dest_root):
+    try:
+        data = json.loads((pathlib.Path(dest_root) / 'precedent.json')
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return isinstance(data, dict) and str(data.get('visibility') or '').strip().lower() == 'public'
+
+
+def ci_workflow_templates(kind, dest_root=None):
+    """-> ((template, installed_as), ...) the engine ships to `kind` in
+    `dest_root`: CI_WORKFLOW_TEMPLATES[kind], plus CI_PUBLIC_WORKFLOW_TEMPLATES
+    [kind] when the repository declares itself public. With no `dest_root`,
+    every template the kind can ship anywhere (for fetching them)."""
+    base = tuple(CI_WORKFLOW_TEMPLATES.get(kind, ()))
+    extra = CI_PUBLIC_WORKFLOW_TEMPLATES.get(kind, ())
+    if extra and (dest_root is None or _declares_public(dest_root)):
+        return base + tuple(extra)
+    return base
 
 # WHAT A REPOSITORY'S GETTING_STARTED.md SAYS ABOUT A WORKFLOW A REFRESH ADDS
 # (practice: github-setup-disclosed). One copy: the installer's paragraph
@@ -3591,7 +3631,7 @@ def record_ci_workflow_files(dest_root, kind):
         return []
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     names, hashes = [], {}
-    for _template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+    for _template, rel in ci_workflow_templates(kind, dest_root):
         path = dest_root / rel
         if path.is_file():
             names.append(rel)
@@ -3824,7 +3864,7 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
     superseded = set()
     if kind in CI_WORKFLOW_TEMPLATES:
         ships_now = {installed_as
-                     for _tmpl, installed_as in CI_WORKFLOW_TEMPLATES[kind]}
+                     for _tmpl, installed_as in ci_workflow_templates(kind, dest_root)}
         superseded = {rel for rel in recorded if rel not in ships_now}
     elif recorded:
         print(f"NOTE: precedent_vendor_engine: manifest kind {kind!r} is not "
@@ -4390,7 +4430,7 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
                                     f'workflow was removed. Refresh again '
                                     f'once it does')
         return {}
-    shipped = {rel for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())}
+    shipped = {rel for _t, rel in ci_workflow_templates(kind, dest_root)}
     # A FIRST PASS JUDGES BY ITS OWN, OLDER LIST (2026-10-17, very deep
     # check). An update rerun after a failed one puts the earlier run's
     # engine back to HEAD's, so the first pass is the old engine, and it
@@ -6269,7 +6309,7 @@ def _ci_workflow_incomplete(dest_root, kind, ci_workflows_dir, manifest):
     the `not force` in that check)."""
     recorded = manifest.get('ci_workflows_sha256') or {}
     out = []
-    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+    for template, rel in ci_workflow_templates(kind, dest_root):
         path = dest_root / rel
         if not path.is_file():
             continue
@@ -6645,14 +6685,18 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
     current template, rel paths whose hash was recorded for the first time,
     and rel paths a converging refresh replaced although they were untracked
     or hand-edited."""
-    if not any((dest_root / rel).is_file()
-               for _t, rel in CI_WORKFLOW_TEMPLATES.get(kind, ())):
+    # A public source has no other workflow to signal "GitHub workflows
+    # on": its declared visibility is that signal, so its list is walked
+    # with nothing on disk (CI_PUBLIC_WORKFLOW_TEMPLATES).
+    ships = ci_workflow_templates(kind, dest_root)
+    if not any((dest_root / rel).is_file() for _t, rel in ships) and \
+            len(ships) == len(CI_WORKFLOW_TEMPLATES.get(kind, ())):
         return [], [], []
     converges = kind in CI_CONVERGES_KINDS
     recorded = dict(manifest.get('ci_workflows_sha256') or {})
     _local = local_ci_workflows(dest_root)
     refreshed, catchup, replaced, owned = [], [], [], []
-    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+    for template, rel in ships:
         # DECLARED LOCAL: not written, and its recorded hash is DROPPED
         # rather than updated. Leaving a hash behind would re-arm the
         # refusal the declaration exists to retire; updating one would
@@ -6727,7 +6771,7 @@ def _refresh_ci_workflow_files(dest_root, kind, ci_workflows_dir, manifest):
     # the next refresh found the file present and moved on. Asking again
     # each time while the guide does not name it closes that for every
     # repository already in that state.
-    for template, rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+    for template, rel in ships:
         if (template in CI_DISCLOSURES and (dest_root / rel).is_file()
                 and _disclose_added_workflow(dest_root, rel, template)
                 and 'GETTING_STARTED.md' not in refreshed):
@@ -9106,7 +9150,7 @@ def _source_tools_at(clone, kind=DEFAULT_KIND, ref=None, fetch=True):
     # commit never had.
     ci_tmp = tmp / 'ci-workflows'
     ci_tmp.mkdir(exist_ok=True)
-    for template, _rel in CI_WORKFLOW_TEMPLATES.get(kind, ()):
+    for template, _rel in ci_workflow_templates(kind):
         blob = subprocess.run(
             ['git', '-C', str(clone), 'show',
              f'{commit}:{CI_WORKFLOWS_SOURCE_DIR}/{template}'],

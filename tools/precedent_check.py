@@ -7805,7 +7805,7 @@ def _ci_workflow_approved(ctx):
         import precedent_vendor_engine as _pve
         converges = manifest.get('kind') in _pve.CI_CONVERGES_KINDS
         shipped = {rel for _t, rel in
-                   _pve.CI_WORKFLOW_TEMPLATES.get(manifest.get('kind'), ())}
+                   _pve.ci_workflow_templates(manifest.get('kind'), ctx.root)}
     except Exception:                          # practice: fail-gracefully
         converges, shipped = False, set()
 

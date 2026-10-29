@@ -2199,7 +2199,10 @@ def _pending_deletions(repo_dir):
                  sorted(set(manifest.get('files') or []) - ships)]
     recorded = set(manifest.get('ci_workflow_files') or ())
     if kind in getattr(pve, 'CI_WORKFLOW_TEMPLATES', {}):
-        ships_ci = {ia for _t, ia in pve.CI_WORKFLOW_TEMPLATES[kind]}
+        lister = getattr(pve, 'ci_workflow_templates', None)
+        pairs = (lister(kind, repo_dir) if lister
+                 else pve.CI_WORKFLOW_TEMPLATES[kind])
+        ships_ci = {ia for _t, ia in pairs}
         rels += sorted(recorded - ships_ci)
     rels += sorted(r for r in recorded
                    if r in getattr(pve, 'RETIRED_CI_WORKFLOW_FILES', {}))
