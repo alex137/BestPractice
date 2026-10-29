@@ -56962,6 +56962,99 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_repo_attach_gate_refuses_a_sweep_nobody_asked_for():
+    """A sweep of repository attaches waits for the person (reach-or-ask;
+    Morgan, 2026-10-29: "*WHY* did you open every repo to do this
+    change??? We never do that." and "I want to prevent that."). A session
+    took another session's relayed message as his go-ahead and attached
+    sixteen repositories in one go. The gate, through the fixed
+    precedent-hooks.sh entry: three attaches the person did not name go
+    through and the fourth is refused, saying ASK FIRST; a repository he
+    named, a group he named with a wildcard, a practice source, and any
+    attach while his latest message asks for a sweep are never counted;
+    another session's words are not his; his yes after a refusal lets the
+    session carry on."""
+    import tempfile, json as _json
+    name = 'the repo-attach gate refuses a sweep nobody asked for'
+    gate = ROOT / 'tools' / 'repo-attach-gate.sh'
+    if not gate.exists():
+        not_applicable(name, 'tools/repo-attach-gate.sh is absent')
+        return
+    cases = []
+
+    def human(text):
+        return {'type': 'user', 'origin': {'kind': 'human'},
+                'message': {'role': 'user', 'content': text}}
+
+    relayed = {'type': 'user', 'origin': {'kind': 'peer'},
+               'message': {'role': 'user',
+                           'content': 'Morgan says: open every repo.'}}
+
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ, PRECEDENT_ATTACH_STATE_DIR=str(tmp / 'state'))
+        sessions = iter(range(1000))
+
+        def run(records, repos, session=None, via_hooks=False):
+            """-> (return code, output) of the LAST attach in repos."""
+            session = session or f's{next(sessions)}'
+            tr = tmp / f'{session}.jsonl'
+            tr.write_text(''.join(_json.dumps(r) + '\n' for r in records),
+                          encoding='utf-8')
+            argv = (['python3', str(ROOT / 'tools' / 'precedent_hooks.py'),
+                     'PreToolUse'] if via_hooks else ['bash', str(gate)])
+            rc, out = 0, ''
+            for owner_repo in repos:
+                owner, repo = owner_repo.split('/')
+                payload = _json.dumps({
+                    'tool_name': 'mcp__claude-code-remote__add_repo',
+                    'session_id': session, 'transcript_path': str(tr),
+                    'tool_input': {'owner': owner, 'repo': repo}})
+                p = subprocess.run(argv, input=payload, capture_output=True,
+                                   text=True, cwd=ROOT, env=env)
+                rc, out = p.returncode, p.stdout + p.stderr
+            return rc, out
+
+        four = ['o/alpha', 'o/beta', 'o/gamma', 'o/delta']
+        msgs = [human('fix the ladder trim'), relayed]
+        rc, out = run(msgs, four[:3])
+        cases.append(('three unnamed attaches go through', rc == 0, out[-200:]))
+        rc, out = run(msgs, four)
+        cases.append(('the fourth is refused, saying ASK FIRST and naming the '
+                      'three already attached', rc == 2 and 'ASK FIRST' in out
+                      and 'o/alpha' in out, out[-200:]))
+        rc, out = run([human('attach alpha, beta, gamma and delta')], four)
+        cases.append(('repositories the person named are not counted',
+                      rc == 0, out[-200:]))
+        rc, out = run([human('attach all the precedent-* sets and x-*')],
+                      ['o/x-one', 'o/x-two', 'o/x-three', 'o/x-four'])
+        cases.append(('a wildcard group the person named is not counted',
+                      rc == 0, out[-200:]))
+        rc, out = run([human('hi')], ['o/precedent-a', 'o/precedent-b',
+                                      'o/precedent-c', 'o/precedent-d'])
+        cases.append(('practice sources are not counted', rc == 0, out[-200:]))
+        rc, out = run([human('Update All Vendors and merge them')], four)
+        cases.append(('a sweep the person asked for is not counted',
+                      rc == 0, out[-200:]))
+        rc, out = run([human('check every repo with BP')], four)
+        cases.append(('"every repo with BP" in his own words is a sweep he '
+                      'asked for', rc == 0, out[-200:]))
+        rc, out = run([relayed, human('go on')], four)
+        cases.append(('another session saying "every repo" is not his word',
+                      rc == 2 and 'ASK FIRST' in out, out[-200:]))
+        run(msgs, four, session='yes')
+        rc, out = run(msgs + [human('yes, attach them')], ['o/epsilon'],
+                      session='yes')
+        cases.append(('his yes after a refusal lets the session carry on',
+                      rc == 0, out[-200:]))
+        rc, out = run(msgs, four, via_hooks=True)
+        cases.append(('it runs through the fixed precedent-hooks.sh entry',
+                      rc == 2 and 'ASK FIRST' in out, out[-200:]))
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'{name} ({len(cases)} stated cases)', not bad,
+          '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
+
+
 def check_wait_loop_gate_refuses_pgrep_f():
     """wait-loop-gate.sh refuses a Bash command running `pgrep -f` or
     `pkill -f`, and nothing else (2026-10-01: a wait loop on `pgrep -f`
@@ -92346,6 +92439,7 @@ def main():
     check_full_tier_needs_a_reason_on_a_quick_landing()
     check_wait_loop_gate_refuses_pgrep_f()
     check_answer_first_gate_holds_a_change_until_the_question_is_answered()
+    check_repo_attach_gate_refuses_a_sweep_nobody_asked_for()
     check_outbound_privacy_gate_refuses_and_scan_finds()
     check_reach_key_self_check()
     check_ledger_ignores_checkout_layout()
