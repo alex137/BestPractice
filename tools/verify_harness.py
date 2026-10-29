@@ -51668,7 +51668,8 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         root = pathlib.Path(td)
         engine = root / 'engine'
         (engine / 'tools').mkdir(parents=True)
-        for name in ('precedent_run_repo_hooks.py', 'precedent_hooks.py'):
+        for name in ('precedent_run_repo_hooks.py', 'precedent_hooks.py',
+                     'precedent_session_check.py', 'harness_times_merge.py'):
             shutil.copy(ROOT / 'tools' / name, engine / 'tools' / name)
         (engine / '.claude').mkdir()
         (engine / '.claude' / 'settings.json').write_text(json.dumps({'hooks': {
@@ -51729,6 +51730,26 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         r = run('Nonsense', {})
         cases.append(('an unknown moment runs nothing', r.returncode == 0
                       and 'usage' in r.stdout, r.stdout))
+        # 2026-10-29: a clone made after session start (the attach tool's)
+        # never had its merge drivers set, and its session check warned on
+        # every turn. The switchboard sets them before running its hooks.
+        a_tools = a / 'tools'
+        a_tools.mkdir()
+        shutil.copy(ROOT / 'tools' / 'harness_times_merge.py', a_tools)
+        (a / '.gitattributes').write_text(
+            'tools/harness_check_times.json merge=precedent-harness-times\n',
+            encoding='utf-8')
+
+        def driver():
+            return subprocess.run(['git', '-C', str(a), 'config', '--get',
+                                   'merge.precedent-harness-times.driver'],
+                                  capture_output=True, text=True).stdout.strip()
+        before = driver()
+        r = run('UserPromptSubmit', {'cwd': str(a), 'prompt': 'hi'})
+        cases.append(('running a late clone\'s hooks sets the merge driver its '
+                      '.gitattributes names, which no session start set',
+                      not before and 'harness_times_merge.py' in driver(),
+                      (before, driver(), r.stderr)))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'the switchboard runs the hooks of the repository an action is about '
           f'({len(cases)} stated cases)', not bad,
