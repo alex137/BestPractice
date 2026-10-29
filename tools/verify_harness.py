@@ -5537,6 +5537,24 @@ def check_doc_lint_fires():
                       'in the same document still is',
                       [r for _i, r in cmd_unlinked] == ['very-deep-check.md']))
 
+        # A practice or template ships into other repositories, where
+        # `AGENTS.md` means the reader's own file and no link from here can
+        # reach it (164 of 437 warnings in practices/ and templates/ on
+        # 2026-10-29). Skipped there only: the same name elsewhere is this
+        # repository's file and still warns, and a real reference beside it
+        # in a practice still warns.
+        (tmp / 'practices').mkdir(exist_ok=True)
+        (tmp / 'practices' / 'shipped.md').write_text(
+            "Read `AGENTS.md` first, then `spec/PLAN.md`.\n", encoding='utf-8')
+        (tmp / 'local.md').write_text("Read `AGENTS.md` first.\n", encoding='utf-8')
+        _s, ship_unlinked, *_ = dl.check_file('practices/shipped.md', fix=False, known=None)
+        _s, local_unlinked, *_ = dl.check_file('local.md', fix=False, known=None)
+        cases.append(('in a shipped practice, the reader\'s own AGENTS.md is '
+                      'not an unlinked reference while spec/PLAN.md beside it '
+                      'is, and AGENTS.md outside practices/ still is',
+                      [r for _i, r in ship_unlinked] == ['spec/PLAN.md']
+                      and [r for _i, r in local_unlinked] == ['AGENTS.md']))
+
         # Deep-check regression case: seen_acr used to be recorded only on
         # the VIOLATION branch (inside the `if ... f'({tok})' not in clean`
         # block), so a term correctly glossed on first use never actually

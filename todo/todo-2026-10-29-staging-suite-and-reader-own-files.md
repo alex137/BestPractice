@@ -3,16 +3,16 @@ slug:              todo-2026-10-29-staging-suite-and-reader-own-files
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
-disposition:       ask
+status:            done
+disposition:       null
 remind_on:         null
-blocked_on:        "Morgan's call on issue 2 (needs: decision -- Morgan)"
+blocked_on:        null
 batch:             null
-decision:          "issue 1: leave the daily run as it is (2026-10-29)"
-decision_strength: decided
+decision:          "issue 1: leave the daily run as it is; issue 2: option A, the reader-own list (2026-10-29)"
+decision_strength: assented
 waiting_on:        null
 noted:             2026-10-29
-closed:            null
+closed:            2026-10-29
 ---
 ## What
 
@@ -86,3 +86,13 @@ every doc_lint warning. It already does: its step 24 and its strict
 Markdown sweep judge every warning group, fixed or excluded with a reason.
 Across the whole repository the unlinked-reference warning stands at 2,196
 today, so those steps are not keeping up.
+
+## Done
+
+Issue 2, option A, built 2026-10-29 (Morgan answered "booked" to "should I
+go ahead?", recorded as assented): [doc_lint.py](../tools/doc_lint.py)
+holds `READER_OWN_FILES` and skips those names only in `practices/` and
+`templates/`; [verify_harness.py](../tools/verify_harness.py)'s doc_lint
+check states the case both ways. Warnings in shipped files went from 437
+to 273; across the repository, 2,196 to 2,032. Issue 1 is decided
+(daily run unchanged), so nothing here is left to do.
