@@ -67479,6 +67479,17 @@ def check_session_load_total_is_the_one_budget():
                           f'{said} {entry}'))
             cases.append(('copying it again changes nothing',
                           pu.record_person_total(repo, today='2026-10-29') is None))
+            cases.append(('CONTROL: a repository within the copied total is not '
+                          'told to reduce', 'Reduction pass' not in (said or '')))
+            # 2026-10-29: a repository already over the person's total heard
+            # only "set to 10,000", and every session check after was red.
+            files(agents=40000, session=500)
+            psp.brought_budget = lambda r=None, key='brought_sets_tokens': (
+                (3500, str(ind)) if key == 'session_load_tokens' else (None, str(ind)))
+            said = pu.record_person_total(repo, today='2026-10-29') or ''
+            cases.append(('a total copied into a repository already loading more '
+                          'says so, and names a Reduction pass as the next step',
+                          'over it' in said and 'Reduction pass' in said, said))
             (repo / 'precedent.json').write_text(json.dumps({'sources': []}))
             cases.append(('a copy-in records nothing under a total',
                           pu.record_copy_in_budget(repo) is None))
