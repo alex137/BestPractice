@@ -6988,9 +6988,7 @@ def check_sync_carries_a_test_helper_with_its_test():
     ladder set's cases file reached a consumer through a practice's
     `ships`, for no reason but that a test could carry only its .sh.
     CONTROLS: a helper whose test nothing claims, and one with no test at
-    all, stay behind. Also: a source's test of its own reply_check.json is
-    claimed by that file and runs in the source's own repository only
-    (SOURCE_REPLY_TEST)."""
+    all, stay behind."""
     import contextlib, io, tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
@@ -7021,20 +7019,6 @@ def check_sync_carries_a_test_helper_with_its_test():
                       'alone_cases.py' not in got))
         cases.append(('the driver never runs a helper as a test',
                       'thing_cases.py' not in driver))
-        (tests / pm.SOURCE_REPLY_TEST).write_text('true\n', encoding='utf-8')
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}], res)
-        cases.append(('CONTROL: a reply-check test with no reply_check.json beside it '
-                      'is an orphan', pm.SOURCE_REPLY_TEST in err.getvalue()))
-        (src / 'reply_check.json').write_text('[]', encoding='utf-8')
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            plan = pm._plan_checks([{'name': 'set', 'path': str(src), 'level': 'shared'}], res)
-        cases.append(('a source\'s test of its own reply_check.json is claimed by it: '
-                      'not an orphan, and not vendored',
-                      pm.SOURCE_REPLY_TEST not in err.getvalue()
-                      and pm.SOURCE_REPLY_TEST not in {n for _r, n, _s, _d in plan}))
     failed = [n for n, ok in cases if not ok]
     check(f'a sync carries a test\'s helper with its test ({len(cases)} '
           f'stated cases)', not failed, '; '.join(failed))
@@ -7045,8 +7029,10 @@ def check_update_runs_a_set_s_own_tests_after_an_engine_refresh():
     changed the set's engine copy, and stops on a red one before anything
     lands (precedent_update.set_tests_step, 2026-10-20). The ladder set's
     test_ladder_branches.sh first ran on main after an engine refresh
-    merged, and was red. CONTROLS: a repository that is not a set, and a
-    set whose update changed no engine file, run nothing."""
+    merged, and was red. A case the set's own tests report not applicable
+    there stops it too: five of the ladder's had, unseen, since they moved.
+    CONTROLS: a repository that is not a set, and a set whose update
+    changed no engine file, run nothing."""
     import tempfile, subprocess as _sp
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
@@ -7087,6 +7073,14 @@ def check_update_runs_a_set_s_own_tests_after_an_engine_refresh():
         red = pu.set_tests_step(repo, rep)
         cases.append(('THE DISCRIMINATING CASE: a red set test stops the update, named',
                       bool(red) and 'test_bad.sh' in red and 'broke' in red))
+        (tests / 'test_bad.sh').write_text('echo "N/A: zz case -- a file is not here"; exit 0\n',
+                                           encoding='utf-8')
+        rep = Rep()
+        red = pu.set_tests_step(repo, rep)
+        cases.append(('2026-10-28: a set test that passes but reports a case not '
+                      'applicable, in its own repository, stops the update, named',
+                      bool(red) and 'test_bad.sh' in red and 'zz case' in red))
+        (tests / 'test_bad.sh').unlink()
         g('checkout', '-q', '--', 'tools/engine.py')
         rep = Rep()
         cases.append(('CONTROL: no engine file changed, nothing runs',
@@ -83301,6 +83295,66 @@ def check_moves_core_names_exist_in_the_engine():
           f'missing: {missing}; declared twice: {dupes}')
 
 
+def check_bound_set_tools_and_reply_examples_are_held_in_any_set():
+    """Two general holds, run in any repository, never keyed to a set
+    (2026-10-20). (1) precedent_resolve.undeclared_bound_calls names every
+    engine name a bound set tool reads through what its bind() set, beyond
+    the tuple the engine declares for its key -- found through
+    BOUND_SET_TOOLS, so a new bound tool needs no new test. (2) The
+    reply-rules-hold-their-examples check runs a requirement's own example
+    replies through the real reply check. Each with its control. Also every
+    set cloned on this machine: its bound tools call only declared names."""
+    import tempfile
+    import precedent_resolve as pr
+    import precedent_check as pc
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td) / 'set'
+        (root / 'tools').mkdir(parents=True)
+        (root / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-set', 'branch_moves': 'tools/zz_moves.py'}))
+        tool = root / 'tools' / 'zz_moves.py'
+        tool.write_text('core = None\n\ndef bind(engine):\n    global core\n'
+                        '    core = engine\n\ndef main():\n'
+                        '    return core.MAIN, core.zz_not_declared()\n')
+        got = [(k, n) for k, _r, n, _l in pr.undeclared_bound_calls(root)]
+        cases.append(('THE DISCRIMINATING CASE: an undeclared engine name is named',
+                      got == [('branch_moves', 'zz_not_declared')], got))
+        tool.write_text(tool.read_text().replace('core.zz_not_declared()', 'core.STAGING'))
+        got = pr.undeclared_bound_calls(root)
+        cases.append(('CONTROL: only declared names, nothing named', got == [], got))
+        tool.write_text('import precedent_branches as core\n\ndef main():\n'
+                        '    return core.zz_not_declared()\n')
+        got = pr.undeclared_bound_calls(root)
+        cases.append(('CONTROL: a module with no bind() is not a bound tool', got == [], got))
+
+        (root / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'zz', 'require_one_of': ['ZZ-OK'],
+             '_examples': [{'reply': 'done. ZZ-OK', 'refused': False},
+                          {'reply': 'done.', 'refused': True}]},
+            {'practice': 'zz2', 'require_one_of': ['ZZ2']}]))
+        got = pc._reply_example_problems(root)
+        cases.append(('examples the requirement answers as declared: no problem, and '
+                      'the requirement without examples is named',
+                      got == ([], [1]), got))
+        (root / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'zz', 'require_one_of': ['ZZ-OK'], 'advisory': True,
+             '_examples': [{'reply': 'done.', 'refused': False}]}]))
+        wrong, _bare = pc._reply_example_problems(root)
+        cases.append(('THE DISCRIMINATING CASE: an example the requirement answers '
+                      'otherwise is named, advisory or not', len(wrong) == 1
+                      and 'refuses' in wrong[0][1], wrong))
+    for path in sorted(p for p in ROOT.parent.iterdir()
+                       if p != ROOT and (p / 'precedent-source.json').is_file()):
+        got = pr.undeclared_bound_calls(path)
+        cases.append((f'{path.name}, cloned here: its bound tools call only '
+                      f'declared names', got == [], got))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'bound set tools and reply-rule examples are held in any set '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {str(d)[:200]}' for n, d in bad))
+
+
 def check_set_words_hold_a_practice_printed_part_to_output_patterns():
     """set_words.file_hits holds a practice's printed part -- title,
     index_clause and ## Rule, what the gates print word for word -- to a
@@ -91557,6 +91611,7 @@ def main():
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
     check_moves_core_names_exist_in_the_engine()
+    check_bound_set_tools_and_reply_examples_are_held_in_any_set()
     check_resolver_leaves_out_the_set_itself_by_name()
     check_a_missing_clone_says_not_cloned()
     check_off_base_sources_are_named()

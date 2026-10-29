@@ -6385,6 +6385,9 @@ def full_check_after(repo):
     return isinstance(data, dict) and data.get('update_full_check') == 'after'
 
 
+NOT_APPLICABLE_RE = re.compile(r'^\s*N/A:')
+
+
 def set_tests_step(repo, rep):
     """A practice set's own tests, every tools/checks/tests/test_*.sh, when
     this update changed the set's engine copy: -> None when they pass or do
@@ -6409,14 +6412,25 @@ def set_tests_step(repo, rep):
     for t in tests:
         r = subprocess.run(['bash', str(t)], cwd=str(repo), capture_output=True,
                            text=True)
+        out = (r.stdout + r.stderr).strip()
+        # A case "not applicable" here never runs anywhere that matters:
+        # this is the set's own repository, on the engine it was just
+        # given. 2026-10-28: five of the ladder set's cases had reported
+        # N/A in its own repository since they moved there, because they
+        # read BestPractice-only files, and every run counted that as a
+        # pass. So here it is red, with its reason.
+        skipped = [l.strip() for l in out.splitlines() if NOT_APPLICABLE_RE.match(l)]
         if r.returncode != 0:
-            red.append((t.name, (r.stdout + r.stderr).strip()))
+            red.append((t.name, out))
+        elif skipped:
+            red.append((t.name, 'passed, but did not run here, in its own '
+                                'repository:\n' + '\n'.join(skipped)))
     if not red:
         rep.step('the set\'s own tests', f'all {len(tests)} pass on the '
                  f'refreshed engine')
         return None
-    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red on the '
-             f'refreshed engine: ' + ', '.join(n for n, _o in red))
+    rep.step('the set\'s own tests', f'{len(red)} of {len(tests)} red or not run '
+             f'on the refreshed engine: ' + ', '.join(n for n, _o in red))
     return ('the set\'s own tests are red on the refreshed engine, so this '
             'update would break the set where it lands:\n'
             + '\n'.join(f'--- {n} ---\n{tail(o, repo=repo)}' for n, o in red))
