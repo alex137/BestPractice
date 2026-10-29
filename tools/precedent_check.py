@@ -1558,9 +1558,23 @@ def _bound_set_tool_calls_only_declared_names(ctx):
             for key, rel, name, line in found]
 
 
+# Reply requirements whose answer depends on this machine -- the container,
+# git, a plan file, a fast move's record -- and so cannot be pinned by an
+# example reply: the same reply passes on one machine and is refused on
+# another. Their tests build that state in the harness; the advisory does
+# not ask them for examples (2026-10-29). `note_from_tool` is printed by the
+# gate and never evaluated against a reply at all.
+REPLY_KEYS_READING_THE_MACHINE = (
+    'require_container_safe_if_says', 'require_landed_if_says',
+    'require_plan_done_if_says', 'require_delete_link_when_landed',
+    'require_first_item_leads_with_unlanded',
+    'require_full_check_after_fast_main', 'note_from_tool')
+
+
 def _reply_example_problems(root):
     """-> [(index, problem)] for reply_check.json's requirements whose own
-    `_examples` -- [{"reply": ..., "refused": true|false}, ...] -- the reply
+    `_examples` -- [{"reply": ..., "refused": true|false, "timeline"?: ...,
+    "wake"?: ...}, ...] -- the reply
     check does not answer as declared, and the indexes of requirements that
     carry none. -> None when there is no reply_check.json.
 
@@ -1582,7 +1596,8 @@ def _reply_example_problems(root):
             continue
         examples = req.get('_examples')
         if not examples:
-            bare.append(i)
+            if not any(k in req for k in REPLY_KEYS_READING_THE_MACHINE):
+                bare.append(i)
             continue
         one = {k: v for k, v in req.items() if k != '_examples'}
         one['advisory'] = False
@@ -1591,7 +1606,14 @@ def _reply_example_problems(root):
                 wrong.append((i, f'an example is not {{"reply": ..., "refused": '
                                  f'true|false}}: {str(ex)[:80]}'))
                 continue
-            got = bool(_prc.violations(ex['reply'], [one]))
+            # The context a requirement may read besides the reply: the
+            # replies before it (`timeline`, [[context tokens, text], ...],
+            # oldest first) and what woke the turn (`wake`).
+            timeline = ex.get('timeline')
+            got = bool(_prc.violations(
+                ex['reply'], [one],
+                timeline=[tuple(t) for t in timeline] if timeline else None,
+                wake=ex.get('wake')))
             if got != bool(ex['refused']):
                 wrong.append((i, f'{"lets through" if not got else "refuses"} '
                                  f'{ex["reply"][:80]!r}, which its example says it '
