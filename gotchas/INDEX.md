@@ -183,3 +183,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A reply breaks a rule the reply check carries, nobody is told, and the person has to notice it and ask. The requirement is right there in `reply_check.json`, with a pattern that matches the reply, and `--explain` lists it. It is declared `"advisory": true`.** [story](gotcha-2026-10-19-an-advisory-reply-requirement-is-never-shown-to-anyone.md)
 
 - **GitHub's test on `main` fails with `VIOLATION code-cites-practice ... cites 'SLUG', which is not a real practice slug`, right after a Produce whose local checks all passed. The slug is real: it belongs to a practice set, such as the ladder set.** [story](gotcha-2026-10-27-a-citation-of-a-set-practice-passes-locally-and-fails-on-github.md)
+
+- **Every Update Vendors run in a consuming repository lists the same engine line for judgment in the ladder set's upstream review, and the line says nothing is wrong: a repair that already finished, a hook wired on purpose, a file the person chose to undeclare.** [story](gotcha-2026-10-29-a-note-line-that-reports-a-state-lands-in-the-upstream-review.md)

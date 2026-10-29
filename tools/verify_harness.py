@@ -80620,6 +80620,25 @@ def check_refresh_names_an_in_place_hook_no_engine_path_keeps():
         cases.append(('...and is named with both fixes: declare it, or wire .claude/hooks/',
                       stale and 'bootstrap/left-stale.sh' in stale[0]
                       and f'{pve.HOOK_DEST_DIR}/left-stale.sh' in stale[0], out[:600]))
+        # The engine keeps "NOTE:" for what a person must judge, so the
+        # ladder set's upstream review lists only those
+        # (gotcha-2026-10-29-a-note-line-that-reports-a-state-lands-in-the-upstream-review).
+        # "Nothing to do" is a state; the undeclared copy is a thing to judge.
+        cases.append(('the "nothing to do" line is not a NOTE: line',
+                      nothing and not any('NOTE:' in l for l in nothing), out[:600]))
+        cases.append(('...and the undeclared copy, a thing to judge, still is',
+                      stale and stale[0].startswith('NOTE:'), out[:600]))
+        review = ROOT / 'tools' / 'ladder' / 'upstream_review.py'
+        if review.is_file():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location('_ladder_review', review)
+            lr = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(lr)
+            listed = [l for _, l in lr.extract(out)]
+            cases.append(("the ladder set's upstream review lists the undeclared copy "
+                          'and not the "nothing to do" line',
+                          any('left-stale.sh' in l for l in listed)
+                          and not any('NOTHING TO DO' in l for l in listed), listed))
         manifest = json.loads((repo / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
         err = io.StringIO()
         with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):

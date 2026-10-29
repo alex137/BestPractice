@@ -314,9 +314,10 @@ def _seed_engine(dest):
               'seed', str(dest), '--kind', 'consumer'], ROOT)
     if r.returncode != 0:
         raise InstallRefused(f'the engine seed failed:\n{r.stdout}{r.stderr}')
-    # The hook NOTE is always true at seed time and never actionable: the
-    # harness step below writes the hooks it names.
-    return _tool_lines(r, 'SEEDED', drop=('NOTE: precedent_vendor_engine:',))
+    # The hook lines are always true at seed time and never actionable: the
+    # harness step below writes the hooks they name.
+    return _tool_lines(r, 'SEEDED', drop=('NOTE: precedent_vendor_engine:',
+                                          'precedent_vendor_engine: hooks:'))
 
 
 def _write_precedent_json(dest, base_branch, visibility, output_paths, teams, force,
