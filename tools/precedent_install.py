@@ -902,6 +902,8 @@ def _copy_in(dest, answers, answered_by):
     lines = []
     try:
         import precedent_vendor_engine as _pve
+        lines += [f'copy in: {w}' for w in _pve.fetch_offered_clones(
+            dest, [n for n, a in answers.items() if a == 'yes'])]
         offers = {o['name']: o for o in _pve.copy_in_offers(dest)}
     except Exception as e:                                    # noqa: BLE001
         return [f'copy in: not asked, the offers could not be read ({e})']

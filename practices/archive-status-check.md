@@ -38,7 +38,11 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
   the plan is fully complete Or I explicitly tell you that I am finishing
   the plan early.\" strength: decided. Amended the same day, Morgan, making
   his four-part test the standing rule: \"That should be the standing
-  rule\". strength: decided."
+  rule\". strength: decided. Amended 2026-10-29 from Morgan's Root issues
+  run of 2026-10-28, which found a worker session that archived itself
+  with a message from its parent session still unread: condition 2 now
+  reads the notifications waiting for this session first. strength:
+  assented."
 strength:    decided
 ---
 ## Rule
@@ -69,7 +73,12 @@ natural end of a reply:**
    and read its answer rather than recalling what was pushed. It also lists
    any command this session started that is still running: archiving kills
    it, so stop each one with nothing left to do, or wait for it.
-2. Nothing is left to do directly in this session.
+2. Nothing is left to do directly in this session, **a message from
+   another session included**. Read every notification waiting for this
+   session first (`ReadNotifications` in Claude Code) and act on each one;
+   one still waiting holds the archive. A session archiving itself is the
+   case this catches: on 2026-10-28 a worker archived itself while its
+   parent's message sat unread, and that task was lost.
 3. No Routine is bound to this session (`list_triggers`).
 4. Nothing from the conversation lives only in the chat. Re-read the
    whole conversation, the summary of any compacted part included, and

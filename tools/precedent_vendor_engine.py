@@ -5230,10 +5230,20 @@ def _person_name_for(root, login):
 
 
 def name_the_persons_maintainer(dest_root):
-    """Add the person's declared name to their own entry in precedent.json's
-    `maintainers` when it carries their login and no name. -> the login
-    named, or ''. Only that one field, in that one entry: the list itself is
-    the repository's, and nobody else's entry is touched."""
+    """Write the person's declared name into their own entry in
+    precedent.json's `maintainers`: an entry with their login and no name,
+    or one whose name differs from the declared one. -> the login named, or
+    ''. Only that one field, in that one entry: the list itself is the
+    repository's, and nobody else's entry is touched.
+
+    ONE WRITER (2026-10-29, Root issues of the 2026-10-28 Update Vendors
+    run). Two consumers' entries carried a name set by hand ("Morgan")
+    before this wrote names, and a third the declared one ("Morgan F"),
+    because an entry that had any name was never revisited. The declared
+    name (identity.json) is the record; a binds_everyone approval signs with
+    the full name or its first word, both of which the ladder check reads
+    (precedent_check._code_owner_logins). A rename that would leave that
+    repository's approval naming nobody is not made."""
     path = pathlib.Path(dest_root) / 'precedent.json'
     try:
         text = path.read_text(encoding='utf-8')
@@ -5244,19 +5254,36 @@ def name_the_persons_maintainer(dest_root):
     if not isinstance(entries, list):
         return ''
     for e in entries:
-        if isinstance(e, dict) and e.get('github') and not e.get('name'):
-            name = _person_name_for(dest_root, e['github'])
-            if name:
-                old = json.dumps({'github': e['github']}, ensure_ascii=False)
-                e['name'] = name
-                new = json.dumps(e, ensure_ascii=False)
-                if text.count(old) == 1:
-                    path.write_text(text.replace(old, new), encoding='utf-8')
-                else:
-                    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False)
-                                    + '\n', encoding='utf-8')
-                return str(e['github'])
+        if not (isinstance(e, dict) and e.get('github')):
+            continue
+        name = _person_name_for(dest_root, e['github'])
+        if not name or e.get('name') == name:
+            continue
+        if e.get('name') and not _approval_still_names(cfg, e['name'], name):
+            continue
+        old = json.dumps(e, ensure_ascii=False)
+        e['name'] = name
+        new = json.dumps(e, ensure_ascii=False)
+        if text.count(old) == 1:
+            path.write_text(text.replace(old, new), encoding='utf-8')
+        else:
+            path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False)
+                            + '\n', encoding='utf-8')
+        return str(e['github'])
     return ''
+
+
+def _approval_still_names(cfg, old, new):
+    """-> False when binds_everyone's approval names its code owner by `old`
+    and would name nobody once the entry reads `new`: the ladder check
+    matches a maintainer's full name or its first word."""
+    by = str(((cfg.get('binds_everyone') or {}) if isinstance(
+        cfg.get('binds_everyone'), dict) else {}).get('approved_by') or '')
+    who = by.split(',', 1)[0].strip().lstrip('@').lower()
+    def ways(n):
+        n = str(n).strip().lower()
+        return {n, n.split()[0]} if n.split() else {n}
+    return not who or who not in ways(old) or who in ways(new)
 
 
 def seed_maintainers(dest_root, logins=None, today=None, fallback=None):
@@ -5693,6 +5720,56 @@ def copy_in_waits_on(clone, set_root=''):
             return ''
     where = f'its {set_root} folder' if set_root else 'the set'
     return f'{where} has not reached its own main yet'
+
+
+def fetch_offered_clones(dest_root, names=(), user_config=None):
+    """Clone each OFFERED set `dest_root` has said yes to -- a waiting yes
+    in its precedent.json, or one of `names` answered yes on this run --
+    that has no clone on this machine, beside the individual source, where
+    _copy_in_candidates looks. -> [what happened], one line per set tried.
+
+    WHY (2026-10-28, Update Vendors over seven repositories). A brought set
+    is cloned at session start (sources_from_brings); an offered one never
+    was, so a yes to a voice pack sat as "not copied in yet, because there
+    is no clone of the set on this machine" on every run, though the session
+    could reach the repository. The update now makes the clone itself, by
+    the same funnel a brought set takes, and when it cannot, names the
+    attach and the path (practice: reach-or-ask)."""
+    import precedent_resolve as pr
+    import precedent_source_bootstrap as psb
+    try:
+        cfg = json.loads((pathlib.Path(dest_root) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    record = cfg.get(COPY_IN_KEY) if isinstance(cfg.get(COPY_IN_KEY), dict) \
+        else {}
+    wanted = set(names) | {n for n, r in record.items() if isinstance(r, dict)
+                           and r.get('answer') == 'yes' and r.get('waits_on')}
+    ind = pr.person_individual_path(user_config)
+    if not wanted or ind is None:
+        return []
+    out = []
+    for name, url, clone, brought, _root in _copy_in_candidates(user_config):
+        if brought or clone or name not in wanted or not url:
+            continue
+        target = ind.resolve().parent / name
+        if target.exists() and not (target / '.git').exists():
+            out.append(f'{name}: {target} is in the way and is not a clone; '
+                       f'move it aside and run again')
+            continue
+        ok, msg = psb._try_sync(url, target)
+        if ok:
+            out.append(f'{name}: cloned {url} to {target}, so it can be '
+                       f'copied in')
+            continue
+        slug = _repo_identity(url) or url
+        last = (str(msg).strip().splitlines() or ['no output'])[-1]
+        out.append(f'{name}: no clone on this machine, and cloning {url} to '
+                   f'{target} failed ({last}). Attach {slug} for read '
+                   f'(add_repo), clone it to {target}, then run Update '
+                   f'Vendors again')
+    return out
 
 
 def record_copy_in(dest_root, name, answer, answered_by, repo_url='',

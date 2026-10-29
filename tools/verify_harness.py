@@ -66822,6 +66822,261 @@ def check_update_all_reads_what_the_update_prints():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_update_all_moves_a_reused_clone_off_its_pin():
+    """A clone an earlier Update All run kept carries that run's pin, and
+    the rerun asks for the newest passed main again (--move), and says so;
+    a fresh clone and a rehearsal are given no --move.
+
+    WHY. 2026-10-28, Update All over seven repositories: a consumer stayed
+    LEFT on a main two fixes old, "pinned: the commit this update started
+    from", until its clone was deleted by hand."""
+    import argparse as _ap, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+    finally:
+        sys.path.pop(0)
+    cases = []
+    ns = _ap.Namespace(rehearse=None, copy_in=[], answered_by='', no_push=False)
+    cases.append(('a reused clone: --move', pua.update_args(ns, True) == ['--move']))
+    cases.append(('a fresh clone: no --move', pua.update_args(ns, False) == []))
+    ns.rehearse = 'feature-x'
+    cases.append(('a rehearsal names its commit, and no --move',
+                  pua.update_args(ns, True) == ['--from-ref', 'feature-x']))
+    with tempfile.TemporaryDirectory() as tmp:
+        subprocess.run(['git', 'init', '-q', tmp], env=_fixture_git_env(),
+                       check=True)
+        repo = pathlib.Path(tmp)
+        # A commit the source clone holds, or the pin is dropped as unknown.
+        pin = subprocess.run(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'],
+                             capture_output=True, text=True).stdout.strip()
+        pu.record_pin(repo, pin, 'main')
+        kept = pu.take_pin(repo, 'main', move=False)
+        cases.append(('NEGATIVE CONTROL: without --move the pin holds, and '
+                      'nothing reads as moved',
+                      kept[0] == pin and pua.moved_off_pin(
+                          f'source: main @ {pin[:12]} -- {kept[1]}') == '',
+                      repr(kept)))
+        moved = pu.take_pin(repo, 'main', move=True)
+        line = pua.moved_off_pin(f'  source: main @ bbbbbbbbbbbb -- {moved[1]}')
+        cases.append(('with --move the pin is dropped, and the line the update '
+                      'prints is the one Update All repeats',
+                      moved[0] is None and pu.held_pin(repo) is None
+                      and pin[:12] in line, f'{moved} {line!r}'))
+    src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
+    cases.append(('the run hands the reuse to the update and prints the move',
+                  'update_args(args, reused)' in src
+                  and "SOURCE for {repo}" in src))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'Update All moves a reused clone off its pin '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_copy_in_clones_an_offered_set_it_said_yes_to():
+    """An offered set this repository said yes to, with no clone on this
+    machine, is cloned beside the individual set by the update itself and
+    then copied in; one that cannot be cloned is named with the attach and
+    the path; an offer nobody said yes to is not cloned.
+
+    WHY. 2026-10-28, Update Vendors: a voice pack's yes read "not copied in
+    yet, because there is no clone of the set on this machine", run after
+    run, though the session could reach the set."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='offered-clone-'))
+    cases = []
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    genv = _fixture_git_env()
+    try:
+        origin = tmp / 'origins' / 'zz-voice.git'
+        origin.parent.mkdir()
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        work = tmp / 'author'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)],
+                       env=genv, capture_output=True, check=True)
+        (work / 'practices').mkdir()
+        (work / 'practices' / 'zz-v.md').write_text(
+            '---\nslug: zz-v\n---\n# v\n\n## Rule\n\nSay it plainly.\n')
+        (work / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voice', 'level': 'shared', 'visibility': 'private'}))
+        for a in (('add', '-A'), ('commit', '-qm', 'one'),
+                  ('push', '-q', 'origin', 'main')):
+            subprocess.run(['git', '-C', str(work), *a], env=genv,
+                           capture_output=True, check=True)
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual', 'brings': [],
+             'offers': [{'name': 'zz-voice', 'repo_url': str(origin)},
+                        {'name': 'zz-gone',
+                         'repo_url': str(tmp / 'origins' / 'nowhere.git')},
+                        {'name': 'zz-unasked', 'repo_url': str(origin)}]}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        import precedent_vendor_engine as pve
+        host = tmp / 'host'
+        host.mkdir()
+        by = 'Zzme, 2026-10-29: "yes"'
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private', 'sources': [],
+             'copy_in': {'zz-voice': {'answer': 'yes', 'answered_by': by,
+                                      'waits_on': 'there is no clone of the '
+                                                  'set on this machine'}}},
+            indent=2))
+        got = pve.fetch_offered_clones(host, ['zz-gone'])
+        clone = tmp / 'people' / 'zz-voice'
+        cases.append(('a waiting yes: the set is cloned beside the individual '
+                      'set', (clone / 'practices' / 'zz-v.md').is_file()
+                      and any(w.startswith('zz-voice: cloned') for w in got),
+                      repr(got)))
+        gone = [w for w in got if w.startswith('zz-gone')]
+        cases.append(('a set that cannot be cloned is named with the attach '
+                      'and the path', len(gone) == 1 and 'add_repo' in gone[0]
+                      and str(tmp / 'people' / 'zz-gone') in gone[0],
+                      repr(gone)))
+        cases.append(('NEGATIVE CONTROL: an offer nobody said yes to is not '
+                      'cloned', not (tmp / 'people' / 'zz-unasked').exists()
+                      and not any(w.startswith('zz-unasked') for w in got),
+                      repr(got)))
+        pending = pve.copy_in_pending(host)
+        declared = [e for e in json.loads((host / 'precedent.json').read_text())
+                    .get('sources') or [] if e.get('name') == 'zz-voice']
+        cases.append(('...and the waiting yes is then declared copied in',
+                      bool(declared), repr(pending)[:400]))
+        cases.append(('a second run clones nothing again',
+                      not any(w.startswith('zz-voice')
+                              for w in pve.fetch_offered_clones(host))))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'copy-in clones an offered set it said yes to '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_declared_set_found_beside_the_individual_set():
+    """A repository cloned away from its siblings resolves a set it
+    declares (`../<name>`) at the clone beside the person's individual set,
+    where session start puts every set; a real sibling still wins, and a
+    folder that is not a practice set is never taken.
+
+    WHY. 2026-10-28, a Produce from a clone made outside the session's
+    project folder: its pre-push refused for a set that was on disk all
+    along ("a practice source in force here did not load"), and the
+    session symlinked the set in by hand."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='declared-beside-'))
+    cases = []
+    saved = os.environ.get('PRECEDENT_USER_CONFIG')
+    try:
+        people = tmp / 'people'
+
+        def a_set(where, practices=True):
+            (where / '.git').mkdir(parents=True)
+            if practices:
+                (where / 'practices').mkdir()
+            return where
+
+        a_set(people / 'zz-ind')
+        known = a_set(people / 'zz-set')
+        a_set(people / 'zz-bare', practices=False)
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {
+            'name': 'zz-ind', 'path': str(people / 'zz-ind')}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        import precedent_resolve as pr
+        far = tmp / 'scratch' / 'repo'
+        far.mkdir(parents=True)
+        (far / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'zz-set', 'path': '../zz-set'}]}))
+        got = pr._declared_path(far.resolve(), '../zz-set')
+        cases.append(('away from its siblings: the clone beside the '
+                      'individual set', got == known.resolve(), str(got)))
+        rows = {n: (p, note) for p, _l, n, note in pr.declared_source_paths(far)}
+        cases.append(('...which the push hook reads as loaded',
+                      rows.get('zz-set') == (str(known.resolve()), ''),
+                      repr(rows.get('zz-set'))))
+        bare = pr._declared_path(far.resolve(), '../zz-bare')
+        cases.append(('a folder with no practices is not taken',
+                      bare == (far / '../zz-bare').resolve(), str(bare)))
+        sib = a_set(tmp / 'scratch' / 'zz-set')
+        got2 = pr._declared_path(far.resolve(), '../zz-set')
+        cases.append(('NEGATIVE CONTROL: a real sibling still wins',
+                      got2 == sib.resolve(), str(got2)))
+    finally:
+        if saved is None:
+            os.environ.pop('PRECEDENT_USER_CONFIG', None)
+        else:
+            os.environ['PRECEDENT_USER_CONFIG'] = saved
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'a declared set is found beside the individual set '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_engine_writes_the_persons_maintainer_name():
+    """The update writes the person's declared name into their own
+    maintainers entry when a different name was set there by hand, unless
+    that would leave the repository's binds_everyone approval naming
+    nobody; nobody else's entry is touched.
+
+    WHY. 2026-10-28: two consumers carried "Morgan", set by hand before the
+    engine wrote names, and a third the declared "Morgan F", because an
+    entry with any name was never revisited."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+        import precedent_identity as _pid
+    finally:
+        sys.path.pop(0)
+    cases = []
+    saved = _pid.declared_identity
+    _pid.declared_identity = lambda repo, user_config=None: {
+        'name': 'Fx Owner', 'github': 'fxowner', 'email': 'fx@example.invalid'}
+
+    def run(tmp, name, approval):
+        d = pathlib.Path(tmp) / name
+        d.mkdir()
+        cfg = {'maintainers': [{'github': 'fxowner', 'name': name},
+                               {'github': 'other', 'name': 'Other'}],
+               'sources': []}
+        if approval:
+            cfg['binds_everyone'] = {'sets': ['zz'], 'approved_by': approval}
+        (d / 'precedent.json').write_text(json.dumps(cfg, indent=2) + '\n')
+        got = pve.name_the_persons_maintainer(d)
+        return got, json.loads((d / 'precedent.json').read_text())['maintainers']
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            got, m = run(tmp, 'Fx', 'Fx, 2026-10-20: "yes"')
+            cases.append(('a hand-set first name becomes the declared name, '
+                          'which still matches the approval',
+                          got == 'fxowner' and m == [
+                              {'github': 'fxowner', 'name': 'Fx Owner'},
+                              {'github': 'other', 'name': 'Other'}], f'{got} {m}'))
+            got, m = run(tmp, 'Boss', 'Boss, 2026-10-20: "yes"')
+            cases.append(('NEGATIVE CONTROL: a rename that would orphan the '
+                          'approval is not made',
+                          got == '' and m[0]['name'] == 'Boss', f'{got} {m}'))
+            got, m = run(tmp, 'Fx Owner', None)
+            cases.append(('the declared name already there: nothing written',
+                          got == '', f'{got} {m}'))
+    finally:
+        _pid.declared_identity = saved
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the engine writes the person\'s maintainer name '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_promote_commits_carry_a_session_trailer():
     """A commit the Promote tool writes itself -- the rebuild of generated
     files during a composition -- carries a session trailer the trailer
@@ -91854,6 +92109,10 @@ def main():
     check_update_decommission_fits_the_vendored_sync()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_update_all_moves_a_reused_clone_off_its_pin()
+    check_copy_in_clones_an_offered_set_it_said_yes_to()
+    check_declared_set_found_beside_the_individual_set()
+    check_engine_writes_the_persons_maintainer_name()
     check_private_scrub_names_a_copied_set_by_its_own_repo()
     check_copy_in_records_the_budget_it_brings()
     check_session_load_total_is_the_one_budget()
