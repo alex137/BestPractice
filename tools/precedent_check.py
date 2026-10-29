@@ -1525,6 +1525,135 @@ def _set_words_stay_in_their_set(ctx):
     return out
 
 
+@check('bound-set-tool-calls-only-declared-names', 'tree',
+       'a set tool the engine hands itself to (precedent_resolve.BOUND_SET_TOOLS: '
+       'a key in precedent-source.json naming a module with bind()) reads only '
+       'the engine names the engine declares for that key',
+       'a name reached any other way than <global>.<name> on what bind() set: '
+       'getattr with a string, or a second alias. A set whose engine copy is '
+       'too old to declare the names is passed over.',
+       practice_backed=False, binds_when=('precedent-source.json',),
+       selects_on=('precedent-source.json', 'tools/*.py', 'tools/**/*.py'))
+def _bound_set_tool_calls_only_declared_names(ctx):
+    """2026-10-19: the ladder set's moves module called 46 engine names with
+    no contract, so an engine rename broke Promote and Produce in every
+    repository on the ladder, and only the set's own test, once its engine
+    copy refreshed, would have said so. The engine now declares what each
+    bound tool may call; this holds every set to it, whichever set it is
+    (2026-10-20)."""
+    try:
+        import precedent_resolve as _pr
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if not getattr(_pr, 'BOUND_SET_TOOLS', None):
+        raise NotApplicable('this engine declares no bound set tools')
+    try:
+        found = _pr.undeclared_bound_calls(ROOT)
+    except SyntaxError as e:
+        return [Finding(f'{e.filename}:{e.lineno}', f'does not parse: {e.msg}')]
+    return [Finding(f'{rel}:{line}', f'{key} calls the engine\'s {name!r}, which '
+                    f'the engine does not declare for {key} '
+                    f'(precedent_resolve.BOUND_SET_TOOLS). Use a declared name, or '
+                    f'declare it in the engine first')
+            for key, rel, name, line in found]
+
+
+def _reply_example_problems(root):
+    """-> [(index, problem)] for reply_check.json's requirements whose own
+    `_examples` -- [{"reply": ..., "refused": true|false}, ...] -- the reply
+    check does not answer as declared, and the indexes of requirements that
+    carry none. -> None when there is no reply_check.json.
+
+    `_examples`, with the underscore: the reply check skips any key that
+    starts with one, so a source can add examples today and an engine
+    older than this check, reading that source live, neither evaluates nor
+    warns about them."""
+    import precedent_reply_check as _prc
+    path = pathlib.Path(root) / _prc.CONFIG_NAME
+    try:
+        reqs = json.loads(path.read_text(encoding='utf-8'))
+    except OSError:
+        return None
+    except ValueError as e:
+        return [(None, f'does not parse: {e}')]
+    wrong, bare = [], []
+    for i, req in enumerate(reqs if isinstance(reqs, list) else []):
+        if not isinstance(req, dict):
+            continue
+        examples = req.get('_examples')
+        if not examples:
+            bare.append(i)
+            continue
+        one = {k: v for k, v in req.items() if k != '_examples'}
+        one['advisory'] = False
+        for ex in examples:
+            if not isinstance(ex, dict) or 'reply' not in ex or 'refused' not in ex:
+                wrong.append((i, f'an example is not {{"reply": ..., "refused": '
+                                 f'true|false}}: {str(ex)[:80]}'))
+                continue
+            got = bool(_prc.violations(ex['reply'], [one]))
+            if got != bool(ex['refused']):
+                wrong.append((i, f'{"lets through" if not got else "refuses"} '
+                                 f'{ex["reply"][:80]!r}, which its example says it '
+                                 f'{"refuses" if ex["refused"] else "lets through"}'))
+    return wrong, bare
+
+
+@check('reply-rules-hold-their-examples', 'tree',
+       "each requirement in a repository's own reply_check.json answers its "
+       'own examples as declared: an example reply marked refused is refused '
+       'by that requirement alone, and one marked not refused passes',
+       'a requirement with no examples (the companion advisory check names '
+       'those), and anything the examples do not show: they are cases, not a '
+       'proof.',
+       practice_backed=False, binds_when=('reply_check.json',),
+       selects_on=('reply_check.json', 'tools/precedent_reply_check.py'))
+def _reply_rules_hold_their_examples(ctx):
+    """2026-10-19: the writing set's rule-links requirements moved out of
+    BestPractice and were tested nowhere with the real patterns; BestPractice
+    tested a planted copy that could drift. A reply rule now carries its own
+    example replies, the way a set's owned words carry theirs, and every
+    repository that has reply rules runs them with the real checker
+    (2026-10-20)."""
+    try:
+        got = _reply_example_problems(ROOT)
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if got is None:
+        raise NotApplicable('no reply_check.json here')
+    if isinstance(got, list):
+        return [Finding('reply_check.json', p) for _i, p in got]
+    wrong, _bare = got
+    return [Finding('reply_check.json', f'requirement {i}: {p}') for i, p in wrong]
+
+
+@check('reply-rules-carry-examples', 'tree',
+       "each requirement in a repository's own reply_check.json carries "
+       'examples of a reply it refuses and one it lets through',
+       'whether the examples are the discriminating ones: that is the '
+       'author\'s judgment.',
+       advisory=True, practice_backed=False, binds_when=('reply_check.json',),
+       advisory_term={'term': 'permanent',
+                      'why': 'requirements written before examples existed '
+                             'gain them as they are next changed; a missing '
+                             'example is a gap in the tests, not a wrong rule'},
+       selects_on=('reply_check.json',))
+def _reply_rules_carry_examples(ctx):
+    """The companion to reply-rules-hold-their-examples: names each
+    requirement with no examples, so the gap that left the writing set's
+    rule-links untested (2026-10-19) is visible wherever it remains."""
+    try:
+        got = _reply_example_problems(ROOT)
+    except ImportError as e:
+        raise NotApplicable(f'{e.name}.py did not import')
+    if got is None or isinstance(got, list):
+        raise NotApplicable('no readable reply_check.json here')
+    _wrong, bare = got
+    return [Finding('reply_check.json', f'requirement {i} carries no examples: add '
+                    f'"_examples": [{{"reply": ..., "refused": true}}, '
+                    f'{{"reply": ..., "refused": false}}]') for i in bare]
+
+
 @check('ladder-set-is-brought-not-declared', 'tree',
        "no repository's precedent.json declares a set that provides the "
        'five-stage ladder, unless one of its code owners has said, quoted '

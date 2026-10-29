@@ -1207,6 +1207,70 @@ def set_tool(repo, key, user_config=None):
     return None
 
 
+# THE SET TOOLS THE ENGINE HANDS ITSELF TO (2026-10-20). A set tool named
+# under one of these keys gets an engine module through its bind(), and
+# calls it as <global>.<name>. Each key names the engine module and the
+# tuple there that declares what such a tool may call: the contract. A
+# rename in the engine then fails in the engine's own harness (every
+# declared name exists) and in the set's own check (it calls only declared
+# names), never in a Promote in somebody's repository. A new key here is
+# the whole of adding a bound tool: the check reads this, not a list of
+# sets.
+BOUND_SET_TOOLS = {
+    'branch_moves': ('precedent_branches', 'MOVES_CORE'),
+}
+
+
+def bound_engine_names(path):
+    """-> {name: first line} for every `<g>.<name>` the module at `path`
+    reads, where <g> is a global its bind() sets from its argument. Empty
+    for a module with no bind(). Raises SyntaxError for one that does not
+    parse."""
+    import ast
+    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))
+    bound = set()
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == 'bind' and node.args.args:
+            arg = node.args.args[0].arg
+            for st in ast.walk(node):
+                if (isinstance(st, ast.Assign) and isinstance(st.value, ast.Name)
+                        and st.value.id == arg):
+                    bound.update(t.id for t in st.targets if isinstance(t, ast.Name))
+    found = {}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                and node.value.id in bound):
+            found.setdefault(node.attr, node.lineno)
+    return found
+
+
+def undeclared_bound_calls(source_root):
+    """-> [(key, tool path, name, line)] for every engine name a bound tool
+    the source at `source_root` names in its precedent-source.json calls
+    without the engine declaring it (BOUND_SET_TOOLS). A tool that is not
+    there, or an engine module without the declaring tuple, gives nothing:
+    the engine side is held by its own harness."""
+    import importlib
+    root = pathlib.Path(source_root)
+    try:
+        man = json.loads((root / SOURCE_MANIFEST).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for key, (module, tuple_name) in BOUND_SET_TOOLS.items():
+        rel = man.get(key) if isinstance(man, dict) else None
+        if not isinstance(rel, str) or not (root / rel).is_file():
+            continue
+        try:
+            declared = set(getattr(importlib.import_module(module), tuple_name))
+        except (ImportError, AttributeError, TypeError):
+            continue
+        for name, line in sorted(bound_engine_names(root / rel).items()):
+            if name not in declared:
+                out.append((key, rel, name, line))
+    return out
+
+
 def load_set_tool(repo, key, user_config=None):
     """-> the module set_tool() finds, imported, or None -- on any failure
     too: a set's tool that cannot load must never stop the engine's step."""

@@ -71,6 +71,7 @@
   "check_bootstrapped_shared_set_carries_current_codeowners": 3.4,
   "check_bootstrapping_a_set_reaches_no_network_unless_asked": 0.1,
   "check_bot_authored_commits_are_warned_where_no_person_is_declared": 1.0,
+  "check_bound_set_tools_and_reply_examples_are_held_in_any_set": 0.0,
   "check_boundary_check_never_passes_unread": 0.2,
   "check_branch_cleanup_button": 0.2,
   "check_branch_cleanup_open_next_is_a_real_link": 0.0,

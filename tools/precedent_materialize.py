@@ -570,16 +570,6 @@ def _claimed_in_source(source_path):
     return names
 
 
-# A source's test of its own reply_check.json (2026-10-20). The requirements
-# a set declares there are its own, so their test is too: it runs in the
-# set's own repository against the set's own file, which every one of its
-# requirements is read from. It is claimed by that file, so a sync never
-# calls it an orphan, and it is never vendored: two sets each shipping one
-# would collide on the name, and a consumer re-running a set's test of the
-# set's own file proves nothing the set's run did not.
-SOURCE_REPLY_TEST = 'test_reply_check.sh'
-
-
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -773,12 +763,6 @@ def _plan_checks(sources, res=None):
                         undeclared.append(f'{s["name"]} ({f})')
                 elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
-                elif (f.name == SOURCE_REPLY_TEST
-                      and (pathlib.Path(s['path']) / 'reply_check.json').is_file()):
-                    # Claimed by the source's own reply_check.json, and
-                    # run where that file lives: in the source's own
-                    # repository, never vendored (SOURCE_REPLY_TEST).
-                    continue
                 elif claimed_names is not None and f.name not in claimed_names:
                     if not held_back(f.name, s['path']):
                         orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
