@@ -370,6 +370,7 @@
   "check_machine_readable_files_parse": 0.0,
   "check_main_test_cadence": 0.0,
   "check_main_test_failure_opens_an_issue": 0.0,
+  "check_main_test_issue_names_the_failing_cases": 0.0,
   "check_main_test_minutes_rule": 5.5,
   "check_main_test_pass_closes_the_issue": 0.0,
   "check_main_test_pass_leaves_a_git_marker": 0.1,
