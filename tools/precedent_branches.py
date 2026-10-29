@@ -1400,7 +1400,7 @@ def pull_request_checks(root, base):
     return found
 
 
-def _carry_composition_to_branch(root, label, new, base=None):
+def _carry_composition_to_branch(root, label, new, base=None, local=None):
     """After a landing refused for the pull-request route: push the
     composition the quick checks just passed -- staging, main's direct work
     and the branch -- to the branch itself, so the pull request carries
@@ -1420,7 +1420,16 @@ def _carry_composition_to_branch(root, label, new, base=None):
     work while the landing branch had moved on was told it "lacks
     nothing", the composition (landing branch merged in, generated files
     rebuilt) was dropped, and GitHub refused the merge for conflicts. The
-    shortcut now also needs the branch to merge cleanly into `base`."""
+    shortcut now also needs the branch to merge cleanly into `base`.
+
+    2026-10-28: the shortcut read only origin's tip of the branch. The local
+    branch --land was given had a commit never pushed (3b6ce672 here,
+    1ce5309a on origin); the quick checks passed a composition holding it,
+    yet the reply said the pull request "lacks nothing", and a merge on
+    that advice would have left the commit out. `local` is the commit
+    --land was given: when origin's tip does not already hold it, the
+    shortcut does not apply and the composition, which descends from it,
+    is pushed."""
     branch = label[len('origin/'):] if label.startswith('origin/') else label
     if branch in ('HEAD', '') or branch in tier_branches(root):
         return (f'{label} is not a branch the pull request can come from, so '
@@ -1436,7 +1445,9 @@ def _carry_composition_to_branch(root, label, new, base=None):
     clean = not btip or _run(root, 'merge-base', '--is-ancestor', btip,
                              tip or btip).returncode == 0 or (
         tip and _run(root, 'merge-tree', '--write-tree', btip, tip).returncode == 0)
-    if tip and clean and not main_work_missing(root, tip):
+    unpushed = bool(local and tip and local != tip and _run(
+        root, 'merge-base', '--is-ancestor', local, tip).returncode != 0)
+    if tip and clean and not unpushed and not main_work_missing(root, tip):
         return (f'{branch} already carries everything {MAIN} has and merges '
                 f'cleanly into {base}, so the pull request from it as it '
                 f'stands lacks nothing.')
@@ -3842,7 +3853,7 @@ def _land_composed(root, sha, label, staging, why, say):
             f'landing again would be refused the same way. What the push '
             f'said:\n{said[-1500:]}')
         if 'pull request' in said:
-            say(_carry_composition_to_branch(root, label, new, staging))
+            say(_carry_composition_to_branch(root, label, new, staging, sha))
             say(pull_request_route_note(root, staging, checks_ran=True))
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'

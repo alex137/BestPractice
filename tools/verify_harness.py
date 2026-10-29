@@ -31393,6 +31393,9 @@ def check_reply_check_refuses_a_repeated_boildown():
     guard's own message and its say-nothing repair; the controls prove a new
     fact, a changed branch, the one-line form, a first reply and a missing
     transcript all pass.
+
+    Negative control, measured 2026-10-29: with previous_section skipping
+    only a last entry equal to the judged text, the woken-turn case fails.
     """
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-repeat-'))
@@ -31486,6 +31489,36 @@ def check_reply_check_refuses_a_repeated_boildown():
         r6 = run(tmp / 'no-such-transcript.jsonl')
         cases.append(('negative control: no transcript, no refusal',
                       r6.returncode == 0, f'exit {r6.returncode}: {r6.stderr[:200]}'))
+
+        # 2026-10-28: a turn a background job woke, with short notes before
+        # its final message. The wake path judges every text block of the
+        # turn joined, which matched no timeline entry, so the reply was
+        # compared with its own Boildown and refused.
+        def woken(name, final, notes=('Checking the result.',)):
+            note = '<task-notification><task-id>b1</task-id><status>completed</status></task-notification>'
+            rows = [{'type': 'assistant', 'message': {
+                        'usage': {'input_tokens': 2},
+                        'content': [{'type': 'text', 'text': first}]}},
+                    {'type': 'user', 'origin': {'kind': 'task-notification'},
+                     'message': {'role': 'user', 'content': note}}]
+            rows += [{'type': 'assistant', 'message': {
+                        'usage': {'input_tokens': 2},
+                        'content': [{'type': 'text', 'text': t}]}}
+                     for t in [*notes, final]]
+            path = tmp / name
+            path.write_text('\n'.join(json.dumps(r) for r in rows) + '\n',
+                            encoding='utf-8')
+            return path
+
+        r7 = run(woken('woken-news.jsonl', news))
+        cases.append(('a woken turn with notes before its final message is '
+                      'compared with the previous turn, never with itself '
+                      '(2026-10-28)',
+                      r7.returncode == 0, f'exit {r7.returncode}: {r7.stderr[:200]}'))
+        r8 = run(woken('woken-again.jsonl', again))
+        cases.append(('...and a real repeat on such a turn is still refused',
+                      r8.returncode == 2 and 'previous reply' in r8.stderr,
+                      f'exit {r8.returncode}: {r8.stderr[:200]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -47826,6 +47859,92 @@ def check_freshness_guard_waves_through_a_branch_origin_never_saw():
           not failed, '; '.join(failed))
 
 
+def check_freshness_guard_lets_a_read_through_on_a_stale_branch():
+    """On a branch whose base moved, pre-write lets a read-only Bash command
+    through and still refuses the session's first write, the same session's
+    included.
+
+    2026-10-28: a read-only review session rooted on a feature branch four
+    commits behind its base was refused its first command, and could read
+    the branch only after setting precedent.freshness.override, which turns
+    the guard off for that checkout for good. Reading a branch as it stands
+    is what a review does; writing on a stale one is what the guard stops.
+
+    Negative control, measured 2026-10-29: without _read_only_command's
+    early exit the read case is refused (exit 2) and this check fails."""
+    import tempfile
+    guards = [ROOT / '.claude' / 'hooks' / 'freshness-guard.sh',
+              ROOT / 'templates' / 'harness' / 'claude-code' / 'hooks' / 'freshness-guard.sh']
+    missing = [str(g.relative_to(ROOT)) for g in guards if not g.exists()]
+    if missing:
+        not_applicable('freshness-guard lets a read through on a stale branch',
+                       f'not in this tree: {missing}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            subprocess.run(['git', '-C', str(d), *a], capture_output=True,
+                           text=True, env=env, check=True)
+
+        origin, seed = tmp / 'origin', tmp / 'seed'
+        subprocess.run(['git', 'init', '-q', '--bare', str(origin)],
+                       capture_output=True, env=env, check=True)
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(seed)],
+                       capture_output=True, env=env, check=True)
+        (seed / 'f.txt').write_text('one\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main')
+        _git(origin, 'symbolic-ref', 'HEAD', 'refs/heads/main')
+        d = tmp / 'review'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(d)],
+                       capture_output=True, env=env, check=True)
+        _git(d, 'checkout', '-q', '-b', 'feature-under-review')
+        (seed / 'g.txt').write_text('two\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'two')
+        _git(seed, 'push', '-q', 'origin', 'main')
+
+        def _run(guard, session, tool, tool_input):
+            payload = json.dumps({'session_id': session, 'tool_name': tool,
+                                  'tool_input': tool_input})
+            return subprocess.run(['bash', str(guard), 'pre-write', 'main'],
+                                  cwd=str(d), input=payload,
+                                  capture_output=True, text=True, env=env)
+
+        for guard in guards:
+            tag = ('installed' if guard.parent.parent.parent == ROOT
+                   else 'template')
+            r = _run(guard, f'r-{tag}', 'Bash', {'command': 'cat f.txt | head -5'})
+            cases.append((f'{tag}: a read-only command is let through on a '
+                          f'stale branch (exit {r.returncode})', r.returncode == 0))
+            r = _run(guard, f'r-{tag}', 'Bash', {'command': 'echo x > f.txt'})
+            cases.append((f'{tag}: ...and the same session\'s first write is '
+                          f'still refused, naming the missing commit (exit '
+                          f'{r.returncode})', r.returncode == 2
+                          and 'missing 1 commit(s) from origin/main' in r.stderr))
+            r = _run(guard, f'w-{tag}', 'Write', {'file_path': 'f.txt'})
+            cases.append((f'{tag}: a Write is refused (exit {r.returncode})',
+                          r.returncode == 2))
+            r = _run(guard, f's-{tag}', 'Bash', {'command': "sed -i s/one/two/ f.txt"})
+            cases.append((f'{tag}: an in-place sed is a write, refused (exit '
+                          f'{r.returncode})', r.returncode == 2))
+    failed = [n for n, ok in cases if not ok]
+    check(f'freshness-guard lets a read through on a stale branch and refuses '
+          f'the write ({len(cases)} stated cases, both copies)',
+          not failed, '; '.join(failed))
+
+
 def check_freshness_guard_never_tells_a_tier_branch_to_merge():
     """On a tier branch the stale-base remedy is a new working branch.
 
@@ -61233,7 +61352,10 @@ def check_land_sent_to_a_pull_request_carries_mains_work():
 
     Negative control, measured 2026-10-19: without
     _carry_composition_to_branch the branch on origin lacks main's commit
-    and the first case fails."""
+    and the first case fails.
+
+    Negative control, measured 2026-10-29: without the `local` comparison in
+    _carry_composition_to_branch the unpushed-commit case fails."""
     import tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-pr-'))
     cases = []
@@ -61288,6 +61410,19 @@ said2 = []
 pb._land_composed(work, fix, 'claude/fix-main-abcdef', 'staging', 'the fixture', said2.append)
 g('fetch', '-q', 'origin')
 fix_moved = g('rev-parse', 'origin/claude/fix-main-abcdef').stdout.strip() != fix
+# 2026-10-28: a branch cut from main whose LOCAL tip holds a commit never
+# pushed. Origin's tip carries all of main, so the old shortcut said
+# "lacks nothing" and the unpushed commit was left out of the pull request.
+g('checkout', '-q', '-b', 'claude/unpushed-abcdef', 'origin/main')
+(work / 'u.md').write_text('u\\n'); g('add', '-A'); g('commit', '-qm', 'pushed')
+g('push', '-q', 'origin', 'claude/unpushed-abcdef')
+(work / 'v.md').write_text('v\\n'); g('add', '-A'); g('commit', '-qm', 'never pushed')
+unpushed = g('rev-parse', 'HEAD').stdout.strip()
+said4 = []
+pb._land_composed(work, unpushed, 'claude/unpushed-abcdef', 'staging', 'the fixture', said4.append)
+g('fetch', '-q', 'origin')
+unpushed_carried = g('merge-base', '--is-ancestor', unpushed,
+                     'origin/claude/unpushed-abcdef').returncode == 0
 # 2026-10-20: a branch carrying all of main's work that does NOT merge
 # cleanly into staging (staging moved on) gets the checked composition,
 # never "lacks nothing".
@@ -61306,6 +61441,8 @@ behind_moved = behind_moved and comp != g('rev-parse', 'HEAD^1').stdout.strip()
 print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], files=files,
                       fix_moved=fix_moved, said2='\\n'.join(said2)[-300:],
                       said3=said3, behind_moved=behind_moved,
+                      unpushed_carried=unpushed_carried,
+                      said4='\\n'.join(said4)[-300:],
                       staging=g('ls-tree', '--name-only', 'origin/staging').stdout.split())))
 """, encoding='utf-8')
         p = subprocess.run([sys.executable, str(script)], capture_output=True,
@@ -61334,6 +61471,12 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
                       'staging gets the checked composition, not "lacks nothing"',
                       out.get('behind_moved') is True
                       and 'now carries the composition' in (out.get('said3') or ''),
+                      str(out) or why))
+        cases.append(('a branch whose local tip holds a commit origin lacks gets '
+                      'the checked composition pushed, never "lacks nothing" '
+                      '(2026-10-28)',
+                      out.get('unpushed_carried') is True
+                      and 'as it stands lacks nothing' not in (out.get('said4') or ''),
                       str(out) or why))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -91061,6 +91204,7 @@ def main():
     check_freshness_guard_checks_attached_repositories()
     check_freshness_guard_user_prompt_never_resets_mid_session()
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
+    check_freshness_guard_lets_a_read_through_on_a_stale_branch()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()

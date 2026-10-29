@@ -810,6 +810,42 @@ _block() {
   exit 2
 }
 
+# Is this Bash command plainly read-only? Strict on purpose: every segment
+# between |, &&, || and ; must start with a command on the list below, and
+# any output redirection other than to /dev/null or between stdout and
+# stderr, any command substitution and any in-place or executing flag make
+# it a write. A read that fails this test is still checked, as before:
+# erring here costs a refusal, never a stale write.
+_read_only_command() {
+  local cmd="$1" seg word rest
+  [ -n "$cmd" ] || return 1
+  case "$cmd" in
+    *'$('*|*'`'*|*'<('*|*'>('*) return 1 ;;
+  esac
+  # Strip the harmless redirections; any '>' left is a write.
+  rest="$(printf '%s' "$cmd" | sed -E 's/[0-9]?>&[0-9]//g; s#[0-9&]?>>? */dev/null##g')"
+  case "$rest" in *'>'*) return 1 ;; esac
+  while IFS= read -r seg; do
+    seg="$(printf '%s' "$seg" | sed 's/^[[:space:]]*//')"
+    [ -n "$seg" ] || continue
+    word="${seg%%[[:space:]]*}"
+    case "$word" in
+      cat|head|tail|less|grep|egrep|fgrep|rg|ls|wc|diff|stat|file|pwd|echo|printf|uniq|cut|tr|du|df|which|type|date|true|cd|basename|dirname|realpath|jq|cmp|comm|nl|column) ;;
+      sort|tree)
+        case " $seg " in *' -o'*|*' --output'*) return 1 ;; esac ;;
+      find)
+        case " $seg " in
+          *' -delete'*|*' -exec'*|*' -ok'*|*' -fprint'*|*' -fls'*) return 1 ;;
+        esac ;;
+      sed)
+        case " $seg " in *' -i'*|*' --in-place'*|*'w '*) return 1 ;; esac
+        case " $seg " in *' -n'*) ;; *) return 1 ;; esac ;;
+      *) return 1 ;;
+    esac
+  done < <(printf '%s\n' "$cmd" | sed -E 's/(\|\||&&|\||;)/\n/g')
+  return 0
+}
+
 mode_pre_write() {
   local payload="" session="" tool="" command=""
   payload="$(cat 2>/dev/null || true)"
@@ -860,6 +896,20 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   case "$bare" in
     git\ *|git) exit 0 ;;
   esac
+
+  # A Bash command that only reads is let through, and leaves the sentinel
+  # unwritten, so the check still runs at this session's first write
+  # (2026-10-29). A read-only review session rooted on a feature branch four
+  # commits behind its base was refused its first `cat`, and the only way to
+  # read the branch it was asked to review was to set the override, which
+  # switches the guard off for that checkout for good, writes included.
+  # Reading a branch as it stands is what a review is for; writing on top of
+  # a stale one is what this guard exists to stop. Edit, Write and
+  # NotebookEdit are writes by definition and never reach this test.
+  # practice: fresh-before-write
+  if [ "$tool" = Bash ] && _read_only_command "$command"; then
+    exit 0
+  fi
 
   local key sentinel
   key="${session:-ppid-$PPID}"
