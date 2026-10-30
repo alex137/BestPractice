@@ -6,7 +6,7 @@ severity:          medium
 status:            open
 disposition:       null
 remind_on:         null
-blocked_on:        "push access to themorgan/precedent-shared-ladder and themorgan/precedent-individual (attach refused in session_01Xcy6U1UBGg4Vvg5QFAE1Mz)"
+blocked_on:        "a Produce of BestPractice staging into main, then Update Vendors in the ladder and individual sets: both sets run their vendored engine copy, which only takes BestPractice main"
 batch:             null
 decision:          null
 decision_strength: null
@@ -21,27 +21,26 @@ BestPractice's share landed in staging by
 [PR #1440](https://github.com/alex137/BestPractice/pull/1440). The rest lives
 in the ladder and individual sets, which the session could not push to.
 
-- [ ] **Ladder set, after the engine reaches it:**
-  `tools/checks/tests/test_landing_authority_reply_check.sh` defaults
-  `UNIVERSAL_REPLY_CHECK` to `$PRECEDENT_SOURCE_DIR_PRECEDENT/reply_check.json`
-  (exported by the push check since PR #1440) and drops its git-common-dir
-  fallback from precedent-shared-ladder PR #148.
-- [ ] **Ladder set:** `check_landing_takes_a_pr` exempts the pull request that
-  fixes a red main, so `--run-tests main` does not go red again until the fix
-  also reaches staging. The check and [`landing_pr_guard.py`](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/landing_pr_guard.py) exist only in the
-  ladder set; BestPractice holds untracked copies.
-- [ ] **Ladder set:** [`produce.md`](https://github.com/themorgan/precedent-shared-ladder/blob/main/practices/produce.md) explains or drops `--work BRANCH`, and
-  Promote exits non-zero on a ref that does not exist instead of printing
-  "NOTHING TO PROMOTE" with exit 0.
-- [ ] **Individual set, after the engine reaches it:** undo the band-aid
-  rewording in its vendored-shared-sets plan ("after an exploratory
-  session" back to "after a brainstorm"); speculation-is-marked no longer
-  flags it.
-- [ ] **"MAIN'S TEST: could not read GitHub's issues"** did not reproduce
-  on 2026-10-30: all four repositories read their issues. The message carries
-  the cause in parentheses; get that text from the next session that sees it.
-  Not measured: precedent-individual's clone had no credential helper until
-  session start wrote one that day.
+- [x] **Ladder set:** `check_landing_takes_a_pr` no longer refuses a file
+  already on main by its pull request, so a red-main fix stays green
+  (precedent-shared-ladder
+  [PR #150](https://github.com/themorgan/precedent-shared-ladder/pull/150),
+  2026-10-30).
+- [x] **Ladder set:** an unusable `--work` is PROMOTE REFUSED with exit 1,
+  and [`produce.md`](https://github.com/themorgan/precedent-shared-ladder/blob/staging/practices/produce.md)
+  says what `BRANCH` is (same pull request).
+- [x] **Ladder set:** `test_landing_authority_reply_check.sh` reads
+  `$PRECEDENT_SOURCE_DIR_PRECEDENT` first (same pull request).
+- [ ] **Ladder set, once its engine copy carries `source_dir_env`:** retire
+  that test's git-common-dir fallback; its comment says RETIRE.
+- [ ] **Individual set, once its engine copy carries the narrower
+  speculation-is-marked:** undo the band-aid rewording in its
+  vendored-shared-sets plan ("after an exploratory session" back to "after
+  a brainstorm"). Undoing it earlier turns that set's own check red.
+- [x] **"MAIN'S TEST" warning:** the cause now leads the line instead of
+  sitting in brackets at the end, where a relay dropped it (2026-10-30). The
+  cause of the 2026-10-30 warning itself was never recorded; the next one
+  carries it.
 
 ## Closes when
 
