@@ -69,6 +69,58 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
+
+# WHAT A SESSION-START ENGINE REFRESH LEAVES, RECOGNISED HERE (2026-10-29).
+# precedent_refresh_sources commits each refresh on its own local branch in
+# a source clone (Morgan, 2026-10-07, decided). This scan leaves such a
+# branch out of "work only here" -- but it read the test from
+# precedent_refresh_sources, which is not vendored, so every vendored copy
+# of this file (a source set's, a consumer's) failed the import silently and
+# called the container NOT SAFE TO LOSE over branches nobody made. A
+# consumer session met it twice in one day and deleted them by hand. The
+# test lives here now, beside the scan that needs it, and
+# precedent_refresh_sources imports it from here.
+REFRESH_BRANCH_WORDS = ('engine', 'refresh')
+REFRESH_SUBJECT = 'Refresh the vendored engine to BestPractice '
+
+
+def refresh_only_branches(repo, base, merges_ok=False):
+    """-> the local branches in `repo` that carry nothing but the engine
+    refresh commits precedent_refresh_sources makes beyond `base` and no
+    remote has: engine output, which the next refresh writes again from the
+    engine as it then is.
+
+    This scan leaves them out of "work only here", and
+    precedent_refresh_sources.apply_on_its_own_branch clears superseded ones.
+
+    `merges_ok` passes over merge commits, as this scan's own count of work
+    at risk does (--no-merges). 2026-10-19: a refresh branch made at session
+    start on top of a local merge that never reached a remote held one
+    refresh commit and that merge, so every archive check called it "not
+    safe to lose". Deletion keeps the strict reading: a merge can carry a
+    conflict resolution (practice: repair-cannot-discard-work)."""
+    def git(*args):
+        try:
+            p = subprocess.run(['git', *args], cwd=str(repo),
+                               capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            return False, ''
+        return p.returncode == 0, (p.stdout or '').strip()
+    ok, out = git('for-each-ref', '--format=%(refname:short)', 'refs/heads')
+    mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-'
+    found = []
+    for b in (out or '').split() if ok else []:
+        if mark not in b:
+            continue
+        ok2, subjects = git('log', '--format=%s',
+                            *(['--no-merges'] if merges_ok else []), b,
+                            '--not', base, '--remotes')
+        lines = [l for l in (subjects or '').splitlines() if l.strip()]
+        if ok2 and lines and all(l.startswith(REFRESH_SUBJECT) for l in lines):
+            found.append(b)
+    return found
+
+
 try:
     import precedent_source_home as _psh  # one tree, many paths (2026-10-19)
 except Exception:                                           # noqa: BLE001
@@ -422,13 +474,7 @@ def scan_one(repo):
     # checked out was invisible. A branch carrying nothing but the engine
     # refresh session start commits (precedent_refresh_sources) is engine
     # output the next refresh writes again, and is left out.
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_refresh_sources as _prs
-        regenerable = set(_prs.refresh_only_branches(repo, 'HEAD',
-                                                       merges_ok=True))
-    except Exception:                                        # noqa: BLE001
-        regenerable = set()
+    regenerable = set(refresh_only_branches(repo, 'HEAD', merges_ok=True))
     ok_b, heads = _git(repo, 'for-each-ref', '--format=%(refname:short)', 'refs/heads')
     others = []
     for b in (heads or '').split() if ok_b else []:
