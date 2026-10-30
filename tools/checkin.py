@@ -219,6 +219,21 @@ def _bind_source(clone):
     if copied_in:
         _refuse_private_into_public(clone, m)
         _refuse_set_holding_copies(clone)
+    # The files the source exports for others to copy -- a voice
+    # repository's compiled prompts, a rules file -- come with every copy
+    # of it. A copy declared `"exports_only": true` takes them and its
+    # precedent-source.json alone, so none of its rules come into force
+    # (Morgan, 2026-10-30, strength: decided: Update Vendors gets "the new
+    # version of everything that's vendored in").
+    exports = _exports(clone, m) if copied_in else []
+    if copied_in and _declared_entry(SOURCE).get('exports_only') is True:
+        if not exports:
+            sys.exit(f"checkin FAIL: {SOURCE} is copied in for its exports "
+                     f"alone, but neither its {SOURCE_MANIFEST} nor this "
+                     f"repository's entry for it lists any `exports`. Nothing "
+                     f"was copied.")
+        CODE_DIRS = [SOURCE_MANIFEST] + [x for x in exports if x != SOURCE_MANIFEST]
+        return
     if not dirs and not copied_in:
         sys.exit(f"checkin FAIL: {clone}'s {SOURCE_MANIFEST} lists no `code` "
                  f"directories, so there is nothing to vendor -- a set whose "
@@ -264,7 +279,35 @@ def _bind_source(clone):
             if rel and '..' not in pathlib.PurePosixPath(rel).parts \
                     and rel not in dirs:
                 dirs.append(rel)
+    for rel in exports:
+        if rel not in dirs:
+            dirs.append(rel)
     CODE_DIRS = dirs
+
+
+def _exports(clone, manifest):
+    """-> the paths, relative to the set, that `SOURCE` exports: the
+    consumer's own entry's `exports` when it names any (a source with no
+    precedent-source.json is copied that way), else the set's own
+    precedent-source.json `exports`. Each is a file or a folder inside the
+    set; one that leaves it is refused, and one the set does not hold is
+    named and skipped, so a typo is heard rather than copied as nothing."""
+    raw = _declared_entry(SOURCE).get('exports') or manifest.get('exports') or []
+    root = clone / SET_ROOT if SET_ROOT else clone
+    out = []
+    for item in raw if isinstance(raw, list) else []:
+        rel = pathlib.PurePosixPath(str(item).strip().strip('/'))
+        if not str(rel) or str(rel) == '.' or rel.is_absolute() \
+                or '..' in rel.parts:
+            sys.exit(f"checkin FAIL: {SOURCE} exports {item!r}, which is not a "
+                     f"path inside the set. Nothing was copied.")
+        if not (root / rel).exists():
+            print(f"checkin: {SOURCE} exports {rel.as_posix()}, which its "
+                  f"clone at {root} does not hold -- skipped", file=sys.stderr)
+            continue
+        if rel.as_posix() not in out:
+            out.append(rel.as_posix())
+    return out
 
 
 def _files_rules_name(set_dir):
@@ -312,6 +355,18 @@ def _files_rules_name(set_dir):
             if rel not in out and not any(rel.startswith(o + '/') for o in out):
                 out.append(rel)
     return out
+
+
+def _declared_entry(name):
+    """-> this repo's precedent.json source entry for `name`, or {}."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    for e in (cfg.get('sources') or []) if isinstance(cfg, dict) else []:
+        if isinstance(e, dict) and e.get('name') == name:
+            return e
+    return {}
 
 
 def _declared_copied_in(name):

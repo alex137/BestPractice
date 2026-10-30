@@ -123,7 +123,7 @@ commits -- guaranteed by the commit count, never left to chance. See
 _scoped_tree_slugs()'s own docstring for the exact rule. `change`-scope
 checks are unaffected; they already self-limit to the diff, every run.
 """
-import ast, collections, difflib, functools, io, json, os, pathlib, re, subprocess, sys
+import ast, collections, difflib, functools, io, json, os, pathlib, posixpath, re, subprocess, sys
 
 # `git rev-parse --show-toplevel`, not `Path(__file__).resolve().parents[1]`:
 # this module runs two ways -- self-hosted at THIS repo's own tools/
@@ -1823,6 +1823,11 @@ def _copied_in_set_fits_visibility(ctx):
         raise NotApplicable('the resolver or the leak gate did not import')
     copies = [(pathlib.Path(p), n) for p, _l, n, note in
               _pr.vendored_source_paths(ROOT) if not note]
+    # A copy of a source's exports alone is a copy too: its files are as
+    # private as the source is.
+    copies += [(ROOT / str(e['path']).strip('/'), e.get('name') or e['path'])
+               for e in _declared_copies() if e.get('exports_only') is True
+               and (ROOT / str(e['path']).strip('/')).is_dir()]
     if not copies:
         raise NotApplicable('this repository copies no set in')
     if declared_visibility(ROOT)[0] == 'private':
@@ -1840,6 +1845,89 @@ def _copied_in_set_fits_visibility(ctx):
                 f'does not say "visibility": "public"), and this repository '
                 f'does not say "visibility": "private". Remove the copy and '
                 f'the "vendored" flag, or make the repository private'))
+    return out
+
+
+# ---- copied-in-folder-is-declared -------------------------------------------
+# Morgan, 2026-10-30, strength: decided: "I want a strong solution to this so
+# it doesn't repeat." On 2026-10-29 a consumer's copy of a voice repository's
+# prompts, made by a hand-run sync script, sat behind while Update Vendors
+# said DONE: Update Vendors refreshes only what precedent.json declares, and
+# nothing asked whether every copy in the tree was declared. A copy between
+# repositories is added only as a declared source (vendor-update-runbook).
+COPY_MARKER_FILES = ('.source-commit', '.source-blob')
+# A banner a sync script writes at the top of what it copies: a line that
+# opens, after any comment marker, with one of these words.
+COPY_BANNER_RE = re.compile(
+    r'^\s*(?:#+|//|<!--|/?\*+|>|;|--)?\s*(?:AUTO-SYNCED\b|vendored from\b)',
+    re.I)
+COPY_BANNER_LINES = 5
+
+
+def _declared_copies():
+    """-> every source entry precedent.json declares as copied in."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (ValueError, OSError):
+        return []
+    return [e for e in (cfg.get('sources') if isinstance(cfg, dict) else None) or []
+            if isinstance(e, dict) and e.get('vendored') is True and e.get('path')]
+
+
+def _undeclared_copies():
+    """-> {folder: [why]} for every folder holding a sign that it was copied
+    in from another repository -- a .source-commit or .source-blob file, or
+    an AUTO-SYNCED or "vendored from" banner in a file's first lines -- that
+    precedent.json does not declare as a copied-in source."""
+    _names, declared = _copied_in_sets()
+    try:
+        import precedent_resolve as _pr
+        declared |= {p.strip('/') for p in (_pr.mirrored_prefixes(ROOT) or ())}
+    except Exception:                                         # noqa: BLE001
+        pass
+    declared = tuple(d + '/' for d in declared if d and d != '.')
+    found = {}
+    for rel in _ls_files_on_disk('--cached', '--others', '--exclude-standard'):
+        if rel.startswith(declared):
+            continue
+        folder = posixpath.dirname(rel) or '.'
+        name = posixpath.basename(rel)
+        if name in COPY_MARKER_FILES:
+            found.setdefault(folder, []).append(f'it holds {name}')
+            continue
+        try:
+            with open(ROOT / rel, 'rb') as fh:
+                head = fh.read(2048)
+        except OSError:
+            continue
+        if b'\0' in head:
+            continue
+        lines = head.decode('utf-8', 'replace').splitlines()[:COPY_BANNER_LINES]
+        if any(COPY_BANNER_RE.match(line) for line in lines):
+            found.setdefault(folder, []).append(f'{name} opens with a copy banner')
+    return found
+
+
+@check('copied-in-folder-is-declared', 'tree',
+       'every folder holding a sign that it was copied in from another '
+       'repository (a .source-commit or .source-blob file, an AUTO-SYNCED or '
+       '"vendored from" banner in a file\'s first lines) is a source '
+       'precedent.json declares as copied in ("vendored": true), so Update '
+       'Vendors refreshes it and says when it is behind',
+       'a copy that carries none of those signs, and a banner further down a '
+       'file than its first five lines.',
+       practice_backed=False)
+def _copied_in_folder_is_declared(ctx):
+    out = []
+    for folder, why in sorted(_undeclared_copies().items()):
+        out.append(Finding(
+            folder if folder != '.' else 'precedent.json',
+            f'was copied in from another repository ({"; ".join(why[:3])}), '
+            f'and precedent.json declares no copied-in source there, so '
+            f'Update Vendors never refreshes it and cannot say it is behind. '
+            f'Declare it as a source with "vendored": true (and '
+            f'"exports_only": true for files alone) and let Update Vendors '
+            f'make the copy; retire the script that made it'))
     return out
 
 

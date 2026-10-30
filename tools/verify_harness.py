@@ -75394,6 +75394,200 @@ def check_copy_in_is_asked_once():
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
 
 
+def check_declared_exports_are_copied():
+    """Files a source exports are copied in by Update Vendors, and a copy
+    nothing declares fails the full check (Morgan, 2026-10-30, strength:
+    decided: "The whole point of vendoring in and update vendors is when the
+    original one changes and I run an update vendors in the repo, it gets the
+    new version of everything that's vendored in").
+
+    1. A copy declared "exports_only" takes the files the source's
+       precedent-source.json exports and its manifest, never its practices
+       or a file it does not export; nothing loads rules from it.
+    2. A consumer's own "exports" list copies from a source with no
+       precedent-source.json at all.
+    3. A full copy brings the exports beside the practices.
+    4. A moved source's refresh lists each changed file.
+    5. A declared copy with no clone to refresh from is left for the
+       person, never DONE. NEGATIVE CONTROL: with every clone there, nothing
+       is left.
+    6. The full check fails on an undeclared folder holding a .source-commit
+       file, and on one whose file opens with an AUTO-SYNCED banner.
+       NEGATIVE CONTROLS: the same marker inside a declared copy passes, and
+       "vendored from" in the middle of a sentence is no banner."""
+    import shutil, tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='declared-exports-'))
+    cases = []
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=genv,
+                              capture_output=True, text=True)
+
+    def make_source(name, files):
+        origin = tmp / 'origins' / f'{name}.git'
+        origin.parent.mkdir(exist_ok=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        clone = tmp / 'people' / name
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=genv, capture_output=True, check=True)
+        for rel, text in files.items():
+            (clone / rel).parent.mkdir(parents=True, exist_ok=True)
+            (clone / rel).write_text(text)
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+        return clone
+
+    def make_host(hname, sources):
+        host = tmp / hname
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private',
+             'sources': sources}, indent=2))
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)],
+                       env=genv, check=True)
+        git(host, 'add', '-A')
+        git(host, 'commit', '-qm', 'init')
+        return host
+
+    try:
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual'}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind', 'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        voice = make_source('zz-voicex', {
+            'precedent-source.json': json.dumps(
+                {'name': 'zz-voicex', 'level': 'shared', 'visibility': 'public',
+                 'exports': ['PROMPT.md', 'essentials']}),
+            'practices/zz-voicex-rule.md':
+                '---\nslug: zz-voicex-rule\n---\n# v\n\n## Rule\n\nx\n',
+            'PROMPT.md': 'the compiled prompt, first\n',
+            'essentials/one.md': 'essential one\n',
+            'NOTES.md': 'not exported\n'})
+        make_source('zz-rulesx', {'RULES.md': 'rule one\n'})
+        import precedent_update as pu
+        import precedent_resolve as pr
+        import precedent_check as pc
+
+        def entry(name, **kw):
+            return {'level': 'shared', 'name': name, 'path': f'process/{name}',
+                    'vendored': True, **kw}
+
+        host = make_host('host', [entry('zz-voicex', exports_only=True),
+                                  entry('zz-rulesx', exports_only=True,
+                                        exports=['RULES.md'])])
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        cv = host / 'process' / 'zz-voicex'
+        cases.append(('an exports-only copy takes the exported file and folder '
+                      'and the manifest, never the practices or an unexported file',
+                      (cv / 'PROMPT.md').is_file()
+                      and (cv / 'essentials' / 'one.md').is_file()
+                      and (cv / 'precedent-source.json').is_file()
+                      and not (cv / 'practices').exists()
+                      and not (cv / 'NOTES.md').exists(),
+                      repr(rep.steps)[-700:] + repr(rep.left)[:300]))
+        cases.append(('a consumer-named export copies from a source with no '
+                      'precedent-source.json',
+                      (host / 'process' / 'zz-rulesx' / 'RULES.md').is_file(),
+                      repr(rep.steps)[-700:] + repr(rep.left)[:300]))
+        cases.append(('an exports-only copy is recorded like any copied-in set',
+                      bool(json.loads((host / 'process' / 'manifest_zz-voicex.json')
+                                      .read_text()).get('upstream', {}).get('commit')),
+                      repr(rep.steps)[-400:]))
+        listed = [n for _p, _l, n, _note in pr.vendored_source_paths(host)]
+        cases.append(('nothing loads rules from an exports-only copy',
+                      'zz-voicex' not in listed and 'zz-rulesx' not in listed,
+                      repr(listed)))
+        cases.append(('NEGATIVE CONTROL: with every clone there, nothing is left',
+                      rep.left == [], repr(rep.left)))
+
+        (voice / 'PROMPT.md').write_text('the compiled prompt, second\n')
+        (voice / 'essentials' / 'two.md').write_text('essential two\n')
+        git(voice, 'add', '-A')
+        git(voice, 'commit', '-qm', 'two')
+        git(voice, 'push', '-q', 'origin', 'main')
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        said = ' | '.join(t for w, t in rep.steps if w == 'copy of zz-voicex')
+        cases.append(('a moved source is taken, and the report lists each '
+                      'changed file',
+                      (cv / 'PROMPT.md').read_text() == 'the compiled prompt, second\n'
+                      and 'PROMPT.md (changed)' in said
+                      and 'essentials/two.md (added)' in said, said[:700]))
+
+        full = make_host('full', [entry('zz-voicex')])
+        rep = pu.Report()
+        pu.refresh_copies_step(full, rep)
+        fv = full / 'process' / 'zz-voicex'
+        cases.append(('a full copy brings the exports beside the practices',
+                      (fv / 'practices' / 'zz-voicex-rule.md').is_file()
+                      and (fv / 'PROMPT.md').is_file()
+                      and (fv / 'essentials' / 'two.md').is_file()
+                      and not (fv / 'NOTES.md').exists(),
+                      repr(rep.steps)[-600:] + repr(rep.left)[:300]))
+
+        cfg = json.loads((host / 'precedent.json').read_text())
+        cfg['sources'].append(entry('zz-nowhere', exports_only=True))
+        (host / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        cases.append(('a declared copy with no clone is left for the person, '
+                      'never DONE',
+                      any(w == 'copy of zz-nowhere' and 'no clone' in why
+                          for w, why in rep.left), repr(rep.left)))
+
+        old_root = pc.ROOT
+        try:
+            pc.ROOT = host
+            (cv / '.source-commit').write_text('abc\n')
+            (host / 'notes.md').write_text(
+                '# Notes\n\nThis paragraph was vendored from upstream once.\n')
+            got = pc._undeclared_copies()
+            cases.append(('NEGATIVE CONTROL: a marker inside a declared copy, and '
+                          '"vendored from" mid-sentence, are not findings',
+                          got == {}, repr(got)))
+            (host / 'external' / 'thing').mkdir(parents=True)
+            (host / 'external' / 'thing' / '.source-commit').write_text('abc\n')
+            (host / 'prompts').mkdir()
+            (host / 'prompts' / 'P.md').write_text(
+                '<!-- AUTO-SYNCED from another repository; do not edit -->\n# P\n')
+            got = pc._undeclared_copies()
+            cases.append(('an undeclared folder with a .source-commit file, and '
+                          'one with an AUTO-SYNCED banner, are findings',
+                          set(got) == {'external/thing', 'prompts'}, repr(got)))
+            found = pc._copied_in_folder_is_declared(None)
+            cases.append(('the check fails on them, naming the declaration',
+                          len(found) == 2 and all('"vendored": true' in str(f)
+                                                  for f in found),
+                          str([str(f) for f in found])[:600]))
+        finally:
+            pc.ROOT = old_root
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+        if 'checkin' in sys.modules:
+            importlib.reload(sys.modules['checkin'])
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'files a source exports are copied in by Update Vendors, and an '
+          f'undeclared copy fails the full check ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
 def check_update_refuses_a_shortened_flag():
     """`precedent_update.py --take X` was ambiguous between --take-anyway and
     --take-set (2026-10-19). A shortened flag is refused, naming every flag
@@ -93491,6 +93685,7 @@ def main():
     check_copied_in_shared_sets()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
+    check_declared_exports_are_copied()
     check('a failed update\'s rerun keeps an uncommitted copied-in set',
           *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
