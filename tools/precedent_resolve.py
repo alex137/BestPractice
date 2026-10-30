@@ -1334,6 +1334,32 @@ def is_exports_only(entry):
     return is_vendored(entry) and entry.get('exports_only') is True
 
 
+def vendored_copy_present(path, entry):
+    """True when the copy `entry` declares is on disk at `path`. A full copy
+    is there when its practices/ is; an exports-only copy never has one, so
+    it is there when any file it exports is (the entry's own `exports`, else
+    the copied precedent-source.json's), or, with no exports list to read,
+    when its folder holds anything. Until 2026-10-30 every reader asked for
+    practices/ alone, and a present, current exports-only copy was reported
+    at every session start as missing, with "run Update Vendors"."""
+    path = pathlib.Path(path)
+    if not is_exports_only(entry):
+        return (path / 'practices').is_dir()
+    if not path.is_dir():
+        return False
+    exports = entry.get('exports')
+    if not exports:
+        try:
+            exports = json.loads((path / SOURCE_MANIFEST).read_text(
+                encoding='utf-8')).get('exports')
+        except (OSError, ValueError, AttributeError):
+            exports = None
+    if isinstance(exports, list) and exports:
+        return any((path / str(x).strip().strip('/')).exists()
+                   for x in exports if str(x).strip().strip('/'))
+    return any(path.iterdir())
+
+
 def carried_sources(copy_path, outer_name):
     """-> [{'level': 'shared', 'name', 'path', 'vendored': True,
     'carried_by'}] for every set the copied set at `copy_path` says it
@@ -2093,14 +2119,23 @@ def clone_elsewhere(name, declared, any_clone=False):
     bases = [pathlib.Path.home(), pathlib.Path('/root'), pathlib.Path('/home/user'),
              pathlib.Path(declared).expanduser().parent]
     for base in bases:
-        cand = base / name
+        # The exact name first, then any spelling of it: a clone takes its
+        # repository's name, so ../SomeSet is the clone of a source named
+        # "someset", and until 2026-10-30 it read as "no clone on this
+        # machine".
         try:
-            if cand.resolve() != want and (
-                    (cand / 'practices').is_dir()
-                    or (any_clone and (cand / '.git').exists())):
-                return cand
+            others = sorted(d for d in base.iterdir()
+                            if d.name != name and d.name.lower() == name.lower())
         except OSError:
-            continue
+            others = []
+        for cand in [base / name, *others]:
+            try:
+                if cand.resolve() != want and (
+                        (cand / 'practices').is_dir()
+                        or (any_clone and (cand / '.git').exists())):
+                    return cand
+            except OSError:
+                continue
     return None
 
 

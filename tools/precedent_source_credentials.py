@@ -606,6 +606,20 @@ def _missing_reason(path, name=None):
     return fn(str(path), name)
 
 
+def _copy_or_source_present(path, src):
+    """True when a declared shared source is on disk: its practices/, or,
+    for a copy taken for its exports alone, the files it exports
+    (precedent_resolve.vendored_copy_present). A tree vendored before that
+    helper existed falls back to the same test, inline."""
+    pr = _engine_module('precedent_resolve')
+    fn = getattr(pr, 'vendored_copy_present', None) if pr else None
+    if fn is not None:
+        return fn(path, src)
+    if src.get('vendored') is True and src.get('exports_only') is True:
+        return path.is_dir() and any(path.iterdir())
+    return (path / 'practices').is_dir()
+
+
 def unresolved_private_sources(repo_root=None, env=None):
     """-> [(level, name, why)] for every PRIVATE-level source this repo
     expects and this session does not have on disk.
@@ -634,7 +648,7 @@ def unresolved_private_sources(repo_root=None, env=None):
             # Deleted, so never cloned: not unresolved (deleted_declared).
             continue
         path = (root / str(src.get('path', ''))).resolve()
-        if not (path / 'practices').is_dir():
+        if not _copy_or_source_present(path, src):
             # A set copied into this repository is never attached or cloned:
             # a missing copy is made by Update Vendors, and saying "attach
             # it" would send the session after the wrong fix.
