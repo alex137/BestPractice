@@ -75906,6 +75906,95 @@ def check_copy_in_is_asked_once():
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
 
 
+def check_exports_only_copy_resolves():
+    """A source copied in for its exports alone ("vendored": true,
+    "exports_only": true) has no practices/ folder by design, and is
+    resolved when its exported files are there (Morgan, 2026-10-30: every
+    session start in a voice repository reported its two present, current
+    copies as missing, with "run Update Vendors").
+
+    1. An exports-only copy holding its exports and no practices/ is not
+       reported unresolved.
+    2. The same declaration with its folder gone IS reported, with the
+       Update Vendors wording. NEGATIVE CONTROL for case 1: the test reads
+       the guard's own words, so a reader that skipped exports-only copies
+       outright would fail here.
+    3. A full copy with no practices/ is still reported, so the change did
+       not loosen the test for a practice source."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_credentials as psc
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='exports-only-resolves-'))
+    cases = []
+    try:
+        host = tmp / 'host'
+        voice = host / 'process' / 'zz-voicey'
+        (voice / 'essentials').mkdir(parents=True)
+        (voice / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-voicey', 'level': 'shared',
+             'exports': ['PROMPT.md', 'essentials']}))
+        (voice / 'PROMPT.md').write_text('the compiled prompt\n')
+        rules = host / 'process' / 'zz-rulesy'
+        rules.mkdir(parents=True)
+        (rules / 'RULES.md').write_text('rule one\n')
+
+        def declare(sources):
+            (host / 'precedent.json').write_text(json.dumps(
+                {'format_version': 1, 'sources': sources}, indent=2))
+
+        def entry(name, **kw):
+            return {'level': 'shared', 'name': name,
+                    'path': f'process/{name}', 'vendored': True, **kw}
+
+        env = {'CLAUDE_CODE_REMOTE': 'true',
+               'PRECEDENT_USER_CONFIG': str(tmp / 'no-person.json')}
+
+        def shared(srcs):
+            declare(srcs)
+            return [(n, why) for lvl, n, why
+                    in psc.unresolved_private_sources(host, env)
+                    if lvl == 'shared']
+
+        got = shared([entry('zz-voicey', exports_only=True),
+                      entry('zz-rulesy', exports_only=True,
+                            exports=['RULES.md'])])
+        cases.append(('an exports-only copy with its exports and no practices/ '
+                      'resolves', got == [], repr(got)))
+        shutil.rmtree(voice)
+        got = shared([entry('zz-voicey', exports_only=True)])
+        cases.append(('the same copy with its folder gone is reported, with the '
+                      'Update Vendors wording',
+                      len(got) == 1 and got[0][0] == 'zz-voicey'
+                      and 'run Update Vendors to make the copy' in got[0][1],
+                      repr(got)))
+        got = shared([entry('zz-rulesy')])
+        cases.append(('a full copy with no practices/ is still reported',
+                      [n for n, _ in got] == ['zz-rulesy']
+                      and 'run Update Vendors to make the copy' in got[0][1],
+                      repr(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    # clone_elsewhere finds a clone whose folder spells the name differently.
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='clone-elsewhere-case-'))
+    try:
+        (tmp / 'MixedCaseZ' / '.git').mkdir(parents=True)
+        got = pr.clone_elsewhere('mixedcasez', str(tmp / 'mixedcasez'),
+                                 any_clone=True)
+        cases.append(('clone_elsewhere finds ../MixedCaseZ for a source named '
+                      '"mixedcasez"', got == tmp / 'MixedCaseZ', repr(got)))
+        got = pr.clone_elsewhere('nosuchz', str(tmp / 'nosuchz'),
+                                 any_clone=True)
+        cases.append(('NEGATIVE CONTROL: no folder of any spelling is None',
+                      got is None, repr(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check('an exports-only copied-in source resolves without practices/',
+          not bad, f'{len(cases)} stated cases',
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
+
+
 def check_declared_exports_are_copied():
     """Files a source exports are copied in by Update Vendors, and a copy
     nothing declares fails the full check (Morgan, 2026-10-30, strength:
@@ -94202,6 +94291,7 @@ def main():
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
     check_declared_exports_are_copied()
+    check_exports_only_copy_resolves()
     check('a failed update\'s rerun keeps an uncommitted copied-in set',
           *check_failed_rerun_keeps_an_uncommitted_copied_in_set())
     check_early_copy_in_yes_waits_for_the_set()
