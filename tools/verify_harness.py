@@ -62518,6 +62518,104 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_land_skips_a_push_the_pull_request_guard_would_refuse():
+    """--land on a change the repository's own pull-request guard would
+    refuse goes to the pull-request route without trying the push.
+
+    2026-10-30: a branch touching tools/verify_harness.py was pushed at
+    staging, the guard refused it, and only then did the tool print the
+    pull-request route. The fixture's pre-push hook records any push aimed
+    at staging and refuses it, as the real guard does. Two worlds: a change
+    to tools/verify_harness.py (no push tried, the route still printed and
+    the branch carries the composition) and a change to a plain file (the
+    push is tried, as before).
+
+    Negative control, measured 2026-10-30: with _takes_pull_request
+    returning [] the first case fails -- the hook records the push."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-skip-'))
+    cases = []
+    try:
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        tried = tmp / 'tried'
+        (hooks / 'pre-push').write_text(
+            '#!/bin/sh\nwhile read l ls r rs; do\n'
+            f'  case "$r" in refs/heads/staging) echo "$ls" >> {str(tried)!r}; '
+            'echo "push refused: this one takes a pull request" >&2; exit 1;; '
+            'esac\ndone\nexit 0\n', encoding='utf-8')
+        (hooks / 'pre-push').chmod(0o755)
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, shutil, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+os.environ.pop('PRECEDENT_NO_LADDERS', None)
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+(work / 'tools').mkdir()
+shutil.copy({str(ROOT / 'tools' / 'landing_pr_guard.py')!r}, work / 'tools')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('config', 'core.hooksPath', {str(hooks)!r})
+pb._check = lambda *a, **k: (True, 'stub check')
+out = {{}}
+for name, path in (('gating', 'tools/verify_harness.py'), ('plain', 'x.md')):
+    g('checkout', '-q', '-b', 'claude/' + name + '-abcdef', 'origin/staging')
+    (work / path).write_text(name + '\\n'); g('add', '-A'); g('commit', '-qm', name)
+    g('-c', 'core.hooksPath=/dev/null', 'push', '-q', 'origin', 'claude/' + name + '-abcdef')
+    tried = pathlib.Path({str(tried)!r})
+    before = tried.read_text() if tried.exists() else ''
+    said = []
+    rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                    'claude/' + name + '-abcdef', 'staging',
+                                    'the fixture', said.append)
+    after = tried.read_text() if tried.exists() else ''
+    out[name] = dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-900:],
+                     pushed=after != before)
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        gating, plain = out.get('gating') or {}, out.get('plain') or {}
+        cases.append(('THE DISCRIMINATING CASE: a change to tools/verify_harness.py '
+                      'is never pushed at staging',
+                      gating.get('pushed') is False and gating.get('rc') == 1,
+                      str(gating) or why))
+        cases.append(('...it says no push was tried, and why, naming the file',
+                      'with no push tried' in (gating.get('said') or '')
+                      and 'tools/verify_harness.py' in (gating.get('verdict') or ''),
+                      str(gating) or why))
+        cases.append(('...and still takes the pull-request route',
+                      'now carries the composition' in (gating.get('said') or '')
+                      or 'lacks nothing' in (gating.get('said') or ''),
+                      str(gating) or why))
+        cases.append(('a change to a plain file still tries the push',
+                      plain.get('pushed') is True
+                      and 'the push was refused' in (plain.get('said') or ''),
+                      str(plain) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--land skips a push the pull-request guard would refuse '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
     itself, lets a repository name itself, and says where the push goes.
@@ -93475,6 +93573,7 @@ def main():
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_land_tells_the_push_hooks_what_it_lands()
     check_land_sent_to_a_pull_request_carries_mains_work()
+    check_land_skips_a_push_the_pull_request_guard_would_refuse()
     check_land_confirm_says_whether_what_landed_was_checked()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
