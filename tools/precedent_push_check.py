@@ -2449,6 +2449,15 @@ def main(argv):
         precedent_which_repo.warn_if_elsewhere(root, 'precedent_push_check.py')
     except Exception:                                        # noqa: BLE001
         pass
+    # Every test this run starts finds each declared source by the
+    # engine's own resolution, a throwaway worktree included
+    # (precedent_resolve.source_dir_env). A variable already set wins.
+    try:
+        import precedent_resolve
+        for var, path in precedent_resolve.source_dir_env(root).items():
+            os.environ.setdefault(var, path)
+    except Exception:                                        # noqa: BLE001
+        pass
     argv = _default_destination(root, argv)
     # --list runs nothing and pushes nothing, so no refusal about what a
     # push may carry applies to it. It used to be refused whenever main had

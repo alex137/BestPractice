@@ -906,6 +906,40 @@ def _declared_path(repo_root, raw):
     return entry_path
 
 
+def source_dir_var(name):
+    """-> the environment variable that carries declared source `name`'s
+    resolved directory to a test: PRECEDENT_SOURCE_DIR_<NAME>, upper-cased,
+    anything but a letter or digit an underscore (`precedent` ->
+    PRECEDENT_SOURCE_DIR_PRECEDENT)."""
+    return 'PRECEDENT_SOURCE_DIR_' + re.sub(r'[^A-Z0-9]', '_', str(name).upper())
+
+
+def source_dir_env(repo_root):
+    """-> {variable: path} for every source precedent.json declares here
+    that resolves to a directory, by _declared_path().
+
+    WHY (2026-10-30). `precedent_branches.py --run-tests` runs a set's
+    tests in a throwaway worktree under the system temp directory, where
+    nothing sits beside the tree. A test that found universal by the
+    sibling path `../../BestPractice` failed there, and a set's main went
+    red on that alone. The engine already resolves a declared path from a
+    worktree the right way; the push check exports its answer, so a test
+    reads `$PRECEDENT_SOURCE_DIR_PRECEDENT` instead of guessing a sibling."""
+    root = pathlib.Path(repo_root)
+    out = {}
+    for s in declared_sources(root):
+        name, raw = s.get('name'), s.get('path')
+        if not name or not raw:
+            continue
+        try:
+            d = _declared_path(root, raw)
+        except Exception:                                    # noqa: BLE001
+            continue
+        if d.is_dir():
+            out[source_dir_var(name)] = str(d)
+    return out
+
+
 def _known_clone(name):
     """-> this machine's clone of practice source `name` beside the person's
     individual set -- where session start clones every set it brings -- or
