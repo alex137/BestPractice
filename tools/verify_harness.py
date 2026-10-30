@@ -51783,7 +51783,8 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     declares, refuses a reply naming a
     dated session branch or a file in code font with no link, lets a name
     linked once be named bare again, and leaves alone what has no page: a
-    command, an absolute path, a filename template.
+    command, an absolute path, a filename template, a file that exists in
+    no repository the session holds.
 
     2026-10-19 (Morgan: "Don't we have practice rules so when you mention
     files you always give links?"): a Boildown named a branch and a file
@@ -51814,9 +51815,17 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     cases.append(('THE DISCRIMINATING CASE: a bare dated branch in code font is '
                   'refused, with a repair', len(v) == 1 and branch in v[0]['message']
                   and v[0].get('repair'), v))
-    v = blocking('See `spec/A_PLAN.md` and `claude/some-branch-x1`.')
+    v = blocking('See `spec/PRACTICE_FORMAT.md` and `claude/some-branch-x1`.')
     cases.append(('a bare file path and a bare claude/ branch are both named',
                   len(v) == 2, v))
+    # 2026-10-30: a file that is in no repository this session holds has no
+    # page and no path, so naming it is not an unlinked mention. Negative
+    # control, measured: with _names_no_file_or_branch returning False this
+    # case fails and the one above still passes.
+    v = blocking('The consumer writes `NO_SUCH_FILE_ANYWHERE_ZZ.json` and '
+                 '`spec/NO_SUCH_PLAN_ZZ.md`.')
+    cases.append(('a file name that is no file in any repository here passes',
+                  not v, v))
     v = blocking(f'On [`{branch}`](https://example.com/tree/{branch}); '
                  f'later `{branch}` again, and [A_PLAN.md](https://e/spec/A_PLAN.md) '
                  f'then `A_PLAN.md`.')
