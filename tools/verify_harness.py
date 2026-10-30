@@ -24752,6 +24752,15 @@ def check_precedent_check_fires():
             cfg_f.write_text(json.dumps(cfg, indent=2), encoding='utf-8')
         case('copied-in-set-fits-visibility', _plant_private_copy)
 
+        # copied-in-folder-is-declared -- a folder a sync script copied in
+        # (its .source-commit marker) that precedent.json does not declare
+        # (Morgan, 2026-10-30).
+        def _plant_undeclared_copy(repo):
+            (repo / 'external' / 'zz-synced').mkdir(parents=True, exist_ok=True)
+            (repo / 'external' / 'zz-synced' / '.source-commit').write_text(
+                'abc\n', encoding='utf-8')
+        case('copied-in-folder-is-declared', _plant_undeclared_copy)
+
         # universal-change-reaches-overrides -- a permanent warning: universal's
         # orientation-map changes below its frontmatter while a declared set
         # carries its own active copy of that slug (2026-10-05, the ladder
