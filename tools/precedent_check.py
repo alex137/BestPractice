@@ -9132,8 +9132,10 @@ def _light_broken_links(root, rel, text):
        'private-key header, a GitHub or Slack token), and YAML entirely when '
        'PyYAML is not installed -- said on the run, never passed silently. '
        'Links are skipped in trees this repo mirrors, in the directories '
-       'its own tools/doc_lint.py declares link-exempt, and in the record '
-       'files precedent.json declares in `record_paths`.',
+       'its own tools/doc_lint.py declares link-exempt, in the record '
+       'files precedent.json declares in `record_paths`, and in history '
+       '(a closed todo item, a finished document, a `## Story` section), '
+       'the same history rename-updates-links leaves naming a path as it was.',
        practice_backed=False,
        # Any file a change touches can bring a conflict marker or a secret,
        # so any change summons it; the whole tree reads in about three
@@ -9182,8 +9184,9 @@ def _light_check(ctx):
                 except _yaml.YAMLError as e:
                     out.append(Finding(rel, f'frontmatter is not valid YAML '
                                        f'({str(e)[:160]})', path=rel))
-            if not rel.startswith(exempt):
-                out.extend(_light_broken_links(ctx.root, rel, text))
+            if not rel.startswith(exempt) and not (
+                    _is_history(rel, text) and not _generated_label(rel, text)):
+                out.extend(_light_broken_links(ctx.root, rel, _without_story(text)))
         elif rel.endswith('.json'):
             try:
                 json.loads(text)
@@ -12539,6 +12542,20 @@ def _is_history(rel, text):
         if st and st.group(1) in TODO_CLOSED_STATUSES:
             return True
     return False
+
+
+def _without_story(text):
+    """-> `text` with every `## Story` line blanked, line numbers kept.
+
+    History names a path as it was, so rename-updates-links never asks a
+    closed todo item, a finished document or a Story section to follow a
+    move. light-check's link sweep read all three, and refused at the Debut
+    a change the quick check had passed: links from untouched closed items
+    to paths the change deleted (2026-10-30, a consumer moving onto
+    declared exports). The sweep now skips the same history."""
+    lines = text.splitlines()
+    return '\n'.join('' if story else line
+                      for line, story in zip(lines, _story_mask(lines)))
 
 
 def _story_mask(lines):
