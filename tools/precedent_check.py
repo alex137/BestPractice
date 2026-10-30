@@ -1980,7 +1980,9 @@ def _undeclared_copies():
        'Vendors refreshes it and says when it is behind',
        'a copy that carries none of those signs, and a banner further down a '
        'file than its first five lines.',
-       practice_backed=False)
+       practice_backed=False,
+       selects_on=('precedent.json', '**/.source-commit', '**/.source-blob',
+                   '.source-commit', '.source-blob'))
 def _copied_in_folder_is_declared(ctx):
     out = []
     for folder, why in sorted(_undeclared_copies().items()):
