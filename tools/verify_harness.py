@@ -30427,6 +30427,81 @@ def check_a_set_runs_the_checks_its_declared_sources_put_in_force():
           '; '.join(f'{n} ({d})' for n, d in failed))
 
 
+def check_deep_check_keeps_a_test_of_a_tool():
+    """deep-check reports a test with no check of its name as stale only
+    when it was a check's test or names nothing that is here.
+
+    The ladder set keeps tests of its own tools (tools/ladder/others_did.py
+    and five more) beside its check tests; the day universal's checks first
+    ran in a set (2026-10-30), all six read as "a stale test left behind",
+    all six passing. Three directions, each asserting the printed text: a
+    tool's test is kept; a test naming a check that is gone is stale; a
+    test naming nothing here is stale (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='deep-check-tool-tests-'))
+    try:
+        fx = tmp / 'repo'
+        tests = fx / 'tools' / 'checks' / 'tests'
+        tests.mkdir(parents=True)
+        (fx / 'tools' / 'ladder').mkdir()
+        (fx / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md',
+                    fx / 'practices' / 'deep-check.md')
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main'}), encoding='utf-8')
+        (tests / 'run_all.sh').write_text(
+            '#!/bin/bash\nfor t in "$(dirname "$0")"/test_*.sh; do bash "$t"; done\n',
+            encoding='utf-8')
+        (fx / 'tools' / 'ladder' / 'fixture_tool.py').write_text('', encoding='utf-8')
+        (tests / 'test_fixture_tool.sh').write_text(
+            'python3 tools/ladder/fixture_tool.py\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+
+        def run():
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only', 'deep-check'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        ok = run()
+        cases.append(("a test of a tool that is here, with no check of its "
+                      "name, is not reported stale",
+                      ok.returncode == 0 and 'stale test' not in ok.stdout
+                      and ' 1 passed' in ok.stdout,
+                      f'rc={ok.returncode} ' + ok.stdout[-400:]))
+        (tests / 'test_fixture_gone.sh').write_text(
+            'python3 tools/checks/check_fixture_gone.py\n', encoding='utf-8')
+        gone = run()
+        cases.append(("a test naming a check that is gone is stale, by name",
+                      gone.returncode != 0
+                      and 'test_fixture_gone.sh: tests check_fixture_gone.py' in gone.stdout
+                      and 'test_fixture_tool.sh' not in gone.stdout,
+                      f'rc={gone.returncode} ' + gone.stdout[-400:]))
+        (tests / 'test_fixture_gone.sh').unlink()
+        (tests / 'test_fixture_orphan.sh').write_text(
+            'python3 tools/ladder/no_such_tool.py\n', encoding='utf-8')
+        orphan = run()
+        cases.append(("a test naming nothing that is here is stale",
+                      orphan.returncode != 0
+                      and 'test_fixture_orphan.sh' in orphan.stdout
+                      and 'stale test' in orphan.stdout,
+                      f'rc={orphan.returncode} ' + orphan.stdout[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'deep-check keeps a test of a tool and still reports a stale one '
+          f'({len(cases)} stated cases, each asserting the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
 def check_practice_links_travel_skips_a_consumers_repo_local_practices():
     """A consumer's repo-local practice is never published, so
     practice-links-travel must not test its links -- and the repair it
@@ -93483,6 +93558,7 @@ def main():
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
     check_a_set_runs_the_checks_its_declared_sources_put_in_force()
+    check_deep_check_keeps_a_test_of_a_tool()
     check_practice_links_travel_skips_a_consumers_repo_local_practices()
     check_practice_links_travel_holds_a_set_to_its_copy_in()
     check_gate_channel()

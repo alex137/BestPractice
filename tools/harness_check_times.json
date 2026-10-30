@@ -180,6 +180,7 @@
   "check_decommission_skips_generated_files_and_prose": 0.9,
   "check_dedup_onto_same_slug_withdraws_nothing": 0.1,
   "check_deduplicated_copy_stays_in_force_until_its_target_arrives": 0.0,
+  "check_deep_check_keeps_a_test_of_a_tool": 1.5,
   "check_default_blocklist_runs_the_vocabulary_layer": 12.1,
   "check_default_branch_reads_each_repos_trunk": 1.6,
   "check_delete_links_and_one_line_boildown_agree": 2.1,

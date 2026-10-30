@@ -8915,9 +8915,22 @@ def _deep_check(ctx):
             out.append(Finding(f'tools/checks/tests/test_{name}.sh', f'never '
                                f'invokes {stem}.py by name, so it is not '
                                f'testing the check it is named for'))
+    # A test with no check of its name is stale when it was a check's test
+    # -- it names check_<name>.py, which is gone -- or when nothing it names
+    # is here any more. A test of a set's own TOOL (the ladder set's
+    # tools/ladder/others_did.py, beside its check tests) names that tool
+    # and no check, and is live: six of them read as stale on 2026-10-30,
+    # the day this check first ran in a set, all six passing.
+    tools_here = {f.name for f in (ctx.root / 'tools').rglob('*.py')} \
+        if (ctx.root / 'tools').is_dir() else set()
     for test in sorted(tests_dir.glob('test_*.sh')):
         name = test.stem[len('test_'):]
-        if not (checks_dir / f'check_{name}.py').is_file():
+        if (checks_dir / f'check_{name}.py').is_file():
+            continue
+        body = test.read_text(encoding='utf-8', errors='ignore')
+        named = {pathlib.PurePath(m).name
+                 for m in re.findall(r'[\w./-]+\.py\b', body)}
+        if f'check_{name}.py' in body or not (named & tools_here):
             out.append(Finding(f'tools/checks/tests/{test.name}', f'tests '
                                f'check_{name}.py, which no longer exists -- '
                                f'a stale test left behind'))
