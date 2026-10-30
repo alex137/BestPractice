@@ -1687,9 +1687,14 @@ PROCESS_PREFIXES = ('process/', 'practices/')
 
 def is_declared_output(path):
     """True when precedent.json declares `output_paths` and `path` is one
-    of them: a document an outside reader sees."""
+    of them: a document an outside reader sees. False when title_case.py,
+    which reads that declaration, is not beside this file: a consumer
+    vendoring doc_lint alone keeps the warning, never a crash."""
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-    import title_case
+    try:
+        import title_case
+    except ImportError:
+        return False
     if not title_case.output_paths_declared(ROOT):
         return False
     return bool(title_case.is_outward(path, ROOT))
