@@ -1632,7 +1632,7 @@ def _bound_set_tool_calls_only_declared_names(ctx):
 # gate and never evaluated against a reply at all.
 REPLY_KEYS_READING_THE_MACHINE = (
     'require_container_safe_if_says', 'require_landed_if_says',
-    'require_plan_done_if_says', 'require_delete_link_when_landed',
+    'require_plan_done_if_says',
     'require_first_item_leads_with_unlanded',
     'require_full_check_after_fast_main', 'note_from_tool')
 

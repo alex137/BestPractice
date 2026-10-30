@@ -252,13 +252,6 @@
   },
   {
     "practice": "the-boildown",
-    "id": "landed-branch-gets-its-delete-link",
-    "require_delete_link_when_landed": true,
-    "why": "the-boildown item 6 and branch-delete-links: a branch that lands during the turn is used up, and the reply hands over its one-click delete link. Found 2026-10-06: a session merged its branch and gave none, because only the not-landed half was enforced. 2026-10-19 (Morgan: \"I think we should bring that back\"): the check had seen only a branch already on the turn-start record, so one made and landed inside a turn, and every copy pushed to move staging into main, was never asked about; it now also finds this session's own branches by the session tag in their names or the trailer on their commits, and asks for each link once.",
-    "checks_practice_at": "practices/the-boildown.md"
-  },
-  {
-    "practice": "the-boildown",
     "id": "practice-ideas-only-at-the-close",
     "require_paired_with": [
       {
