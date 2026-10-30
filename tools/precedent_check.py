@@ -13601,9 +13601,14 @@ def load_exemptions():
 # approx_tokens, total_tokens): the session check's row and Update Vendors'
 # close read the same functions, so the three can never disagree about a
 # total (practice: judgment-check-or-tool; 2026-10-30, a third copy here).
-import session_load_trend as _slt  # noqa: E402
-SESSION_LOAD_SURFACES = _slt.SURFACES
-_as_measured = _slt.as_measured
+# A copy of this file with no session_load_trend.py beside it (a fixture,
+# a hand-copied engine) still loads; the check says it cannot run there.
+try:
+    import session_load_trend as _slt  # noqa: E402
+except ImportError:                                           # noqa: BLE001
+    _slt = None
+SESSION_LOAD_SURFACES = _slt.SURFACES if _slt else ()
+_as_measured = _slt.as_measured if _slt else (lambda rel, text: text)
 
 # --- duplicated always-loaded text (practice: session-load-budget) ---------
 #
@@ -14138,6 +14143,10 @@ def _session_load_budget(ctx):
     if reg is None:
         raise NotApplicable('this repo has no tools/session_load_budgets.json, '
                             'so no ceiling has been declared to check against')
+    if _slt is None:
+        raise NotApplicable('tools/session_load_trend.py is not beside this '
+                            'check, and it is the one measurement of what a '
+                            'session loads')
     surfaces = reg.get('surfaces') or {}
     _MISSING = object()
     floor_pct = reg.get('headroom_floor_pct', _MISSING)
