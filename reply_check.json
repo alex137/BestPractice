@@ -124,6 +124,7 @@
     "require_no_contradiction": [
       {
         "if_says": "Don't archive this session",
+        "unless_reply_matching": "^\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*)?What(?:'|\u2019)?s blocking\\b",
         "must_not_say_matching": "\\bno[\\w\\s]{0,20}?blocking\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))|\\bnothing[\\w\\s]{0,15}?(?:blocking|outstanding|pending|left to do)\\b(?!\\s+(?:there\\b|on (?:it|that|this)\\b|for (?:it|that|this)\\b))"
       },
       {
@@ -286,6 +287,7 @@
     "require_ask_states_its_question": {
       "heading": "boildown",
       "item": "^\\W*your next steps\\b",
+      "unless_matches": "^\\W*(?:your next steps\\W+)?nothing\\b[^?]*$",
       "if_matches": "\\byes\\s*(?:or|/)\\s*no\\b|\\bgo[- ]ahead\\b|\\b(?:decide|decision|approve|approval|answer|question|your call|say the word)\\b|\\?",
       "must_also_match": {
         "what each answer does": "\\b(?:yes|no|go|approv(?:e|al|ing))\\b[^.;?]{0,40}?\\b(?:means?|would|will|keeps?|lets?|leaves?|lands?|starts?|stops?|moves?|sends?|drops?|adds?|changes?|does|runs?|puts?|ships?|goes)\\b|\\bif (?:you )?(?:say |answer )?(?:yes|no|so|not|go)\\b|\\bif you (?:agree|approve|want|decline|okay|ok|go ahead)\\b|\\bsaying (?:yes|no)\\b|\\b(?:on|with|after) (?:a|your) (?:yes|no|go-ahead)\\b|\\b(?:a|your) (?:yes|no|go-ahead)\\b|\\b(?:yes|no)\\s*(?:->|→|=)",
@@ -313,6 +315,91 @@
       },
       {
         "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- You can archive this session.\n",
+        "refused": false
+      }
+    ]
+  },
+  {
+    "practice": "the-boildown",
+    "id": "boildown-finished-plan-asks-to-act",
+    "require_finished_plan_asks_to_act": {
+      "heading": "boildown",
+      "item": "^\\W*your next steps\\b",
+      "plan_file_written": "(?:^|/)spec/[^/]+\\.md$|_PLAN\\.md$|(?:^|/)plans?/[^/]+\\.md$",
+      "stage_line": "\\bfinished step 1 of 5\\b[^)]{0,10}\\bConsider\\b",
+      "plan_words": "\\b(?:plan it|brainstorm|write it up|spec it out|one-line plan|(?:the|this|my|a|our) plan(?! of record))\\b",
+      "plan_line": "^\\W*Plan:",
+      "ask": "\\bdo you want (?:me |us )?to act on (?:this|the|that|my) plan\\b",
+      "tell": "\\bI(?:'|’)?m (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b|\\bI am (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b"
+    },
+    "why": "Morgan, 2026-10-30 (strength: decided), after reading a session's replies twice: \"you made a plan ... nowhere did you suggest that we could act on this plan ... if a session has just considered or made any sort of plan, then upon the completion of the plan, it needs to ask or tell me to see if I want to implement the plan.\" A plan of any size -- Consider, Brainstorm, Plan it, Write it up -- is finished in a reply that writes a plan file, that says Consider on its first Boildown line while making a plan, or that adds a **Plan:** line the last reply lacked. That reply asks \"Do you want to act on this plan?\" under Your next steps, where boildown-ask-states-its-question already wants what acting does and the session's pick; or, when the session is already carrying it out, says \"I'm acting on this plan\".",
+    "checks_practice_at": "practices/the-boildown.md",
+    "_examples": [
+      {
+        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** read the write-up.\n- You can archive this session.\n",
+        "refused": true,
+        "written": [
+          "/home/user/BestPractice/spec/NEW_THING_PLAN.md"
+        ]
+      },
+      {
+        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Do you want to act on this plan? Yes means I build the three steps on a feature branch and land them on staging, about 40 minutes; no leaves it as a plan in this reply. My pick is yes, because the gap it closes keeps costing replies.\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** **Plan:** [the plan](spec/X_PLAN.md), steps 2 and 3 left; I'm acting on this plan: step 2 is running in [the test session](https://claude.ai/code/session_x) and I start step 3 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "The gate reads the transcript.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "refused": false
+      }
+    ]
+  },
+  {
+    "practice": "the-boildown",
+    "id": "boildown-hold-names-what-runs",
+    "require_hold_names_what_runs": {
+      "if_says": "Don't archive this session",
+      "heading": "boildown",
+      "item": "^\\W*your next steps\\b",
+      "item_says_nothing": "\\bnothing\\b|\\bno (?:action|decision|answer|step)s?\\b",
+      "line": "^\\W*What(?:'|’)?s blocking\\b",
+      "must_also_match": {
+        "what is running": "\\b(?:running|runs|carrying (?:it |this |them )?out|building|working on|in progress|under way|waiting (?:on|for))\\b",
+        "where it runs (the session or job, linked, or this session's background)": "https?://|\\]\\(|\\bin the background\\b|\\bbackground (?:task|job|command|run)\\b",
+        "when this session next acts": "\\bwhen\\b[^.;]{0,100}?\\b(?:reports?|finish(?:es)?|ends?|lands?|returns?|comes? back|is done|repl(?:y|ies)|completes?|wakes?)\\b|\\b(?:about|around|by|at|until) \\d{1,2}:\\d{2}\\b"
+      }
+    },
+    "why": "Morgan, 2026-10-30 (strength: decided): \"You tell me not to archive this session, but you also tell me there's nothing for me to do. Are you doing anything? I looked and there's no background task, so I think you're not doing anything.\" The session was waiting on sessions it had spawned to carry out its plan; its Boildown said \"nothing for you to decide right now\" beside \"Don't archive this session\", with the reason only implied by a Plan line and a list of spawned sessions. When the archive line holds and Your next steps gives the person nothing, the What's blocking line names what is running, where (linked), and when the session next acts. The \"nothing blocking\" contradiction pair steps aside for a reply that carries the line, and this requirement judges it.",
+    "checks_practice_at": "practices/the-boildown.md",
+    "_examples": [
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- **Plan:** [the plan](spec/X_PLAN.md), steps 3 and 4 left.\n- Sessions this one spawned: [step 3](https://claude.ai/code/session_x).\n- Don't archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- **What's blocking:** the plan is still going.\n- Don't archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** step 3 of the plan is running in [the vendor session](https://claude.ai/code/session_x); I start step 4 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** merge [the pull request](https://github.com/o/r/pull/1); I land the rest once it is in.\n- Don't archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** the full test suite is running in the background; I report when it finishes, about 05:50 Buenos Aires time.\n- Don't archive this session.\n",
         "refused": false
       }
     ]
