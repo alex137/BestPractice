@@ -290,8 +290,9 @@ repository that names none, so the session never saw it -- while
 the-boildown's item 6, which everyone sees, sends every reader here for the
 link's form. The mark came with the 2026-10-05 sorting of rules about
 running a repository; the link is part of the reply the person reads, so it
-goes to everyone. The stop hook now refuses a reply that lands a branch
-without its link (`require_delete_link_when_landed`).
+goes to everyone. The stop hook then refused a reply that landed a branch
+without its link, until 2026-10-30, when Morgan retired the Boildown's
+list of branches to delete: the branch cleanup page carries them.
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:
