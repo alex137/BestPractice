@@ -1616,7 +1616,7 @@ def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
     to `new_sha`, saying why in its approved_by. -> True when it moved. An
     entry pinned to anything else -- the old text never approved -- is left
     for the approval check to judge, as it was."""
-    import datetime
+    import precedent_time
     path = repo / 'precedent.json'
     try:
         cfg = json.loads(path.read_text(encoding='utf-8'))
@@ -1629,7 +1629,7 @@ def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
     entry['sha256'] = new_sha
     entry['approved_by'] = (
         f'{entry.get("approved_by") or ""}; Update Vendors, '
-        f'{datetime.date.today().isoformat()}: refreshed from {source}\'s template, '
+        f'{precedent_time.today(repo)}: refreshed from {source}\'s template, '
         f'unedited here (Morgan, 2026-10-30: "yes absolutely", Update Vendors '
         f'approves an unedited installed copy\'s new template text)').lstrip('; ')
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
