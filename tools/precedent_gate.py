@@ -954,6 +954,20 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply saying \"{pair['if_says']}\" must "
                       f"not ALSO match /{pair['must_not_say_matching']}/i -- "
                       f"the two cannot both be true. Say the one that is.")
+        if (r.get('require_finished_plan_asks_to_act') or {}).get('ask'):
+            print(f"- [{src}] a reply that finishes a plan, at any size "
+                  f"(Consider, Brainstorm, Plan it, Write it up), asks under "
+                  f"Your next steps: \"Do you want to act on this plan?\", "
+                  f"with what acting does and your pick -- or, when this "
+                  f"session is already carrying it out, says \"I'm acting on "
+                  f"this plan\" and what that is.")
+        _hold = r.get('require_hold_names_what_runs') or {}
+        if _hold.get('if_says'):
+            print(f"- [{src}] \"{_hold['if_says']}\" while Your next steps "
+                  f"gives the person nothing to do: the What's blocking line "
+                  f"names what is running, where (the session or job, linked), "
+                  f"and when this session next acts (\"when X reports back, "
+                  f"about HH:MM <city> time\").")
         _ask = r.get('require_ask_states_its_question') or {}
         if _ask.get('heading') and _ask.get('item'):
             print(f"- [{src}] a Your next steps bullet (or sub-bullet) under "

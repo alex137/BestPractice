@@ -56,6 +56,13 @@ ANOTHER session, window or repository ("your Planning window says
 it's blocked on an upstream bug") is not read as this session's state.
 Added 2026-10-01; an older engine ignores the key.
 
+It may carry `unless_reply_matching`: when the whole reply matches it (a
+line anywhere, multiline), the pair is not checked, because another
+requirement judges that line instead. Added 2026-10-30 for "Don't archive"
+beside "nothing for you", which is true when the What's blocking line names
+what is running (require_hold_names_what_runs). An older engine ignores the
+key, the stricter way.
+
 It may carry `unless_line_matching` too: a match whose whole LINE matches it
 is skipped, for a Boildown line of several sentences whose opening words say
 what it is. Added 2026-10-17: a due reminder's line ("A reminder you asked
@@ -601,6 +608,35 @@ def turn_text_count(transcript):
                     if isinstance(b, dict) and b.get('type') == 'text').strip():
                 count += 1
     return count
+
+
+def turn_written_paths(transcript):
+    """-> the file paths this turn created with the Write tool (the rows
+    after the last prompt row), or [] when the transcript cannot be read.
+    require_finished_plan_asks_to_act reads it: a plan file written this
+    turn is a plan finished this turn. Write only, never Edit -- touching
+    an existing document is not making a plan."""
+    try:
+        rows = [json.loads(l) for l in
+                pathlib.Path(transcript).read_text(encoding='utf-8').splitlines()
+                if l.strip()]
+    except (OSError, json.JSONDecodeError):
+        return []
+    paths = None
+    for d in rows:
+        if _is_prompt_row(d):
+            paths = []
+        elif paths is None or d.get('type') != 'assistant':
+            continue
+        else:
+            content = (d.get('message') or {}).get('content')
+            for b in content if isinstance(content, list) else []:
+                if (isinstance(b, dict) and b.get('type') == 'tool_use'
+                        and b.get('name') == 'Write'):
+                    p = (b.get('input') or {}).get('file_path')
+                    if isinstance(p, str):
+                        paths.append(p)
+    return paths or []
 
 
 def last_prompt_text(transcript):
@@ -1439,6 +1475,8 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_prompt_block_header',
     'require_reason_on_gap_line',
     'require_ask_states_its_question',
+    'require_finished_plan_asks_to_act',
+    'require_hold_names_what_runs',
     'unless_reply_declares_loss',
     # printed by the reply gate before the reply, never evaluated here
     # (precedent_gate._note_from_tool, 2026-10-17)
@@ -1504,7 +1542,8 @@ def _unknown_predicates(req):
                   if not k.startswith('_') and k not in KNOWN_REQUIREMENT_KEYS)
 
 
-def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
+def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
+               written=None):
     """-> list of records, one per unmet requirement:
 
         {'kind': 'heading' | 'first_item' | 'sentence' | 'contradiction'
@@ -1786,6 +1825,13 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
                     continue
                 hit = m
                 break
+            # `unless_reply_matching`: the whole reply carries the line
+            # that settles the pair -- "Don't archive" beside "nothing for
+            # you" is true when What's blocking names what is running, and
+            # require_hold_names_what_runs judges that line (2026-10-30).
+            settled = pair.get('unless_reply_matching')
+            if settled and re.search(settled, quoted_stripped, re.I | re.M):
+                hit = None
             if _norm(trigger) in _norm(quoted_stripped) and hit:
                 out.append({'kind': 'contradiction', 'advisory': advisory, 'message': (
                     f"[{r.get('_source', '?')}] this reply says \"{trigger}\" and "
@@ -1889,6 +1935,12 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
                     re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', u))
                 if not re.search(ask['if_matches'], plain, re.I):
                     continue
+                # `unless_matches`: a bullet that says there is nothing to
+                # decide asks nothing, "decide" in it or not (2026-10-30:
+                # "Nothing for you to decide right now" was refused).
+                if ask.get('unless_matches') and re.search(
+                        ask['unless_matches'], plain, re.I):
+                    continue
                 missing = [n for n, rx in (ask.get('must_also_match') or {}).items()
                            if not re.search(rx, plain, re.I)]
                 if missing:
@@ -1906,6 +1958,98 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
                     f"\"yes or no on X\" alone"
                     + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_finished_plan_asks_to_act (Morgan, 2026-10-30, strength:
+        # decided: "you made a plan ... nowhere did you suggest that we could
+        # act on this plan ... if a session has just considered or made any
+        # sort of plan, then upon the completion of the plan, it needs to ask
+        # or tell me to see if I want to implement the plan"). A plan is
+        # finished this turn when the turn wrote a plan file, when the
+        # Boildown's first line says Consider and the reply speaks of a plan,
+        # or when a **Plan:** line appears that the last reply's Boildown did
+        # not carry. Then Your next steps asks "Do you want to act on this
+        # plan?" -- whose stakes and pick require_ask_states_its_question
+        # already demands -- or the Boildown tells him the session is acting
+        # on it. practice: the-boildown
+        fin = r.get('require_finished_plan_asks_to_act')
+        if isinstance(fin, dict) and fin.get('heading') and fin.get('ask'):
+            bullets = section_bullets(text, fin['heading']) or []
+            why_fin = None
+            if fin.get('plan_file_written'):
+                hits = [w for w in (written or [])
+                        if re.search(fin['plan_file_written'], w.replace('\\', '/'))]
+                if hits:
+                    why_fin = f"this turn wrote the plan file {hits[0]}"
+            if not why_fin and fin.get('stage_line') and fin.get('plan_words') and bullets:
+                if (re.search(fin['stage_line'], bullets[0], re.I)
+                        and re.search(fin['plan_words'], _strip_quoted_spans(text), re.I)):
+                    why_fin = "the Boildown says Consider and the reply makes a plan"
+            if not why_fin and fin.get('plan_line'):
+                plan_now = [b for b in bullets
+                            if re.search(fin['plan_line'], _strip_markdown_emphasis(b), re.I)]
+                if plan_now:
+                    prev = previous_section(timeline, text, fin['heading'], turn) or []
+                    if not any(re.search(fin['plan_line'], _strip_markdown_emphasis(b), re.I)
+                               for b in prev):
+                        why_fin = "a **Plan:** line appears that the last reply did not carry"
+            if why_fin:
+                units = (item_units_under_heading(text, fin['heading'], fin['item'])
+                         or []) if fin.get('item') else bullets
+                asked = any(re.search(fin['ask'], _strip_markdown_emphasis(u), re.I)
+                            for u in units)
+                told = bool(fin.get('tell')) and any(
+                    re.search(fin['tell'], _strip_markdown_emphasis(b), re.I)
+                    for b in bullets)
+                if not (asked or told):
+                    out.append({'kind': 'plan_without_ask', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] this reply finishes a plan "
+                        f"({why_fin}) and never asks him to act on it. Under "
+                        f"Your next steps, ask \"Do you want to act on this "
+                        f"plan?\", with what acting does and your pick; or, "
+                        f"when this session is already carrying it out, say "
+                        f"\"I'm acting on this plan\" and what that is"
+                        + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_hold_names_what_runs (Morgan, 2026-10-30, strength:
+        # decided: "You tell me not to archive this session, but you also
+        # tell me there's nothing for me to do. Are you doing anything? I
+        # looked and there's no background task"). The session was waiting
+        # on sessions it had spawned; the reason was only implied. When the
+        # archive line holds the session and Your next steps gives him
+        # nothing to do, the What's blocking line says what is running,
+        # where (linked), and when this session acts next. practice:
+        # the-boildown
+        hold = r.get('require_hold_names_what_runs')
+        if (isinstance(hold, dict) and hold.get('if_says') and hold.get('line')
+                and _norm(hold['if_says']) in _norm(_strip_quoted_spans(text))):
+            heading = hold.get('heading') or 'boildown'
+            steps = item_units_under_heading(text, heading, hold.get('item')
+                                             or r'^\W*your next steps\b') or []
+            nothing = bool(steps) and re.search(
+                hold.get('item_says_nothing') or r'\bnothing\b',
+                _strip_markdown_emphasis(steps[0]), re.I) and len(steps) == 1
+            if nothing:
+                lines = [b for b in (section_bullets(text, heading) or [])
+                         if re.search(hold['line'], _strip_markdown_emphasis(b), re.I)]
+                plain = ' '.join(lines)
+                missing = ([n for n, rx in (hold.get('must_also_match') or {}).items()
+                            if not re.search(rx, plain, re.I)]
+                           if lines else ['the line itself'])
+                if missing:
+                    out.append({'kind': 'hold_without_reason', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] this reply says "
+                        f"\"{hold['if_says']}\" while Your next steps gives the "
+                        f"person nothing to do, and its What's blocking line is "
+                        f"missing: {', '.join(missing)}. Say, in plain words on "
+                        f"that line, what is running, where (the session or job, "
+                        f"linked), and when this session next acts (\"when X "
+                        f"reports back, about HH:MM <city> time\") -- or, if "
+                        f"nothing is, say \"You can archive this session\""
+                        + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_paired_with: when the reply contains X, it must also
         # contain Y. The mirror of require_no_contradiction -- that one
@@ -2935,6 +3079,19 @@ def main():
                     bits.append(f'"{ph}" requires a container with nothing '
                                 f'uncommitted and nothing off a remote '
                                 f'(tools/precedent_container_safe.py)')
+            _fin = r.get('require_finished_plan_asks_to_act') or {}
+            if _fin.get('ask'):
+                bits.append('a reply that finishes a plan (a plan file written '
+                            'this turn, Consider on the first line with a plan, '
+                            'or a new **Plan:** line) asks under Your next '
+                            'steps: "Do you want to act on this plan?", or says '
+                            '"I\'m acting on this plan"')
+            _hold = r.get('require_hold_names_what_runs') or {}
+            if _hold.get('if_says'):
+                bits.append(f'"{_hold["if_says"]}" beside a Your next steps '
+                            f'that says nothing for the person needs a '
+                            f'What\'s blocking line with: '
+                            + ', '.join(_hold.get('must_also_match') or {}))
             _ask = r.get('require_ask_states_its_question') or {}
             if _ask.get('heading') and _ask.get('item'):
                 bits.append(f"a bullet under /{_ask['heading']}/i's "
@@ -2989,8 +3146,11 @@ def main():
     turn = None
     wake = None
     prompt = None
+    written = None
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
+        if '--written' in argv:
+            written = [w for w in argv[argv.index('--written') + 1].split(',') if w]
         if '--prompt' in argv:
             prompt = pathlib.Path(argv[argv.index('--prompt') + 1]).read_text(
                 encoding='utf-8')
@@ -3009,6 +3169,7 @@ def main():
             return 0
         timeline = assistant_timeline(transcript)
         turn = turn_text_count(transcript)
+        written = turn_written_paths(transcript)
         text = last_assistant_text(transcript)
         prompt = last_prompt_text(transcript)
         # A turn a background job woke is judged by its own words only --
@@ -3038,7 +3199,7 @@ def main():
     # reply is refused below for something else (S. Alexander Jacobson,
     # 2026-10-20: a branch already given up kept being reported as unlanded).
     _record_given_up(text)
-    bad = [b for b in violations(text, reqs, timeline, wake, prompt, turn)
+    bad = [b for b in violations(text, reqs, timeline, wake, prompt, turn, written)
            if not b.get('advisory')]
     # A refused reply has been shown too, so the delete links it gave are
     # given (2026-10-20: recorded on a pass only, a link given in a refused

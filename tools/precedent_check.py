@@ -841,7 +841,7 @@ def _declared_source_practice_dirs():
             import precedent_resolve as pr
             own = (ROOT / 'practices').resolve()
             for entry in pr.declared_sources(ROOT):
-                if pr.normalize_level(entry.get('level')) in ('repo-local', 'individual') \
+                if pr.declared_level(entry) in ('repo-local', 'individual') \
                         or not entry.get('path') or pr.is_vendored(entry):
                     continue
                 d = pr._declared_path(ROOT, entry['path']) / 'practices'
@@ -1640,7 +1640,7 @@ REPLY_KEYS_READING_THE_MACHINE = (
 def _reply_example_problems(root):
     """-> [(index, problem)] for reply_check.json's requirements whose own
     `_examples` -- [{"reply": ..., "refused": true|false, "timeline"?: ...,
-    "wake"?: ...}, ...] -- the reply
+    "wake"?: ..., "written"?: [paths]}, ...] -- the reply
     check does not answer as declared, and the indexes of requirements that
     carry none. -> None when there is no reply_check.json.
 
@@ -1685,7 +1685,7 @@ def _reply_example_problems(root):
             got = bool(_prc.violations(
                 ex['reply'], [one],
                 timeline=[tuple(t) for t in timeline] if timeline else None,
-                wake=ex.get('wake')))
+                wake=ex.get('wake'), written=ex.get('written')))
             if got != bool(ex['refused']):
                 wrong.append((i, f'{"lets through" if not got else "refuses"} '
                                  f'{ex["reply"][:80]!r}, which its example says it '
