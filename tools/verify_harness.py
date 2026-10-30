@@ -33976,6 +33976,74 @@ def check_reply_check_wants_an_ask_to_state_its_question():
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_vendored_container_scan_knows_a_refresh_branch():
+    """A copy of precedent_container_safe.py standing alone -- as it is
+    vendored into a source set or a consumer, without
+    precedent_refresh_sources.py beside it -- leaves a local branch holding
+    only a session-start engine refresh out of "work only here", and still
+    reports a local branch holding real work.
+
+    2026-10-29: a consumer container held one such branch per source clone
+    after every worker restart, and the vendored scan called the container
+    NOT SAFE TO LOSE over them, twice in one day, because the test for a
+    refresh branch was imported from a file that is not vendored and the
+    import failed silently.
+
+    practice: control-asserts-which-failure -- the work branch is the control.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vendored-safe-'))
+    cases = []
+    try:
+        lone = tmp / 'tools'
+        lone.mkdir()
+        shutil.copy(ROOT / 'tools' / 'precedent_container_safe.py', lone)
+        origin, repo = tmp / 'origin.git', tmp / 'clone'
+        env = {**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@x',
+               'GIT_COMMITTER_NAME': 't', 'GIT_COMMITTER_EMAIL': 't@x'}
+
+        def git(*a, cwd=repo):
+            return subprocess.run(['git', *a], cwd=str(cwd), env=env,
+                                  capture_output=True, text=True)
+        git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
+        git('init', '-q', '-b', 'main', str(repo), cwd=tmp)
+        (repo / 'a.txt').write_text('a\n')
+        git('add', '-A'); git('commit', '-qm', 'base')
+        git('remote', 'add', 'origin', str(origin)); git('push', '-q', 'origin', 'main')
+        git('checkout', '-qb', '2026-10-29-x-engine-refresh-79b768aa-aaaaa-bbbbb')
+        (repo / 'engine.py').write_text('e\n')
+        git('add', '-A')
+        git('commit', '-qm', 'Refresh the vendored engine to BestPractice 79b768aaba0b')
+        git('checkout', '-q', 'main')
+
+        def scan():
+            code = ('import sys, json; sys.path.insert(0, sys.argv[1]); '
+                    'import precedent_container_safe as c; '
+                    'print(json.dumps(c.scan_one(sys.argv[2])["unsafe"]))')
+            r = subprocess.run([sys.executable, '-I', '-c', code, str(lone),
+                                str(repo)], capture_output=True, text=True,
+                               cwd=str(tmp))
+            return json.loads(r.stdout or 'null') if r.returncode == 0 else r.stderr[-200:]
+
+        got = scan()
+        cases.append(('a lone copy leaves a refresh-only branch out',
+                      got == [], f'got {got}'))
+        git('checkout', '-qb', 'real-work')
+        (repo / 'b.txt').write_text('b\n')
+        git('add', '-A'); git('commit', '-qm', 'A real change')
+        git('checkout', '-q', 'main')
+        got = scan()
+        cases.append(('control: a lone copy still reports a branch of real work',
+                      isinstance(got, list) and len(got) == 1
+                      and 'real-work' in got[0]
+                      and 'engine-refresh' not in got[0], f'got {got}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_vocabulary_prefers_the_file_you_are_standing_on():
     """A practice defined both in this repo and in a resolved source is read
     from THIS repo's file, and the collision is named either way.
@@ -93026,6 +93094,8 @@ def main():
           *check_reply_check_requires_the_boildown_first_line())
     check('the reply check wants an ask under Your next steps to state its question',
           *check_reply_check_wants_an_ask_to_state_its_question())
+    check('a vendored container scan knows a session-start refresh branch',
+          *check_vendored_container_scan_knows_a_refresh_branch())
     check('the reply check refuses a Boildown that only repeats the last one',
           *check_reply_check_refuses_a_repeated_boildown())
     check('the reply check keeps practice ideas to the closing reply',
