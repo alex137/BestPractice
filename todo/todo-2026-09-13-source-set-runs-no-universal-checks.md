@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan's Booked (step 3 of 5) for the 2026-10-30 engine change; then Update Vendors and the fixes in the three sets"
+waiting_on:        "Produce (step 5 of 5) in BestPractice, so Update Vendors can take the 2026-10-30 engine change from main into the three sets"
 noted:             2026-09-13
 closed:            null
 ---
@@ -187,6 +187,21 @@ closed:            null
     session sees at the end of a turn were never copies; they are read
     live from `../BestPractice` already. What did not reach a set was the
     mechanical checks, which is what this changes.
+
+    **Landed and fixed, 2026-10-30, on Morgan's "Fix the problems you
+    found ... and act and booked on the above".** The engine change is on
+    staging ([#1416](https://github.com/alex137/BestPractice/pull/1416)),
+    with two follow-ups found by running it:
+    [#1417](https://github.com/alex137/BestPractice/pull/1417)
+    (`deep-check` read the ladder set's six tests of its own tools as
+    stale) and a source level read past the one reader. Each set's
+    findings are fixed on its staging: the ladder set's `run_all.sh` and
+    plan header ([precedent-shared-ladder#146](https://github.com/themorgan/precedent-shared-ladder/pull/146)),
+    the writing set's header, the individual set's seven. The individual
+    set's `set-words-stay-in-their-set` was a measuring artifact (scratch
+    copies resolved their siblings elsewhere): in the real clone it skips,
+    as designed. What is left is the engine reaching the sets: Update
+    Vendors takes it from BestPractice's main.
 
 ## How It Closes
 
