@@ -3146,6 +3146,7 @@ def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW,
             if r.returncode == 0:
                 sources.append(r.stdout)
     blob = '\n'.join(sources)
+    restamped = {_unstamped(l) for l in keep if _VERSION_WORD.search(l)}
     out = []
     for line in old_text.splitlines():
         s = line.strip()
@@ -3153,8 +3154,25 @@ def hand_edits_against(root, old_text, new_text, files, skip=_GENERATED_ROW,
             continue
         if s in blob:
             continue
+        if _VERSION_WORD.search(line) and _unstamped(line) in restamped:
+            continue
         out.append(line)
     return out
+
+
+# A HEADER STAMP IS NOT A HAND EDIT. A consumer's header check bumps the
+# version line of MAP.source.md each time Update Vendors stages it, and the
+# view copies that line; a second stamp before the source is committed left
+# the view holding a version no source version ever held, so the rebuild
+# after the stamp refused it as typed by hand, and `--check` failed on every
+# run until the source was committed (2026-10-30, a consumer moving onto
+# declared exports). A dropped line naming a version that the rebuild still
+# carries with only its numbers changed is that stamp, not a person's line.
+_VERSION_WORD = re.compile(r'version', re.I)
+
+
+def _unstamped(line):
+    return re.sub(r'\d+', '#', line.strip())
 
 
 def own_source_label(root, name):
