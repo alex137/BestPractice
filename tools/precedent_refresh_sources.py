@@ -1129,7 +1129,13 @@ def apply_to(entry, commit=False, branch=None):
 # refresh rewrites the vendored engine and the views, not the set's own
 # practices. The same engine tip is never committed twice: a branch already
 # carrying it is named instead.
-REFRESH_BRANCH_WORDS = ('engine', 'refresh')
+#
+# The branch words, the commit subject and the test for a branch that
+# holds nothing else live in precedent_container_safe, which is vendored
+# everywhere this one is not, so every copy of that scan can tell a
+# refresh branch from work (2026-10-29).
+from precedent_container_safe import (  # noqa: E402
+    REFRESH_BRANCH_WORDS, REFRESH_SUBJECT, refresh_only_branches)
 
 
 def _refresh_branch_for(repo, tip):
@@ -1139,39 +1145,6 @@ def _refresh_branch_for(repo, tip):
                    cwd=repo)
     mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-{tip[:8]}-'
     return next((b for b in (out or '').split() if mark in b), None) if ok else None
-
-
-REFRESH_SUBJECT = 'Refresh the vendored engine to BestPractice '
-
-
-def refresh_only_branches(repo, base, merges_ok=False):
-    """-> the local branches in `repo` that carry nothing but this tool's own
-    refresh commits beyond `base` and no remote has: engine output, which
-    the next refresh writes again from the engine as it then is.
-
-    precedent_container_safe asks this to leave them out of "work only
-    here", and apply_on_its_own_branch to clear the superseded ones.
-
-    `merges_ok` passes over merge commits, as precedent_container_safe's
-    own count of work at risk does (--no-merges). 2026-10-19: a refresh
-    branch made at session start on top of a local merge that never reached
-    a remote held one refresh commit and that merge, so every archive check
-    called it "not safe to lose". Deletion keeps the strict reading: a merge
-    can carry a conflict resolution (practice: repair-cannot-discard-work)."""
-    ok, out = _git('for-each-ref', '--format=%(refname:short)', 'refs/heads',
-                   cwd=repo)
-    mark = f'-{"-".join(REFRESH_BRANCH_WORDS)}-'
-    found = []
-    for b in (out or '').split() if ok else []:
-        if mark not in b:
-            continue
-        ok2, subjects = _git('log', '--format=%s',
-                             *(['--no-merges'] if merges_ok else []), b,
-                             '--not', base, '--remotes', cwd=repo)
-        lines = [l for l in (subjects or '').splitlines() if l.strip()]
-        if ok2 and lines and all(l.startswith(REFRESH_SUBJECT) for l in lines):
-            found.append(b)
-    return found
 
 
 # A REFRESH THAT STOPS SHORT OF ITS COMMIT IS UNDONE (2026-10-20). It used to

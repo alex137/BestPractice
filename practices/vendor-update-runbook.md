@@ -118,7 +118,20 @@ whose GitHub test has not passed, on the person's word, and `--take-set
 voice packs and the sets they carry included, is refreshed on a normal update**, and
 the report says how far it moved; a repository freezes one only by its own
 `"hold": "<why>"` on that source in its `precedent.json` (Morgan,
-2026-10-20, strength: decided). Every one is
+2026-10-20, strength: decided). **So is every file a source exports**: a
+voice repository's compiled prompts, a rules file. A copy taken for those
+alone is declared `"exports_only": true`, and a moved one has each changed
+file listed in the report
+([spec](https://github.com/alex137/BestPractice/blob/staging/spec/VENDORED_SHARED_SETS.md#files-a-source-exports)).
+**A new copy between repositories is added only as a declared source**,
+never by a sync script: the full check fails on any folder copied in that
+`precedent.json` does not declare, and a declared copy that could not be
+refreshed is left for you, never DONE (Morgan, 2026-10-30, strength:
+decided: *"The whole point of vendoring in and update vendors is when the
+original one changes and I run an update vendors in the repo, it gets the
+new version of everything that's vendored in"*). **Saying "Update Vendors"
+is the go-ahead for a change it brings to his voice**, with no separate yes
+(Morgan, 2026-10-30, strength: decided: *"1 yes it counts"*). Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
@@ -1166,6 +1179,17 @@ definite preference towards using the upstream wording."* Strength:
 decided. The update now takes upstream's version and shows what it set
 aside, rather than stopping for a call, so a run never stalls on it and
 nothing is lost without being shown.
+
+**2026-10-30: everything copied in, not only practices.** Five routes
+copied files between Morgan's repositories, and Update Vendors drove only
+Precedent's own; the other four were hand-run sync scripts. On 2026-10-29 a
+consumer's copy of a voice repository's prompts sat behind while Update
+Vendors said DONE, because nothing knew the copy was there. Morgan: *"Update
+vendors, S at the end. Multiple vendors, all the vendors ... I want a strong
+solution to this so it doesn't repeat."* Strength: decided. A source now
+declares the files it exports, a consumer copies them through the same
+refresh, record and freshness a copied-in set gets, and the full check
+fails on a copy nothing declares.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records

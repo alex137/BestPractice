@@ -3511,6 +3511,10 @@ def _reach_merge_base(root, a, b, refs=()):
         if r not in names and _git(root, 'rev-parse', '--verify', '--quiet',
                                    f'refs/remotes/origin/{r}'):
             names.append(r)
+    # Where two branches part, not one known commit, so this deepens the
+    # branches together rather than going through
+    # precedent_local_edits.fetch_commit; bounded the same way, never
+    # --unshallow on its own.
     for n in DEEPEN_STEPS:
         _run(root, 'fetch', '-q', f'--deepen={n}', 'origin', *names)
         if _run(root, 'merge-base', a, b).returncode == 0:
@@ -3789,6 +3793,32 @@ def _land(root, work, label, staging, say):
             _restore_signals(old_handlers)
 
 
+def _takes_pull_request(root, base, tip):
+    """-> the paths that make a push of `tip` onto the landing branch take a
+    pull request, asked of `root`'s own tools/landing_pr_guard.py, the
+    pre-push hook that would refuse that push; [] where the guard is absent,
+    off (no-ladders) or cannot read the change, so the push decides.
+
+    WHY (2026-10-30). --land pushed a change to tools/verify_harness.py
+    straight at staging, the guard refused it, and only then did the tool
+    print the pull-request route -- a refusal it could have read up front
+    from the same repository."""
+    path = pathlib.Path(root) / 'tools' / 'landing_pr_guard.py'
+    if not path.is_file():
+        return []
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('_root_landing_pr_guard', path)
+        guard = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(guard)
+        if not guard.in_force():
+            return []
+        paths = guard.changed(root, base, tip)
+        return guard.risky(root, paths, tip) if paths else []
+    except Exception:                                        # noqa: BLE001
+        return []
+
+
 def _land_composed(root, sha, label, staging, why, say):
     """--land's composition, check and push, run while the lock is held."""
     _run(root, 'fetch', '-q', 'origin', staging)
@@ -3847,19 +3877,30 @@ def _land_composed(root, sha, label, staging, why, say):
                                            out, f'{stip}..{sha}')
         if written:
             new = _git(wt, 'rev-parse', 'HEAD')
-        # From the checkout, naming what is landed (LANDING_SOURCE_ENV).
-        p = _run(root, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}',
-                 env=dict(os.environ, **{LANDING_SOURCE_ENV: label}))
-    if p.returncode != 0:
-        moved, said = refused_push(root, staging, new, p)
-        if moved:
-            say(f'{staging} moved while this ran, so nothing was pushed; land again. '
-                f'({said[:200]})')
-            return 1, f'LAND REFUSED: {staging} moved while this ran; land again'
-        say(f'LAND REFUSED, and {staging} did not move: the push was refused, so '
-            f'landing again would be refused the same way. What the push '
-            f'said:\n{said[-1500:]}')
-        if 'pull request' in said:
+        # A change the pull-request guard would refuse goes to the pull
+        # request without the push it would refuse (2026-10-30).
+        needs_pr = _takes_pull_request(root, stip, new)
+        p = None if needs_pr else _run(
+            # From the checkout, naming what is landed (LANDING_SOURCE_ENV).
+            root, 'push', '-q', 'origin', f'{new}:refs/heads/{staging}',
+            env=dict(os.environ, **{LANDING_SOURCE_ENV: label}))
+    if p is None or p.returncode != 0:
+        if p is None:
+            said = (f'it changes {", ".join(needs_pr)} -- a CI workflow or '
+                    f'code other work is judged by, so it takes a pull request '
+                    f'(go-update)')
+            say(f'LAND REFUSED, and {staging} did not move, with no push '
+                f'tried: {said}.')
+        else:
+            moved, said = refused_push(root, staging, new, p)
+            if moved:
+                say(f'{staging} moved while this ran, so nothing was pushed; '
+                    f'land again. ({said[:200]})')
+                return 1, f'LAND REFUSED: {staging} moved while this ran; land again'
+            say(f'LAND REFUSED, and {staging} did not move: the push was '
+                f'refused, so landing again would be refused the same way. '
+                f'What the push said:\n{said[-1500:]}')
+        if p is None or 'pull request' in said:
             carried = _carry_composition_to_branch(root, label, new, staging, sha)
             # The commit the pull request carries: the composition when it
             # was pushed to the branch, else the branch as it stands, which
@@ -3872,6 +3913,8 @@ def _land_composed(root, sha, label, staging, why, say):
                 f'what was checked.')
             say(carried)
             say(pull_request_route_note(root, staging, checks_ran=True))
+        if p is None:
+            return 1, f'LAND REFUSED: {said[:200]}'
         first = next((ln for ln in said.splitlines() if ln.strip()), 'no reason given')
         return 1, f'LAND REFUSED: the push to {staging} was refused: {first[:200]}'
     say(f'the quick checks passed, in {took:.0f}s.')

@@ -572,10 +572,23 @@ def record_person_total(repo, today=None):
                         f"copied from their individual set by Update Vendors "
                         f"on {day}")}
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-    return (f'session_load_tokens set to {total:,} from the person\'s individual '
+    said = (f'session_load_tokens set to {total:,} from the person\'s individual '
             f'set' + (f' (was {was:,})' if isinstance(was, int) else '')
             + ': the one session-load total that refuses here; the parts are '
             'measured and reported')
+    # 2026-10-29: two repositories already loading more than the person's
+    # total were told only "set to 10,000", and every session check after
+    # it was red. Say so here, with the next step.
+    try:
+        import session_load_trend as _slt
+        _sizes, loads = _slt.total_tokens(repo)
+    except Exception:                                        # noqa: BLE001
+        loads = None
+    if isinstance(loads, int) and loads > total:
+        said += (f'. This repository already loads ~{loads:,}, over it, so '
+                 f'every session check here is red until a "Reduction pass" '
+                 f'brings it under (practice: reduction-pass)')
+    return said
 
 
 def approval_gap(repo):
@@ -1351,7 +1364,17 @@ def refresh_copies_step(repo, rep, take_sets=()):
     when its origin moves, and taken this once when the run names it in
     --take-set. The set-side "copy_refresh": "on-go-ahead" it replaces is
     ignored, and named so its owner can delete it.
-    A set with no clone on this machine is said, never guessed."""
+    A copy taken for its exports alone (`"exports_only": true`) is refreshed
+    the same way, and so is every file a set exports (Morgan, 2026-10-30,
+    strength: decided: Update Vendors "gets the new version of everything
+    that's vendored in"). A copy that moved has its changed files listed:
+    "Update Vendors" is the go-ahead for a change to a voice, so the report
+    is where it is heard.
+    A copy that could not be refreshed -- no clone on this machine, or the
+    copy failed -- is left for the person, never DONE: an update that cannot
+    say a declared copy is current has not finished (2026-10-29, a
+    consumer's copy of a voice repository's prompts sat behind while Update
+    Vendors said DONE)."""
     try:
         import precedent_resolve as pr
         cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
@@ -1370,11 +1393,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
         if clone is None or not (clone / '.git').exists():
             near = (ind.resolve().parent / name) if ind else None
             clone = near if near is not None and (near / '.git').exists() \
-                else pr.clone_elsewhere(name, str(repo / str(e['path'])))
+                else pr.clone_elsewhere(name, str(repo / str(e['path'])),
+                                        any_clone=pr.is_exports_only(e))
+        held = str(e.get('hold') or '').strip()
         if clone is None or not (pathlib.Path(clone) / '.git').exists():
-            rep.step(f'copy of {name}', 'not refreshed: no clone of it on this '
-                     'machine to refresh from. Attach it and run Update '
-                     'Vendors again')
+            if held:
+                rep.step(f'copy of {name}', f'held by this repository ({held}); '
+                         f'no clone of it on this machine to compare with')
+            else:
+                rep.leave(f'copy of {name}', 'not refreshed: no clone of it on '
+                          'this machine, so nothing here can say the copy is '
+                          'current. Attach it (read access) and run Update '
+                          'Vendors again')
             continue
         clone = pathlib.Path(clone)
         # A set in a folder of its repository keeps its manifest there.
@@ -1398,14 +1428,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
         # fixed in vendored_layer_paths(); this still covers a copy lost
         # any other way.
         here = repo / str(e['path'])
-        first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
+        first = not up.get('commit') or not (
+            (here / pr.SOURCE_MANIFEST).is_file()
+            # A copy of a source with no precedent-source.json is there
+            # when any of its files is.
+            or (pr.is_exports_only(e) and here.is_dir() and any(here.iterdir())))
         if man.get('copy_refresh'):
             rep.step(f'copy of {name}', f'its precedent-source.json still says '
                      f'"copy_refresh": {json.dumps(man["copy_refresh"])}, which '
                      f'is retired (2026-10-20): every copy is refreshed, and a '
                      f'repository that wants one frozen says "hold" in its own '
                      f'precedent.json. Delete the line in {name}')
-        hold = str(e.get('hold') or '').strip()
+        hold = held
         if hold and not first and name not in take_sets:
             # The copy is taken from the set's main, so "has it moved" asks
             # main too, never the branch this clone happens to be on.
@@ -1426,11 +1460,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
                 rep.step(f'copy of {name}', f'current; held by this repository '
                          f'({hold})')
             continue
+        was = _copy_digest(here)
+        # A source declared in precedent.json by hand, not by the copy-in
+        # question, has no record yet; start it the way that answer does.
+        if not mpath.exists():
+            mpath.parent.mkdir(parents=True, exist_ok=True)
+            mpath.write_text(json.dumps({'upstream': {}}, indent=2) + '\n',
+                             encoding='utf-8')
         rc, out = run(checkin + ['--source', name, 'update', str(clone),
                                  '--repo', str(repo)]
                       + (['--force'] if first else []), repo)
         if rc != 0:
-            rep.step(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
+            rep.leave(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
             continue
         rc, out = run(checkin + ['--source', name, 'record', str(clone),
                                  '--repo', str(repo), '--note', 'Update Vendors'],
@@ -1452,6 +1493,34 @@ def refresh_copies_step(repo, rep, take_sets=()):
         if rc == 0 and now and up.get('commit') and now != up.get('commit'):
             rep.step(f'copy of {name}', f'moved {str(up["commit"])[:12]} -> '
                      f'{str(now)[:12]}')
+        changed = _copy_changes(was, _copy_digest(here))
+        if changed:
+            shown = changed[:20]
+            rep.step(f'copy of {name}', 'changed: ' + ', '.join(shown) + (
+                f' and {len(changed) - len(shown)} more' if changed[20:] else ''))
+
+
+def _copy_digest(folder):
+    """-> {relative path: content hash} of every file under `folder`."""
+    import hashlib
+    folder = pathlib.Path(folder)
+    if not folder.is_dir():
+        return {}
+    return {f.relative_to(folder).as_posix(): hashlib.sha1(f.read_bytes()).hexdigest()
+            for f in folder.rglob('*') if f.is_file()}
+
+
+def _copy_changes(was, now):
+    """-> sorted 'path (added|changed|removed)' lines between two digests."""
+    out = []
+    for rel in sorted(set(was) | set(now)):
+        if rel not in was:
+            out.append(f'{rel} (added)')
+        elif rel not in now:
+            out.append(f'{rel} (removed)')
+        elif was[rel] != now[rel]:
+            out.append(f'{rel} (changed)')
+    return out
 
 
 def renamed_sources_step(repo, rep, engine_out):
@@ -2859,27 +2928,11 @@ def range_readable(clone, old, new):
     clone BestPractice with --depth 1, so the commit the repository last
     vendored was not in the clone, `git log old..new` failed, and the report
     said "could not be read here" over 110 commits, most of them a
-    colleague's. A shallow clone is deepened in steps, then unshallowed, then
-    asked for the commit itself; only then does this give up."""
-    def git(*args, timeout=300):
-        try:
-            return subprocess.run(['git', '-C', str(clone), *args], capture_output=True,
-                                  text=True, timeout=timeout).returncode == 0
-        except (OSError, subprocess.SubprocessError):
-            return False
-
-    def holds():
-        return (git('cat-file', '-e', f'{old}^{{commit}}')
-                and git('merge-base', '--is-ancestor', old, new))
-    if holds():
+    colleague's. The fetch is the engine's one way,
+    precedent_local_edits.fetch_commit, in its range-read mode: deepened in
+    bounded steps, then unshallowed as a last resort."""
+    if le.fetch_commit(clone, old, ancestor_of=new):
         return True, ''
-    for step in (['fetch', '-q', '--deepen=300', 'origin'],
-                 ['fetch', '-q', '--deepen=3000', 'origin'],
-                 ['fetch', '-q', '--unshallow', 'origin'],
-                 ['fetch', '-q', 'origin', old]):
-        git(*step, timeout=600)
-        if holds():
-            return True, ''
     return False, (f'{pathlib.Path(clone).name} does not hold {str(old)[:12]} as '
                    f'an ancestor of {str(new)[:12]}, even after fetching more '
                    f'history; `git -C {clone} fetch --unshallow origin` and a '
@@ -6425,6 +6478,49 @@ def seed_budgets_step(repo, rep):
              f'the largest, and a reduction pass is how it comes down')
 
 
+def session_load_total_step(repo, rep):
+    """Measure what a session in `repo` loads against the
+    `session_load_tokens` total, after everything this run writes, and put
+    an overrun to the person.
+
+    WHY (2026-10-29, a consuming repository). The update set the total to
+    10,000 from the person's individual set and reported DONE; the next
+    session check failed "what this session loads fits this repository's
+    session-load total" at ~10,886 (AGENTS.md ~9,751 +
+    .precedent/SESSION_PRACTICES.md ~1,134). The full check refuses only a
+    change that grew a part, so a total that arrives under a repository
+    already over it passed every gate here. The measurement is
+    session_load_trend.total_against_cap, the one the session check's row
+    reads. A question, not an item left for the repository: bringing it
+    under is a reduction pass, and only the person raises the total
+    (practice: session-load-budget)."""
+    try:
+        import session_load_trend as _slt
+    except Exception:                                        # noqa: BLE001
+        return
+    renderer = repo / 'tools' / 'precedent_session_practices.py'
+    if renderer.is_file():
+        # The session-start file as the next session will have it, rendered
+        # by the engine this update just vendored.
+        run([sys.executable, str(renderer), '--repo', '.', '--quiet'], repo)
+    measured = _slt.total_against_cap(repo)
+    if measured is None:
+        return
+    sizes, total, cap = measured
+    parts = ' + '.join(f'{rel} ~{n:,}' for rel, n in sizes.items())
+    if total <= cap:
+        rep.step('session-load total', f'~{total:,} of {cap:,} ({parts})')
+        return
+    rep.step('session-load total', f'OVER: ~{total:,} of {cap:,} ({parts})')
+    rep.ask('session-load total',
+            f'a session here loads ~{total:,} tokens before it works '
+            f'({parts}), over the {cap:,}-token session_load_tokens total, so '
+            f'every session check here fails until it comes under. A '
+            f'reduction pass on the largest part brings it back (`python3 '
+            f'tools/precedent_show.py reduction-pass`); only you can raise '
+            f'the total instead (practice: session-load-budget).')
+
+
 def full_check_after(repo):
     """precedent.json's `update_full_check` is "after": the update runs the
     basic check only, and the full one runs after the push, in the
@@ -6494,6 +6590,7 @@ def set_tests_step(repo, rep):
 def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
+    session_load_total_step(repo, rep)
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full

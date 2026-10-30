@@ -330,6 +330,8 @@ def prepare(repo, bestpractice, detached=False):
         if ahead != "0":
             raise Refused(f"local {TRUNK} has {ahead} commit(s) origin lacks; push or move them first")
         git(repo, "merge", "-q", "--ff-only", f"origin/{TRUNK}")
+    # The lander wants trunk's whole history, not one commit, so it does not
+    # use precedent_local_edits.fetch_commit, which fetches one bounded.
     if git(repo, "rev-parse", "--is-shallow-repository").stdout.strip() == "true":
         git(repo, "fetch", "-q", "--unshallow", "origin")
     refresh_shared_clones(ROOT)

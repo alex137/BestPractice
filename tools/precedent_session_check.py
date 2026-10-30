@@ -1274,20 +1274,29 @@ def _session_load_rows():
     except Exception:                                        # noqa: BLE001
         return []
     reg = slt.registry() or {}
-    total_cap = reg.get('session_load_tokens')
-    if isinstance(total_cap, int) and not isinstance(total_cap, bool):
+    measured_total = slt.total_against_cap(ROOT)
+    if measured_total is not None:
         # One total (build_views.TOTAL_KEY): the parts have no ceiling of
         # their own, so the only row is the sum against the total.
-        sizes, total = slt.total_tokens(ROOT)
+        sizes, total, total_cap = measured_total
         if not sizes:
             return []
         parts = ' + '.join(f'{rel} ~{n:,}' for rel, n in sizes.items())
         name = "what this session loads fits this repository's session-load total"
         if total > total_cap:
-            return [(name, False, f'~{total:,} tokens ({parts}), over the '
-                     f'{total_cap:,}-token session_load_tokens total. All of '
-                     f'it is read before any work; a reduction pass on the '
-                     f'part that grew brings it back (practice: '
+            # A WARNING, not a failure (Morgan, 2026-10-30, strength:
+            # decided: "Finding 1: act and booked in your suggested fix").
+            # Being over is refused only when a change grows a part --
+            # precedent_check's session-load-budget, since 2026-10-18, so
+            # growth no branch wrote never walls off every branch -- and the
+            # merge and push gates print the overrun (session_load_trend.
+            # headroom_notice). At session start no change is in scope, so a
+            # FAIL here was a verdict no gate agreed with.
+            return [(name, WARN, f'~{total:,} tokens ({parts}), over the '
+                     f'{total_cap:,}-token session_load_tokens total by '
+                     f'{total - total_cap:,}. Nothing is refused for it until '
+                     f'a change grows a part; a reduction pass brings it back '
+                     f'under, and only the person raises the total (practice: '
                      f'session-load-budget)')]
         return [(name, True, f'~{total:,} of {total_cap:,} ({parts})')]
     surfaces = reg.get('surfaces') or {}
@@ -1597,6 +1606,13 @@ def _git_head(path):
 
 
 
+# A row's `ok` is True, False (a guarantee NOT in effect), None (could not be
+# worked out) or WARN: in effect, with something the person should know that
+# no gate refuses. WARN is truthy, so a caller reading only `ok is False`
+# (failing_guarantees) never counts it as broken.
+WARN = 'warn'
+
+
 def failing_guarantees(offline=True):
     """-> [(name, detail)] for every guarantee measured as NOT in effect.
 
@@ -1862,8 +1878,10 @@ def main():
     rows = checks()
     bad = [r for r in rows if r[1] is False]
     unknown = [r for r in rows if r[1] is None]
+    warned = [r for r in rows if r[1] == WARN]
     for name, ok, detail in rows:
-        mark = 'OK  ' if ok else ('FAIL' if ok is False else '??  ')
+        mark = ('WARN' if ok == WARN else 'OK  ' if ok
+                else 'FAIL' if ok is False else '??  ')
         print(f'  {mark} {name}')
         if detail:
             print(f'       {detail}')
@@ -1880,8 +1898,10 @@ def main():
             print('       -- unless a row above names a different remedy in '
                   'its own detail, which is the one that will actually work')
         return 1
-    print(f'session check OK: {len(rows) - len(unknown)} guarantee(s) in '
-          f'effect' + (f', {len(unknown)} undetermined' if unknown else '') + '.')
+    print(f'session check OK: {len(rows) - len(unknown) - len(warned)} '
+          f'guarantee(s) in effect'
+          + (f', {len(warned)} warning(s)' if warned else '')
+          + (f', {len(unknown)} undetermined' if unknown else '') + '.')
     return 0
 
 

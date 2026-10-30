@@ -184,13 +184,80 @@ def _show(clone, commit, rel):
     return r.stdout if r.returncode == 0 else None
 
 
+# How far one deepen reaches. 1000 covers a vendored commit months old on
+# BestPractice's history; HISTORY_DEPTHS go further for a range read.
+FETCH_DEPTH = 1000
+HISTORY_DEPTHS = (FETCH_DEPTH, 5000)
+
+
+def fetch_commit(clone, commit, branch=None, ancestor_of=None):
+    """-> True once `clone` holds `commit` (and, given `ancestor_of`, holds
+    it as an ancestor of that commit, so the range between them reads);
+    fetches for it if it has to.
+
+    THE ONE WAY the engine fetches a commit a clone lacks (2026-10-29).
+    Until then checkin.py, precedent_update.range_readable and _has_commit
+    below each did it their own way: one never ran --unshallow, one always
+    ended on it, one fetched by name only, and only some guarded against a
+    --depth fetch turning a full clone shallow. The policy now:
+
+    - A full clone is never given --depth or --deepen: a --depth fetch there
+      writes .git/shallow and turns it shallow, and every history check then
+      refuses to run (found 2026-10-04, in the first consumer this ran in).
+      It only fetches the commit by name.
+    - A shallow clone is deepened, bounded: `branch` to FETCH_DEPTH when
+      named (a depth-1 attach of one branch), else every ref by --deepen;
+      then the commit by name, bounded too.
+    - A range read (`ancestor_of`) deepens by HISTORY_DEPTHS, then tries
+      --unshallow once as a last resort, because a range can genuinely sit
+      further back than any bound. Nothing else runs --unshallow: some git
+      policy hooks refuse it outright and it costs minutes on a long
+      history.
+
+    Two other places read history and do not come here, because they want
+    the repository's own history whole rather than one commit:
+    land_next.py (the lander's trunk) and precedent_branches.py (where two
+    branches part)."""
+    def git(*args):
+        try:
+            return subprocess.run(['git', '-C', str(clone), *args], capture_output=True,
+                                  text=True, timeout=600).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def holds():
+        return (git('cat-file', '-e', f'{commit}^{{commit}}')
+                and (ancestor_of is None
+                     or git('merge-base', '--is-ancestor', commit, ancestor_of)))
+
+    def shallow():
+        r = subprocess.run(['git', '-C', str(clone), 'rev-parse',
+                            '--is-shallow-repository'], capture_output=True, text=True)
+        return r.stdout.strip() == 'true'
+
+    if not commit or holds():
+        return bool(commit)
+    if shallow():
+        depths = HISTORY_DEPTHS if ancestor_of is not None else (FETCH_DEPTH,)
+        for n in depths:
+            git('fetch', '-q', f'--depth={n}', 'origin', branch) if branch \
+                else git('fetch', '-q', f'--deepen={n}', 'origin')
+            if holds():
+                return True
+        git('fetch', '-q', f'--depth={FETCH_DEPTH}', 'origin', commit)
+        if holds():
+            return True
+        if ancestor_of is not None and shallow():
+            git('fetch', '-q', '--unshallow', 'origin')
+    else:
+        git('fetch', '-q', 'origin', commit)
+    return holds()
+
+
 def _has_commit(clone, commit, url=None):
-    if _git(clone, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0:
-        return True
     # A shallow or single-branch clone can lack the commit something was
-    # vendored from; ask origin for it once rather than guessing a base.
-    _git(clone, 'fetch', '--quiet', 'origin', commit)
-    if _git(clone, 'cat-file', '-e', f'{commit}^{{commit}}').returncode == 0:
+    # vendored from; ask origin for it rather than guessing a base.
+    if fetch_commit(clone, commit):
         return True
     # Run from a consuming repository, the clone is that repository, whose
     # origin never had the upstream commit: `status` said "cannot judge" for

@@ -1081,7 +1081,7 @@ def _declined_ships(out_dir):
 
 def _plan_ships(res, declined=None, adapter_dests=()):
     """-> (plan, declined_rows). `plan` is [(dest, source_name, slug, bytes,
-    executable)], `declined_rows` [{'path', 'reason', 'slug'}]. Reads, never
+    executable, src_file)], `declined_rows` [{'path', 'reason', 'slug'}]. Reads, never
     writes -- same contract as _plan_checks and _plan_adapters.
 
     Only a practice this run actually materializes ships anything: one that
@@ -1133,7 +1133,7 @@ def _plan_ships(res, declined=None, adapter_dests=()):
                 missing.append(f'{rel} ({slug}, {practice["source"]})')
                 continue
             plan.append((dest, practice['source'], slug, src_file.read_bytes(),
-                         os.access(src_file, os.X_OK)))
+                         os.access(src_file, os.X_OK), src_file))
     if missing:
         print("precedent_materialize: shipped file(s) a practice declares "
               "that are not in its source tree, NOT delivered -- the source "
@@ -1896,7 +1896,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
     prior_ships = _prior_ship_hashes(out_dir)
     ships_adopted = []
     ships_kept = []
-    for dest_rel, source_name, slug, data, executable in ships_plan:
+    for dest_rel, source_name, slug, data, executable, src_file in ships_plan:
         dest = out_dir / dest_rel
         want = hashlib.sha256(data).hexdigest()[:16]
         kept = None
@@ -1904,7 +1904,7 @@ def _materialize(sources, res, out_dir, dry_run=False, withheld=None,
             have = hashlib.sha256(dest.read_bytes()).hexdigest()[:16]
             if have != want and prior_ships.get(dest_rel) != have:
                 kept = _ship_keep_reason(out_dir, dest_rel, data,
-                                         dest_rel in prior_ships)
+                                         dest_rel in prior_ships, src_file)
                 if kept is None:
                     ships_adopted.append(f'{dest_rel} ({slug}, {source_name})')
         if kept is not None:
@@ -2023,7 +2023,7 @@ def _answered_upstream_edits(out_dir):
         return set()
 
 
-def _ship_keep_reason(out_dir, rel, data, delivered_before):
+def _ship_keep_reason(out_dir, rel, data, delivered_before, src_file=None):
     """Why a shipped file whose content this tree did not write must stay as
     it is -- 'unsaved' or 'ahead' -- or None when replacing it loses nothing.
 
@@ -2045,7 +2045,14 @@ def _ship_keep_reason(out_dir, rel, data, delivered_before):
     back to it: replacing it would revert its own newer work on every
     sync, and it should not need a hand-written `declined_ships` entry to
     stop that loop. Read from the committed manifest wherever it can be, so
-    a shallow clone in CI reaches the same answer as the full one."""
+    a shallow clone in CI reaches the same answer as the full one.
+
+    Neither, when the committed bytes are a version the set itself shipped
+    (_set_shipped_these_bytes): nothing of this repository's is at stake,
+    so the set's newer copy replaces them. THE INCIDENT (2026-10-29): two
+    files a shared set delivered, untouched since, were kept as 'ahead' on
+    the next Update Vendors because the manifest named a delivery, and the
+    views check stayed red until they were deleted by hand."""
     def git(*args, **kw):
         return subprocess.run(['git', '-C', str(out_dir), *args],
                               capture_output=True, **kw)
@@ -2053,6 +2060,8 @@ def _ship_keep_reason(out_dir, rel, data, delivered_before):
         return 'unsaved'
     if git('diff', '--quiet', 'HEAD', '--', rel).returncode != 0:
         return 'unsaved'
+    if _set_shipped_these_bytes(out_dir, rel, src_file):
+        return None
     if delivered_before:
         return 'ahead'
     blob = git('hash-object', '--stdin', input=data)
@@ -2066,6 +2075,48 @@ def _ship_keep_reason(out_dir, rel, data, delivered_before):
             if line.startswith(':')):
         return 'ahead'
     return None
+
+
+def _set_shipped_these_bytes(out_dir, rel, src_file):
+    """True when shipped file `rel`, as committed here, is byte for byte a
+    version its set shipped: the committed manifest records exactly these
+    bytes for it (works in a shallow clone), or the set's own history of
+    `src_file` holds this blob."""
+    def git(root, *args):
+        return subprocess.run(['git', '-C', str(root), *args],
+                              capture_output=True)
+    path = pathlib.Path(out_dir) / rel
+    try:
+        have = path.read_bytes()
+    except OSError:
+        return False
+    mf = git(out_dir, 'show', 'HEAD:MANIFEST.json')
+    if mf.returncode == 0:
+        try:
+            rows = json.loads(mf.stdout.decode('utf-8')).get('ships', [])
+        except (ValueError, UnicodeDecodeError, AttributeError):
+            rows = []
+        h = hashlib.sha256(have).hexdigest()[:16]
+        if any(isinstance(r, dict) and r.get('path') == rel
+               and r.get('sha256_16') == h for r in rows):
+            return True
+    if src_file is None:
+        return False
+    src_file = pathlib.Path(src_file)
+    root = git(src_file.parent, 'rev-parse', '--show-toplevel')
+    if root.returncode != 0:
+        return False
+    root = pathlib.Path(root.stdout.decode().strip())
+    blob = git(out_dir, 'hash-object', '--', rel)
+    if blob.returncode != 0:
+        return False
+    blob = blob.stdout.decode().strip()
+    history = git(root, 'log', '--format=', '--raw', '--no-abbrev', 'HEAD', '--',
+                  src_file.resolve().relative_to(root.resolve()).as_posix())
+    return history.returncode == 0 and any(
+        line.split()[3:4] == [blob]
+        for line in history.stdout.decode(errors='replace').splitlines()
+        if line.startswith(':'))
 
 
 def write_manifest(mf, manifest):

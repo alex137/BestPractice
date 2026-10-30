@@ -862,6 +862,83 @@ def _strip_markdown_links(s):
     return _MD_LINK_RE.sub(' ', s)
 
 
+# A NAME THAT IS NOTHING HERE HAS NO PAGE (2026-10-30). A reply naming
+# `MANIFEST.json` -- a consumer's file, which BestPractice does not have --
+# was refused as an unlinked file, and the repair's fallback, "give its
+# absolute path", had nothing to point at either. A name shaped like a file
+# (it ends in an extension) that is no file in any repository this session
+# holds -- working tree or landing branch -- and no branch there either is
+# not a mention of anything a link could reach, so it is not counted.
+# Anything that cannot be looked up is counted, the stricter way.
+_FILE_SHAPED_RE = re.compile(r'^[^\s`]*[\w-]\.[A-Za-z0-9]{1,6}$')
+
+
+def _session_names():
+    """-> (paths, branches): every file path in the working tree and on the
+    landing branches of each repository this session holds, and every
+    branch name there, local or on origin; None when none could be read."""
+    global _SESSION_NAMES
+    if _SESSION_NAMES is not False:
+        return _SESSION_NAMES
+    _SESSION_NAMES = None
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        roots = _pg._session_roots(os.environ.get('CLAUDE_PROJECT_DIR') or '.')
+    except Exception:                                         # noqa: BLE001
+        return None
+
+    def git(repo, *args):
+        try:
+            r = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True, timeout=20)
+        except Exception:                                     # noqa: BLE001
+            return None
+        return r.stdout.splitlines() if r.returncode == 0 else None
+
+    paths, branches, read = set(), set(), False
+    for repo in roots:
+        try:
+            landing = {'main', 'staging', json.loads(
+                (pathlib.Path(repo) / 'precedent.json').read_text(
+                    encoding='utf-8')).get('landing_branch')}
+        except (OSError, ValueError, AttributeError):
+            landing = {'main', 'staging'}
+        files = git(repo, 'ls-files', '--cached', '--others', '--exclude-standard')
+        refs = git(repo, 'for-each-ref', '--format=%(refname)',
+                   'refs/heads', 'refs/remotes/origin')
+        if files is None or refs is None:
+            continue
+        read = True
+        paths.update(files)
+        for ref in refs:
+            name = re.sub(r'^refs/(?:heads|remotes/origin)/', '', ref)
+            branches.add(name)
+            if ref.startswith('refs/remotes/origin/') and name in landing:
+                paths.update(git(repo, 'ls-tree', '-r', '--name-only', ref) or [])
+    if read:
+        _SESSION_NAMES = (paths, branches)
+    return _SESSION_NAMES
+
+
+_SESSION_NAMES = False
+
+
+def _names_no_file_or_branch(name):
+    """True for a file-shaped `name` that is no file (by its path or as the
+    tail of one) and no branch in any repository this session holds."""
+    if not _FILE_SHAPED_RE.match(name):
+        return False
+    found = _session_names()
+    if found is None:
+        return False
+    paths, branches = found
+    if name in branches or name in paths:
+        return False
+    tail = '/' + name
+    return not any(p.endswith(tail) for p in paths)
+
+
 def _linked_spans(s):
     """Every markdown link in `s`, text and destination, joined: a name
     found in here was linked somewhere in the reply, so a later bare
@@ -916,6 +993,41 @@ def first_item_under_heading(text, pattern):
             return b.group(1) if b else ''
         return ''
     return None
+
+
+def item_units_under_heading(text, heading, item):
+    """-> the bullet under the first heading matching `heading` whose text
+    matches `item`, and each bullet nested under it, one string apiece with
+    continuation lines joined on. None when no such heading exists; [] when
+    the heading has no such bullet. Built for the-boildown's "Your next
+    steps", whose asks are often sub-bullets of one head line: each ask is
+    read on its own bullet, never borrowing words from a sibling."""
+    lines, units, cur, base, inside, found = text.splitlines(), [], None, None, False, False
+    for line in lines:
+        if re.match(r'^#{1,6}\s+', line):
+            if inside:
+                break
+            inside = bool(re.search(heading, line.lstrip('#').strip(), re.I))
+            found = found or inside
+            continue
+        if not inside or not line.strip():
+            continue
+        b = re.match(r'^(\s*)(?:[-*+]|\d+[.)])\s+(.*)', line)
+        if b:
+            indent = len(b.group(1).expandtabs())
+            if base is not None and indent <= base:
+                break
+            if base is None:
+                if re.search(item, _strip_markdown_emphasis(b.group(2)), re.I):
+                    base, cur = indent, b.group(2)
+                continue
+            units.append(cur)
+            cur = b.group(2)
+        elif cur is not None:
+            cur += ' ' + line.strip()
+    if cur is not None:
+        units.append(cur)
+    return units if found else None
 
 
 def section_bullets(text, pattern):
@@ -1326,6 +1438,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_quiet_while_background_runs',
     'require_prompt_block_header',
     'require_reason_on_gap_line',
+    'require_ask_states_its_question',
     'unless_reply_declares_loss',
     # printed by the reply gate before the reply, never evaluated here
     # (precedent_gate._note_from_tool, 2026-10-17)
@@ -1579,6 +1692,19 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
             if prev and 'branches/all?query=' in text:
                 owed = [b for _, b, _ in _delete_links_owed()]
                 rest = [i for i in cur if not any(_linked(i, b) for b in owed)]
+            # Nor is a Your next steps bullet that asks for an answer: the
+            # person may read only this reply, so a question still waiting
+            # is restated in every reply until it is answered (Morgan,
+            # 2026-10-29: "I scrolled and scrolled and I can't find it").
+            # Without this the one-line form dropped the question, and the
+            # sessions that obeyed it wrote "the voice pack question, as
+            # before" -- a name for a question, not the question.
+            if prev:
+                asks = [a for q in reqs for a in [q.get('require_ask_states_its_question')]
+                        if isinstance(a, dict) and a.get('item') and a.get('if_matches')]
+                rest = [i for i in rest if not any(
+                    re.search(a['item'], _strip_markdown_emphasis(i.lstrip('-*+ ')), re.I)
+                    and re.search(a['if_matches'], i, re.I) for a in asks)]
             if prev and (len(rest) == len(cur) or len(rest) > 1) and all(
                     item_repeats(i, prev, rep.get('same_when_both_say') or ())
                     for i in rest):
@@ -1588,6 +1714,10 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
                     f"reply's did. With nothing new in it, the whole section "
                     f"is one line"
                     + (f": {one_line_form(rep)}" if rep.get('one_line') else '')
+                    + ("; while a question still waits on the person, add "
+                       "the Your next steps bullet restating it in full"
+                       if any(q.get('require_ask_states_its_question') for q in reqs)
+                       else '')
                     + (f" -- {rep['why']}" if rep.get('why') else '')
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
         one_of = r.get('require_one_of') or []
@@ -1698,7 +1828,8 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
             names = []
             for m in re.finditer(pattern, link_stripped):
                 name = m.group(0).strip('`')
-                if name not in linked and name not in names:
+                if name not in linked and name not in names \
+                        and not _names_no_file_or_branch(name):
                     names.append(name)
             if names:
                 shown = ', '.join(f'"{n}"' for n in names[:8]) \
@@ -1737,6 +1868,42 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
                     f"undone with no reason on the same line: {shown}. Do it "
                     f"now, or say on that line what blocks it (blocked on, "
                     f"waiting for, needs someone's word, can't until)"
+                    + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_ask_states_its_question (Morgan, 2026-10-29, strength:
+        # decided: "you mentioned like 8 times I need to answer the
+        # [voice repo] question but I scrolled and scrolled and I can't
+        # find it ... how do we fix this?"). About eight replies running put
+        # "yes or no on syncing the voice pack" and "the voice pack question"
+        # under Your next steps, never saying what syncing would change. The
+        # person may read only the latest reply, after hours away, so a bullet
+        # that asks for an answer carries the question itself: what each
+        # answer does and the session's pick, in that same bullet.
+        ask = r.get('require_ask_states_its_question')
+        if isinstance(ask, dict) and ask.get('heading') and ask.get('item') and ask.get('if_matches'):
+            units = item_units_under_heading(text, ask['heading'], ask['item']) or []
+            bare = []
+            for u in units:
+                plain = _strip_markdown_emphasis(
+                    re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', u))
+                if not re.search(ask['if_matches'], plain, re.I):
+                    continue
+                missing = [n for n, rx in (ask.get('must_also_match') or {}).items()
+                           if not re.search(rx, plain, re.I)]
+                if missing:
+                    bare.append((plain, missing))
+            if bare:
+                shown = '; '.join(f'"{u[:120]}" (missing: {", ".join(m)})'
+                                  for u, m in bare[:3])
+                out.append({'kind': 'ask_without_question', 'advisory': advisory,
+                            'message': (
+                    f"[{r.get('_source', '?')}] a bullet under Your next steps "
+                    f"asks for an answer without stating the question: {shown}. "
+                    f"Write it for someone who sees only this reply: what is "
+                    f"being decided, what yes and no each do, and your pick, "
+                    f"all in that bullet -- never \"the X question\" or "
+                    f"\"yes or no on X\" alone"
                     + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
@@ -2768,6 +2935,12 @@ def main():
                     bits.append(f'"{ph}" requires a container with nothing '
                                 f'uncommitted and nothing off a remote '
                                 f'(tools/precedent_container_safe.py)')
+            _ask = r.get('require_ask_states_its_question') or {}
+            if _ask.get('heading') and _ask.get('item'):
+                bits.append(f"a bullet under /{_ask['heading']}/i's "
+                            f"/{_ask['item']}/i item that asks for an answer "
+                            f"also carries: "
+                            + ', '.join(_ask.get('must_also_match') or {}))
             _rep = r.get('require_section_not_repeated') or {}
             if _rep.get('heading'):
                 bits.append(f"section /{_rep['heading']}/i not a repeat of the "
