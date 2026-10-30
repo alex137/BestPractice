@@ -318,6 +318,7 @@
   "check_land_rebuilds_generated_content_without_a_header": 1.8,
   "check_land_refusal_says_whether_a_pull_request_gets_checks": 0.0,
   "check_land_sent_to_a_pull_request_carries_mains_work": 0.9,
+  "check_land_skips_a_push_the_pull_request_guard_would_refuse": 1.2,
   "check_land_tells_the_push_hooks_what_it_lands": 0.6,
   "check_land_times_fallback_keeps_a_deleted_test_deleted": 0.1,
   "check_landed_branch_gets_its_delete_link": 0.8,
