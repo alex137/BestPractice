@@ -1,9 +1,25 @@
 ---
-checked_through: 2026-10-27
+checked_through: 2026-10-29
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Thursday 2026-10-29: one-session-load-total
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A session's startup cost is now held to one number instead of a budget per part** (where tools/session_load_budgets.json declares session_load_tokens, the sum of AGENTS.md, CLAUDE.md and the session-start file is the only budget that refuses; this repository's total is 10,000 tokens and it measures about 8,100).
+- **Landings got faster: each one runs only the checks it reaches, and the slowest test moved to the nightly run** (the planted-case test, about 519 seconds, now runs only in the nightly suite and the very deep check; Update Vendors went from about 4,700 git processes to a handful per loop, cutting about half of a 58-second test).
+- **A session can no longer sweep through attaching repositories nobody asked for** (tools/repo_attach_gate.py refuses the fourth add_repo the person's own words did not cover; the same day, seventeen reply rules gained example replies checked against the real reply checker, and a red test on main after the day's Produce was fixed).
+
+## Wednesday 2026-10-28: update-all-pushes-through
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **Update All Vendors stopped halting on optional questions, and its commits now list every file it rewrote** (a run whose only open items were the update's own optional offers now pushes instead of stopping at ASK; the second COMMIT MESSAGE form had been dropped from three consuming repositories' commits).
+- **Updates stopped asking a one-person repository for a time zone it already knows** (Update Vendors and install now write the only maintainer's zone from their identity.json, and maintainers entries now carry the person's declared name next to their login, which two consuming repositories had been patched by hand to get).
+- **The push gate now judges the repository actually being pushed** (push-check-gate.sh read the first `cd` in a command, so `cd /a && ...; cd /b && git push` was checked as a push of /a; it now reads the last `cd` before the push, and the identity gate the same with `git -C`).
 
 ## Tuesday 2026-10-27: sources-attach-without-a-prompt
 
