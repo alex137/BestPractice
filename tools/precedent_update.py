@@ -1391,10 +1391,12 @@ def refresh_copies_step(repo, rep, take_sets=()):
         name = e.get('name')
         clone = brought.get(name)
         if clone is None or not (clone / '.git').exists():
-            near = (ind.resolve().parent / name) if ind else None
-            clone = near if near is not None and (near / '.git').exists() \
-                else pr.clone_elsewhere(name, str(repo / str(e['path'])),
-                                        any_clone=pr.is_exports_only(e))
+            # Beside the individual set first, then wherever sessions clone
+            # to; by folder name in any case, or by origin (clone_elsewhere).
+            clone = pr.clone_elsewhere(
+                name, str(repo / str(e['path'])), any_clone=True,
+                repo=e.get('repo'),
+                near=[ind.resolve().parent] if ind else ())
         held = str(e.get('hold') or '').strip()
         if clone is None or not (pathlib.Path(clone) / '.git').exists():
             if held:

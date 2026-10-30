@@ -85652,6 +85652,192 @@ def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_declared_exports_consumer_snags():
+    """Seven snags four consumer sessions hit on 2026-10-30, moving their
+    copies onto declared exports. Each has a case and a control.
+
+    (a) Update Vendors finds a source's clone whatever its folder's case,
+        or by its origin; an unrelated clone is still not taken.
+    (b) A copy taken for its exports alone is resolved when it is on disk,
+        unresolved when it is not.
+    (c) A rebuild that only moves a version stamp's number is no hand edit;
+        a line typed into the view still is.
+    (d) A workflow step running a copied-in source's tool runs locally; a
+        step under an undeclared process/ folder is still only named.
+    (e) light-check's link sweep skips a closed todo item and a Story
+        section, as rename-updates-links does; an open item still fails.
+    (f) A section missing from AGENTS.md whose `##` section precedent.json
+        records as kept is left out on purpose; unrecorded, it is missing.
+    (g) doc_lint leaves a process/ path in a declared output document
+        unlinked; in any other document it still asks for the link."""
+    import tempfile, shutil, types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_resolve as pr
+        import precedent_source_credentials as psc
+        import build_views as bv
+        import precedent_push_check as ppc
+        import precedent_check as pc
+        import precedent_vendor_engine as pve
+        import doc_lint as dl
+        import title_case
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-exports-snags-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+
+    def write(path, text):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding='utf-8')
+    try:
+        # (a)
+        name = 'harness-voice-source-q7'
+        base = tmp / 'a'
+        declared = base / 'consumer' / 'process' / name
+        subprocess.run(['git', 'init', '-q', str(base / 'Harness-Voice-Source-Q7')],
+                       env=env, check=True)
+        got = pr.clone_elsewhere(name, str(declared), any_clone=True, near=[base])
+        cases.append(('(a) a clone named in another case is found',
+                      got is not None and got.name == 'Harness-Voice-Source-Q7'))
+        shutil.rmtree(base / 'Harness-Voice-Source-Q7')
+        subprocess.run(['git', 'init', '-q', str(base / 'checkout')], env=env, check=True)
+        git(base / 'checkout', 'remote', 'add', 'origin',
+            f'https://example.com/someone/{name.upper()}.git')
+        got = pr.clone_elsewhere(name, str(declared), any_clone=True, near=[base])
+        cases.append(('(a) ...and one under any folder name, by its origin',
+                      got is not None and got.name == 'checkout'))
+        git(base / 'checkout', 'remote', 'set-url', 'origin',
+            'https://example.com/someone/another-repo.git')
+        cases.append(('(a) CONTROL: a clone of another repository is not taken',
+                      pr.clone_elsewhere(name, str(declared), any_clone=True,
+                                         near=[base]) is None))
+
+        # (b)
+        r = tmp / 'b'
+        write(r / 'precedent.json', json.dumps({'sources': [
+            {'level': 'shared', 'name': 'voice-x', 'path': 'process/voice-x',
+             'vendored': True, 'exports_only': True}]}))
+        write(r / 'process' / 'voice-x' / 'prompts' / 'p.md', 'x\n')
+
+        def unresolved():
+            return [n for _l, n, _w in psc.unresolved_private_sources(
+                r, env={'CLAUDE_CODE_REMOTE': 'true'}) if n == 'voice-x']
+        cases.append(('(b) an exports-only copy on disk is resolved', unresolved() == []))
+        shutil.rmtree(r / 'process' / 'voice-x')
+        cases.append(('(b) CONTROL: ...and unresolved when it is not there',
+                      unresolved() == ['voice-x']))
+
+        # (c)
+        c = tmp / 'c'
+        src = c / 'MAP.source.md'
+        write(src, '<!-- version: 3 -->\n# Map\n\nA row.\n')
+        old = ('---\ngenerated_by: tools/build_views.py\n---\n'
+               '<!-- version: 2 -->\n# Map\n\nA row.\n')
+        new = old.replace('version: 2', 'version: 3')
+        cases.append(('(c) a re-stamped version line is not a hand edit',
+                      bv.hand_edits_against(c, old, new, [src]) == []))
+        typed = old.replace('A row.\n', 'A row.\nTyped by hand, version 2.\n')
+        cases.append(('(c) CONTROL: a typed line, even one naming a version, still is',
+                      bv.hand_edits_against(c, typed, new, [src])
+                      == ['Typed by hand, version 2.']))
+
+        # (d)
+        d = tmp / 'd'
+        write(d / 'precedent.json', json.dumps({
+            'sources': [{'level': 'shared', 'name': 'voice-x',
+                         'path': 'process/voice-x', 'vendored': True,
+                         'exports_only': True}],
+            'github_ci_approved': {'.github/workflows/prompts.yml': {}}}))
+        write(d / '.github' / 'workflows' / 'prompts.yml',
+              'on: [pull_request]\njobs:\n  t:\n    runs-on: ubuntu-latest\n'
+              '    steps:\n'
+              '      - name: Check the prompts\n'
+              '        run: python3 process/voice-x/tools/build_x_prompt.py --check\n'
+              '      - name: Check another\n'
+              '        run: python3 process/nobody/tools/y.py --check\n')
+        checks, unrun = ppc.approved_workflow_checks(d)
+        cases.append(("(d) a copied-in source's tool step runs locally",
+                      any(argv[1:] == ['process/voice-x/tools/build_x_prompt.py',
+                                       '--check'] for _n, argv, _r in checks)))
+        cases.append(('(d) CONTROL: an undeclared folder\'s step is only named',
+                      not any('process/nobody' in ' '.join(argv)
+                              for _n, argv, _r in checks)
+                      and any('process/nobody' in u[2] for u in unrun)))
+
+        # (e)
+        e = tmp / 'e'
+        subprocess.run(['git', 'init', '-q', str(e)], env=env, check=True)
+        write(e / 'todo' / 'todo-2026-01-01-closed.md',
+              '---\nstatus: done\n---\n# Closed\n\nSee [gone](../gone.md).\n')
+        write(e / 'notes.md', '# Notes\n\nLive text.\n\n## Story\n\n'
+              'It was in [gone](gone.md).\n')
+        write(e / 'todo' / 'todo-2026-01-02-open.md',
+              '---\nstatus: open\n---\n# Open\n\nSee [gone](../gone.md).\n')
+        git(e, 'add', '-A')
+        found = {f.path for f in pc._light_check(types.SimpleNamespace(root=e))}
+        cases.append(('(e) a closed item and a Story section are history to the sweep',
+                      'todo/todo-2026-01-01-closed.md' not in found
+                      and 'notes.md' not in found))
+        cases.append(('(e) CONTROL: an open item\'s dead link still fails',
+                      'todo/todo-2026-01-02-open.md' in found))
+
+        # (f)
+        f = tmp / 'f'
+        tpl = (ROOT / 'templates' / 'AGENTS.md.loader.template').read_text(encoding='utf-8')
+        keys = [k for k, _a, _b in pve._md_sections(tpl)]
+        parent = '## Working in parallel (multi-member repos)'
+        sub = '### Review sensitivities (accumulated)'
+        write(f / 'AGENTS.md', '# Agents\n\n## Something of its own\n\nText.\n')
+
+        def action(key, kept):
+            write(f / 'precedent.json', json.dumps(
+                {'kept_template_divergences': kept} if kept else {}))
+            plan = pve._agents_md_plan(f, 'consumer', ROOT, {})
+            return {k: a for k, _s, _n, a, _sp in plan}.get(key)
+        moved = {f'AGENTS.md {parent}': {'reason': 'moved to docs/agents-detail.md'}}
+        cases.append(('(f) template still has the sections this case reads',
+                      parent in keys and sub in keys))
+        cases.append(("(f) a moved section's missing subsection is left out on purpose",
+                      action(sub, moved) == 'absent'))
+        cases.append(('(f) CONTROL: unrecorded, it is missing',
+                      action(sub, None) == 'missing'))
+        cases.append(('(f) CONTROL: ...and another section is still missing',
+                      action('## Conventions', moved) == 'missing'))
+
+        # (g)
+        g = tmp / 'g'
+        write(g / 'precedent.json', json.dumps({'output_paths': ['out']}))
+        line = 'Built from `process/voice-x/prompts/p.md` each time.\n'
+        write(g / 'out' / 'README.md', '# Out\n\n' + line)
+        write(g / 'notes' / 'README.md', '# Notes\n\n' + line)
+        saved = dl.ROOT
+        dl.ROOT = g
+        title_case._PATHS_CONFIG.pop(str(g.absolute()), None)
+        try:
+            out_u = dl.check_file('out/README.md')[1]
+            notes_u = dl.check_file('notes/README.md')[1]
+        finally:
+            dl.ROOT = saved
+        cases.append(('(g) a process/ path in an output document is not asked to be a link',
+                      out_u == []))
+        cases.append(('(g) CONTROL: ...in a working document it still is',
+                      [r for _i, r in notes_u] == ['process/voice-x/prompts/p.md']))
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError,
+            KeyError, AttributeError) as ex:
+        cases.append((f'fixture could not be built ({ex!r})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_adopts_an_earlier_runs_catalogue_mirror():
     """A re-run of Update Vendors stages the catalogue mirror an earlier run
     wrote, when the catalogue manifest names the pinned commit and every
@@ -93829,6 +94015,10 @@ def main():
     check('Update Vendors builds the views again after stamping their source, and a '
           'consumer\'s view check skips a view it never had',
           *check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views())
+    check('declared exports: clones found in any case, exports-only copies resolve, '
+          'stamps are no hand edits, copied-in tools run, history skipped, moved '
+          'sections kept, output docs never link process/',
+          *check_declared_exports_consumer_snags())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())

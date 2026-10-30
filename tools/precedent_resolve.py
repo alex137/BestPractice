@@ -2104,38 +2104,79 @@ def missing_source_reason(path, name=None):
     return why
 
 
-def clone_elsewhere(name, declared, any_clone=False):
-    """-> the first directory named `name` holding a practices/ tree in the
-    places sessions clone to (the home directory, /root, /home/user, beside
-    the declared path), other than `declared` itself; or None. With
-    `any_clone`, any git clone of that name will do: a source copied in for
-    its exports alone may have no practices at all."""
+def _repo_tail(spec):
+    """-> the lowercased repository name at the end of `spec`: a bare name,
+    an owner/repo path or a full clone URL, with any .git suffix dropped."""
+    tail = str(spec or '').strip().rstrip('/').rsplit('/', 1)[-1]
+    tail = tail.rsplit(':', 1)[-1]
+    return (tail[:-4] if tail.endswith('.git') else tail).lower()
+
+
+def _origin_url(clone):
+    """-> the origin URL in `clone`'s own .git/config, read off the file so
+    a scan of a home directory starts no process per folder; '' when
+    there is none."""
+    try:
+        text = (pathlib.Path(clone) / '.git' / 'config').read_text(
+            encoding='utf-8', errors='replace')
+    except OSError:
+        return ''
+    m = re.search(r'\[remote "origin"\][^\[]*?^\s*url\s*=\s*(\S+)', text,
+                  re.M | re.S)
+    return m.group(1) if m else ''
+
+
+def clone_elsewhere(name, declared, any_clone=False, repo=None, near=()):
+    """-> the first directory holding `name`'s clone with a practices/ tree
+    in each of `near` and then the places sessions clone to (the home
+    directory, /root, /home/user, beside the declared path), other than `declared`
+    itself; or None. With `any_clone`, any git clone of it will do: a source
+    copied in for its exports alone may have no practices at all.
+
+    A clone is found by its folder name, matched without regard to case,
+    or by its origin URL naming the source's repository (`repo`, a bare
+    name or a URL; absent means the repository is called `name`).
+
+    WHY (2026-10-30). This matched only `<base>/<name>` exactly, so a
+    clone attached by add_repo under its repository's own spelling
+    (../SomeSet for a source named "someset") read as "no clone on this
+    machine" to Update Vendors; the BestPractice clone itself was already
+    found by its origin (precedent_vendor_engine.find_source_clones), and
+    a clone under another folder name now is too."""
     if not name:
         return None
     try:
         want = pathlib.Path(declared).expanduser().resolve()
     except OSError:
         want = None
-    bases = [pathlib.Path.home(), pathlib.Path('/root'), pathlib.Path('/home/user'),
-             pathlib.Path(declared).expanduser().parent]
-    for base in bases:
-        # The exact name first, then any spelling of it: a clone takes its
-        # repository's name, so ../SomeSet is the clone of a source named
-        # "someset", and until 2026-10-30 it read as "no clone on this
-        # machine".
+    wanted = {str(name).lower(), _repo_tail(repo or name)}
+    bases = [pathlib.Path(b) for b in near if b] + [
+        pathlib.Path.home(), pathlib.Path('/root'), pathlib.Path('/home/user'),
+        pathlib.Path(declared).expanduser().parent]
+
+    def usable(cand):
         try:
-            others = sorted(d for d in base.iterdir()
-                            if d.name != name and d.name.lower() == name.lower())
+            return cand.resolve() != want and (
+                (cand / 'practices').is_dir()
+                or (any_clone and (cand / '.git').exists()))
         except OSError:
-            others = []
-        for cand in [base / name, *others]:
-            try:
-                if cand.resolve() != want and (
-                        (cand / 'practices').is_dir()
-                        or (any_clone and (cand / '.git').exists())):
-                    return cand
-            except OSError:
-                continue
+            return False
+
+    for base in bases:
+        if usable(base / name):
+            return base / name
+    for base in bases:
+        try:
+            kids = sorted(k for k in base.iterdir() if k.is_dir()
+                          and not k.name.startswith('.'))
+        except OSError:
+            continue
+        for cand in kids:
+            if cand.name.lower() in wanted and usable(cand):
+                return cand
+        for cand in kids:
+            if _repo_tail(_origin_url(cand)) in wanted and usable(cand):
+                return cand
     return None
 
 

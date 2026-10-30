@@ -1537,6 +1537,7 @@ def check_file(path, fix=False, known=None):
             known, path)
     received = str(path).replace('\\', '/') in _received()
     shipped = str(path).replace('\\', '/').startswith(SHIPPED_PREFIXES)
+    outward = is_declared_output(path)
     for i, line in iter_prose_lines(path):
         if HAVE_GFM and renders_del(line) and '~~' not in line:
             if fix:
@@ -1548,7 +1549,9 @@ def check_file(path, fix=False, known=None):
             after = line[m.end():m.end()+2]
             if (after != '](' and is_file_reference(m.group(1)) and not received
                     and str(path).replace('\\', '/') not in UNLINKED_SKIP_FILES
-                    and not (shipped and m.group(1) in READER_OWN_FILES)):
+                    and not (shipped and m.group(1) in READER_OWN_FILES)
+                    and not (outward and m.group(1).lstrip('./').startswith(
+                        PROCESS_PREFIXES))):
                 unlinked.append((i, m.group(1)))
         # target= anchors: GitHub strips the attribute from rendered HTML (check 4);
         # code spans stripped first so documenting the rule doesn't trip it
@@ -1671,6 +1674,25 @@ def is_declared_internal(path):
     if not title_case.output_paths_declared(ROOT):
         return False
     return not title_case.is_outward(path, ROOT)
+
+
+# A DOCUMENT FOR OUTSIDE READERS NEVER LINKS THE PROCESS (2026-10-30). The
+# shared writing set's deliverables-carry-no-process refuses a link into
+# process/ or practices/ from a declared output document, and this warned
+# that the same path, left unlinked, "is not a link": a consumer moving onto
+# declared exports carried a standing warning on every output path that
+# named one. In a declared output document such a path stays unlinked.
+PROCESS_PREFIXES = ('process/', 'practices/')
+
+
+def is_declared_output(path):
+    """True when precedent.json declares `output_paths` and `path` is one
+    of them: a document an outside reader sees."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    import title_case
+    if not title_case.output_paths_declared(ROOT):
+        return False
+    return bool(title_case.is_outward(path, ROOT))
 
 
 def check_residue(path):

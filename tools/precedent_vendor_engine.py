@@ -7716,12 +7716,27 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     spans = collections.defaultdict(list)
     for key, first, end in _md_sections(local):
         spans[_heading_key(key)].append((first, end))
+    parents, top = {}, None
+    for k, _f, _e in _md_sections((templates_dir / srcs[0]).read_text(encoding='utf-8')):
+        top = k if k.startswith('## ') else top
+        parents.setdefault(k, top if k.startswith('### ') else None)
     plan = []
     for key, (line_no, raw) in template.items():
+        parent = parents.get(key)
         found = spans.get(_heading_key(key)) or []
         if not found:
+            # Left out on purpose is also what precedent.json says, for the
+            # section or the `##` section it sat in: a repository that moved
+            # a section out of AGENTS.md (a reduction pass) records that
+            # there. The manifest's own record is staged engine output, and
+            # a pinned rerun's put-back resets it, so read alone the answer
+            # flipped on alternate runs (2026-10-30, a consumer's
+            # "### Review sensitivities (accumulated)").
+            said = any((kept.get(f'{AGENTS_MD} {k}') or {}).get('reason')
+                       for k in (key, parent) if k)
             plan.append((key, srcs[0], line_no,
-                         'absent' if key in recorded else 'missing', None))
+                         'absent' if key in recorded or said else 'missing',
+                         None))
             continue
         if len(found) > 1:
             plan.append((key, srcs[0], line_no, 'diverged', None))
