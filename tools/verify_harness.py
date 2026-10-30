@@ -25631,6 +25631,44 @@ def check_precedent_check_fires():
         cases.append(('speculation-is-marked: a document that calls itself '
                       'speculative but is not named that way fails, saying so',
                       _rcp == 1 and 'calls itself speculative' in _outp))
+        # A plan that only SAYS WHERE IT CAME FROM is not speculative: the
+        # opening paragraph of an executed plan read "after a brainstorm" and
+        # was flagged (2026-10-30). The check reads "brainstorm" there only
+        # where the document calls itself one.
+        _origin = fresh('speculation-is-marked-origin')
+        (_origin / 'spec' / 'ORIGIN_NAMED_PLAN.md').write_text(
+            '---\ntitle:         A plan that names its origin\n'
+            'kind:          plan\nstatus:        done\nopened:        2026-10-01\n'
+            'closed:        2026-10-02\nsuperseded_by: null\nsupersedes:    []\n'
+            'audience:      contributor\nsummary:       Executed.\n---\n\n'
+            '# A plan that names its origin\n\n'
+            'Written after a brainstorm, and carried out the next day.\n',
+            encoding='utf-8')
+        _rco, _outo = run(_origin, 'speculation-is-marked')
+        cases.append(('speculation-is-marked: an executed plan whose opening '
+                      'says it began after a brainstorm passes',
+                      _rco == 0 and 'calls itself speculative' not in _outo))
+
+        # reply-checker-keeps-set-examples -- a reply-checker change that
+        # breaks a set's examples (2026-10-30, 20dabf57e and the writing
+        # set). Setup puts a set beside the fixture whose one example the
+        # real checker answers as declared; the plant makes the fixture's
+        # checker refuse nothing, as a regression would.
+        def _set_beside(repo):
+            d = repo.parent / 'precedent-zz-planted-set'
+            (d / 'practices').mkdir(parents=True, exist_ok=True)
+            (d / 'reply_check.json').write_text(json.dumps([
+                {'practice': 'p', 'id': 'zz-rule', 'require_one_of': ['ZZ-OK'],
+                 '_examples': [{'reply': 'Done.', 'refused': True},
+                               {'reply': 'Done. ZZ-OK', 'refused': False}]}]),
+                encoding='utf-8')
+
+        def _checker_refuses_nothing(repo):
+            rewrite(repo, 'tools/precedent_reply_check.py',
+                    lambda t: re.sub(r'(\ndef violations\([^)]*\):\n)',
+                                     r'\1    return []\n', t, count=1))
+        case('reply-checker-keeps-set-examples', _checker_refuses_nothing,
+             setup=_set_beside)
 
         # very-deep-check -- the run's full account left out. The plant is
         # the exact shape of 2026-10-11: all four passes recorded and the
