@@ -606,7 +606,8 @@ def repo_kind(engine=HERE):
 # run: every local tier passed a change that platform-docs-check.yml then
 # failed as GitHub's test on the pull request into main, a fix and a second
 # Produce later. The workflow file stays the one record of its commands: each
-# step that is a plain `python3 tools/<x>.py [args]` call runs here, in the
+# step that is a plain `python3 tools/<x>.py [args]` call (or a copied-in
+# source's `process/<source>/tools/<x>.py`, 2026-10-30) runs here, in the
 # full tier (the Debut and around Produce; never before a push, since
 # 2026-10-17); a workflow the engine installs
 # (ENGINE_MANIFEST's ci_workflow_files) is skipped, since this list already
@@ -625,7 +626,7 @@ def repo_kind(engine=HERE):
 # environment (`$VAR`) is never run here, only named.
 APPROVED_WORKFLOWS_KEY = 'github_ci_approved'
 DELIVERABLE_ROLE = 'deliverable'
-_LOCAL_STEP_RE = re.compile(r'^(python3?)\s+(tools/[\w./-]+\.py)(\s.*)?$')
+_LOCAL_STEP_RE = re.compile(r'^(python3?)\s+([\w./-]+\.py)(\s.*)?$')
 _CHECK_LIKE_RE = re.compile(
     r'(?<![a-z])(check|checks|checker|test|tests|lint|linter|audit|verify|'
     r'validate|validation|phpunit|pytest|unittest|doc_lint)(?![a-z])', re.I)
@@ -719,12 +720,14 @@ def _workflow_events(text):
     return events if seen else None
 
 
-def _local_argv(cmd):
-    """-> the argv of a `python3 tools/<x>.py ARGS` line, quoted arguments
-    unquoted, or None when it is not one, cannot be split, or reads
-    GitHub's environment ($VAR), which only GitHub has."""
+def _local_argv(cmd, tool_dirs=('tools/',)):
+    """-> the argv of a `python3 <dir>/<x>.py ARGS` line whose script sits
+    under one of `tool_dirs`, quoted arguments unquoted, or None when it is
+    not one, cannot be split, or reads GitHub's environment ($VAR), which
+    only GitHub has."""
     m = _LOCAL_STEP_RE.match(cmd)
-    if not m or '$' in cmd or '`' in cmd:
+    if not m or '$' in cmd or '`' in cmd or '..' in m.group(2).split('/') \
+            or not m.group(2).startswith(tuple(tool_dirs)):
         return None
     try:
         import shlex
@@ -735,6 +738,31 @@ def _local_argv(cmd):
            for t in rest):
         return None
     return [m.group(2), *rest]
+
+
+def copied_source_tool_dirs(root):
+    """-> ['<path>/tools/'] for each source precedent.json declares as copied
+    in (`"vendored": true`): a step running a copied-in source's own tool,
+    `python3 process/<source>/tools/build_x.py --check`, runs here as
+    plainly as one under tools/ does.
+
+    WHY (2026-10-30). Only `python3 tools/<x>.py` was recognized, so such a
+    step read as "run only on GitHub" and was left out of the full tier,
+    while the deep check ran it locally anyway: a consumer moving onto
+    declared exports met it on its first update."""
+    try:
+        cfg = json.loads((Path(root) / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for e in cfg.get('sources') or [] if isinstance(cfg, dict) else []:
+        if isinstance(e, dict) and e.get('vendored') is True and e.get('path'):
+            p = str(e['path']).strip().strip('/')
+            if p.startswith('./'):
+                p = p[2:]
+            if p and '..' not in p.split('/'):
+                out.append(f'{p}/tools/')
+    return out
 
 
 def approved_workflow_checks(root):
@@ -773,6 +801,7 @@ def approved_workflow_checks(root):
         engine_tools |= {a[0].replace('{engine}', rel)
                          for entry in PUSH_CHECKS.get(repo_kind(), ())
                          for a in [entry[1]] if a}
+    tool_dirs = ['tools/'] + copied_source_tool_dirs(root)
     checks, unrun = [], []
     for rel in sorted(approved if isinstance(approved, dict) else []):
         wf = root / rel
@@ -789,7 +818,7 @@ def approved_workflow_checks(root):
                 continue
             if not (_CHECK_LIKE_RE.search(step) or _CHECK_LIKE_RE.search(_unquoted(cmd))):
                 continue
-            argv = _local_argv(cmd)
+            argv = _local_argv(cmd, tool_dirs)
             if argv:
                 if argv[0] in engine_tools:
                     continue
