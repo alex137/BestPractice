@@ -29539,6 +29539,11 @@ def check_session_file_warning_does_not_count_against_its_ceiling():
                           f'the content', got == body, got[:200]))
             cases.append((f'{name} leaves every other surface as it is',
                           measure('AGENTS.md', written) == written, ''))
+        # One measurement, not two that happen to agree (2026-10-30).
+        cases.append(('precedent_check measures with session_load_trend\'s '
+                      'own functions and surface list',
+                      pc._as_measured is slt.as_measured
+                      and pc.SESSION_LOAD_SURFACES is slt.SURFACES, ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n_, det) for n_, ok, det in cases if not ok]

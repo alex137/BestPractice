@@ -13468,21 +13468,14 @@ def load_exemptions():
     return exempt, refused
 
 
-# code-cites-practice: session-load-budget
-SESSION_LOAD_SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
-
-
-def _as_measured(rel, text):
-    """`text` as a cap measures it: the session-start file without the
-    over-target warning its generator writes (precedent_session_practices.
-    without_target_warning), every other surface as it is."""
-    if rel != '.precedent/SESSION_PRACTICES.md':
-        return text
-    try:
-        import precedent_session_practices as _psp
-        return _psp.without_target_warning(text)
-    except Exception:                                         # noqa: BLE001
-        return text
+# code-cites-practice: session-load-budget -- what a session loads, and how
+# a part is measured, are session_load_trend's (SURFACES, as_measured,
+# approx_tokens, total_tokens): the session check's row and Update Vendors'
+# close read the same functions, so the three can never disagree about a
+# total (practice: judgment-check-or-tool; 2026-10-30, a third copy here).
+import session_load_trend as _slt  # noqa: E402
+SESSION_LOAD_SURFACES = _slt.SURFACES
+_as_measured = _slt.as_measured
 
 # --- duplicated always-loaded text (practice: session-load-budget) ---------
 #
@@ -14037,26 +14030,15 @@ def _session_load_budget(ctx):
     else:
         out = []
     corpus = None
-    try:
-        import build_views as _bv
-        approx = _bv._approx_tokens
-    except Exception:
-        def approx(text):
-            return int(len(text.split()) * 1.3)
+    approx = _slt.approx_tokens
     total_cap = _session_load_total()
     if total_cap is not None:
         # ONE TOTAL (build_views.TOTAL_KEY): the sum of what a session loads
         # is held to the declared number, and no part has a ceiling of its
         # own, so moving tokens from one part to another never refuses.
-        sizes, grew = {}, False
-        for rel in SESSION_LOAD_SURFACES:
-            f = ROOT / rel
-            if not f.is_file():
-                continue
-            sizes[rel] = approx(_as_measured(
-                rel, f.read_text(encoding='utf-8', errors='replace')))
-            grew = grew or _change_grew_surface(ctx, rel, sizes[rel], approx)
-        total = sum(sizes.values())
+        sizes, total = _slt.total_tokens(ROOT)
+        grew = any(_change_grew_surface(ctx, rel, n, approx)
+                   for rel, n in sizes.items())
         if total > total_cap and grew:
             parts = ' + '.join(f'{rel} {n:,}' for rel, n in sizes.items())
             out.append(Finding(
