@@ -29539,6 +29539,11 @@ def check_session_file_warning_does_not_count_against_its_ceiling():
                           f'the content', got == body, got[:200]))
             cases.append((f'{name} leaves every other surface as it is',
                           measure('AGENTS.md', written) == written, ''))
+        # One measurement, not two that happen to agree (2026-10-30).
+        cases.append(('precedent_check measures with session_load_trend\'s '
+                      'own functions and surface list',
+                      pc._as_measured is slt.as_measured
+                      and pc.SESSION_LOAD_SURFACES is slt.SURFACES, ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n_, det) for n_, ok, det in cases if not ok]
@@ -30645,6 +30650,28 @@ def check_gate_channel():
         cases.append((f'{stop_hook.relative_to(ROOT)} calls the reply gate '
                       f'--brief, not the full Rules, on every Stop',
                       'precedent_gate.py" reply --brief' in _hook_text(stop_hook)))
+
+    # 2026-10-30: the Stop hook ran the gate without passing on the
+    # transcript its payload names, so a refused stop always said "no
+    # transcript reached this gate" beside the compact requirement -- read
+    # as a path lost to a worker restart. Planted transcript: the sentence
+    # is gone; no path in the payload (the control): it is back.
+    no_path = 'no transcript reached this gate'
+    import tempfile
+    with tempfile.TemporaryDirectory() as _td:
+        _t = pathlib.Path(_td) / 't.jsonl'
+        _t.write_text(json.dumps({'type': 'user', 'message': {
+            'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+        _runs = {k: subprocess.run(
+            ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
+            capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
+                               ('without', '{}'))}
+    cases.append(('the Stop hook hands the gate the transcript its payload names',
+                  no_path not in _runs['with'].stdout + _runs['with'].stderr
+                  and no_path in _runs['without'].stdout + _runs['without'].stderr,
+                  f"with: {_runs['with'].stderr[-300:]!r}; without: "
+                  f"{_runs['without'].stderr[-300:]!r}"))
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
@@ -51846,7 +51873,8 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     declares, refuses a reply naming a
     dated session branch or a file in code font with no link, lets a name
     linked once be named bare again, and leaves alone what has no page: a
-    command, an absolute path, a filename template.
+    command, an absolute path, a filename template, a file that exists in
+    no repository the session holds.
 
     2026-10-19 (Morgan: "Don't we have practice rules so when you mention
     files you always give links?"): a Boildown named a branch and a file
@@ -51877,9 +51905,17 @@ def check_reply_check_refuses_an_unlinked_branch_or_file():
     cases.append(('THE DISCRIMINATING CASE: a bare dated branch in code font is '
                   'refused, with a repair', len(v) == 1 and branch in v[0]['message']
                   and v[0].get('repair'), v))
-    v = blocking('See `spec/A_PLAN.md` and `claude/some-branch-x1`.')
+    v = blocking('See `spec/PRACTICE_FORMAT.md` and `claude/some-branch-x1`.')
     cases.append(('a bare file path and a bare claude/ branch are both named',
                   len(v) == 2, v))
+    # 2026-10-30: a file that is in no repository this session holds has no
+    # page and no path, so naming it is not an unlinked mention. Negative
+    # control, measured: with _names_no_file_or_branch returning False this
+    # case fails and the one above still passes.
+    v = blocking('The consumer writes `NO_SUCH_FILE_ANYWHERE_ZZ.json` and '
+                 '`spec/NO_SUCH_PLAN_ZZ.md`.')
+    cases.append(('a file name that is no file in any repository here passes',
+                  not v, v))
     v = blocking(f'On [`{branch}`](https://example.com/tree/{branch}); '
                  f'later `{branch}` again, and [A_PLAN.md](https://e/spec/A_PLAN.md) '
                  f'then `A_PLAN.md`.')
@@ -62581,6 +62617,104 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-600:], file
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_land_skips_a_push_the_pull_request_guard_would_refuse():
+    """--land on a change the repository's own pull-request guard would
+    refuse goes to the pull-request route without trying the push.
+
+    2026-10-30: a branch touching tools/verify_harness.py was pushed at
+    staging, the guard refused it, and only then did the tool print the
+    pull-request route. The fixture's pre-push hook records any push aimed
+    at staging and refuses it, as the real guard does. Two worlds: a change
+    to tools/verify_harness.py (no push tried, the route still printed and
+    the branch carries the composition) and a change to a plain file (the
+    push is tried, as before).
+
+    Negative control, measured 2026-10-30: with _takes_pull_request
+    returning [] the first case fails -- the hook records the push."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-skip-'))
+    cases = []
+    try:
+        hooks = tmp / 'hooks'
+        hooks.mkdir()
+        tried = tmp / 'tried'
+        (hooks / 'pre-push').write_text(
+            '#!/bin/sh\nwhile read l ls r rs; do\n'
+            f'  case "$r" in refs/heads/staging) echo "$ls" >> {str(tried)!r}; '
+            'echo "push refused: this one takes a pull request" >&2; exit 1;; '
+            'esac\ndone\nexit 0\n', encoding='utf-8')
+        (hooks / 'pre-push').chmod(0o755)
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, shutil, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+os.environ.pop('PRECEDENT_NO_LADDERS', None)
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+(work / 'tools').mkdir()
+shutil.copy({str(ROOT / 'tools' / 'landing_pr_guard.py')!r}, work / 'tools')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('config', 'core.hooksPath', {str(hooks)!r})
+pb._check = lambda *a, **k: (True, 'stub check')
+out = {{}}
+for name, path in (('gating', 'tools/verify_harness.py'), ('plain', 'x.md')):
+    g('checkout', '-q', '-b', 'claude/' + name + '-abcdef', 'origin/staging')
+    (work / path).write_text(name + '\\n'); g('add', '-A'); g('commit', '-qm', name)
+    g('-c', 'core.hooksPath=/dev/null', 'push', '-q', 'origin', 'claude/' + name + '-abcdef')
+    tried = pathlib.Path({str(tried)!r})
+    before = tried.read_text() if tried.exists() else ''
+    said = []
+    rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                    'claude/' + name + '-abcdef', 'staging',
+                                    'the fixture', said.append)
+    after = tried.read_text() if tried.exists() else ''
+    out[name] = dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-900:],
+                     pushed=after != before)
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        gating, plain = out.get('gating') or {}, out.get('plain') or {}
+        cases.append(('THE DISCRIMINATING CASE: a change to tools/verify_harness.py '
+                      'is never pushed at staging',
+                      gating.get('pushed') is False and gating.get('rc') == 1,
+                      str(gating) or why))
+        cases.append(('...it says no push was tried, and why, naming the file',
+                      'with no push tried' in (gating.get('said') or '')
+                      and 'tools/verify_harness.py' in (gating.get('verdict') or ''),
+                      str(gating) or why))
+        cases.append(('...and still takes the pull-request route',
+                      'now carries the composition' in (gating.get('said') or '')
+                      or 'lacks nothing' in (gating.get('said') or ''),
+                      str(gating) or why))
+        cases.append(('a change to a plain file still tries the push',
+                      plain.get('pushed') is True
+                      and 'the push was refused' in (plain.get('said') or ''),
+                      str(plain) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--land skips a push the pull-request guard would refuse '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
     itself, lets a repository name itself, and says where the push goes.
@@ -67830,7 +67964,51 @@ def check_session_load_total_is_the_one_budget():
                           'over the 3,500-token session_load_tokens total' in asked
                           and 'AGENTS.md ~' in asked
                           and 'reduction-pass' in asked, asked or rep.asks))
+            # 2026-10-30 (Morgan, strength: decided): the session check
+            # and the full check judged the same over-total repository two
+            # ways -- FAIL at every session start, nothing at any gate.
+            # Planted once, read by both: the session check warns, the full
+            # check refuses only a change that grew a part, and the gate
+            # prints the overrun.
+            import precedent_session_check as psc
+            registry(total=3500)
+            files(agents=40000, session=500)
+            saved_psc_root = psc.ROOT
+            try:
+                psc.ROOT = repo
+                rows = psc._session_load_rows()
+            finally:
+                psc.ROOT = saved_psc_root
+            cases.append(('THE DISCRIMINATING CASE: over a total, the session '
+                          'check warns and does not fail',
+                          len(rows) == 1 and rows[0][1] == psc.WARN
+                          and 'over the 3,500-token' in rows[0][2], rows))
+            not_grown = types.SimpleNamespace(
+                base='HEAD', changed=('README.md',),
+                read_base=lambda rel: (repo / rel).read_text())
+            got = [str(f) for f in pc._session_load_budget(not_grown)]
+            cases.append(('...the full check, on a change that grew nothing, '
+                          'refuses nothing', not any(
+                              'session_load_tokens' in g for g in got), got))
+            grown = types.SimpleNamespace(
+                base='HEAD', changed=('AGENTS.md',),
+                read_base=lambda rel: 'w ' * 10 if rel == 'AGENTS.md'
+                else (repo / rel).read_text())
+            got = [str(f) for f in pc._session_load_budget(grown)]
+            cases.append(('...and on a change that grew AGENTS.md it refuses',
+                          any('session_load_tokens' in g for g in got), got))
+            import session_load_trend as slt
+            note = slt.headroom_notice(repo) or ''
+            cases.append(('...and the merge and push gates print the overrun',
+                          'OVER by' in note, note))
             files(agents=1500, session=500)
+            try:
+                psc.ROOT = repo
+                rows = psc._session_load_rows()
+            finally:
+                psc.ROOT = saved_psc_root
+            cases.append(('CONTROL: within the total, the session check row '
+                          'is OK', len(rows) == 1 and rows[0][1] is True, rows))
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 pu.session_load_total_step(repo, rep)
@@ -93540,6 +93718,7 @@ def main():
     check_lander_lands_where_booked_does_and_says_why_a_push_failed()
     check_land_tells_the_push_hooks_what_it_lands()
     check_land_sent_to_a_pull_request_carries_mains_work()
+    check_land_skips_a_push_the_pull_request_guard_would_refuse()
     check_land_confirm_says_whether_what_landed_was_checked()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()

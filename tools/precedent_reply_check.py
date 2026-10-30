@@ -862,6 +862,83 @@ def _strip_markdown_links(s):
     return _MD_LINK_RE.sub(' ', s)
 
 
+# A NAME THAT IS NOTHING HERE HAS NO PAGE (2026-10-30). A reply naming
+# `MANIFEST.json` -- a consumer's file, which BestPractice does not have --
+# was refused as an unlinked file, and the repair's fallback, "give its
+# absolute path", had nothing to point at either. A name shaped like a file
+# (it ends in an extension) that is no file in any repository this session
+# holds -- working tree or landing branch -- and no branch there either is
+# not a mention of anything a link could reach, so it is not counted.
+# Anything that cannot be looked up is counted, the stricter way.
+_FILE_SHAPED_RE = re.compile(r'^[^\s`]*[\w-]\.[A-Za-z0-9]{1,6}$')
+
+
+def _session_names():
+    """-> (paths, branches): every file path in the working tree and on the
+    landing branches of each repository this session holds, and every
+    branch name there, local or on origin; None when none could be read."""
+    global _SESSION_NAMES
+    if _SESSION_NAMES is not False:
+        return _SESSION_NAMES
+    _SESSION_NAMES = None
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        roots = _pg._session_roots(os.environ.get('CLAUDE_PROJECT_DIR') or '.')
+    except Exception:                                         # noqa: BLE001
+        return None
+
+    def git(repo, *args):
+        try:
+            r = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True, timeout=20)
+        except Exception:                                     # noqa: BLE001
+            return None
+        return r.stdout.splitlines() if r.returncode == 0 else None
+
+    paths, branches, read = set(), set(), False
+    for repo in roots:
+        try:
+            landing = {'main', 'staging', json.loads(
+                (pathlib.Path(repo) / 'precedent.json').read_text(
+                    encoding='utf-8')).get('landing_branch')}
+        except (OSError, ValueError, AttributeError):
+            landing = {'main', 'staging'}
+        files = git(repo, 'ls-files', '--cached', '--others', '--exclude-standard')
+        refs = git(repo, 'for-each-ref', '--format=%(refname)',
+                   'refs/heads', 'refs/remotes/origin')
+        if files is None or refs is None:
+            continue
+        read = True
+        paths.update(files)
+        for ref in refs:
+            name = re.sub(r'^refs/(?:heads|remotes/origin)/', '', ref)
+            branches.add(name)
+            if ref.startswith('refs/remotes/origin/') and name in landing:
+                paths.update(git(repo, 'ls-tree', '-r', '--name-only', ref) or [])
+    if read:
+        _SESSION_NAMES = (paths, branches)
+    return _SESSION_NAMES
+
+
+_SESSION_NAMES = False
+
+
+def _names_no_file_or_branch(name):
+    """True for a file-shaped `name` that is no file (by its path or as the
+    tail of one) and no branch in any repository this session holds."""
+    if not _FILE_SHAPED_RE.match(name):
+        return False
+    found = _session_names()
+    if found is None:
+        return False
+    paths, branches = found
+    if name in branches or name in paths:
+        return False
+    tail = '/' + name
+    return not any(p.endswith(tail) for p in paths)
+
+
 def _linked_spans(s):
     """Every markdown link in `s`, text and destination, joined: a name
     found in here was linked somewhere in the reply, so a later bare
@@ -1751,7 +1828,8 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None):
             names = []
             for m in re.finditer(pattern, link_stripped):
                 name = m.group(0).strip('`')
-                if name not in linked and name not in names:
+                if name not in linked and name not in names \
+                        and not _names_no_file_or_branch(name):
                     names.append(name)
             if names:
                 shown = ', '.join(f'"{n}"' for n in names[:8]) \
