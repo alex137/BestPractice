@@ -55,7 +55,9 @@ and this module treats them as one. Said plainly because the difference is
 invisible from the output, and a session has been misled by it:
 
   the check ran         a practices/<slug>.md file EXISTS -- at any status
-                        -- or the check carries binds_publishers and this
+                        -- here, or (in a practice set, since 2026-10-30)
+                        in a source the set's precedent.json declares; or
+                        the check carries binds_publishers and this
                         repo publishes practices. That is the whole of
                         run()'s gate: `_practice_file(slug) is None`, which
                         looks for the file and reads nothing inside it.
@@ -342,7 +344,7 @@ CHECKS = {}
 def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
           binds_publishers=False, binds_when=(), selects_on=(),
           judges_received=False, advisory_term=None, existence_only=False,
-          selects_on_removal=False):
+          selects_on_removal=False, skips_in_sets=None):
     """Register a check. `blind_to` is what it does NOT catch, printed by
     --explain -- a check's limits belong beside it, not in a document that
     drifts from it.
@@ -361,7 +363,10 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     exactly wrong for a practice SOURCE set: a source set's practices/
     holds its own practices only, so every other level's check skips
     there -- permanently, since it resolves no sources and materializes
-    nothing into itself. Measured 2026-09-12 in a shared source: 12 checks
+    nothing into itself. (Since 2026-10-30 a set's checks also see the
+    practices of the sources it declares -- _declared_source_practice_dirs
+    -- so this flag now matters where those are not on disk, as in a set's
+    own CI.) Measured 2026-09-12 in a shared source: 12 checks
     passed and 42 SKIPPED, all 42 for that one reason. The cost was
     already paid once -- a practice file there shipped a relative link to
     a file materialization does not copy, live in the publishing set and
@@ -471,6 +476,15 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
     (gotcha-2026-10-05-a-practice-routed-only-by-its-own-files-is-never-
     shown-to-anyone).
 
+    `skips_in_sets` is the reason a check's subject is a project repo's,
+    which a practice SET is not, so the check reports SKIPPED there with
+    that reason. Needed once a set's checks see the rules its declared
+    sources carry (_declared_source_practice_dirs, 2026-10-30): measured
+    across the three sets that day, four universal checks went red in
+    every one for a file a set does not keep by design, beside real
+    findings nobody had seen. A sentence, never True: the skip line is
+    the only place a reader learns why.
+
     `judges_received=True` keeps this check's findings on files the repo
     RECEIVED -- another source's materialized practice or check, the
     vendored engine, a mirrored tree (precedent_practice_refs.py's
@@ -493,7 +507,8 @@ def check(slug, scope, what, blind_to, advisory=False, practice_backed=True,
                             judges_received=judges_received,
                             advisory_term=advisory_term,
                             existence_only=existence_only,
-                            selects_on_removal=selects_on_removal)
+                            selects_on_removal=selects_on_removal,
+                            skips_in_sets=skips_in_sets)
         return fn
     return deco
 
@@ -781,14 +796,61 @@ def _practice_file(slug):
     at the repo root at all. rule_of() searched only the first two, so in
     a §1 dependent repo every violation printed "(no practice file for
     ...)" where the Rule belonged -- and the whole design of this module
-    is that the failure message IS the rule."""
+    is that the failure message IS the rule.
+
+    A fourth place, in a practice SET only: the `practices/` of each
+    source the set itself declares in precedent.json -- for every set,
+    universal at `../BestPractice`. A set materializes nothing, so its
+    `practices/` holds its own catalogue and none of universal's, and until
+    2026-10-30 every universal check skipped there as "not in force": a
+    session rooted in a set read universal's rules at session start and
+    ran 3 of its 45 checks. The set's own declaration is what puts those
+    rules in force for it, so it is what switches their checks on; the
+    person's individual set is not read here, so a set's gate does not
+    depend on who runs it (Morgan, 2026-10-30: "Act. Let's build this")."""
     for rel in (('practices', f'{slug}.md'),
                 ('local', 'practices', f'{slug}.md'),
                 ('process', 'upstream', 'practices', f'{slug}.md')):
         p = ROOT.joinpath(*rel)
         if p.exists():
             return p
+    if _publishes_practices():
+        for src in _declared_source_practice_dirs():
+            p = src / f'{slug}.md'
+            if p.exists():
+                return p
     return None
+
+
+_DECLARED_SOURCE_DIRS = None
+
+
+def _declared_source_practice_dirs():
+    """-> the `practices/` directory of each source this repo's own
+    precedent.json declares, at the path it declares, in declaration order,
+    leaving out this repo itself, its repo-local and individual sources and
+    any that is not on disk. Only the repo's declaration: the sets a person
+    brings (precedent_resolve.declared_source_paths adds those) would make
+    the gate differ by who runs it. Read without load_config(), which can
+    clone and self-heal: a check run must not change the disk to decide
+    what it checks."""
+    global _DECLARED_SOURCE_DIRS
+    if _DECLARED_SOURCE_DIRS is None:
+        out = []
+        try:
+            import precedent_resolve as pr
+            own = (ROOT / 'practices').resolve()
+            for entry in pr.declared_sources(ROOT):
+                if entry['level'] in ('repo-local', 'individual') \
+                        or not entry.get('path') or pr.is_vendored(entry):
+                    continue
+                d = pr._declared_path(ROOT, entry['path']) / 'practices'
+                if d.is_dir() and d.resolve() != own:
+                    out.append(d)
+        except Exception:                                    # noqa: BLE001
+            out = []
+        _DECLARED_SOURCE_DIRS = tuple(out)
+    return _DECLARED_SOURCE_DIRS
 
 
 _ENGINE_MANIFEST = None
@@ -4083,6 +4145,19 @@ def _self_only_route(fm):
         for g in globs)
 
 
+def _session_start_commands(root):
+    """-> the SessionStart commands `root`'s .claude/settings.json declares,
+    as written; [] when it has none or cannot be read."""
+    try:
+        data = json.loads((root / '.claude' / 'settings.json')
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    return [h.get('command') or ''
+            for group in ((data.get('hooks') or {}).get('SessionStart') or [])
+            for h in (group.get('hooks') or []) if h.get('command')]
+
+
 @check('layered-practice-packs', 'tree',
        'every practice in force in this repo is reachable by at least one '
        'loading channel here -- resident, occasion index, a path trigger, a '
@@ -4227,6 +4302,7 @@ def _practice_is_reachable(ctx):
     # present, the session-start hook invokes it, and the repo is public, so
     # the tool carries exactly these levels.
     session_channel_levels = ()
+    session_channel_names = set()
     wired = False
     try:
         import build_views as _bv
@@ -4242,10 +4318,30 @@ def _practice_is_reachable(ctx):
             'bootstrap.sh' in hook_text and boot.is_file()
             and 'precedent_session_practices' in boot.read_text(
                 encoding='utf-8', errors='ignore'))
+        # A practice set runs it from another session-start hook, the
+        # universal-catalogue one, wired from .claude/hooks/ or bootstrap/
+        # as a shim that hands off to tools/ (2026-10-30: read only as
+        # session-start.sh, every universal practice in a set read as
+        # reachable by nothing once a set's checks saw them). So read what
+        # settings.json actually starts, and the tools/ script of that name.
+        if not runs_it:
+            for cmd in _session_start_commands(ROOT):
+                name = pathlib.Path(cmd.split()[0]).name
+                for f in (ROOT / 'tools' / name,
+                          ROOT / cmd.split()[0].replace('$CLAUDE_PROJECT_DIR/', '')):
+                    if f.is_file() and 'precedent_session_practices' in \
+                            f.read_text(encoding='utf-8', errors='ignore'):
+                        runs_it = True
         wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
                  and runs_it)
         if wired and _bv.repo_is_public(ROOT):
             session_channel_levels = _bv.PRIVATE_LEVELS
+        if wired:
+            # What the session file carries is what the tracked block
+            # defers, decided in one place: in a set that is every source
+            # but its own, universal included.
+            _t, _deferred, _n = _bv.sources_for_tracked_block(ROOT, sources)
+            session_channel_names = {d.get('name') for d in _deferred}
     except Exception:                                        # noqa: BLE001
         session_channel_levels = ()
 
@@ -4274,7 +4370,9 @@ def _practice_is_reachable(ctx):
         if wired and str(fm.get('visible_to') or '').strip('" \'') == 'code-owners':
             via_session.append(slug)
             continue
-        if _declared_level(s) in session_channel_levels or (wired and s.get('brought')):
+        if (_declared_level(s) in session_channel_levels
+                or s.get('name') in session_channel_names
+                or (wired and s.get('brought'))):
             # A set the person brings is never in a tracked view, public
             # repository or private (build_views.sources_for_tracked_block),
             # so wherever the channel is wired it reaches them through it.
@@ -4381,7 +4479,8 @@ def _practice_is_reachable(ctx):
        'the session instructions carry a "looking for X → go to Y" table '
        'with at least five rows',
        'whether the rows are the right rows, or still resolve. It checks the '
-       'table is there and populated.')
+       'table is there and populated.',
+       skips_in_sets=("a set's AGENTS.md is the loader block build_views writes from its practices, and the hand-kept sections this looks for belong to a project's instructions, not a catalogue's"))
 def _quick_index(ctx):
     name, text = _instructions_file()
     m = QUICK_INDEX_HEADER_RE.search(text)
@@ -4569,7 +4668,8 @@ def _read_gotcha_files(root):
        'it, and it says so rather than implying otherwise. It cannot tell '
        'whether a gotcha file\'s Symptom names what a session would '
        'recognise, which is the half that makes the catalogue searchable '
-       'and the half only a person can read.')
+       'and the half only a person can read.',
+       skips_in_sets=("a set's AGENTS.md is the loader block build_views writes from its practices, and the hand-kept sections this looks for belong to a project's instructions, not a catalogue's"))
 def _environment_gotchas(ctx):
     name, text = _instructions_file()
     m = GOTCHA_HEADING_RE.search(text)
@@ -10764,7 +10864,8 @@ def _decommission_deletes_files(ctx):
        'session actually runs the one it names -- only that a repo-chosen '
        'pair of names exists and the instructions use it, so "run the light '
        'check" and "run the deep check" are unambiguous requests rather than '
-       'needing re-description every time.')
+       'needing re-description every time.',
+       skips_in_sets=("a set's AGENTS.md is the loader block build_views writes from its practices, and the hand-kept sections this looks for belong to a project's instructions, not a catalogue's"))
 def _two_check_levels(ctx):
     name, text = _instructions_file()
     names, source = _two_check_level_names()
@@ -11449,7 +11550,11 @@ def _exemption_findings(ctx):
        'currently active',
        'whether the audit is actually being RUN or a slice actually READ -- '
        'only that the tool exists and its own bookkeeping stays honest.',
-       existence_only=True)
+       existence_only=True,
+       skips_in_sets=('tools/routing_audit.py ships to consuming repos '
+                      'only (precedent_vendor_engine.py\'s '
+                      'CONSUMER_ENGINE_FILES), so a set has no copy to '
+                      'keep'))
 def _routing_audit(ctx):
     tool = _tool_path('tools/routing_audit.py')
     if tool is None:
@@ -12102,7 +12207,15 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "anchoring.")
 def _code_cites_practice(ctx):
     known = {}
-    for d in ((ROOT / 'practices'), (ROOT / 'local' / 'practices')):
+    # In a practice set, the sources it declares come last: a citation of
+    # a universal slug is real there although the set's practices/ holds
+    # only its own (2026-09-14 measurement: `timestamps-carry-offset` read
+    # as a typo in every set). Last, so the deduplicated-stub rule below
+    # lets universal's active copy stand over the set's stub of it.
+    dirs = [ROOT / 'practices', ROOT / 'local' / 'practices']
+    if _publishes_practices():
+        dirs += list(_declared_source_practice_dirs())
+    for d in dirs:
         for f in sorted(d.glob('*.md')):
             try:
                 fm, _sections = sp._read_practice_file(f)
@@ -12121,6 +12234,8 @@ def _code_cites_practice(ctx):
             in_force_at = (fm.get('in_force_at') or 'null').strip().strip('"').strip("'")
             if status == 'deduplicated' and in_force_at == slug and slug in known:
                 pass
+            elif known.get(slug) == 'active' and d not in dirs[:2]:
+                pass    # a declared source never demotes the set's own
             else:
                 known[slug] = status
             # A slug some IN-FORCE practice declares it overrides is
@@ -14666,6 +14781,11 @@ def run(slugs, ctx, scopes, exempt=None):
         # about it. See load_exemptions() for the whole story.
         if slug in exempt:
             results.append((slug, 'EXEMPT', [], exempt[slug], []))
+            continue
+        if c.get('skips_in_sets') and _publishes_practices():
+            results.append((slug, 'SKIPPED', [],
+                            f'a practice set is not the kind of repository '
+                            f'this check is about: {c["skips_in_sets"]}', []))
             continue
         # A check whose practice is not in force here has nothing to
         # enforce. This file is vendored verbatim into consuming repos
