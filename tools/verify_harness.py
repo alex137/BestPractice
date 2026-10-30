@@ -85838,6 +85838,157 @@ def check_declared_exports_consumer_snags():
     return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
 
 
+def check_installed_templates_follow_their_source():
+    """A template a copied-in source ships for a consumer to install
+    outside its copy -- a workflow its prompts' check runs in -- is
+    refreshed by Update Vendors (Morgan, 2026-10-30, strength: decided).
+
+    1. An installed workflow still holding the old template's text is
+       rewritten with the new one, its approval pin moves with it, and what
+       was installed is recorded; a second run changes nothing.
+    2. CONTROL: a copy changed here is left alone and left for the person.
+    3. ...or reported KEPT ON PURPOSE when precedent.json gives a reason.
+    4. A template never installed here is named, never written in.
+    5. An approval pinned to other text than the old template's is left
+       for the approval check, though the unedited file is refreshed.
+    6. declared_installs: the entry overrides the source on `to`, and a
+       path that climbs out with `..` is dropped."""
+    import hashlib, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-installs-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True, check=True)
+
+    def sha(b):
+        return hashlib.sha256(b).hexdigest()
+
+    class Rep:
+        def __init__(self):
+            self.steps, self.left = [], []
+
+        def step(self, label, what):
+            self.steps.append(what)
+
+        def leave(self, item, what):
+            self.left.append((item, what))
+    wf = '.github/workflows/prompt-check.yml'
+    v1 = b'on: [pull_request]\njobs: {a: {runs-on: ubuntu-latest}}\n'
+    v2 = v1 + b'# checks the prompts too\n'
+    try:
+        src = tmp / 'voice-x'
+        (src / 'templates').mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(src)], env=env, check=True)
+        man = {'name': 'voice-x', 'level': 'shared',
+               'installs': [{'from': 'templates/prompt-check.yml', 'to': wf},
+                            {'from': 'templates/other.yml',
+                             'to': '.github/workflows/other.yml'}]}
+        (src / 'precedent-source.json').write_text(json.dumps(man))
+        (src / 'templates' / 'prompt-check.yml').write_bytes(v1)
+        (src / 'templates' / 'other.yml').write_bytes(b'x\n')
+        git(src, 'add', '-A')
+        git(src, 'commit', '-qm', 'v1')
+        c1 = git(src, 'rev-parse', 'HEAD').stdout.strip()
+        (src / 'templates' / 'prompt-check.yml').write_bytes(v2)
+        git(src, 'commit', '-qam', 'v2')
+        entry = {'level': 'shared', 'name': 'voice-x', 'path': 'process/voice-x',
+                 'vendored': True, 'exports_only': True}
+
+        def consumer(installed_text, approval_sha=None, kept=None):
+            r = tmp / 'r'
+            shutil.rmtree(r, ignore_errors=True)
+            (r / '.github' / 'workflows').mkdir(parents=True)
+            (r / 'process').mkdir()
+            if installed_text is not None:
+                (r / wf).write_bytes(installed_text)
+            cfg = {'sources': [entry]}
+            if approval_sha:
+                cfg['github_ci_approved'] = {wf: {
+                    'sha256': approval_sha,
+                    'approved_by': 'Morgan, 2026-10-01: "yes, install it"'}}
+            if kept:
+                cfg['kept_template_divergences'] = {wf: {'reason': kept}}
+            (r / 'precedent.json').write_text(json.dumps(cfg))
+            (r / 'process' / 'manifest_voice-x.json').write_text(
+                json.dumps({'upstream': {'commit': c1}}))
+            return r
+
+        def run(r):
+            rep = Rep()
+            pu.refresh_installed_templates(r, rep, entry, src, src, man, c1)
+            return rep
+
+        r = consumer(v1, approval_sha=sha(v1))
+        rep = run(r)
+        cfg = json.loads((r / 'precedent.json').read_text())
+        appr = cfg['github_ci_approved'][wf]
+        rec = json.loads((r / 'process' / 'manifest_voice-x.json').read_text())
+        cases.append(('1. an unedited installed workflow takes the new template',
+                      (r / wf).read_bytes() == v2 and not rep.left))
+        cases.append(('1. ...its approval pin moves, the old words kept and the '
+                      'reason added',
+                      appr['sha256'] == sha(v2)
+                      and appr['approved_by'].startswith('Morgan, 2026-10-01')
+                      and 'Update Vendors' in appr['approved_by']))
+        cases.append(('1. ...and what was installed is recorded',
+                      rec.get('installed', {}).get(wf) == sha(v2)
+                      and rec.get('upstream', {}).get('commit') == c1))
+        before = (r / 'precedent.json').read_text()
+        rep = run(r)
+        cases.append(('1. ...a second run changes nothing',
+                      (r / wf).read_bytes() == v2 and not rep.left
+                      and (r / 'precedent.json').read_text() == before))
+        cases.append(('4. a template never installed here is named, not written',
+                      not (r / '.github' / 'workflows' / 'other.yml').exists()
+                      and any('not installed here' in s for s in rep.steps)))
+
+        edited = v1 + b'# ours\n'
+        r = consumer(edited, approval_sha=sha(edited))
+        rep = run(r)
+        cases.append(('2. CONTROL: a copy changed here is left alone and left for you',
+                      (r / wf).read_bytes() == edited
+                      and [i for i, _w in rep.left] == [f'{wf} (from voice-x\'s '
+                                                         f'templates/prompt-check.yml)']
+                      and json.loads((r / 'precedent.json').read_text())
+                      ['github_ci_approved'][wf]['sha256'] == sha(edited)))
+        r = consumer(edited, kept='this repo runs one more step')
+        rep = run(r)
+        cases.append(('3. ...or KEPT ON PURPOSE with a recorded reason',
+                      (r / wf).read_bytes() == edited and not rep.left
+                      and any('KEPT ON PURPOSE' in s for s in rep.steps)))
+
+        r = consumer(v1, approval_sha=sha(b'something else'))
+        rep = run(r)
+        cases.append(('5. an approval pinned to other text is left as it was',
+                      (r / wf).read_bytes() == v2
+                      and json.loads((r / 'precedent.json').read_text())
+                      ['github_ci_approved'][wf]['sha256'] == sha(b'something else')))
+
+        got = pu.declared_installs(
+            {'installs': [{'from': 'templates/mine.yml', 'to': wf},
+                          {'from': '../escape.yml', 'to': 'x.yml'}]}, man)
+        cases.append(('6. the entry overrides the source on `to`; `..` is dropped',
+                      dict((t, f) for f, t in got) == {
+                          wf: 'templates/mine.yml',
+                          '.github/workflows/other.yml': 'templates/other.yml'}))
+    except (OSError, subprocess.CalledProcessError, TypeError, ValueError,
+            KeyError, AttributeError) as ex:
+        cases.append((f'fixture could not be built ({ex!r})', False))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [n for n, ok in cases if not ok]
+    return (not failed, f'{len(cases)} stated cases', '; '.join(failed))
+
+
 def check_update_adopts_an_earlier_runs_catalogue_mirror():
     """A re-run of Update Vendors stages the catalogue mirror an earlier run
     wrote, when the catalogue manifest names the pinned commit and every
@@ -94019,6 +94170,9 @@ def main():
           'stamps are no hand edits, copied-in tools run, history skipped, moved '
           'sections kept, output docs never link process/',
           *check_declared_exports_consumer_snags())
+    check('a template a copied-in source ships is refreshed by Update Vendors when '
+          'unedited, its workflow approval moving with it; an edited one is left',
+          *check_installed_templates_follow_their_source())
     check('Update Vendors: left items survive a failure, headers stamp first, vendored '
           'baselines re-record, stale exemptions go, the old commit is right',
           *check_update_vendors_second_consumer_findings())
