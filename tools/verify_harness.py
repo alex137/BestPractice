@@ -30651,6 +30651,28 @@ def check_gate_channel():
                       f'--brief, not the full Rules, on every Stop',
                       'precedent_gate.py" reply --brief' in _hook_text(stop_hook)))
 
+    # 2026-10-30: the Stop hook ran the gate without passing on the
+    # transcript its payload names, so a refused stop always said "no
+    # transcript reached this gate" beside the compact requirement -- read
+    # as a path lost to a worker restart. Planted transcript: the sentence
+    # is gone; no path in the payload (the control): it is back.
+    no_path = 'no transcript reached this gate'
+    import tempfile
+    with tempfile.TemporaryDirectory() as _td:
+        _t = pathlib.Path(_td) / 't.jsonl'
+        _t.write_text(json.dumps({'type': 'user', 'message': {
+            'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+        _runs = {k: subprocess.run(
+            ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
+            capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
+                               ('without', '{}'))}
+    cases.append(('the Stop hook hands the gate the transcript its payload names',
+                  no_path not in _runs['with'].stdout + _runs['with'].stderr
+                  and no_path in _runs['without'].stdout + _runs['without'].stderr,
+                  f"with: {_runs['with'].stderr[-300:]!r}; without: "
+                  f"{_runs['without'].stderr[-300:]!r}"))
+
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
     r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],

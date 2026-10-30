@@ -54,6 +54,14 @@ if command -v jq >/dev/null 2>&1; then
   [[ "$stop_hook_active" == "true" ]] && exit 0
 fi
 
+# The gate below reads the transcript from PRECEDENT_TRANSCRIPT_PATH, as it
+# does under reply-gate.sh. Until 2026-10-30 this hook never set it, so a
+# refused stop showed "no transcript reached this gate" beside the compact
+# requirement in every session -- read as a lost path after a restart.
+export PRECEDENT_TRANSCRIPT_PATH="$(printf '%s' "$input" | python3 -c 'import json,sys
+try: print(json.load(sys.stdin).get("transcript_path") or "")
+except Exception: pass' 2>/dev/null || true)"
+
 root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 tools=""
 if [[ -n "$root" ]]; then
