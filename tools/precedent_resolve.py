@@ -1324,6 +1324,16 @@ def is_vendored(entry):
     return isinstance(entry, dict) and entry.get('vendored') is True
 
 
+def is_exports_only(entry):
+    """True when a copied-in source entry takes only the files its source
+    exports (`"exports_only": true`): a voice repository's compiled prompts,
+    a rules file, never its practices. Such a copy is refreshed, recorded and
+    checked for freshness like any copied-in set, but it is not a practice
+    source: nothing loads rules from it (Morgan, 2026-10-30, strength:
+    decided, spec/VENDORED_SHARED_SETS.md "Files a source exports")."""
+    return is_vendored(entry) and entry.get('exports_only') is True
+
+
 def carried_sources(copy_path, outer_name):
     """-> [{'level': 'shared', 'name', 'path', 'vendored': True,
     'carried_by'}] for every set the copied set at `copy_path` says it
@@ -1384,7 +1394,8 @@ def vendored_source_paths(repo):
         return []
     out = []
     for entry in (cfg.get('sources') if isinstance(cfg, dict) else None) or []:
-        if not is_vendored(entry) or not entry.get('path'):
+        if not is_vendored(entry) or not entry.get('path') \
+                or is_exports_only(entry):
             continue
         path = _declared_path(repo_root, entry['path'])
         note = '' if (path / 'practices').is_dir() else \
@@ -1394,7 +1405,8 @@ def vendored_source_paths(repo):
     declared = [{'name': e.get('name'), 'path': str(_declared_path(
                     repo_root, e['path'])), 'vendored': is_vendored(e)}
                 for e in (cfg.get('sources') or [])
-                if isinstance(e, dict) and e.get('path')]
+                if isinstance(e, dict) and e.get('path')
+                and not is_exports_only(e)]
     for c in carried_in_force(declared):
         note = '' if (pathlib.Path(c['path']) / 'practices').is_dir() else \
             f"carried in {c['carried_by']}'s copy, which has no practices there"
@@ -1577,6 +1589,9 @@ def load_config(repo, user_config=None):
     if repo_cfg_path.exists():
         cfg = _read_json(repo_cfg_path, 'the repository config')
         for entry in cfg.get('sources', []):
+            # A copy of a source's exported files holds no rules to load.
+            if is_exports_only(entry):
+                continue
             level = normalize_level(entry.get('level'))
             if level == 'individual':
                 raise ResolveError(
@@ -2063,10 +2078,12 @@ def missing_source_reason(path, name=None):
     return why
 
 
-def clone_elsewhere(name, declared):
+def clone_elsewhere(name, declared, any_clone=False):
     """-> the first directory named `name` holding a practices/ tree in the
     places sessions clone to (the home directory, /root, /home/user, beside
-    the declared path), other than `declared` itself; or None."""
+    the declared path), other than `declared` itself; or None. With
+    `any_clone`, any git clone of that name will do: a source copied in for
+    its exports alone may have no practices at all."""
     if not name:
         return None
     try:
@@ -2078,7 +2095,9 @@ def clone_elsewhere(name, declared):
     for base in bases:
         cand = base / name
         try:
-            if cand.resolve() != want and (cand / 'practices').is_dir():
+            if cand.resolve() != want and (
+                    (cand / 'practices').is_dir()
+                    or (any_clone and (cand / '.git').exists())):
                 return cand
         except OSError:
             continue

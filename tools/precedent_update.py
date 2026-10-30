@@ -1364,7 +1364,17 @@ def refresh_copies_step(repo, rep, take_sets=()):
     when its origin moves, and taken this once when the run names it in
     --take-set. The set-side "copy_refresh": "on-go-ahead" it replaces is
     ignored, and named so its owner can delete it.
-    A set with no clone on this machine is said, never guessed."""
+    A copy taken for its exports alone (`"exports_only": true`) is refreshed
+    the same way, and so is every file a set exports (Morgan, 2026-10-30,
+    strength: decided: Update Vendors "gets the new version of everything
+    that's vendored in"). A copy that moved has its changed files listed:
+    "Update Vendors" is the go-ahead for a change to a voice, so the report
+    is where it is heard.
+    A copy that could not be refreshed -- no clone on this machine, or the
+    copy failed -- is left for the person, never DONE: an update that cannot
+    say a declared copy is current has not finished (2026-10-29, a
+    consumer's copy of a voice repository's prompts sat behind while Update
+    Vendors said DONE)."""
     try:
         import precedent_resolve as pr
         cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
@@ -1383,11 +1393,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
         if clone is None or not (clone / '.git').exists():
             near = (ind.resolve().parent / name) if ind else None
             clone = near if near is not None and (near / '.git').exists() \
-                else pr.clone_elsewhere(name, str(repo / str(e['path'])))
+                else pr.clone_elsewhere(name, str(repo / str(e['path'])),
+                                        any_clone=pr.is_exports_only(e))
+        held = str(e.get('hold') or '').strip()
         if clone is None or not (pathlib.Path(clone) / '.git').exists():
-            rep.step(f'copy of {name}', 'not refreshed: no clone of it on this '
-                     'machine to refresh from. Attach it and run Update '
-                     'Vendors again')
+            if held:
+                rep.step(f'copy of {name}', f'held by this repository ({held}); '
+                         f'no clone of it on this machine to compare with')
+            else:
+                rep.leave(f'copy of {name}', 'not refreshed: no clone of it on '
+                          'this machine, so nothing here can say the copy is '
+                          'current. Attach it (read access) and run Update '
+                          'Vendors again')
             continue
         clone = pathlib.Path(clone)
         # A set in a folder of its repository keeps its manifest there.
@@ -1411,14 +1428,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
         # fixed in vendored_layer_paths(); this still covers a copy lost
         # any other way.
         here = repo / str(e['path'])
-        first = not up.get('commit') or not (here / pr.SOURCE_MANIFEST).is_file()
+        first = not up.get('commit') or not (
+            (here / pr.SOURCE_MANIFEST).is_file()
+            # A copy of a source with no precedent-source.json is there
+            # when any of its files is.
+            or (pr.is_exports_only(e) and here.is_dir() and any(here.iterdir())))
         if man.get('copy_refresh'):
             rep.step(f'copy of {name}', f'its precedent-source.json still says '
                      f'"copy_refresh": {json.dumps(man["copy_refresh"])}, which '
                      f'is retired (2026-10-20): every copy is refreshed, and a '
                      f'repository that wants one frozen says "hold" in its own '
                      f'precedent.json. Delete the line in {name}')
-        hold = str(e.get('hold') or '').strip()
+        hold = held
         if hold and not first and name not in take_sets:
             # The copy is taken from the set's main, so "has it moved" asks
             # main too, never the branch this clone happens to be on.
@@ -1439,11 +1460,18 @@ def refresh_copies_step(repo, rep, take_sets=()):
                 rep.step(f'copy of {name}', f'current; held by this repository '
                          f'({hold})')
             continue
+        was = _copy_digest(here)
+        # A source declared in precedent.json by hand, not by the copy-in
+        # question, has no record yet; start it the way that answer does.
+        if not mpath.exists():
+            mpath.parent.mkdir(parents=True, exist_ok=True)
+            mpath.write_text(json.dumps({'upstream': {}}, indent=2) + '\n',
+                             encoding='utf-8')
         rc, out = run(checkin + ['--source', name, 'update', str(clone),
                                  '--repo', str(repo)]
                       + (['--force'] if first else []), repo)
         if rc != 0:
-            rep.step(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
+            rep.leave(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
             continue
         rc, out = run(checkin + ['--source', name, 'record', str(clone),
                                  '--repo', str(repo), '--note', 'Update Vendors'],
@@ -1465,6 +1493,34 @@ def refresh_copies_step(repo, rep, take_sets=()):
         if rc == 0 and now and up.get('commit') and now != up.get('commit'):
             rep.step(f'copy of {name}', f'moved {str(up["commit"])[:12]} -> '
                      f'{str(now)[:12]}')
+        changed = _copy_changes(was, _copy_digest(here))
+        if changed:
+            shown = changed[:20]
+            rep.step(f'copy of {name}', 'changed: ' + ', '.join(shown) + (
+                f' and {len(changed) - len(shown)} more' if changed[20:] else ''))
+
+
+def _copy_digest(folder):
+    """-> {relative path: content hash} of every file under `folder`."""
+    import hashlib
+    folder = pathlib.Path(folder)
+    if not folder.is_dir():
+        return {}
+    return {f.relative_to(folder).as_posix(): hashlib.sha1(f.read_bytes()).hexdigest()
+            for f in folder.rglob('*') if f.is_file()}
+
+
+def _copy_changes(was, now):
+    """-> sorted 'path (added|changed|removed)' lines between two digests."""
+    out = []
+    for rel in sorted(set(was) | set(now)):
+        if rel not in was:
+            out.append(f'{rel} (added)')
+        elif rel not in now:
+            out.append(f'{rel} (removed)')
+        elif was[rel] != now[rel]:
+            out.append(f'{rel} (changed)')
+    return out
 
 
 def renamed_sources_step(repo, rep, engine_out):

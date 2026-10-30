@@ -171,6 +171,7 @@
   "check_debut_judges_the_change_against_main_too": 5.6,
   "check_decision_records_not_inline": 0.0,
   "check_decision_records_not_inline_fires": 3.8,
+  "check_declared_exports_are_copied": 5.8,
   "check_declared_identity_has_a_passing_state_in_a_shared_repo": 0.1,
   "check_declared_loss_unblocks_the_archive_line": 0.0,
   "check_declared_set_found_beside_the_individual_set": 0.0,
