@@ -33893,6 +33893,89 @@ def check_reply_check_requires_the_boildown_first_line():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_reply_check_wants_an_ask_to_state_its_question():
+    """`require_ask_states_its_question` refuses a "Your next steps" bullet
+    that asks for an answer without carrying the question.
+
+    Morgan, 2026-10-29 (strength: decided), after hours away: "you
+    mentioned like 8 times I need to answer the [voice repo] question but
+    I scrolled and scrolled and I can't find it ... how do we fix this?"
+    The two refused bullets below are the ones that session actually wrote.
+
+    practice: control-asserts-which-failure -- the refusals assert the
+    guard's own kind; the controls prove a bullet that states the question,
+    one that asks nothing, and a reply with no such bullet all pass.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as _rc
+    reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+        encoding='utf-8')) if r.get('id') == 'boildown-ask-states-its-question']
+    if not reqs:
+        return (False, '', 'reply_check.json no longer declares '
+                           'boildown-ask-states-its-question')
+
+    def kinds(steps):
+        reply = ('Done.\n\n## The Boildown\n- The work of this session is now '
+                 'on: staging (you have finished step 3 of 5, Booked)\n'
+                 + steps + '- You can archive this session.\n')
+        return [v['kind'] for v in _rc.violations(reply, reqs)]
+
+    refused = 'ask_without_question'
+    cases = [
+        ('a bare yes-or-no with a pick but no stakes is refused',
+         kinds("- **Your next steps:** yes or no on syncing the book's voice "
+               "pack from the voice repo. My pick is yes. It stays in the open "
+               "item if you don't answer.\n") == [refused]),
+        ('a pointer to "the X question" is refused',
+         kinds('- **Your next steps:** the voice pack question is the only '
+               'one open, as before. It waits in [the open item](todo/x.md).\n')
+         == [refused]),
+        ('a sub-bullet saying "answer the question above" is refused on its own',
+         kinds('- **Your next steps:**\n  - Paste the prompt below into a new '
+               'session rooted in BestPractice.\n  - Answer the question '
+               'above.\n') == [refused]),
+        ('negative control: a bullet that states the question, what yes and no '
+         'do, and the pick passes',
+         kinds("- **Your next steps:** should the book's voice rules be "
+               'refreshed from the newer copy in the voice repo? Yes means the '
+               'next voice pass uses the new rules; no keeps the book on the '
+               'copy it has now. My pick is yes. If you say nothing it waits '
+               'in the open item.\n') == []),
+        ('negative control: a step that asks nothing passes',
+         kinds('- **Your next steps:** paste the prompt below into a new '
+               'session rooted in BestPractice.\n') == []),
+        ('negative control: "Nothing blocking" passes',
+         kinds('- **Your next steps:** Nothing blocking for you to do now.\n')
+         == []),
+        ('negative control: an ask outside Your next steps is not read',
+         kinds('- Process idea: should the gate also read item 2?\n') == []),
+    ]
+    # The repeat rule's one-line form must not swallow a question still
+    # waiting: the first line plus the restated ask is that form now.
+    both = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+        encoding='utf-8')) if r.get('id') in (
+            'boildown-ask-states-its-question', 'boildown-not-repeated')]
+    first = ('- The work of this session is now on: staging (you have '
+             'finished step 3 of 5, Booked).\n')
+    ask = ("- **Your next steps:** should the book's voice rules be refreshed "
+           'from the voice repo? Yes means the next voice pass uses them; no '
+           'keeps the old copy. My pick is yes.\n')
+    arch = "- Don't archive this session.\n"
+    tl = [(1000, 'Earlier.\n\n## Boildown\n' + first + ask + arch)]
+
+    def rep(body):
+        return [v['kind'] for v in _rc.violations(
+            'Now.\n\n## Boildown\n' + body, both, timeline=tl)]
+    cases += [
+        ('the first line plus a restated ask is not refused as a repeat',
+         rep(first + ask) == []),
+        ('a repeat beyond the restated ask is still refused',
+         rep(first + ask + arch) == ['repeat']),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_vocabulary_prefers_the_file_you_are_standing_on():
     """A practice defined both in this repo and in a resolved source is read
     from THIS repo's file, and the collision is named either way.
@@ -92941,6 +93024,8 @@ def main():
           'reads as it did', *check_reply_check_reads_a_landing_trigger_by_clause_and_by_list())
     check('the reply check requires the Boildown to open with where the work is',
           *check_reply_check_requires_the_boildown_first_line())
+    check('the reply check wants an ask under Your next steps to state its question',
+          *check_reply_check_wants_an_ask_to_state_its_question())
     check('the reply check refuses a Boildown that only repeats the last one',
           *check_reply_check_refuses_a_repeated_boildown())
     check('the reply check keeps practice ideas to the closing reply',

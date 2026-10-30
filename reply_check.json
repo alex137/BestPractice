@@ -281,6 +281,43 @@
     ]
   },
   {
+    "practice": "the-boildown",
+    "id": "boildown-ask-states-its-question",
+    "require_ask_states_its_question": {
+      "heading": "boildown",
+      "item": "^\\W*your next steps\\b",
+      "if_matches": "\\byes\\s*(?:or|/)\\s*no\\b|\\bgo[- ]ahead\\b|\\b(?:decide|decision|approve|approval|answer|question|your call|say the word)\\b|\\?",
+      "must_also_match": {
+        "what each answer does": "\\b(?:yes|no|go|approv(?:e|al|ing))\\b[^.;?]{0,40}?\\b(?:means?|would|will|keeps?|lets?|leaves?|lands?|starts?|stops?|moves?|sends?|drops?|adds?|changes?|does|runs?|puts?|ships?|goes)\\b|\\bif (?:you )?(?:say |answer )?(?:yes|no|so|not|go)\\b|\\bif you (?:agree|approve|want|decline|okay|ok|go ahead)\\b|\\bsaying (?:yes|no)\\b|\\b(?:on|with|after) (?:a|your) (?:yes|no|go-ahead)\\b|\\b(?:a|your) (?:yes|no|go-ahead)\\b|\\b(?:yes|no)\\s*(?:->|→|=)",
+        "your pick": "\\bmy (?:pick|vote|recommendation|choice|suggestion)\\b|\\bI(?:'d| would)\\b|\\bI (?:recommend|suggest|lean)\\b|\\bI'll\\b[^.]{0,60}\\bunless\\b"
+      }
+    },
+    "why": "Morgan, 2026-10-29 (strength: decided), after hours away: \"you mentioned like 8 times I need to answer the [voice repo] question but I scrolled and scrolled and I can't find it ... how do we fix this?\" About eight replies running asked \"yes or no on syncing the voice pack\" or pointed at \"the voice pack question\" without ever saying what it was. the-boildown item 1 already required the question to be summarized (2026-10-13) and nothing enforced it. Blocking: a bullet that asks for an answer is checked for its own stakes and pick, each sub-bullet on its own; a bullet that asks nothing, or says nothing is blocking, is not read.",
+    "checks_practice_at": "practices/the-boildown.md",
+    "_examples": [
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** yes or no on syncing the book's voice pack from the voice repo. My pick is yes. It stays in the open item if you don't answer.\n- You can archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** the voice pack question is the only one open, as before. It waits in [the open item](todo/x.md).\n- You can archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:**\n  - Paste the prompt below into a new session rooted in BestPractice.\n  - Answer the question above.\n- Process idea: none.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** should the book's voice rules be refreshed from the newer copy in the voice repo? Yes means the next voice pass uses the new rules; no keeps the book on the copy it has now. My pick is yes, because the newer copy fixes the dialogue rules. If you say nothing it waits in [the open item](todo/x.md).\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "refused": false
+      }
+    ]
+  },
+  {
     "practice": "fence-block-for-paste",
     "require_paired_with": [
       {

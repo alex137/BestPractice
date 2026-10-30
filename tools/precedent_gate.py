@@ -954,6 +954,15 @@ def _print_hard_requirements(root):
                 print(f"- [{src}] a reply saying \"{pair['if_says']}\" must "
                       f"not ALSO match /{pair['must_not_say_matching']}/i -- "
                       f"the two cannot both be true. Say the one that is.")
+        _ask = r.get('require_ask_states_its_question') or {}
+        if _ask.get('heading') and _ask.get('item'):
+            print(f"- [{src}] a Your next steps bullet (or sub-bullet) under "
+                  f"/{_ask['heading']}/i that asks for an answer, a decision, "
+                  f"a yes or no or a go-ahead states the question itself, in "
+                  f"that bullet: what is decided, what yes and no each do, "
+                  f"and your pick -- never \"the X question\" or \"yes or no "
+                  f"on X\" alone. A question still waiting is restated in "
+                  f"every reply until answered.")
         # require_section_not_repeated: the previous reply's section is
         # knowable here, before a word is written -- and here is the only
         # place the repeat can still be avoided, since the stop hook fires
