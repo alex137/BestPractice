@@ -2470,6 +2470,126 @@ def _record_given_up(text, root=None):
         pass
 
 
+def _is_landed(repo, ref, base):
+    """True when every commit of `ref` is on origin/<base>, or, after a squash
+    or rebase merge, every file it changed is identical there."""
+    def git(*args):
+        p = subprocess.run(['git', '-C', str(repo), *args],
+                           capture_output=True, text=True, timeout=20)
+        return p.stdout.strip() if p.returncode == 0 else None
+    if git('rev-list', '--count', f'origin/{base}..{ref}') == '0':
+        return True
+    mb = git('merge-base', f'origin/{base}', ref)
+    files = (git('diff', '--name-only', mb, ref) or '').split() if mb else []
+    return bool(files) and subprocess.run(
+        ['git', '-C', str(repo), 'diff', '--quiet', f'origin/{base}', ref, '--',
+         *files], capture_output=True).returncode == 0
+
+
+def _own_unlanded_branches(root=None, siblings=True):
+    """-> [(repo, branch, landing)] for each branch on origin that this
+    session made whose work is on none of its repository's bases yet -- an
+    open pull request, a pushed feature branch -- with the branch it lands
+    on. A Promote's copy into main is left out: it carries no work of its
+    own, only staging's, which is already landed."""
+    return [(repo, name, landing) for repo, name, base, landing
+            in _own_branches(root, siblings)
+            if not base and 'promote-to-main' not in name]
+
+
+def _own_branches(root=None, siblings=True):
+    """-> [(repo, branch, landed_base or None, landing_branch)] for each
+    branch on origin that this session made: landed_base is the base its
+    work is on -- the repository's landing branch, or main for a Promote's
+    copy -- and None while it is on none of them.
+
+    A branch is this session's when its name carries the session's tag (the
+    last five characters of its ID, which precedent_branch_name.py puts in
+    every name it builds, a Promote's copy included), or when one of the
+    last few commits along its tip carries the session's trailer. Read from
+    the clone's own refs, so it costs no network call; a branch it finds is
+    confirmed on origin with one ls-remote per repository, and dropped when
+    it is gone. [] with no session ID to look for.
+
+    WHY. Written 2026-10-19 for the delete-link check (retired 2026-10-30);
+    it stays because the first Boildown line names this session's branches
+    not landed yet (_own_unlanded_branches)."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        import precedent_branch_name as _pbn
+        import precedent_detect as _pd
+        sid, tag = _pd.this_session_id(), _pbn.session_id_tail()
+        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
+        repos = _pg._session_roots(root, siblings)
+        pb = _pg._branches_module()
+    except Exception:                                         # noqa: BLE001
+        return []
+    if not (sid or tag):
+        return []
+
+    def git(repo, *args, timeout=20):
+        try:
+            p = subprocess.run(['git', '-C', str(repo), *args],
+                               capture_output=True, text=True, timeout=timeout)
+        except Exception:                                     # noqa: BLE001
+            return None
+        return p.stdout.strip() if p.returncode == 0 else None
+
+    found = []
+    for repo in repos:
+        try:
+            # main first: a branch already there is named as merged into
+            # main, a Promote's copy included, whose tip staging holds too.
+            bases = ['main']
+            if pb is not None:
+                try:
+                    bases.append(pb.landing_branch(repo)[0])
+                except Exception:                             # noqa: BLE001
+                    pass
+            try:
+                bases.append((json.loads((pathlib.Path(repo) / 'precedent.json')
+                                         .read_text(encoding='utf-8'))
+                              .get('base_branch') or '').strip())
+            except Exception:                                 # noqa: BLE001
+                pass
+            bases = [b for i, b in enumerate(bases) if b and b not in bases[:i]]
+            refs = (git(repo, 'for-each-ref', '--format=%(refname)',
+                        'refs/remotes/origin') or '').split()
+            cands = []
+            for ref in refs:
+                name = ref[len('refs/remotes/origin/'):]
+                if (name in ('HEAD', 'main', 'staging', 'precedent-beta-v01')
+                        or name in bases or name.startswith(('data-', 'precedent-'))):
+                    continue
+                mine = bool(tag) and tag in name.replace('/', '-').split('-')
+                if not mine and sid:
+                    mine = sid in (git(repo, 'log', '--format=%B', '--first-parent',
+                                       '-n', '3', ref) or '')
+                if mine:
+                    cands.append((name, ref))
+            if not cands:
+                continue
+            for b in bases:
+                _pg._refresh_remote_branch(repo, b)
+            live = git(repo, 'ls-remote', '--heads', 'origin', timeout=8)
+            heads = ({l.split('refs/heads/', 1)[-1] for l in live.splitlines()}
+                     if live is not None else None)
+            landing = bases[1] if len(bases) > 1 else bases[0]
+            for name, ref in cands:
+                if heads is not None and name not in heads:
+                    continue
+                on = next((b for b in bases
+                           if git(repo, 'rev-parse', '--verify', '-q',
+                                  f'refs/remotes/origin/{b}')
+                           and _is_landed(repo, ref, b)), None)
+                found.append((str(pathlib.Path(repo).resolve()), name, on, landing))
+        except Exception:                                     # noqa: BLE001
+            continue
+    return found
+
+
+
 def _stranded_branches(root=None, siblings=True):
     """-> [(repo, branch)] for each repo in this session whose current
     branch carries committed work that is not on the branch it lands work
