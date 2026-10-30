@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Morgan's Booked (step 3 of 5) for the 2026-10-30 engine change; then Update Vendors and the fixes in the three sets"
 noted:             2026-09-13
 closed:            null
 ---
@@ -140,10 +140,62 @@ closed:            null
     for this to be reviewed, and he has reviewed it; the `code-cites-practice`
     fix is ordinary work that needs nothing from him.
 
+    **BUILT 2026-10-30, on Morgan's "Act. Let's build this."** He had
+    noticed BestPractice's way of working not applying in sessions rooted
+    in the three practice sets (2026-10-29: a session opened on
+    `precedent-individual`, `precedent-shared-ladder` and
+    `precedent-shared-writing` only). Re-measured first: the ladder set
+    ran 56 checks and skipped 67, 44 of them "not in force here". The
+    change in [tools/precedent_check.py](../tools/precedent_check.py):
+
+    - **A set's gate reads the sources it declares.** `_practice_file`
+      also looks in the `practices/` of each source the set's own
+      precedent.json declares (`_declared_source_practice_dirs`): for
+      every set, universal at `../BestPractice`. The person's individual
+      set and the sets they bring are not read, so a set's gate does not
+      differ by who runs it. Where the source is not on disk (a set's own
+      CI) the gate skips as before.
+    - **`code-cites-practice` resolves across those sources**, the item's
+      one leftover from 2026-09-14: `timestamps-carry-offset` no longer
+      reads as a typo in the writing set, and a set's deduplicated stub
+      (`curly-quotes`) yields to universal's active copy.
+    - **`skips_in_sets`**, a reason on a check whose subject a set does not
+      keep by design, reported as SKIPPED with that reason: `quick-index`,
+      `environment-gotchas` and `two-check-levels` (hand-kept sections of
+      a project's AGENTS.md; a set's is the generated loader block) and
+      `routing-audit` (its tool ships to consumers only). The 2026-09-14
+      (b) verdict, now in the engine rather than in three sets'
+      `not_binding`.
+    - **`layered-practice-packs` sees a set's session channel**: it read
+      only `session-start.sh`, so with the gate open every universal
+      practice in a set read as reachable by nothing. It now reads what
+      settings.json starts, and treats what the tracked block defers as
+      carried by `.precedent/SESSION_PRACTICES.md`.
+
+    **What it finds, measured against scratch copies of all three sets**
+    (engine patched, nothing written to any set): the real findings left
+    are `document-status-header` in all three (spec files with no
+    lifecycle frontmatter, or a status and `closed:` date that disagree)
+    and `deep-check` in the ladder set (three `tools/checks/` scripts and
+    no `tools/checks/tests/run_all.sh`), plus the individual set's
+    `set-words-stay-in-their-set`, red before this change too. Pinned by
+    `check_a_set_runs_the_checks_its_declared_sources_put_in_force` in
+    [tools/verify_harness.py](../tools/verify_harness.py), which fails
+    with the change reverted.
+
+    **Morgan's question, answered on the record:** the reply rules a set's
+    session sees at the end of a turn were never copies; they are read
+    live from `../BestPractice` already. What did not reach a set was the
+    mechanical checks, which is what this changes.
+
 ## How It Closes
 
-(not yet stated by the migration -- a session filling this in should read ## What and say what has to be true for `status` to become `done`.)
+Done when a session rooted in each practice set, with universal on disk
+beside it, runs universal's checks there -- the engine change on the
+landing branch, Update Vendors run in all three sets -- and each set's
+full check is green, its findings above fixed rather than exempted.
 
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+2026-10-30: built on a feature branch; closes on the condition above.

@@ -30294,6 +30294,139 @@ def check_publisher_bound_checks_run_in_a_source_set():
           '; '.join(f"{n}{' (' + d + ')' if d else ''}" for n, d in bad))
 
 
+def check_a_set_runs_the_checks_its_declared_sources_put_in_force():
+    """A practice set's checks see the rules the sources it declares carry.
+
+    A set's practices/ holds its own catalogue only, so until 2026-10-30
+    every universal check skipped in a set as "not in force" although the
+    set declares universal in precedent.json and its sessions read
+    universal's rules at session start: measured that day, 44 of the
+    ladder set's checks skipped for that one reason, and opening them found
+    real findings in all three sets (spec frontmatter, an audit script with
+    no run_all.sh). Morgan, 2026-10-30: "Act. Let's build this."
+
+    Asserted against a fixture that owns its state -- a set and the
+    upstream it declares, side by side -- in four directions: the check
+    runs through the declaration and fails on a planted bad citation; a
+    universal slug, and a set's deduplicated stub of one, are not typos
+    there; the same set with no declaration still skips; a consumer is
+    unaffected; and a check marked skips_in_sets says why it skipped
+    (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-declared-sources-'))
+    try:
+        up, fx = tmp / 'upstream', tmp / 'set'
+        (up / 'practices').mkdir(parents=True)
+        for slug in ('code-cites-practice', 'quick-index'):
+            shutil.copy(ROOT / 'practices' / f'{slug}.md',
+                        up / 'practices' / f'{slug}.md')
+
+        def practice(where, slug, status='active', extra=''):
+            (where / f'{slug}.md').write_text(
+                '---\n'
+                f'slug:        {slug}\n'
+                'title:       A fixture practice\n'
+                'tier:        on-demand\n'
+                'severity:    default\n'
+                'applies_to:  ["tools/*.py"]\n'
+                'occasion:    "the fixture runs"\n'
+                'gates:       []\n'
+                'index_clause: "the fixture runs"\n'
+                'checked_by:  null\n'
+                'defines:     []\n'
+                f'status:      {status}\n'
+                f'{extra}'
+                'supersedes:  []\n'
+                'overrides:   null\n'
+                'added:       2026-10-30\n'
+                'approved_by: "fixture"\n'
+                '---\n'
+                '## Rule\nThe fixture practice says nothing in particular.\n\n'
+                '## Story\nWritten for this control; no incident is claimed.\n',
+                encoding='utf-8')
+        practice(up / 'practices', 'fixture-upstream-rule')
+        practice(up / 'practices', 'fixture-promoted-rule')
+
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        practice(fx / 'practices', 'fixture-own-rule')
+        practice(fx / 'practices', 'fixture-promoted-rule', 'deduplicated',
+                 'in_force_at: fixture-promoted-rule\n')
+        engine = []
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+                engine.append(name)
+        shutil.copy(ROOT / 'tools' / 'precedent_check.py',
+                    fx / 'tools' / 'precedent_check.py')
+        cites = fx / 'tools' / 'fixture_tool.py'
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+
+        def run(kind, declares, slug, cite):
+            (fx / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps({
+                'kind': kind,
+                'source_repo': 'https://github.com/example/upstream',
+                'source_branch': 'main',
+                'files': sorted(set(engine) | {'precedent_check.py'}),
+            }), encoding='utf-8')
+            cfg = {'format_version': 1, 'base_branch': 'main'}
+            if declares:
+                cfg['sources'] = [{'level': 'universal', 'name': 'precedent',
+                                   'path': '../upstream'}]
+            (fx / 'precedent.json').write_text(json.dumps(cfg), encoding='utf-8')
+            cites.write_text('\n'.join(f'# practice: {c}' for c in cite) + '\n',
+                             encoding='utf-8')
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only', slug],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        good = ['fixture-own-rule', 'fixture-upstream-rule',
+                'fixture-promoted-rule']
+        ok = run('source', True, 'code-cites-practice', good)
+        cases.append(('a set declaring upstream RUNS a check whose practice '
+                      'is upstream only, and passes citations of its own, an '
+                      'upstream and a deduplicated-stub slug',
+                      ok.returncode == 0 and ' 1 passed' in ok.stdout
+                      and 'not in force' not in ok.stdout,
+                      f'rc={ok.returncode} ' + ok.stdout[-400:]))
+        bad = run('source', True, 'code-cites-practice', good + ['fixture-no-such'])
+        cases.append(('...and fails on a planted citation no source carries, '
+                      'naming it',
+                      bad.returncode != 0 and 'VIOLATION' in bad.stdout
+                      and "'fixture-no-such'" in bad.stdout
+                      and 'fixture-upstream-rule' not in bad.stdout,
+                      f'rc={bad.returncode} ' + bad.stdout[-400:]))
+        bare = run('source', False, 'code-cites-practice', good + ['fixture-no-such'])
+        cases.append(('the same set declaring no upstream still skips it as '
+                      'not in force',
+                      bare.returncode == 0 and 'not in force here' in bare.stdout,
+                      f'rc={bare.returncode} ' + bare.stdout[-300:]))
+        con = run('consumer', True, 'code-cites-practice', good + ['fixture-no-such'])
+        cases.append(('a CONSUMER is unaffected: it materializes its sources, '
+                      'so a declaration alone still skips',
+                      con.returncode == 0 and 'not in force here' in con.stdout,
+                      f'rc={con.returncode} ' + con.stdout[-300:]))
+        qi = run('source', True, 'quick-index', good)
+        cases.append(('a check marked skips_in_sets reports SKIPPED in a set, '
+                      'with its reason',
+                      qi.returncode == 0 and 'SKIPPED' in qi.stdout
+                      and 'a practice set is not the kind of repository' in qi.stdout
+                      and 'loader block' in qi.stdout,
+                      f'rc={qi.returncode} ' + qi.stdout[-400:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a practice set runs the checks its declared sources put in force '
+          f'({len(cases)} stated cases, each asserting the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
 def check_practice_links_travel_skips_a_consumers_repo_local_practices():
     """A consumer's repo-local practice is never published, so
     practice-links-travel must not test its links -- and the repair it
@@ -93349,6 +93482,7 @@ def main():
     check_routing_audit_coverage()
     check_parallel_artifact_ledger_fires()
     check_publisher_bound_checks_run_in_a_source_set()
+    check_a_set_runs_the_checks_its_declared_sources_put_in_force()
     check_practice_links_travel_skips_a_consumers_repo_local_practices()
     check_practice_links_travel_holds_a_set_to_its_copy_in()
     check_gate_channel()
