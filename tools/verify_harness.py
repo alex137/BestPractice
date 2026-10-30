@@ -52438,7 +52438,7 @@ def check_reply_gate_trims_for_standing_sessions_and_one_line_forms():
         bare = [{'require_no_bare_pattern': [
             {'pattern': r'`[\w.-]+\.md`', 'advisory': True},
             {'pattern': r'\bPR #\d+\b'}]}]
-        v = prc.violations('See `notes.md` and PR #4.', bare)
+        v = prc.violations('See `README.md` and PR #4.', bare)
         cases.append(('one pattern can be advice while the other still blocks',
                       sorted(b['advisory'] for b in v) == [False, True], v))
     bad = [(n, d) for n, ok, d in cases if not ok]
@@ -62849,6 +62849,18 @@ def check_land_skips_a_push_the_pull_request_guard_would_refuse():
     Negative control, measured 2026-10-30: with _takes_pull_request
     returning [] the first case fails -- the hook records the push."""
     import tempfile
+    # The guard is the ladder set's file, shipped into a session's tools/
+    # (never tracked here): GitHub's test has no ladder set, and copying it
+    # from ROOT failed main's test there (2026-10-30, issue #1424).
+    guard = next((g for g in (ROOT / 'tools' / 'landing_pr_guard.py',
+                              ROOT.parent / 'precedent-shared-ladder' / 'tools'
+                              / 'landing_pr_guard.py')
+                  if g.is_file()), None)
+    if guard is None:
+        not_applicable('--land skips a push the pull-request guard would refuse',
+                       'the ladder set\'s landing_pr_guard.py is not here: the '
+                       'set is not attached and its file not shipped')
+        return
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-skip-'))
     cases = []
     try:
@@ -62880,7 +62892,7 @@ subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=Tr
 g('checkout', '-q', '-B', 'main')
 (work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
 (work / 'tools').mkdir()
-shutil.copy({str(ROOT / 'tools' / 'landing_pr_guard.py')!r}, work / 'tools')
+shutil.copy({str(guard)!r}, work / 'tools')
 g('add', '-A'); g('commit', '-qm', 'base')
 g('push', '-q', 'origin', 'main', 'main:staging')
 g('config', 'core.hooksPath', {str(hooks)!r})
@@ -62912,19 +62924,19 @@ print(json.dumps(out))
         cases.append(('THE DISCRIMINATING CASE: a change to tools/verify_harness.py '
                       'is never pushed at staging',
                       gating.get('pushed') is False and gating.get('rc') == 1,
-                      str(gating) or why))
+                      (str(gating) if gating else why)))
         cases.append(('...it says no push was tried, and why, naming the file',
                       'with no push tried' in (gating.get('said') or '')
                       and 'tools/verify_harness.py' in (gating.get('verdict') or ''),
-                      str(gating) or why))
+                      (str(gating) if gating else why)))
         cases.append(('...and still takes the pull-request route',
                       'now carries the composition' in (gating.get('said') or '')
                       or 'lacks nothing' in (gating.get('said') or ''),
-                      str(gating) or why))
+                      (str(gating) if gating else why)))
         cases.append(('a change to a plain file still tries the push',
                       plain.get('pushed') is True
                       and 'the push was refused' in (plain.get('said') or ''),
-                      str(plain) or why))
+                      (str(plain) if plain else why)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(n, d) for n, ok, d in cases if not ok]
