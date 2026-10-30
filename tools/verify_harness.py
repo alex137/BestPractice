@@ -67896,7 +67896,51 @@ def check_session_load_total_is_the_one_budget():
                           'over the 3,500-token session_load_tokens total' in asked
                           and 'AGENTS.md ~' in asked
                           and 'reduction-pass' in asked, asked or rep.asks))
+            # 2026-10-30 (Morgan, strength: decided): the session check
+            # and the full check judged the same over-total repository two
+            # ways -- FAIL at every session start, nothing at any gate.
+            # Planted once, read by both: the session check warns, the full
+            # check refuses only a change that grew a part, and the gate
+            # prints the overrun.
+            import precedent_session_check as psc
+            registry(total=3500)
+            files(agents=40000, session=500)
+            saved_psc_root = psc.ROOT
+            try:
+                psc.ROOT = repo
+                rows = psc._session_load_rows()
+            finally:
+                psc.ROOT = saved_psc_root
+            cases.append(('THE DISCRIMINATING CASE: over a total, the session '
+                          'check warns and does not fail',
+                          len(rows) == 1 and rows[0][1] == psc.WARN
+                          and 'over the 3,500-token' in rows[0][2], rows))
+            not_grown = types.SimpleNamespace(
+                base='HEAD', changed=('README.md',),
+                read_base=lambda rel: (repo / rel).read_text())
+            got = [str(f) for f in pc._session_load_budget(not_grown)]
+            cases.append(('...the full check, on a change that grew nothing, '
+                          'refuses nothing', not any(
+                              'session_load_tokens' in g for g in got), got))
+            grown = types.SimpleNamespace(
+                base='HEAD', changed=('AGENTS.md',),
+                read_base=lambda rel: 'w ' * 10 if rel == 'AGENTS.md'
+                else (repo / rel).read_text())
+            got = [str(f) for f in pc._session_load_budget(grown)]
+            cases.append(('...and on a change that grew AGENTS.md it refuses',
+                          any('session_load_tokens' in g for g in got), got))
+            import session_load_trend as slt
+            note = slt.headroom_notice(repo) or ''
+            cases.append(('...and the merge and push gates print the overrun',
+                          'OVER by' in note, note))
             files(agents=1500, session=500)
+            try:
+                psc.ROOT = repo
+                rows = psc._session_load_rows()
+            finally:
+                psc.ROOT = saved_psc_root
+            cases.append(('CONTROL: within the total, the session check row '
+                          'is OK', len(rows) == 1 and rows[0][1] is True, rows))
             rep = pu.Report()
             with contextlib.redirect_stdout(io.StringIO()):
                 pu.session_load_total_step(repo, rep)
