@@ -71,6 +71,54 @@ a person only offers names its folder in the same way (`offers` entries
 take a `set_root`), and a yes to the question below writes it into the
 source entry.
 
+## Files a source exports
+
+A source can export files for others to copy besides its rules: a voice
+repository's compiled prompts, a rules file a tool reads. Its
+`precedent-source.json` lists them, each a file or a folder inside the set
+(under its `set_root`, when it has one):
+
+```json
+{"name": "<source>", "level": "shared",
+ "exports": ["UNIFIED_VOICE_PROMPT.md", "essentials"]}
+```
+
+Every copy of the source brings them, beside its practices. A repository
+that wants the files alone, and none of the source's rules in force,
+declares the copy `exports_only`:
+
+```json
+{"level": "shared", "name": "<source>", "path": "process/<source>",
+ "vendored": true, "exports_only": true}
+```
+
+That copy holds the exported files and the source's `precedent-source.json`,
+nothing else; nothing loads rules from it. A source with no
+`precedent-source.json` of its own is copied by naming the files in the
+entry instead, `"exports": ["RULES.md"]`, which also narrows what a source
+that does declare exports is taken for. The copy lands at `path`, which is
+always `process/<source>`; whatever reads the files reads them there.
+
+It is one mechanism (Morgan, 2026-10-30, strength: decided): the same
+`checkin.py --source` copy and record, the same hand-edit guard, freshness
+row, `hold` and `--take-set`. Update Vendors starts the record for a source
+declared by hand, lists each file a refresh changed, and leaves for the
+person any declared copy it could not refresh -- no clone on the machine,
+or the copy failed -- rather than reporting DONE. A private source's
+exports are copied only into a private repository, as its rules are.
+
+**A copy nothing declares fails the full check.** The
+`copied-in-folder-is-declared` check finds a folder copied in another way
+by its signs -- a `.source-commit` or `.source-blob` file, or a file whose
+first lines open with an `AUTO-SYNCED` or "vendored from" banner -- and
+fails unless `precedent.json` declares a copied-in source there. A new copy
+between repositories is added only as a declared source, and the script that
+made the old one is retired.
+
+The test is `check_declared_exports_are_copied` in
+[tools/verify_harness.py](../tools/verify_harness.py), with a passing
+control for each refusal.
+
 ## The ladder, bound by one code owner
 
 The `ladder-set-is-brought-not-declared` check refuses a repository that
