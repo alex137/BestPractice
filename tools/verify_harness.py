@@ -17826,8 +17826,9 @@ def check_session_start_lists_a_red_main_first():
         lines = report(red, down) if report else []
         cases.append(('GitHub cannot be read: one line says so, and the todo/ '
                       'failures still follow',
-                      len(lines) >= 2 and lines[0].startswith("MAIN'S TEST: could not read")
-                      and 'curl exited 6' in lines[0] and lines[1].startswith('OPEN FAILURES'),
+                      len(lines) >= 2 and lines[0].startswith("MAIN'S TEST NOT CHECKED, because ")
+                      and lines[0].index('curl exited 6') < lines[0].index("GitHub's issues")
+                      and '(' not in lines[0] and lines[1].startswith('OPEN FAILURES'),
                       lines))
         quiet = Gh(([], None))
         lines = report(repo('plain', False), quiet) if report else ['no report_lines']

@@ -116,7 +116,7 @@ as_of: 2026-10-30
 | [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 3d | ask | Morgan's call (needs: decision -- Morgan), asked again on 2026-11-10 |
 | [`todo-2026-10-29-root-issues-from-the-landing-check-session`](todo-2026-10-29-root-issues-from-the-landing-check-session.md) | Found by the session that fixed | 1d | wait | item 3: Morgan runs Update Vendors in each repository that brings the ladder set… |
 | [`todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice`](todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice.md) | Left from the Root issues of the 2026-10-28 Update Vendors run across seven | 1d | wait | the two voice repositories could not be attached to the session that fixed the r… |
-| [`todo-2026-10-30-vendor-update-leftovers-in-the-ladder-and-individual-sets`](todo-2026-10-30-vendor-update-leftovers-in-the-ladder-and-individual-sets.md) | The 2026-10-30 Update Vendors in the precedent-* sets hit five problems. | 0d | wait | push access to themorgan/precedent-shared-ladder and themorgan/precedent-individ… |
+| [`todo-2026-10-30-vendor-update-leftovers-in-the-ladder-and-individual-sets`](todo-2026-10-30-vendor-update-leftovers-in-the-ladder-and-individual-sets.md) | The 2026-10-30 Update Vendors in the precedent-* sets hit five problems. | 0d | wait | a Produce of BestPractice staging into main, then Update Vendors in the ladder a… |
 
 ## Decisions (the Person's Call)
 

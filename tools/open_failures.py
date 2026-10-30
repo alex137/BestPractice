@@ -202,8 +202,14 @@ def report_lines(repo=ROOT, gh=None):
     lines = []
     issues, problem = main_test_issues(repo, gh)
     if problem:
-        lines.append(f"MAIN'S TEST: could not read GitHub's issues to see whether "
-                     f"main's test failed ({problem}).")
+        # The cause leads, never in brackets at the end (2026-10-30): a
+        # session relaying this line passed on "could not read GitHub's
+        # issues" and dropped the bracketed reason, the one part anybody
+        # could act on.
+        lines.append(f"MAIN'S TEST NOT CHECKED, because {problem}. GitHub's "
+                     f"issues could not be read, so nobody here knows whether "
+                     f"main's test failed. Pass this line on whole, the cause "
+                     f"included.")
     for number, title, url in issues or []:
         lines.append(f"MAIN'S TEST FAILED: issue #{number} is open, \"{title}\" "
                      f"({url}). Tell the person first, and fix it before other "
