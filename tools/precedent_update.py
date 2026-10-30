@@ -1500,6 +1500,141 @@ def refresh_copies_step(repo, rep, take_sets=()):
             shown = changed[:20]
             rep.step(f'copy of {name}', 'changed: ' + ', '.join(shown) + (
                 f' and {len(changed) - len(shown)} more' if changed[20:] else ''))
+        refresh_installed_templates(repo, rep, e, clone, set_dir, man,
+                                    up.get('commit'))
+
+
+# WHAT A SOURCE SHIPS TO BE INSTALLED IS REFRESHED TOO (Morgan, 2026-10-30,
+# strength: decided: Update Vendors refreshes everything a repository took
+# from another). A source names each template a consumer installs outside
+# its copy -- a workflow its prompts' check runs in -- in precedent-source.json,
+# `"installs": [{"from": "templates/x.yml", "to": ".github/workflows/x.yml"}]`,
+# or a consumer names it in its own source entry the same way. Until then
+# the installed copy drifted from the template with nothing saying so.
+#
+# An installed copy still holding the text last installed (recorded under
+# `installed` in process/manifest_<source>.json, else the template at the
+# copy's previous commit) is rewritten with the new template. For a
+# workflow, the approval pinned to the old text moves to the new one: the
+# Update Vendors go-ahead approves it (Morgan, 2026-10-30, strength:
+# decided: "yes absolutely", to "should Update Vendors count as approval for
+# the new text ... when the installed copy still matches the old template
+# exactly"). A copy changed here is left alone: KEPT ON PURPOSE when
+# precedent.json's kept_template_divergences gives a reason for its path,
+# LEFT FOR YOU otherwise. One never installed here is only named.
+INSTALLED_KEY = 'installed'
+
+
+def declared_installs(entry, man):
+    """-> [(from, to)] a copied-in source installs: its precedent-source.json's
+    `installs`, then its precedent.json entry's, the entry winning on `to`.
+    A path that is absolute or climbs out with `..` is dropped."""
+    out = {}
+    for rows in ((man or {}).get('installs'), (entry or {}).get('installs')):
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            frm = str(row.get('from') or '').strip().strip('/')
+            to = str(row.get('to') or '').strip().strip('/')
+            if frm and to and not any('..' in x.split('/') for x in (frm, to)):
+                out[to] = frm
+    return [(f, t) for t, f in out.items()]
+
+
+def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
+    """Refresh each template `entry`'s source installs in `repo` (see the
+    block comment above), and record what was installed."""
+    import hashlib
+    installs = declared_installs(entry, man)
+    if not installs:
+        return
+    name = entry.get('name')
+    mpath = repo / 'process' / f'manifest_{name}.json'
+    try:
+        record = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        record = {}
+    if not isinstance(record, dict):
+        record = {}
+    installed = record.get(INSTALLED_KEY) if isinstance(
+        record.get(INSTALLED_KEY), dict) else {}
+    sha = lambda b: hashlib.sha256(b).hexdigest()               # noqa: E731
+    kept = pve.kept_template_divergences(repo)
+    root = str(entry.get('set_root') or '').strip('/')
+    for frm, to in installs:
+        what = f'{to} (from {name}\'s {frm})'
+        src = pathlib.Path(set_dir) / frm
+        if not src.is_file():
+            rep.step(f'copy of {name}', f'{what}: {name} no longer ships '
+                     f'{frm}, so the installed copy was left as it is')
+            continue
+        new = src.read_bytes()
+        dest = repo / to
+        if not dest.is_file():
+            rep.step(f'copy of {name}', f'{what}: not installed here' + (
+                ' (removed since it was installed), so not put back'
+                if to in installed else '; copy it in to take it'))
+            continue
+        cur = dest.read_bytes()
+        if cur == new:
+            installed[to] = sha(new)
+            continue
+        base = installed.get(to)
+        if not base and prev:
+            # Nothing recorded yet: what was installed is the template as it
+            # stood at the commit the copy was last taken from.
+            r = subprocess.run(['git', '-C', str(clone), 'show',
+                                f'{prev}:{root + "/" if root else ""}{frm}'],
+                               capture_output=True)
+            base = sha(r.stdout) if r.returncode == 0 else None
+        if base == sha(cur):
+            dest.write_bytes(new)
+            installed[to] = sha(new)
+            repinned = _repin_installed_workflow(repo, to, sha(cur), sha(new), name)
+            rep.step(f'copy of {name}', f'{what}: refreshed to the template\'s '
+                     f'new text' + ('; its workflow approval moved to the new '
+                                    'text with it' if repinned else ''))
+            continue
+        reason = (kept.get(to) or {}).get('reason')
+        if reason:
+            rep.step(f'copy of {name}', f'{what}: KEPT ON PURPOSE, as '
+                     f'precedent.json\'s kept_template_divergences records -- '
+                     f'"{reason}"; the template moved, so read its change')
+            continue
+        rep.leave(what, f'changed here, so not refreshed to the template\'s new '
+                  f'text. Take the template ({frm} in {name}) if the change '
+                  f'here was not on purpose; or record why under '
+                  f'kept_template_divergences in precedent.json, keyed "{to}"')
+    if installed != record.get(INSTALLED_KEY):
+        record[INSTALLED_KEY] = installed
+        mpath.parent.mkdir(parents=True, exist_ok=True)
+        mpath.write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+
+
+def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
+    """Move precedent.json's github_ci_approved pin for `rel` from `old_sha`
+    to `new_sha`, saying why in its approved_by. -> True when it moved. An
+    entry pinned to anything else -- the old text never approved -- is left
+    for the approval check to judge, as it was."""
+    import datetime
+    path = repo / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    entry = (cfg.get('github_ci_approved') or {}).get(rel) \
+        if isinstance(cfg, dict) else None
+    if not isinstance(entry, dict) or entry.get('sha256') != old_sha:
+        return False
+    entry['sha256'] = new_sha
+    entry['approved_by'] = (
+        f'{entry.get("approved_by") or ""}; Update Vendors, '
+        f'{datetime.date.today().isoformat()}: refreshed from {source}\'s template, '
+        f'unedited here (Morgan, 2026-10-30: "yes absolutely", Update Vendors '
+        f'approves an unedited installed copy\'s new template text)').lstrip('; ')
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True
 
 
 def _copy_digest(folder):
