@@ -1467,7 +1467,6 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_container_safe_if_says',
     'require_landed_if_says',
     'require_plan_done_if_says',
-    'require_delete_link_when_landed',
     'require_first_item_leads_with_unlanded',
     'require_full_check_after_fast_main',
     'require_section_not_repeated',
@@ -1723,14 +1722,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
             cur = section_bullets(text, rep['heading'])
             prev = (previous_section(timeline, text, rep['heading'], turn)
                     if cur and len(cur) > 1 else None)
-            # A delete-link line for a branch still owed one is not a repeat
-            # to refuse: the one-line form plus the owed link lines is what
-            # such a reply is (2026-10-20: the two rules refused every reply
-            # in turn, one for the link lines, one for their absence).
             rest = cur
-            if prev and 'branches/all?query=' in text:
-                owed = [b for _, b, _ in _delete_links_owed()]
-                rest = [i for i in cur if not any(_linked(i, b) for b in owed)]
             # Nor is a Your next steps bullet that asks for an answer: the
             # person may read only this reply, so a question still waiting
             # is restated in every reply until it is answered (Morgan,
@@ -2282,13 +2274,6 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                     f"link on a **Plan handed to:** line."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
-        # require_delete_link_when_landed: a branch that was not on its
-        # landing branch when this turn began and is now has done its job,
-        # and the reply that lands it hands over its one-click delete link
-        # (the-boildown item 6, branch-delete-links). The reply gate printed
-        # NOT YET LANDED for the other half since 2026-09-21; nothing asked
-        # for this half, and a session Booked its branch on 2026-10-06 and
-        # gave no link.
         # require_prompt_block_header (Morgan, 2026-10-10, strength:
         # decided: "Every prompt you give me should have BOTH at the top: the
         # session sending it, and what session it is for ... and enforce
@@ -2391,23 +2376,6 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                             'message': f"[{r.get('_source', '?')}] {msg}"
                             + (f" (practice: {r['practice']})" if r.get('practice') else '')})
 
-        if r.get('require_delete_link_when_landed'):
-            for repo, branch, base in _delete_links_owed():
-                enc = urllib.parse.quote(branch, safe='')
-                # Once per branch: a link any earlier reply gave counts, read
-                # from the transcript, so a lost record never asks again.
-                if any(_linked(t, branch) for t in [text] + [t for _, t in timeline or []]):
-                    continue
-                out.append({'kind': 'delete-link', 'advisory': False, 'message': (
-                    f"[{r.get('_source', '?')}] '{branch}' "
-                    f"({pathlib.Path(repo).name}) is this session's and has "
-                    f"landed on '{base}', and no reply has given its delete "
-                    f"link yet. "
-                    f"Add one line to The Boildown with its filtered "
-                    f"branches-page link -- https://github.com/<owner>/<repo>"
-                    f"/branches/all?query={enc} -- and the branch it merged "
-                    f"into. Never delete it yourself."
-                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
     return _one_line_wins(out, text, reqs)
 
 
@@ -2457,117 +2425,9 @@ def _full_check_owed(root=None):
         return []
 
 
-def _consume_turn_start(root=None):
-    """A reply that passes has given its delete link for every branch that
-    landed; take those branches off the turn-start record, so each is asked
-    about once. A branch not landed yet stays. Never raises.
-
-    WHY (2026-10-10). The record is written at a turn's start by the
-    UserPromptSubmit hook. A session rooted above its repositories runs no
-    hook, so the one record, written that morning, was read as "this turn's
-    start" all day: every reply after was refused for owing a delete link to
-    a branch merged hours before. With hooks, each turn writes a fresh one
-    anyway; without them, an answered branch is now gone from it."""
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_gate as _pg
-        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-        done = {(r, b) for r, b, _ in _landed_this_turn(root)}
-        if not done:
-            return
-        f = _pg._turn_start_file(root)
-        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
-        keep = [x for x in recs if isinstance(x, dict)
-                and (x.get('repo'), x.get('branch')) not in done]
-        _pg.record_turn_start_unlanded(root, keep)
-    except Exception:                                         # noqa: BLE001
-        pass
-
-
-# A branch this session made, once landed, is owed its delete link in the
-# reply that sees it landed, whether or not it existed when the turn began.
-# Kept per checkout in .git beside the turn-start record: the branches a
-# passing reply has given the link for, so each is asked about once.
-DELETE_LINKS_GIVEN = 'precedent-delete-links-given.json'
-
-
-def _links_given_file(root):
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_gate as _pg
-        f = _pg._turn_start_file(root)
-    except Exception:                                         # noqa: BLE001
-        return None
-    return f.with_name(DELETE_LINKS_GIVEN) if f else None
-
-
-def _links_given_files(root):
-    """-> [Path]: the given-links record of this checkout and of each
-    repository this session reaches (precedent_gate._session_roots).
-
-    WHY (2026-10-20). A session rooted ABOVE its repositories has no .git of
-    its own, so the one record kept beside the root's never existed: a
-    passing reply's links were never written down, and every later reply was
-    asked for the same delete links again. Each repository now keeps the
-    record for its own branches, in its own .git."""
-    files = []
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_gate as _pg
-        roots = _pg._session_roots(root)
-    except Exception:                                         # noqa: BLE001
-        roots = [root]
-    for r in roots:
-        f = _links_given_file(r)
-        if f and f not in files:
-            files.append(f)
-    return files
-
-
-def _links_given(root):
-    out = set()
-    for f in _links_given_files(root):
-        try:
-            recs = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
-        except Exception:                                     # noqa: BLE001
-            recs = []
-        out |= {(x.get('repo'), x.get('branch')) for x in recs if isinstance(x, dict)}
-    return out
-
-
-def _linked(text, branch):
-    enc = urllib.parse.quote(branch, safe='')
-    return bool(re.search(r'branches/all\?query=(?:' + re.escape(enc) + '|'
-                          + re.escape(branch) + r')(?![\w%./-])', text or '', re.I))
-
-
-def _record_links_given(text, root=None):
-    """After a reply, passing or refused (both are on screen): every owed
-    branch it linked is given, written into its own repository's record
-    (_links_given_files). Never raises."""
-    try:
-        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-        new = [(r, b) for r, b, _ in _delete_links_owed(root) if _linked(text, b)]
-        for repo in {r for r, _ in new}:
-            f = _links_given_file(repo) or _links_given_file(root)
-            if not f:
-                continue
-            try:
-                have = json.loads(f.read_text(encoding='utf-8')) if f.is_file() else []
-            except Exception:                                 # noqa: BLE001
-                have = []
-            keys = {(x.get('repo'), x.get('branch')) for x in have if isinstance(x, dict)}
-            keys |= {(str(pathlib.Path(r).resolve()), b) for r, b in new if r == repo}
-            f.write_text(json.dumps([{'repo': str(r), 'branch': b}
-                                     for r, b in sorted(keys, key=str)]),
-                         encoding='utf-8')
-    except Exception:                                         # noqa: BLE001
-        pass
-
-
 # A branch given up by name -- **Branch disposition:** BRANCH -- drop (why)
 # -- is settled for the rest of the session, not just in the reply that says
-# so. Kept per checkout in .git beside the delete-link record (S. Alexander
+# so. Kept per checkout in .git (S. Alexander
 # Jacobson, 2026-10-20: a branch already given up kept being reported as
 # unlanded, reply after reply).
 BRANCHES_GIVEN_UP = 'precedent-branches-given-up.json'
@@ -2575,10 +2435,21 @@ _GIVEN_UP_RE = re.compile(r'\*\*branch disposition:\*\*\s*`?([^\s`*]+)`?\s*[—-
                           re.I)
 
 
+def _given_up_file(root):
+    """-> the per-checkout file in .git that keeps the branches given up by
+    name, or None outside a git checkout."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_gate as _pg
+        f = _pg._turn_start_file(root)
+    except Exception:                                         # noqa: BLE001
+        return None
+    return f.with_name(BRANCHES_GIVEN_UP) if f else None
+
+
 def given_up_branches(root=None):
     """-> the set of branch names this checkout's session has given up."""
-    f = _links_given_file(root or os.environ.get('CLAUDE_PROJECT_DIR') or '.')
-    f = f.with_name(BRANCHES_GIVEN_UP) if f else None
+    f = _given_up_file(root or os.environ.get('CLAUDE_PROJECT_DIR') or '.')
     try:
         return set(json.loads(f.read_text(encoding='utf-8'))) if f and f.is_file() else set()
     except Exception:                                         # noqa: BLE001
@@ -2590,10 +2461,10 @@ def _record_given_up(text, root=None):
     try:
         root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
         new = set(_GIVEN_UP_RE.findall(text or ''))
-        f = _links_given_file(root)
+        f = _given_up_file(root)
         if not new or not f:
             return
-        f.with_name(BRANCHES_GIVEN_UP).write_text(
+        f.write_text(
             json.dumps(sorted(given_up_branches(root) | new)), encoding='utf-8')
     except Exception:                                         # noqa: BLE001
         pass
@@ -2613,13 +2484,6 @@ def _is_landed(repo, ref, base):
     return bool(files) and subprocess.run(
         ['git', '-C', str(repo), 'diff', '--quiet', f'origin/{base}', ref, '--',
          *files], capture_output=True).returncode == 0
-
-
-def _own_landed_branches(root=None, siblings=True):
-    """-> [(repo, branch, base)] for each branch on origin that this session
-    made and whose work has landed (_own_branches)."""
-    return [(repo, name, base) for repo, name, base, _landing
-            in _own_branches(root, siblings) if base]
 
 
 def _own_unlanded_branches(root=None, siblings=True):
@@ -2647,13 +2511,9 @@ def _own_branches(root=None, siblings=True):
     confirmed on origin with one ls-remote per repository, and dropped when
     it is gone. [] with no session ID to look for.
 
-    WHY (Morgan, 2026-10-19: "you stopped giving me the branches to delete
-    ... I think we should bring that back"). The turn-start record
-    (_landed_this_turn) sees only a branch that already existed, unlanded,
-    when the turn began. Since 2026-10-08 a session usually makes, pushes
-    and merges its branch inside one turn, and a Promote's copy never
-    exists at a turn's start, so neither was ever asked for: about seventy
-    landed branches piled up in BestPractice in a week with no link given."""
+    WHY. Written 2026-10-19 for the delete-link check (retired 2026-10-30);
+    it stays because the first Boildown line names this session's branches
+    not landed yet (_own_unlanded_branches)."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_gate as _pg
@@ -2728,67 +2588,6 @@ def _own_branches(root=None, siblings=True):
             continue
     return found
 
-
-def _delete_links_owed(root=None):
-    """-> [(repo, branch, base)]: the branches landed this turn by the
-    turn-start record, and this session's own landed branches, less those a
-    passing reply has already linked."""
-    root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-    given, seen, out = _links_given(root), set(), []
-    for repo, branch, base in _landed_this_turn(root) + _own_landed_branches(root):
-        key = (str(pathlib.Path(repo).resolve()), branch)
-        if key in seen or key in given or (repo, branch) in given:
-            continue
-        seen.add(key)
-        out.append((repo, branch, base))
-    return out
-
-
-def _landed_this_turn(root=None):
-    """-> [(repo, branch, base)] for each branch the reply gate recorded as
-    not landed at this turn's start (precedent_gate.record_turn_start_unlanded)
-    whose work is on its landing branch now: every commit on it, or, after a
-    squash or rebase merge, every file it changed identical there. [] when
-    nothing was recorded or the gate cannot be imported: an engine too old to
-    record blocks nothing."""
-    try:
-        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-        import precedent_gate as _pg
-        root = root or os.environ.get('CLAUDE_PROJECT_DIR') or '.'
-        f = _pg._turn_start_file(root)
-        recs = json.loads(f.read_text(encoding='utf-8')) if f and f.is_file() else []
-    except Exception:                                         # noqa: BLE001
-        return []
-
-    def git(repo, *args):
-        p = subprocess.run(['git', '-C', str(repo), *args],
-                           capture_output=True, text=True, timeout=20)
-        return p.stdout.strip() if p.returncode == 0 else None
-
-    found = []
-    for rec in recs if isinstance(recs, list) else []:
-        repo, branch, base = (rec.get('repo'), rec.get('branch'), rec.get('base')) \
-            if isinstance(rec, dict) else (None, None, None)
-        if not (repo and branch and base):
-            continue
-        try:
-            tip = git(repo, 'rev-parse', '--verify', '--quiet',
-                      f'refs/heads/{branch}^{{commit}}')
-            if not tip:
-                continue
-            _pg._refresh_remote_branch(repo, base)
-            if git(repo, 'rev-list', '--count', f'origin/{base}..{tip}') == '0':
-                found.append((repo, branch, base))
-                continue
-            mb = git(repo, 'merge-base', f'origin/{base}', tip)
-            files = (git(repo, 'diff', '--name-only', mb, tip) or '').split() if mb else []
-            if files and subprocess.run(
-                    ['git', '-C', str(repo), 'diff', '--quiet', f'origin/{base}',
-                     tip, '--', *files], capture_output=True).returncode == 0:
-                found.append((repo, branch, base))
-        except Exception:                                     # noqa: BLE001
-            continue
-    return found
 
 
 def _stranded_branches(root=None, siblings=True):
@@ -3107,9 +2906,6 @@ def main():
                 bits.append('no reply at all to a background job waking the '
                             'turn while its batch still runs (or to a progress '
                             'event), unless it reports a failure')
-            if r.get('require_delete_link_when_landed'):
-                bits.append("a branch of this session's that has landed gets "
-                            'its one-click delete link (branches/all?query=), once')
             if r.get('require_full_check_after_fast_main'):
                 bits.append('a fast move into main whose GitHub test does not '
                             'run has its full local suite on main started, '
@@ -3201,16 +2997,7 @@ def main():
     _record_given_up(text)
     bad = [b for b in violations(text, reqs, timeline, wake, prompt, turn, written)
            if not b.get('advisory')]
-    # A refused reply has been shown too, so the delete links it gave are
-    # given (2026-10-20: recorded on a pass only, a link given in a refused
-    # reply was owed again in its repair, which another rule refused for
-    # repeating it, and no reply ever passed to record it).
-    # practice: branch-delete-links
-    _record_links_given(text)
     if not bad:
-        # Recorded first: consuming takes the landed branches off the
-        # turn-start record, and they are owed links until recorded given.
-        _consume_turn_start()
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
     # a Stop hook cannot un-show it. So the only correct repair is to emit the
@@ -3277,8 +3064,7 @@ def main():
               'the previous reply\'s, line for line, named below. The person '
               'has ALREADY SEEN it. Output ONLY the one-line form, under the '
               'same heading -- "- The work of this session is now on: <where '
-              'it is>, unchanged since the last update." (and below it any '
-              'delete-link line still owed) -- and end the turn: '
+              'it is>, unchanged since the last update." -- and end the turn: '
               'no correction, no shorter copy, no apology. An empty reply is '
               'not accepted by the harness, so this line is what is owed.',
               file=sys.stderr)
