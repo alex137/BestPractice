@@ -119,6 +119,32 @@ The test is `check_declared_exports_are_copied` in
 [tools/verify_harness.py](../tools/verify_harness.py), with a passing
 control for each refusal.
 
+## Templates a source installs
+
+A source can also ship a template that a repository installs outside its
+copy: a workflow that runs the source's prompt check, say. Its
+`precedent-source.json` names each one, and a repository can name its own
+in its source entry the same way (the entry wins for the same `to`):
+
+```json
+"installs": [{"from": "templates/prompt-check.yml",
+              "to": ".github/workflows/prompt-check.yml"}]
+```
+
+Update Vendors refreshes each installed copy along with the source's copy
+(Morgan, 2026-10-30, strength: decided). If the copy still holds the text
+last installed, it gets the new template. For a workflow, its
+`github_ci_approved` pin moves to the new text, because the Update Vendors
+go-ahead approves it. If the copy was changed here, it is left alone: it
+is reported as kept on purpose when `kept_template_divergences` gives a
+reason for its path, and left for the person otherwise. A template never
+installed here is only named. What was installed is recorded under
+`installed` in `process/manifest_<source>.json`; before there is a record,
+the template at the copy's previous commit stands in for it.
+
+The test is `check_installed_templates_follow_their_source` in
+[tools/verify_harness.py](../tools/verify_harness.py).
+
 ## The ladder, bound by one code owner
 
 The `ladder-set-is-brought-not-declared` check refuses a repository that
