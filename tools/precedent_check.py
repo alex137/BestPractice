@@ -841,7 +841,7 @@ def _declared_source_practice_dirs():
             import precedent_resolve as pr
             own = (ROOT / 'practices').resolve()
             for entry in pr.declared_sources(ROOT):
-                if entry['level'] in ('repo-local', 'individual') \
+                if pr.declared_level(entry) in ('repo-local', 'individual') \
                         or not entry.get('path') or pr.is_vendored(entry):
                     continue
                 d = pr._declared_path(ROOT, entry['path']) / 'practices'
