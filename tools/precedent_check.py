@@ -1859,7 +1859,9 @@ COPY_MARKER_FILES = ('.source-commit', '.source-blob')
 # A banner a sync script writes at the top of what it copies: a line that
 # opens, after any comment marker, with one of these words.
 COPY_BANNER_RE = re.compile(
-    r'^\s*(?:#+|//|<!--|/?\*+|>|;|--)?\s*(?:AUTO-SYNCED\b|vendored from\b)',
+    # `<!-{2}`, never the opener spelled out: generated-edit-goes-upstream
+    # reads a literal one in this file as the start of an HTML comment.
+    r'^\s*(?:#+|//|<!-{2}|/?\*+|>|;|-{2})?\s*(?:AUTO-SYNCED\b|vendored from\b)',
     re.I)
 COPY_BANNER_LINES = 5
 
