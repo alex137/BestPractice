@@ -1764,7 +1764,7 @@ def _reply_checker_keeps_set_examples(ctx):
         manifest = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         manifest = {}
-    if not (isinstance(manifest, dict) and manifest.get('level') == 'universal'):
+    if not (isinstance(manifest, dict) and _declared_level(manifest) == 'universal'):
         raise NotApplicable('only universal ships the reply checker the sets run under')
     sets = _sets_beside(ROOT)
     if not sets:
