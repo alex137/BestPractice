@@ -34288,6 +34288,111 @@ def check_vendored_container_scan_knows_a_refresh_branch():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
+    """`require_finished_plan_asks_to_act` refuses a reply that finishes a
+    plan without asking to act on it; `require_hold_names_what_runs`
+    refuses "Don't archive this session" beside a Your next steps that gives
+    the person nothing, unless What's blocking says what runs, where and
+    when the session acts next.
+
+    Morgan, 2026-10-30 (strength: decided): "You tell me not to archive this
+    session, but you also tell me there's nothing for me to do. Are you
+    doing anything? ... you made a plan ... nowhere did you suggest that we
+    could act on this plan." The first hold case below is the shape that
+    session wrote.
+
+    practice: control-asserts-which-failure -- each refusal asserts its own
+    kind; the controls prove a stated ask, a session already acting, a
+    named hold, and a plain answer all pass, and that the two rules and
+    boildown-ask-states-its-question agree on one reply.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as _rc
+    ids = ('boildown-finished-plan-asks-to-act', 'boildown-hold-names-what-runs',
+           'boildown-ask-states-its-question', 'the-boildown-no-contradiction')
+    allreqs = json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+    reqs = [r for r in allreqs if r.get('id') in ids[:3]
+            or (r.get('practice') == 'the-boildown'
+                and r.get('require_no_contradiction'))]
+    if len([r for r in reqs if r.get('id') in ids[:2]]) != 2:
+        return (False, '', 'reply_check.json no longer declares both '
+                           'boildown-finished-plan-asks-to-act and '
+                           'boildown-hold-names-what-runs')
+
+    def kinds(body, boildown, **kw):
+        return sorted(v['kind'] for v in _rc.violations(
+            body + '\n\n## The Boildown\n' + boildown, reqs, **kw))
+    consider = ('- The work of this session is now on: no branch yet (you '
+                'have finished step 1 of 5, Consider)\n')
+    booked = ('- The work of this session is now on: staging in BestPractice '
+              '(you have finished step 3 of 5, Booked)\n')
+    plan = 'Here is the plan: 1. add the check. 2. test it. 3. land it.'
+    ask = ('- **Your next steps:** Do you want to act on this plan? Yes means '
+           'I build the three steps and land them on staging, about 40 '
+           'minutes; no leaves it here as a plan. My pick is yes.\n')
+    nothing = '- **Your next steps:** Nothing for you to decide right now.\n'
+    hold = "- Don't archive this session.\n"
+    free = '- You can archive this session.\n'
+    named = ("- **What's blocking:** step 3 is running in [the vendor session]"
+             "(https://claude.ai/code/session_x); I start step 4 when it "
+             'reports back, about 06:10 Buenos Aires time.\n')
+    cases = [
+        ('a Consider reply that makes a plan and never asks is refused',
+         kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
+               'you to do now.\n' + free) == ['plan_without_ask']),
+        ('a turn that wrote a plan file and never asks is refused',
+         kinds('Written up.', booked + '- **Your next steps:** read it.\n' + free,
+               written=['/r/spec/NEW_PLAN.md']) == ['plan_without_ask']),
+        ('a new **Plan:** line with no ask or tell is refused',
+         kinds('Started.', booked + nothing + '- **Plan:** [the plan](spec/X_PLAN.md), '
+               'steps 2-4 left.\n' + named + hold, timeline=[(1, 'Earlier.')])
+         == ['plan_without_ask']),
+        ('"Don\'t archive" beside nothing for him, reason only implied, is refused',
+         kinds('Waiting.', booked + nothing + '- Sessions this one spawned: '
+               '[step 3](https://claude.ai/code/session_x).\n' + hold)
+         == ['hold_without_reason']),
+        ('a What\'s blocking line that says no where or when is refused',
+         kinds('Waiting.', booked + nothing + "- **What's blocking:** the plan "
+               'is still going.\n' + hold) == ['hold_without_reason']),
+        ('negative control: the plan ask with its stakes and pick passes, and '
+         'boildown-ask-states-its-question agrees',
+         kinds(plan, consider + ask + free) == []),
+        ('negative control: the bare ask, no stakes, is refused by the older '
+         'rule, not this one',
+         kinds(plan, consider + '- **Your next steps:** Do you want to act on '
+               'this plan?\n' + free) == ['ask_without_question']),
+        ('negative control: a session already acting says so and passes',
+         kinds('Started.', booked + nothing + "- **What's blocking:** **Plan:** "
+               "I'm acting on this plan: step 3 is running in [the vendor "
+               'session](https://claude.ai/code/session_x); I start step 4 '
+               'when it reports back, about 06:10 Buenos Aires time.\n' + hold)
+         == []),
+        ('negative control: a named hold passes, and the "nothing blocking" '
+         'pair steps aside for it',
+         kinds('Waiting.', booked + '- **Your next steps:** Nothing blocking '
+               'for you to do now.\n' + named + hold) == []),
+        ('negative control: "nothing blocking" plus "Don\'t archive" with no '
+         'What\'s blocking line is still a contradiction',
+         'contradiction' in kinds('Waiting.', booked + '- **Your next steps:** '
+                                  'Nothing blocking for you to do now.\n' + hold)),
+        ('negative control: a hold the person owes an action for is not read',
+         kinds('Waiting.', booked + '- **Your next steps:** merge [the pull '
+               'request](https://github.com/o/r/pull/1).\n' + hold) == []),
+        ('negative control: a plain answer on Consider with no plan passes',
+         kinds('The gate reads the transcript.', consider
+               + '- **Your next steps:** Nothing blocking for you to do now.\n'
+               + free) == []),
+        ('negative control: a **Plan:** line the last reply carried is not new',
+         kinds('Still going.', booked + nothing + '- **Plan:** [the plan]'
+               '(spec/X_PLAN.md), steps 3-4 left.\n' + named + hold,
+               timeline=[(1, 'Earlier.\n\n## The Boildown\n' + booked
+                          + '- **Plan:** [the plan](spec/X_PLAN.md), steps '
+                          '2-4 left.\n' + hold)]) == []),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
+
 def check_vocabulary_prefers_the_file_you_are_standing_on():
     """A practice defined both in this repo and in a resolved source is read
     from THIS repo's file, and the collision is named either way.
@@ -93683,6 +93788,8 @@ def main():
           *check_reply_check_requires_the_boildown_first_line())
     check('the reply check wants an ask under Your next steps to state its question',
           *check_reply_check_wants_an_ask_to_state_its_question())
+    check('the reply check wants a finished plan to ask to act, and a hold to '
+          'say what runs', *check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why())
     check('a vendored container scan knows a session-start refresh branch',
           *check_vendored_container_scan_knows_a_refresh_branch())
     check('the reply check refuses a Boildown that only repeats the last one',

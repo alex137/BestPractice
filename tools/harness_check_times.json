@@ -529,6 +529,7 @@
   "check_reply_check_refuses_an_unlinked_branch_or_file": 0.0,
   "check_reply_check_requires_a_destination_for_a_fence_block": 1.3,
   "check_reply_check_requires_the_boildown_first_line": 0.6,
+  "check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why": 0.0,
   "check_reply_check_wants_a_prompt_block_to_name_both_ends": 0.0,
   "check_reply_check_wants_an_ask_to_state_its_question": 1.1,
   "check_reply_examples_are_tested_with_what_they_inherit": 0.2,
