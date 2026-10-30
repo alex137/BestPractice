@@ -1721,6 +1721,93 @@ def _reply_rules_hold_their_examples(ctx):
     return [Finding('reply_check.json', f'requirement {i}: {p}') for i, p in wrong]
 
 
+def _sets_beside(root):
+    """-> [path] of the precedent-* practice sets cloned beside `root` (or
+    beside its main checkout, from a worktree), one per tree."""
+    root = pathlib.Path(root).resolve()
+    parents = {root.parent}
+    try:
+        import precedent_resolve as _pr
+        main = _pr._main_checkout(root)
+        if main is not None:
+            parents.add(main.parent)
+    except Exception:                                        # noqa: BLE001
+        pass
+    found = {}
+    for parent in parents:
+        try:
+            kids = sorted(parent.iterdir())
+        except OSError:
+            continue
+        for d in kids:
+            if (d.name.lower().startswith('precedent-') and (d / 'practices').is_dir()
+                    and (d / 'reply_check.json').is_file()):
+                found.setdefault(d.resolve(), d.resolve())
+    return sorted(found.values())
+
+
+@check('reply-checker-keeps-set-examples', 'tree',
+       "a change to universal's reply checker leaves every precedent-* set "
+       "cloned beside it answering its own reply examples as before: an "
+       "example its own engine copy answers as declared, this checker must "
+       "too",
+       'a set not cloned beside this repository, and a set whose examples '
+       'already fail under its own engine copy (that is the set\'s own '
+       'reply-rules-hold-their-examples finding, not this change\'s)',
+       practice_backed=False, selects_on=('tools/precedent_reply_check.py',))
+def _reply_checker_keeps_set_examples(ctx):
+    """2026-10-30: BestPractice 20dabf57e changed the reply checker and broke
+    precedent-shared-writing's reply_check.json example; it showed up only at
+    that set's next Update Vendors. Universal ships the checker every set's
+    examples run under, so it runs them before the change ships."""
+    try:
+        manifest = json.loads((ROOT / 'precedent-source.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        manifest = {}
+    if not (isinstance(manifest, dict) and manifest.get('level') == 'universal'):
+        raise NotApplicable('only universal ships the reply checker the sets run under')
+    sets = _sets_beside(ROOT)
+    if not sets:
+        raise NotApplicable('no precedent-* set is cloned beside this repository')
+    # Each set's examples are judged from inside the set, as its own
+    # sessions run them: the reply check reads names against the project
+    # folder, so a file the set holds is a real file only from there.
+    probe = ('import json, sys; sys.path.insert(0, sys.argv[1]); '
+             'import precedent_check as pc; '
+             'got = pc._reply_example_problems(sys.argv[2]); '
+             'got = got if isinstance(got, list) or got is None else got[0]; '
+             'print(json.dumps(got or []))')
+    findings = []
+    for d in sets:
+        r = subprocess.run([sys.executable, '-c', probe, str(ROOT / 'tools'), str(d)],
+                           cwd=d, capture_output=True, text=True, timeout=300,
+                           env=dict(os.environ, CLAUDE_PROJECT_DIR=str(d)))
+        try:
+            wrong = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            findings.append(Finding(f'{d.name}/reply_check.json',
+                                    f'its examples could not be run under this '
+                                    f'reply checker: {(r.stderr or r.stdout).strip()[-200:]}'))
+            continue
+        if not wrong:
+            continue
+        # Judge only what THIS checker broke: the set's own engine copy
+        # answering its examples as declared is the baseline.
+        own = d / 'tools' / 'precedent_check.py'
+        if own.is_file():
+            r = subprocess.run([sys.executable, str(own), '--only',
+                                'reply-rules-hold-their-examples'],
+                               cwd=d, capture_output=True, text=True, timeout=300)
+            if r.returncode != 0:
+                continue
+        for i, prob in wrong:
+            findings.append(Finding(f'{d.name}/reply_check.json',
+                                    f'requirement {i}: {prob} -- under this '
+                                    f'reply checker, where its own engine copy '
+                                    f'answers it as declared'))
+    return findings
+
+
 @check('reply-rules-carry-examples', 'tree',
        "each requirement in a repository's own reply_check.json carries "
        'examples of a reply it refuses and one it lets through',
@@ -7416,6 +7503,15 @@ def _document_status_header(ctx):
 
 
 _SPEC_WORD_RE = re.compile(r'\b(speculative|speculation|brainstorm(?:ed|s)?)\b', re.I)
+# The opening paragraph is held to a narrower reading: there "brainstorm"
+# counts only where the document calls ITSELF one ("This is a brainstorm").
+# Anywhere else it names where an idea came from, and an executed plan that
+# says it began "after a brainstorm" was flagged as speculative on
+# 2026-10-30 (precedent-individual's VENDORED_SHARED_SETS_PLAN.md).
+_SPEC_LEDE_RE = re.compile(
+    r'\b(?:speculative|speculation)\b'
+    r'|\b(?:this|it)(?:\s+(?:document|page|file|note))?\s+(?:is|was)\s+'
+    r'(?:(?:still|only|just|merely)\s+)?(?:a|an)\s+brainstorm\b', re.I)
 _SPEC_PREFIX = 'SPECULATIVE_'
 _SPEC_STATUSES = ('drafted', 'abandoned')
 
@@ -7477,7 +7573,7 @@ def _speculation_is_marked(ctx):
             heading, lede = _spec_heading_and_lede(text)
             prefixed = p.name.startswith(_SPEC_PREFIX)
             claims = bool(_SPEC_WORD_RE.search(title)
-                          or _SPEC_WORD_RE.search(lede))
+                          or _SPEC_LEDE_RE.search(lede))
 
             if prefixed:
                 if not title.lower().startswith('speculative'):
