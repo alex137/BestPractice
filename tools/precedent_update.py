@@ -5999,6 +5999,10 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
             rep.step('kept on purpose', line[len('KEPT ON PURPOSE: '):])
         elif line.startswith(('PIN NARROWED: ', 'PIN UPDATED: ')):
             rep.step('kept pin updated', line.split(': ', 1)[1])
+        elif line.startswith(('RETIRED: ', 'MOVED: ')):
+            # An AGENTS.md template section that became a practice, or one
+            # compared where a reduction pass moved it (2026-10-31).
+            rep.step(line.split(':', 1)[0].lower(), line.split(': ', 1)[1])
         elif line.startswith('precedent_vendor_engine refresh: REPLACED '):
             rep.step('replaced', line.split('REPLACED ', 1)[1])
         elif line.startswith(pve.KEEP_WORKFLOW_ASK):

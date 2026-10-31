@@ -8015,6 +8015,229 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     return plan
 
 
+# --- Template sections that became practices (2026-10-31) -------------------
+# A reduction pass in a consuming repository measured its AGENTS.md at
+# about 8,730 tokens, almost none of it its own: the loader template's
+# sections were copied into every repository, and a repository that
+# trimmed them locally made a fork nobody decided (a second consuming
+# repository's trimmed copies already lacked template lines). Morgan,
+# 2026-10-31 (strength: decided): template sections a practice can carry
+# move into the practice, and the updater migrates existing repositories.
+# Each key below left the template that day, for the practice named.
+#
+# WHAT A REFRESH DOES WITH ONE STILL IN AGENTS.md -- never a line lost:
+#   remove -- every block is template text (some past version of it), so
+#             the practice carries all of it: the section is deleted.
+#   addon  -- it has lines of its own. They are written word for word into
+#             a local add-on practice (`adds_to:` the practice) in the
+#             repository's repo-local source, then the section is deleted.
+#   own    -- the same, with no repo-local source declared to write the
+#             add-on into: left in place, on the Left-for-you list.
+#   keep   -- "### Review sensitivities (accumulated)" with real entries,
+#             or a Conventions section with lines of its own: the
+#             repository's own text now. Left in place, said once.
+#   side   -- not in AGENTS.md but in another of the repository's files
+#             (_moved_section): reported, never edited, so the person
+#             folds it back.
+RETIRED_AGENTS_MD_SECTIONS = {
+    '### Merging a thread branch (runbook — follow, don\'t improvise)': 'merge-runbook',
+    '## Conventions': 'commits-credit-the-driver',
+    '## Working in parallel (multi-member repos)': 'working-in-parallel',
+    '### Review sensitivities (accumulated)': 'working-in-parallel',
+    '## Administrator requests you must know how to handle': 'administrator-requests',
+}
+# A section that is the repository's own once its template blocks are
+# gone stays where it is: its own review-sensitivities entries, or a
+# Conventions section of its own (a consuming repository's measured
+# ~1,825 tokens against the template's 314).
+_RETIRED_KEEP_IF_OWN = {'### Review sensitivities (accumulated)', '## Conventions'}
+_LOADER_TEMPLATE = 'templates/AGENTS.md.loader.template'
+
+
+def _own_blocks(local_section, versions):
+    """-> the blocks of `local_section` that no template version carries."""
+    known = [rx for v in versions for _o, b in _md_blocks(v)
+             for rx in [_wildcard(b)] if rx is not None]
+    known_text = {' '.join(b.split()) for v in versions for _o, b in _md_blocks(v)}
+    out = []
+    for _o, block in _md_blocks(local_section):
+        flat = ' '.join(block.split())
+        if flat in known_text or any(rx.fullmatch(flat) for rx in known):
+            continue
+        out.append(block)
+    return out
+
+
+def _repo_local_practices_dir(dest_root):
+    try:
+        cfg = json.loads((dest_root / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    for src in cfg.get('sources') or []:
+        if isinstance(src, dict) and src.get('level') == 'repo-local' \
+                and isinstance(src.get('path'), str):
+            path = (dest_root / src['path']).resolve()
+            if dest_root.resolve() in path.parents or path == dest_root.resolve():
+                return path / 'practices'
+    return None
+
+
+def _retired_agents_md_plan(dest_root, kind, templates_dir):
+    """-> [(key, slug, action, span, own_blocks, where)] for each retired
+    template section this repository still carries; see the block above."""
+    srcs = agents_md_templates(dest_root, kind)
+    path = dest_root / AGENTS_MD
+    if not srcs or srcs[0] != _LOADER_TEMPLATE or not path.is_file():
+        return []
+    try:
+        history = json.loads((templates_dir / _AGENTS_MD_HISTORY_NAME)
+                             .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        history = {}
+    subs = _agents_md_subs(dest_root)
+    text = path.read_text(encoding='utf-8')
+    lines = text.split('\n')
+    found = collections.defaultdict(list)
+    for key, first, end in _md_sections(text):
+        found[_heading_key(key)].append((first, end))
+    addon_dir = _repo_local_practices_dir(dest_root)
+    plan = []
+    for key, slug in RETIRED_AGENTS_MD_SECTIONS.items():
+        versions = [_instantiate(v, subs) for v in history.get(key) or ()]
+        versions += list(history.get(key) or ())
+        spans = found.get(_heading_key(key)) or []
+        if not spans:
+            moved = _moved_section(dest_root, key)
+            if moved:
+                plan.append((key, slug, 'side', None,
+                             _own_blocks(moved[1], versions), moved[0]))
+            continue
+        if len(spans) > 1:
+            continue
+        span = spans[0]
+        own = _own_blocks(_section_text(lines, *span), versions)
+        if not own:
+            action = 'remove'
+        elif key in _RETIRED_KEEP_IF_OWN:
+            action = 'keep'
+        else:
+            action = 'addon' if addon_dir is not None else 'own'
+        plan.append((key, slug, action, span, own, AGENTS_MD))
+    return plan
+
+
+def _retired_pending(plan):
+    return any(a in ('remove', 'addon') for _k, _s, a, _sp, _o, _w in plan)
+
+
+def _report_retired_agents_md(dest_root, plan, applying=False):
+    """Print what the retirement does or would do; put 'own' and 'side' on
+    the Left-for-you list."""
+    for key, slug, action, _span, own, where in plan:
+        if action == 'remove':
+            print(f"RETIRED: {AGENTS_MD} \"{key}\" is template text the "
+                  f"template no longer carries -- practice {slug} does, and loads "
+                  f"when it applies. {'Removed' if applying else 'Removed by refresh'}; "
+                  f"nothing in it was this repository's own.")
+        elif action == 'addon':
+            print(f"RETIRED: {AGENTS_MD} \"{key}\" moved upstream into practice "
+                  f"{slug}. Its {len(own)} line(s) of this repository's own "
+                  f"{'were' if applying else 'are'} moved word for word into "
+                  f"a local add-on practice ({_addon_rel(dest_root, slug)}), and the "
+                  f"section removed.")
+        elif action == 'keep':
+            print(f"  NOTE: {AGENTS_MD} \"{key}\" holds this repository's own "
+                  f"entries, so it stays where it is: practice {slug} reads it "
+                  f"there. The template no longer ships it.")
+        elif action == 'own':
+            print(f"RETIRED: {AGENTS_MD} \"{key}\" moved upstream into practice "
+                  f"{slug}, and {len(own)} line(s) of it are this repository's "
+                  f"own. No repo-local source is declared to hold an add-on, so "
+                  f"it is left in place:")
+            for b in own:
+                print(f"    own: \"{b if len(b) <= 160 else b[:157] + '...'}\"")
+            _left(f'{AGENTS_MD} "{key}"', f'retired upstream into practice {slug}: '
+                  f'move its own lines (listed above) into a local add-on '
+                  f'practice (adds_to: {slug}), then delete the section')
+        elif action == 'side':
+            print(f"RETIRED: {AGENTS_MD} \"{key}\" moved upstream into practice "
+                  f"{slug}, and this repository carries a copy in {where}, which "
+                  f"refresh never edits. {len(own)} line(s) of it are its own:")
+            for b in own:
+                print(f"    own: \"{b if len(b) <= 160 else b[:157] + '...'}\"")
+            _left(f'{where} "{key}"', f'retired upstream into practice {slug}: '
+                  f'keep any of its own lines (listed above) as a local add-on '
+                  f'practice (adds_to: {slug}), and delete the copy')
+        kept = kept_template_divergences(dest_root)
+        if f'{AGENTS_MD} {key}' in kept:
+            print(f"  NOTE: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
+                  f"{AGENTS_MD} {key} decides nothing now: the template no "
+                  f"longer has that section. Remove it.")
+
+
+def _addon_rel(dest_root, slug):
+    d = _repo_local_practices_dir(dest_root)
+    if d is None:
+        return f'{slug}-in-this-repo.md'
+    return (d / f'{slug}-in-this-repo.md').relative_to(dest_root.resolve()).as_posix()
+
+
+def _apply_retired_agents_md(dest_root, plan):
+    """Write the add-ons and delete the retired sections, bottom-up.
+    -> the paths written."""
+    rows = [r for r in plan if r[2] in ('remove', 'addon') and r[3]]
+    if not rows:
+        return []
+    path = dest_root / AGENTS_MD
+    lines = path.read_text(encoding='utf-8').split('\n')
+    written = []
+    try:
+        import precedent_time
+        today = str(precedent_time.today())
+    except Exception:                                           # noqa: BLE001
+        today = None
+    for key, slug, action, (first, end), own, _w in sorted(rows, key=lambda r: -r[3][0]):
+        if action == 'addon':
+            d = _repo_local_practices_dir(dest_root)
+            target = d / f'{slug}-in-this-repo.md'
+            body = '\n\n'.join(own)
+            if target.is_file():
+                prior = target.read_text(encoding='utf-8').rstrip('\n')
+                target.write_text(prior + '\n\n' + body + '\n', encoding='utf-8')
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(
+                    '---\n'
+                    f'slug:        {slug}-in-this-repo\n'
+                    f'title:       "{slug}, as this repository adds to it"\n'
+                    'tier:        on-demand\n'
+                    'severity:    default\n'
+                    'applies_to:  ["**"]\n'
+                    'applies_to_why: "Loads with the practice it adds to."\n'
+                    f'occasion:    "whenever {slug} applies here"\n'
+                    'gates:       []\n'
+                    f'index_clause: "this repository\'s own additions to {slug}"\n'
+                    'checked_by:  null\n'
+                    'defines:     []\n'
+                    'status:      active\n'
+                    'in_force_at: null\n'
+                    'supersedes:  []\n'
+                    'overrides:   null\n'
+                    f'adds_to:     {slug}\n'
+                    f'added:       {json.dumps(today)}\n'
+                    f'approved_by: "Moved word for word by Update Vendors from this '
+                    f'repository\'s own lines in AGENTS.md {key.lstrip("# ")}, when that '
+                    f'section moved upstream into practice {slug} (Morgan, 2026-10-31, '
+                    f'strength: decided)"\n'
+                    '---\n## Rule\n' + body + '\n', encoding='utf-8')
+            written.append(target)
+        while end < len(lines) and not lines[end].strip():
+            end += 1
+        del lines[first:end]
+    path.write_text('\n'.join(lines), encoding='utf-8')
+    return [path] + written
+
+
 def _agents_md_pending(plan, manifest):
     """True when applying `plan` would change AGENTS.md or the manifest."""
     recorded = manifest.get(AGENTS_MD_SECTIONS_KEY) or {}
@@ -9394,6 +9617,7 @@ def _status_template_instances(clone, commit, kind, manifest):
                 print(f"  NOTE: {AGENTS_MD} \"{key}\" is unedited and behind "
                       f"the template -- `refresh` brings it up to date.")
         _report_agents_md(ROOT, tmp, agents_plan, name_absent=True)
+        _report_retired_agents_md(ROOT, _retired_agents_md_plan(ROOT, kind, tmp))
         _report_retired_branch_names(ROOT)
         _LEFT_FOR_YOU.clear()   # status only reports; the list is refresh's
     finally:
@@ -10431,6 +10655,9 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
         agents_pending = _agents_md_pending(agents_plan, manifest)
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
                           reask_absent=not handed_over, commit=new_commit)
+        retired_plan = _retired_agents_md_plan(ROOT, kind, engine_dir / 'templates')
+        _report_retired_agents_md(ROOT, retired_plan)
+        agents_pending = agents_pending or _retired_pending(retired_plan)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -10568,6 +10795,12 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
                                               manifest, agents_plan)
         if agents_rewritten:
             written.append(ROOT / AGENTS_MD)
+        # Planned again here: the refresh above may have rewritten sections,
+        # which moves every span below them.
+        for f in _apply_retired_agents_md(ROOT, _retired_agents_md_plan(
+                ROOT, kind, engine_dir / 'templates')):
+            if f not in written:
+                written.append(f)
         if engine_paths or manifest.get('engine_paths_sha256'):
             written += _write_engine_paths(ROOT, engine_paths,
                                            engine_path_sources, manifest)

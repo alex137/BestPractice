@@ -179,6 +179,25 @@ never run. Tell me what you decide. I will be offline so don't wait for
 me. Approved, act, and Booked."
 
 ## Install
+**In a repository on the Precedent loader the two levels are fixed**
+(this was the AGENTS.md template's "Two check levels" section in full until
+2026-10-31; the template now keeps the two commands and points here):
+
+- **Light check** -- `python3 tools/doc_lint.py` on the markdown you
+  touched. Fast, run before every commit without thinking about it. Gates
+  a commit.
+- **Deep check** -- `python3 tools/precedent_push_check.py`, run bare, plus
+  the repository's own audits. It is what the push hook runs, at the tier
+  the branch gets: a quick basic tier for a working branch, and for
+  `staging` and `main` the full list -- the practice sweep, the drift
+  check of the generated views, the leak gate, the Markdown lint and
+  `bash tools/checks/tests/run_all.sh` (`--list` says what runs). Gates a
+  push and a merge. For the practice sweep alone, `python3
+  tools/precedent_check.py --full-sweep`; the bare command runs only a
+  slice. `run_all.sh` runs the tests materialized from the repository's
+  sources and names each failing test's source: a failing one is that
+  source's bug, fixed and reported there -- never noted as pre-existing.
+
 This repo's own [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is
 already the fast pass — it scans only the markdown a session touched — and
 [tools/practice_audit.py](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) is already the full one

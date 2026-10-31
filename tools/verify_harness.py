@@ -58298,6 +58298,100 @@ def check_kept_divergence_is_judged_block_by_block():
             '; '.join(f'{n}: {str(d)[:600]}' for n, d in bad))
 
 
+def check_retired_template_sections_migrate_into_practices():
+    """The AGENTS.md template sections that became practices on 2026-10-31
+    (precedent_vendor_engine.RETIRED_AGENTS_MD_SECTIONS) leave an installed
+    repository at its next Update Vendors with every rule still reachable.
+
+    A consumer is installed from the template as it stood before the move,
+    then edited the ways real ones are: one own bullet added to
+    "Administrator requests", a real entry in "Review sensitivities", and a
+    repo-local source declared. After one update: the stock sections are
+    gone (Working in parallel, the merge runbook); the own bullet is in a
+    local add-on practice with `adds_to: administrator-requests`, word for
+    word, and the section is gone; the sensitivities list stays; and each
+    retired section's practice reaches a session -- an occasion-index line
+    in the regenerated AGENTS.md, or a gate. CONTROL: a consumer installed
+    from today's template has nothing to retire."""
+    fx = _KeptDivergenceFixture('precedent-retired-sections-')
+    pve = fx.pve
+    cases = []
+    try:
+        last_with = subprocess.run(
+            ['git', '-C', str(ROOT), 'show', f'{fx.base}:{fx.AGENTS_SRC}'],
+            capture_output=True, text=True).stdout
+        if '## Administrator requests' in last_with:
+            return (False, '0 stated cases', 'the template still carries the '
+                    'retired sections; nothing to migrate')
+        # The newest template version that still had them.
+        log = subprocess.run(['git', '-C', str(ROOT), 'log', '--format=%H', fx.base,
+                              '--', fx.AGENTS_SRC], capture_output=True, text=True
+                             ).stdout.split()
+        old_tpl = None
+        for sha in log:
+            t = subprocess.run(['git', '-C', str(ROOT), 'show', f'{sha}:{fx.AGENTS_SRC}'],
+                               capture_output=True, text=True).stdout
+            if '## Administrator requests you must know how to handle' in t:
+                old_tpl = t
+                break
+        if old_tpl is None:
+            return (False, '0 stated cases', 'no past template version with the '
+                    'retired sections in this clone (shallow?)')
+        control = fx.consumer('control')
+        plan = pve._retired_agents_md_plan(control, 'consumer', ROOT)
+        cases.append(('CONTROL: today\'s template has nothing to retire', plan == [], plan))
+
+        repo = fx.consumer('old')
+        agents = pve._instantiate(old_tpl, pve._agents_md_subs(repo))
+        own = ('- **"Ship it"** -- this repository\'s own phrase for a release: '
+               'build the site and post the link in the team channel.')
+        agents = agents.replace('- **"Add project members"**', own + '\n- **"Add project members"**', 1)
+        agents = agents.replace("- `<member>`: `<what to flag — e.g. tone changes to member-facing\n  pages>` — `<incident that showed it, date>`",
+                                '- Dana: flag tone changes to the welcome page -- reverted 2026-09-02.')
+        assert own in agents and 'Dana:' in agents, 'old template shape moved; repoint this fixture'
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['sources'].append({'level': 'repo-local', 'name': 'local', 'path': 'local'})
+        fx.write_config(repo, cfg)
+        (repo / 'local' / 'practices').mkdir(parents=True)
+        fx.sh('git', 'add', '-A', cwd=repo)
+        fx.sh('git', 'commit', '-qm', 'installed from the old template', cwd=repo)
+        rc, out = fx.update(repo)
+        after = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('the stock retired sections are removed and said so',
+                      '## Working in parallel' not in after
+                      and '### Merging a thread branch' not in after
+                      and 'RETIRED:' in out, failure_detail(out, 1500)))
+        addon = repo / 'local' / 'practices' / 'administrator-requests-in-this-repo.md'
+        text = addon.read_text(encoding='utf-8') if addon.is_file() else ''
+        cases.append(('the own bullet moved word for word into a local add-on '
+                      'practice that adds to administrator-requests, and the section went',
+                      'adds_to:     administrator-requests' in text
+                      and ' '.join(own.split()) in ' '.join(text.split())
+                      and '## Administrator requests' not in after,
+                      (text[:600], failure_detail(out, 800))))
+        cases.append(('the review-sensitivities list with a real entry stays',
+                      '### Review sensitivities (accumulated)' in after and 'Dana:' in after,
+                      after[-800:]))
+        unreached = []
+        for slug in sorted(set(pve.RETIRED_AGENTS_MD_SECTIONS.values())):
+            fm = (ROOT / 'practices' / f'{slug}.md').read_text(encoding='utf-8')
+            gated = re.search(r'^gates:\s*\[\s*"', fm, re.M) is not None
+            if not (gated or f'  {slug} — ' in after):
+                unreached.append(slug)
+        cases.append(('every retired section\'s practice reaches a session: an '
+                      'occasion-index line in the regenerated AGENTS.md, or a gate',
+                      not unreached, unreached))
+        cases.append(('the spoken phrases stay in the occasion index',
+                      "What's waiting for me?" in after and 'Add project members' in after,
+                      [ln for ln in after.split('\n') if 'administrator' in ln][:4]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:900]}' for n, d in bad))
+
+
 def check_agents_templates_repeat_no_practice_text():
     """No block of an AGENTS.md template repeats a practice's own text.
 
@@ -97469,6 +97563,9 @@ def main():
     check_update_seeds_budgets_on_the_run_that_reports_done()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
+    check('the AGENTS.md template sections that became practices migrate out of '
+          'an installed repository with every rule still reachable',
+          *check_retired_template_sections_migrate_into_practices())
     check('a kept template divergence is judged block by block, and text moved '
           'out of AGENTS.md is still compared', *check_kept_divergence_is_judged_block_by_block())
     check_legacy_bootstrap_shim_is_replaced()
