@@ -48,7 +48,7 @@ an explicit bound and are the obvious candidates —
 fetches `--depth=200`, and
 [tools/precedent_upstream_check.py](https://github.com/alex137/BestPractice/blob/83819879ff3de347227bf24c3a67a7546fb07f6e/tools/precedent_upstream_check.py),
 [tools/precedent_engine_freshness.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_engine_freshness.py)
-and [tools/precedent_beta_watermark_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_beta_watermark_check.py)
+and [tools/precedent_beta_watermark_check.py](https://github.com/alex137/BestPractice/blob/aa7fea43ca4e4145b859717829423ac3d395249b/tools/precedent_beta_watermark_check.py)
 each fetch `--depth=50` — but which one fired was not measured, and the
 freshness guard's own comment claims it passes `--depth` only to a clone
 that is already shallow. Treat the culprit as unknown.

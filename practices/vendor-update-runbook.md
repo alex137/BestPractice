@@ -48,6 +48,207 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   one Prompt Please, as Update All Vendors does after each repository"
 ---
 ## Rule
+**"Update Vendors" asks for the whole sequence below, merge included, with
+no second authorization.** It is best said "Update Vendors and merge":
+Claude Code's auto mode clears a merge only on words that name it. If auto
+mode refuses a step anyway, say in one line that auto mode stopped it, not
+this repository's rules, and ask for it by name -- "Land `<branch>` on
+<landing branch>" on the `--land` route, "Merge PR #N into <landing
+branch>" when there is a pull request -- and never route around it. For
+every repository at once, the phrase is
+[Update All Vendors](update-all-vendors.md). This Rule is what to do, in
+order; the Detail section has the how and why under the headings named
+here, and the Story the incidents.
+
+**Run one command from the consuming repo, with the BestPractice clone's
+own copy -- never a vendored one:**
+
+    python3 ../BestPractice/tools/precedent_update.py --repo .
+
+**The clone is any checkout whose origin is `alex137/BestPractice`**,
+wherever it sits: often lowercase, `../bestpractice`, or
+`../alex137/bestpractice`. Look before typing the path:
+`ls -d ../[Bb]est[Pp]ractice ../*/[Bb]est[Pp]ractice` ("The one command and
+the BestPractice clone"). **Follow that clone's copy of this runbook**, on
+the branch this repo takes updates from, not the copy vendored here ("Follow
+the upstream copy of this runbook"). **A classic install is migrated, not
+updated**, and a repo with no `tools/ENGINE_MANIFEST.json` finishes its
+migration at step 10(e) ("Classic installs and unfinished migrations").
+
+**Act on its outcome** ("What the command does, and its three outcomes").
+It runs steps 1, 3, 4, 5, 6 and 10 with no question in between and stages
+what it wrote.
+
+- **DONE** (exit 0): commit, then do steps 7 to 9, 11 and 12. On `main` or
+  your landing branch it first prints
+  `git switch --no-track -c "$(python3 tools/precedent_branch_name.py update-vendors)"`:
+  run it before committing.
+- **LEFT FOR YOU** (exit 1): work each named file under the conflicted-file
+  review below, then run it again. The rerun keeps the same source commit
+  until a run reports DONE; `--move` takes the newest. Spell out
+  `--take-anyway <commit>` (only on the person's word) or
+  `--take-set <name>`; a bare `--take` is refused.
+- **FAILED** (exit 2): nothing is published. Run it again as it is; an edit
+  you made after the failure is refused until you commit it.
+
+Every copied-in set and every file a source exports is refreshed; a
+repository freezes one only by its own `"hold": "<why>"`. **A new copy
+between repositories is added only as a declared source**, never by a sync
+script. Where `precedent.json` says `"update_full_check": "after"`, start
+the [precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
+DONE names in the background once the update is pushed.
+`python3 tools/precedent_merge_vendors.py`, run before a push, commits a
+finished update by itself ("When a merge runs the update for you").
+
+**Hooks and settings.** When the update staged anything under `.claude/`,
+it prints the files under QUESTIONS FOR THE PERSON with the sentence to
+say. Pass that sentence on before committing, and never ask it as a
+yes-or-no question ("Hook and settings changes need the person's own
+words").
+
+**Upstream's version is the default, applied without asking**, in every
+vendored layer and every kind of conflict ("Upstream's version is the
+default"). **The conflicted-file review:** every conflicted file is
+reviewed, never overwritten on sight, by one question -- does the local
+version do anything upstream's does not, and does that matter?
+
+- **It says what upstream says, in any words:** take upstream's.
+- **It is this repository's own** -- its names in a `<placeholder>`, links
+  to its own files, a rule kept on purpose, a fix upstream lacks: keep that
+  part, carry upstream's change in around it, record why, and ask nobody.
+- **Neither is clear:** ask the person, with your pick.
+
+A committed local edit to a received file is judged from the report's
+**LOCAL EDITS** diff and `JUDGE:` line; keep one only with the
+`precedent_local_edits.py keep` line the report prints ("Committed local
+edits to received files"). `--force`, `record-ci` and "take theirs" come
+after the review, never instead of it. Record every difference kept on
+purpose where the next update reads it, and list every conflicted file in
+the pull request with its verdict and why ("Recording a difference kept on
+purpose"). Never hand-edit a vendored file to resolve a merge ("Hand edits
+and porting").
+
+**A red check stops the publish.** Report what failed and publish nothing;
+the phrase removes the second question, not the gate ("The gate stays").
+
+**The steps.** The command is the current code: where a step and the
+command disagree, the step is what needs fixing. Where a step has more
+than its line here, the full text is under its "in full" heading in the
+Detail section.
+
+1. **Make the SOURCE clone current first, against the branch this repo is
+   pinned to** -- the update does this. Every install follows BestPractice's
+   `main` unless its `precedent.json` names BestPractice's pre-release
+   branch as its `upstream_branch`. Never hand-edit the pin, never ask
+   whether to, and never `git switch` onto the pinned branch first.
+2. **Read every vendored layer separately.** A repo usually vendors more
+   than one — the loader *engine* and the practice *catalogue* are
+   different trees with different manifests, and **they move
+   independently**. Checking one and reporting "current" is the common
+   failure.
+3. **Refresh the engine, and take the branch tip.** Hooks, CI workflows,
+   `engine_paths`, an unedited `tools/bootstrap.sh` and unedited `AGENTS.md`
+   template sections come with it; edited ones are reported `DIVERGED` for
+   step 10(d). A consumer's workflow that runs something the local check
+   does not is left alone under an
+   `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner: tell the person, in
+   those words. If [tools/todo_migrate.py](https://github.com/alex137/BestPractice/blob/staging/tools/todo_migrate.py) arrived and `TODO.md` is still
+   one old-format file, run `python3 tools/todo_migrate.py --source todo.md
+   --apply` then `python3 tools/build_todo_index.py` now. Updating several
+   repos, note the tip first, check each against it at the end, and roll a
+   laggard forward, never the others back.
+4. **Take the catalogue update with `checkin.py update`**; only a repo
+   deliberately pinned to some other branch takes the manual mirror. A
+   `LOST` line is one upstream never had: carry it or pass `--accept-loss`
+   knowingly, and never hand-write `upstream.commit`. **Decide every
+   earlier decline again** against the current upstream text, and record
+   each one kept as a `declined` manifest entry.
+5. **Regenerate the generated views in the same change.**
+6. **Run this repo's own check for the branch it lands on** -- the command
+   does.
+7. **Run
+   [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)**
+   before calling the update done. `MISSING` means the session is running
+   without that source: say so.
+8. **Check that every source repository is still CALLED what this repo
+   calls it**, with
+   [tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py),
+   in a repo that declares sources. In a hosted session attach each source
+   with access "push" first; if that attach is refused, pass
+   `--canonical OWNER/NAME` from `list_repos`, and report a source still
+   `UNVERIFIED` as that. In a practice set, say "not applicable: this repo
+   declares no sources". If either step names a path inside `process/`,
+   pass `--repo .`.
+9. **Check whether a source should be added or dropped -- yourself.** List
+   the practice sets this account can reach, read each one's subject in its
+   `precedent-source.json`, and compare with `precedent.json`. **Never put
+   it to the person as an open question:** nothing found is one line;
+   something found is a finding with a recommendation. A retired set is
+   dropped by the update itself. When what this repo declares changes,
+   `grep -n '<name>' AGENTS.md CLAUDE.md` for each source name and reword
+   any standing enumeration outside a dated Story.
+10. **Retire legacy leftovers -- on every update, not only after a
+    migration.**
+
+    **(a)** Read the end of step 3's refresh output. **(b)** Work its
+    **Left for you** list item by item: delete with
+    `python3 tools/precedent_decommission.py PATH --reason "..." --apply`,
+    or record why it stays -- never by name alone. **(c) Fix stale source
+    paths:** clone or move a set the refresh found still at its old path,
+    rerun, then run step 8's tool. **(d)** Bring diverged template-written
+    text up to the template: move this repo's own steps into
+    `tools/bootstrap.local.sh` and copy the template back over
+    `tools/bootstrap.sh`; give each `DIVERGED` `AGENTS.md` section what it
+    lacks unless it already says it in its own words; rename each retired
+    branch the run lists; delete hardcoded `git config user.name` or
+    `user.email` lines. A difference kept on purpose goes under
+    `kept_template_divergences`; when upstream changes a kept section, take
+    upstream's, or keep what is this repo's own and re-pin it with
+    `python3 tools/precedent_vendor_engine.py repin-kept ../BestPractice
+    "AGENTS.md <heading>" --by-rule --reason "<why>"` (`--confirmed "<their
+    words>"` only after a close call the person answered). Never paste the
+    hashes by hand. **(e)** No `tools/ENGINE_MANIFEST.json`: say so, confirm
+    with the person, and finish the migration; if not now, stop before
+    publishing. **(f)** File the secrets only the person can delete in one
+    `todo/` item, `disposition: ask`, `remind_on` today; a session never
+    deletes one. **(g)** Run
+    `python3 tools/precedent_check.py --only ci-workflow-approved`. In a
+    consumer it should be clean: do not ask. In a practice source, show each
+    file's job and trigger in one line and ask; record the answer with
+    `precedent_update.py --keep-workflow PATH --answered-by '...'` or delete
+    the file. **Never approve one on the person's behalf.** Then run
+    `python3 tools/ci_fleet_audit.py --repo OWNER/NAME` and, for each side
+    branch it names, say whether it holds unmerged work and hand over its
+    one-click delete link. **(i)** Fix every `MUST FIX` and read every `read`
+    line under `citations`. **(j)** Report all of it in the reply, and check
+    `github_ci_workflows` is set the way the person wants.
+11. **Verify by content on the remote, before the merge in step 12**, on
+    the pushed branch or the pull request's head, never by ref equality.
+12. **Publish it, without asking again.** Commit, push and merge the result
+    the way this repository lands work, and report which branch it landed
+    on. **The commit message names every file the report's COMMIT MESSAGE
+    lines list.**
+    **Give the merge tool the full 40-character head commit, or none**:
+    `git rev-parse HEAD` right after the push, or
+    `git ls-remote origin refs/heads/<branch>`. If auto mode refuses, ask
+    right away, before running anything else, in the words above. **When
+    the merge goes through, the merge tool's own result is the
+    postcondition for this turn**: name it before the call, report
+    `merged: true` and the merge commit's SHA, and run nothing after it.
+    The fetch that confirms it runs at the start of the next turn, or is
+    skipped when the next stage's own tool confirms it; the reply says
+    which ("Steps 11 and 12 in full").
+
+**Then run [Root issues](root-issues.md) on the repository it updated**: a
+plain summary in the chat and one Prompt Please block.
+
+**A refusal naming a file that no longer exists upstream means reseed, not
+investigate** ("A refusal naming a file upstream no longer has").
+
+## Detail
+Everything under the headings below was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The phrase, the merge and auto mode
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
 whole sequence below without asking again -- a standing phrase for an
 operation a person otherwise has to spell out every time. **It carries the
@@ -80,6 +281,7 @@ Prompt Please block. That is Update All Vendors' steps 6 and 7 with a list
 of one; a run of many collects the list repository by repository and
 compiles it once at the end.
 
+### The one command and the BestPractice clone
 **The sequence is one command, since 2026-09-27.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
 
@@ -96,6 +298,7 @@ typing the path: `ls -d ../[Bb]est[Pp]ractice ../*/[Bb]est[Pp]ractice`. Run that
 and the update's own refusal of a vendored copy find it by its origin the
 same way (2026-10-08).
 
+### What the command does, and its three outcomes
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
@@ -154,6 +357,7 @@ command disagree, the command is the current code, and the step is what
 needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md),
 Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
 
+### When a merge runs the update for you
 **A merge runs it for you when anything is behind**:
 `python3 tools/precedent_merge_vendors.py`, run before the push, commits a
 finished update as a commit of its own, or takes a run that left calls or
@@ -163,6 +367,7 @@ moved practice source left stale**, as a commit of its own: a push to a
 working branch is no longer refused for a stale view it did not bring, so
 this is where the refresh happens.
 
+### Hook and settings changes need the person's own words
 **A change to hooks or settings needs the person's words naming it, asked
 for before the commit.** Claude Code's auto mode holds a commit that changes
 `.claude/` until the person approves it, and it clears the commit only on
@@ -176,6 +381,7 @@ as a yes-or-no question
 the update and the views refresh are taken back and said instead, until
 the person's words arrive as `PRECEDENT_HARNESS_GO_AHEAD="<their words>"`.
 
+### The gate stays
 **This does not lift the gate the chain already runs through**, and it does
 not add one. Step 12 publishes by the repository's usual conventions, and
 those are what decide whether a push may happen at all. Step 6 below is the
@@ -184,6 +390,7 @@ other. What the phrase removes is the second question, not the gate. So a
 failing check is reported, with what failed, and nothing is published -- that
 is the sequence working, not a refusal needing permission to stand.
 
+### Upstream's version is the default
 **Upstream's version is the default, and the session applies it without
 asking** (Morgan, 2026-10-14, strength: decided: "the default action you
 take is to always take the upstream version and keep only what is unique
@@ -204,6 +411,7 @@ that is neither upstream's nor plainly this repository's -- with your
 pick. A local quick fix ends here: it was always meant to last until
 upstream had its own ([upstream-fix](upstream-fix.md) point 7).
 
+### The conflicted-file review
 **Every conflicted file is reviewed, never overwritten on sight.** An
 update meets this repo's own changes in many places: a refusal to overwrite
 a hand-edited file, a drift report, a merge conflict, a hand-written rule in
@@ -222,6 +430,7 @@ version do anything upstream's does not, and does that matter?**
   difference is deliberate, with your pick. If not, take upstream's; the
   rule in force wins.
 
+### Committed local edits to received files
 **A committed local edit to a received file is reviewed by the command
 itself** (since 2026-09-29,
 [spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)),
@@ -248,6 +457,7 @@ carries them upstream as a branch. **An uncommitted edit still stops the
 update, with nothing written.** CI workflows are still refused as before,
 and go through the review below.
 
+### Recording a difference kept on purpose
 **`--force`, `record-ci` and "take theirs" come after this review, never
 instead of it**; each one discards the local side in a single step. A
 difference kept on purpose is recorded so the next update does not ask
@@ -264,6 +474,24 @@ Morgan, 2026-09-24: *"Every 'update vendors' should use that rule for every
 conflicted file"* ([current-rule-governs](current-rule-governs.md) says
 which side wins when the review finds a real conflict).
 
+### Hand edits and porting
+**Never hand-edit a vendored file to resolve a merge.** The vendored tree
+is not this repo's to change: restore it to what the manifest records and
+re-run the refresh. An uncommitted hand edit is refused, a hook or CI
+workflow edit is refused as drift, and `--force` is the wrong answer to
+either refusal — it discards the guard rather than the edit.
+
+**Port a change between a vendored copy and its upstream with a
+three-way merge, never a file copy** — `precedent_local_edits.py send` does
+exactly this for the consumer-to-upstream direction. Copying the consumer's file over
+the upstream's deletes whatever the upstream gained since the last sync,
+and nothing reports it. The merge base is **the consumer's last-synced
+copy** — the upstream file the vendored one was taken from — not whatever
+common commit git offers; the wrong base reports conflicts that are not
+there and hides ones that are. Read the conflict count before using the
+result, and never ship a file that still holds a conflict marker.
+
+### Follow the upstream copy of this runbook
 **Follow the upstream copy of this runbook, not the one vendored here.**
 The copy in this repo is from the last sync, and every correction made to
 the procedure since then is exactly what it lacks. Once step 1 has made the
@@ -276,6 +504,7 @@ them that had already been published.
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
 
+### Classic installs and unfinished migrations
 **First, is this repo running the loader at all?** A classic install —
 `process/upstream/` vendored, no universal source in `precedent.json`, no
 generated block in `AGENTS.md` — is not updated, it is migrated, in the
@@ -293,6 +522,7 @@ still had nothing in force.
 what to do; `practice_audit.py` fails on it (check 8) and `checkin.py update`
 says so, both from the vendored tree under `process/upstream/`.
 
+### Step 1 in full: making the source clone current
 1. **Make the SOURCE clone current first, against the branch this repo is
    pinned to** — not the source's default branch. A stale source makes
    every later step confidently wrong: the diff is against the wrong
@@ -360,13 +590,6 @@ says so, both from the vendored tree under `process/upstream/`.
    alone: rebasing somebody's work to get a vendoring tool unstuck is the
    trade that made this loop in the first place.
 
-   Morgan, 2026-09-21 (strength: decided): *"would this force it to clone the
-   most updated version first thing? I think that's what we need."* A check
-   that merely refused on a stale clone was the first proposal, and the
-   measurement retired it — it would have fired on all four sources every
-   session for weeks and changed nothing, because nothing in the sequence was
-   ever going to make them current.
-
    **You do not have to name that branch, and you must not check it out.**
    The pin is compiled into the vendored tool as `SOURCE_BRANCH` in
    [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
@@ -387,11 +610,35 @@ says so, both from the vendored tree under `process/upstream/`.
    request #110, and `_source_tools_at`'s docstring carries the finding.
    Asked by Morgan, 2026-09-14 — *"Maybe it should even preface that command
    with `git switch precedent-beta-v01`"* — and answered no, for this reason.
-2. **Read every vendored layer separately.** A repo usually vendors more
-   than one — the loader *engine* and the practice *catalogue* are
-   different trees with different manifests, and **they move
-   independently**. Checking one and reporting "current" is the common
-   failure.
+
+**One repo may follow `staging` instead, since 2026-10-05, by saying so
+in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
+2026-10-05 (`strength: decided`), after measuring that a change took
+about 25 minutes to reach `main` and a few to reach `staging`. The
+default is unchanged: a repo that names nothing follows `main`. Only
+`main` and `staging` are accepted; any other name -- the branch that
+has had only seconds of checking among them -- is refused, with the
+update saying so and following `main`.
+The update reads the declaration and moves both records itself -- the
+engine's `source_branch` and the catalogue's `upstream.branch` -- in the
+same run, so this is still never a hand edit to either. What a repo
+gives up by declaring it: `staging` has not had GitHub's clean-machine
+test. Removing the declaration moves the pins back to `main`; an engine
+already ahead of `main` is then left as it is until `main` catches up,
+never rolled back.
+
+**Step 1 is first because it is the one nobody thinks of as part of the
+update.** The instinct is to start with the command that does the
+vendoring. Every failure mode below step 1 is silent — no error, just an
+answer computed against the wrong tree.
+
+**On what "up to date" means for the source clone.** Fetch the pinned
+branch by name. A clone can be current on its default branch and many
+commits behind the branch that actually matters, and a shallow clone will
+report divergence that does not exist — deepen before believing any
+comparison.
+
+### Step 3 in full: refreshing the engine
 3. **Refresh the engine, and take the branch tip.** Expect two passes when
    the tool replaces itself; the second is not a retry, it is the new copy
    running its own corrected file list.
@@ -422,31 +669,20 @@ says so, both from the vendored tree under `process/upstream/`.
    `templates/gitignore.template` into `.gitignore`. A consumer's own hook
    wiring stays its own: decline any of these in `precedent.json`'s
    `declined_adapters` with the reason.
-   **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
-   vendored from `templates/github-actions/*.template` — a dependent repo's
-   `.github/workflows/bestpractice-docs.yml` (from `doc-lint.yml.template`),
-   a practice set's `.github/workflows/views-drift.yml` and
-   `precedent-check.yml` (from their own templates) — drift-checked and
-   tracked the same way, in the same `ENGINE_MANIFEST.json`
-   (`ci_workflow_files`/`ci_workflows_sha256`). Before this date these files
-   were written once, at initial install, and never refreshed: a template fix
-   landing after install — the `concurrency:` block `doc-lint.yml.template`
-   gained on 2026-09-15, then
-   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
-   Phase C debounce-guard step the very next day — reached an already-installed
-   `bestpractice-docs.yml` only if that repo happened to reinstall from
-   scratch. A repo vendored before this date has no `ci_workflows_sha256` in
-   its manifest yet; its first refresh after taking this change records a
-   baseline hash for whichever of these files it has installed and prints a
-   one-time catch-up notice — but, **unlike the hooks catch-up above, does
-   NOT rewrite the file's content on that first run.** A CI workflow is
-   exactly the kind of file a real repo hand-tunes (an extra job, a changed
-   schedule, a repo-specific secret), so overwriting an unrecorded one the
-   first time this shipped would have discarded that with no warning. Run
-   `refresh` again once the baseline is recorded to pick up template changes
-   normally from then on.
-   **Since 2026-09-27, in a consuming repo, none of that caution applies,
-   and nothing is asked.** A consumer's CI converges to upstream: the
+   **It also refreshes the CI workflow files the engine ships** from
+   `templates/github-actions/*.template` -- a consuming repo's
+   `leak-gate.yml` and `light-check.yml`, and a public practice set's
+   `precedent-branch-cleanup.yml`, the one workflow a set may carry
+   ([source-sets-run-no-ci](source-sets-run-no-ci.md)) -- tracked in the
+   same `ENGINE_MANIFEST.json` (`ci_workflow_files`/`ci_workflows_sha256`).
+   Before 2026-09-18 these files were written once, at install, and never
+   refreshed; the files of that era since retired (a consumer's
+   `bestpractice-docs.yml`, a set's `views-drift.yml` and
+   `precedent-check.yml`) are deleted by the refresh, and a manifest with no
+   `ci_workflows_sha256` yet records a baseline on its first refresh rather
+   than overwriting a file it never recorded.
+   **Since 2026-09-27, in a consuming repo, that baseline caution does not
+   apply, and nothing is asked.** A consumer's CI converges to upstream: the
    refresh rewrites whichever of `leak-gate.yml` and `light-check.yml` is
    installed to the current template, tracked or not, hand-edited or not
    (an absent one stays absent), and
@@ -545,6 +781,8 @@ says so, both from the vendored tree under `process/upstream/`.
    point — vendoring a commit whose diff you actually reviewed, and
    reproducing a bug against an older engine — never for making a rollout
    tidy.
+
+### Step 4 in full: the catalogue update
 4. **Take the catalogue update with `checkin.py update`.** Every install
    follows `main`, BestPractice's default branch, and step 3 has already
    repointed a retired pin, so the pin and the default agree and the
@@ -606,6 +844,8 @@ says so, both from the vendored tree under `process/upstream/`.
    duplicate of a personal rule. Upstream replaced it with a broader one,
    two later syncs carried the old decline forward without reading it, and
    a session refused a command the rule in force authorized.
+
+### Steps 5 and 6 in full: views and the landing branch's check
 5. **Regenerate the generated views in the same change.** A refreshed
    generator whose output has not been re-run leaves the repo's committed
    views describing the old engine, and its own `--check` then fails on
@@ -615,6 +855,8 @@ says so, both from the vendored tree under `process/upstream/`.
    used to ask for the full check by hand, after a regenerated AGENTS.md
    went out on 2026-09-25 with its version header unbumped; the commit now
    stamps that header, and the repo's own checks refuse stale views.
+
+### Steps 7 and 8 in full: reaching and naming the sources
 7. **Check that this environment can still reach its PRIVATE sources**,
    before you call the update done. A vendor update is when a new engine
    file arrives that the environment may not be configured for, and it is
@@ -676,6 +918,7 @@ says so, both from the vendored tree under `process/upstream/`.
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
 
+### Step 9 in full: sources to add or drop
 9. **Check whether a source should be added or dropped — yourself, and
    raise only a concrete finding.** Steps 7 and 8 both ask about the
    sources this repo already declares — can they be reached, are they
@@ -714,14 +957,6 @@ says so, both from the vendored tree under `process/upstream/`.
    `python3 tools/precedent_vendor_engine.py drop-retired .` does the same
    on its own.
 
-   Measured, 2026-09-09, across five repositories that each looked healthy:
-   one had no session-start instruction at all, so nothing ever fetched the
-   sources its config named; one had never declared `visibility`, and an
-   absent field counts as public, which silently excluded every
-   private-level source from its generated views; and three named their
-   sources in hand-written prose that went stale the day a shared set was
-   split by subject. **Not one produced a failing check.**
-
    **Once the answer changes what this repo declares, grep before moving
    on.** Run `grep -n '<name>' AGENTS.md CLAUDE.md` for every source name
    now declared, one name at a time. A hit outside a dated Story, gotcha,
@@ -731,6 +966,7 @@ says so, both from the vendored tree under `process/upstream/`.
    dynamically (a count, or a pointer to `precedent.json`) rather than
    naming it.
 
+### Step 10 in full: retiring legacy leftovers
 10. **Retire legacy leftovers — on every update, not only after a
     migration.** Whatever the old, pre-Precedent install left behind goes in
     this update: Morgan, 2026-09-24 (strength: decided), *"this needs to be
@@ -955,6 +1191,8 @@ says so, both from the vendored tree under `process/upstream/`.
     ([GITHUB_ACTIONS.md](https://github.com/alex137/BestPractice/blob/staging/documentation/GITHUB_ACTIONS.md))
     is set the way the person actually wants, not just inherited from
     whatever an earlier install or migration left.
+
+### Steps 11 and 12 in full: verifying and publishing
 11. **Verify by content on the remote**, never by ref equality
    ([verify-postcondition](verify-postcondition.md)), **and before the merge
    in step 12, on the pushed branch or the pull request's head.** What
@@ -1002,55 +1240,12 @@ says so, both from the vendored tree under `process/upstream/`.
     next stage's own tool confirms it, and the reply says which of the two
     will happen.
 
+### A refusal naming a file upstream no longer has
 **A refusal naming a file that no longer exists upstream means reseed, not
 investigate.** The refresh runs *this repo's own vendored copy* of the
 vendoring tool, which carries the file list it was vendored with — so the
 first refresh after upstream renames or drops an engine file asks for a
 path that is genuinely gone.
-
-## Detail
-**One repo may follow `staging` instead, since 2026-10-05, by saying so
-in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
-2026-10-05 (`strength: decided`), after measuring that a change took
-about 25 minutes to reach `main` and a few to reach `staging`. The
-default is unchanged: a repo that names nothing follows `main`. Only
-`main` and `staging` are accepted; any other name -- the branch that
-has had only seconds of checking among them -- is refused, with the
-update saying so and following `main`.
-The update reads the declaration and moves both records itself -- the
-engine's `source_branch` and the catalogue's `upstream.branch` -- in the
-same run, so this is still never a hand edit to either. What a repo
-gives up by declaring it: `staging` has not had GitHub's clean-machine
-test. Removing the declaration moves the pins back to `main`; an engine
-already ahead of `main` is then left as it is until `main` catches up,
-never rolled back.
-
-**Step 1 is first because it is the one nobody thinks of as part of the
-update.** The instinct is to start with the command that does the
-vendoring. Every failure mode below step 1 is silent — no error, just an
-answer computed against the wrong tree.
-
-**On what "up to date" means for the source clone.** Fetch the pinned
-branch by name. A clone can be current on its default branch and many
-commits behind the branch that actually matters, and a shallow clone will
-report divergence that does not exist — deepen before believing any
-comparison.
-
-**Never hand-edit a vendored file to resolve a merge.** The vendored tree
-is not this repo's to change: restore it to what the manifest records and
-re-run the refresh. An uncommitted hand edit is refused, a hook or CI
-workflow edit is refused as drift, and `--force` is the wrong answer to
-either refusal — it discards the guard rather than the edit.
-
-**Port a change between a vendored copy and its upstream with a
-three-way merge, never a file copy** — `precedent_local_edits.py send` does
-exactly this for the consumer-to-upstream direction. Copying the consumer's file over
-the upstream's deletes whatever the upstream gained since the last sync,
-and nothing reports it. The merge base is **the consumer's last-synced
-copy** — the upstream file the vendored one was taken from — not whatever
-common commit git offers; the wrong base reports conflicts that are not
-there and hides ones that are. Read the conflict count before using the
-result, and never ship a file that still holds a conflict marker.
 
 ## Why
 An update is not one operation, it is a small pipeline where each stage
@@ -1190,6 +1385,56 @@ solution to this so it doesn't repeat."* Strength: decided. A source now
 declares the files it exports, a consumer copies them through the same
 refresh, record and freshness a copied-in set gets, and the full check
 fails on a copy nothing declares.
+
+**2026-09-18: CI workflow files start being refreshed.** Moved here whole
+from the Rule on 2026-10-31, when the workflows it named had been retired:
+before 2026-09-18 these files were written once, at initial install, and
+never refreshed: a template fix landing after install -- the `concurrency:`
+block `doc-lint.yml.template` gained on 2026-09-15, then
+[spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
+Phase C debounce-guard step the very next day -- reached an
+already-installed `bestpractice-docs.yml` only if that repo happened to
+reinstall from scratch. A repo vendored before that date had no
+`ci_workflows_sha256` in its manifest; its first refresh records a baseline
+hash for whichever of these files it has installed and prints a one-time
+catch-up notice, but, unlike the hooks catch-up, does not rewrite the
+file's content on that first run. A CI workflow is exactly the kind of file
+a real repo hand-tunes (an extra job, a changed schedule, a repo-specific
+secret), so overwriting an unrecorded one the first time this shipped would
+have discarded that with no warning.
+
+**2026-09-21: the refresh makes the clone current itself.** Moved whole from the Rule's step 1 on 2026-10-31:
+
+Morgan, 2026-09-21 (strength: decided): *"would this force it to clone the
+most updated version first thing? I think that's what we need."* A check
+that merely refused on a stale clone was the first proposal, and the
+measurement retired it — it would have fired on all four sources every
+session for weeks and changed nothing, because nothing in the sequence was
+ever going to make them current.
+
+**2026-09-09: five healthy-looking repositories, not one failing check.** Moved whole from the Rule's step 9 on 2026-10-31:
+
+Measured, 2026-09-09, across five repositories that each looked healthy:
+one had no session-start instruction at all, so nothing ever fetched the
+sources its config named; one had never declared `visibility`, and an
+absent field counts as public, which silently excluded every
+private-level source from its generated views; and three named their
+sources in hand-written prose that went stale the day a shared set was
+split by subject. **Not one produced a failing check.**
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved
+here and to Detail whole.** Every `precedent_show.py vendor-update-runbook`
+prints the whole Rule, and every Update Vendors runs one. The Rule had grown
+to 9,301 words, counted that day, against a median Rule of about 150; the
+2026-10-30 very deep check listed it first of the four longest. Morgan, on
+seeing the list: *"Those sound huge like 9400 words is a lot, maybe we
+should do a cleanup of the long rules?"*, then *"do your recommendations for
+all"* (strength: assented), the pick being to split them by hand, this one
+first. The Rule now holds the commands, the order and the refusals that stop
+a run, in 1,773 words. Every paragraph it held before moved whole into
+Detail, under a heading the Rule names, except two that were only history,
+which are the two entries above. Nothing was deleted
+([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 Before starting, name the layers this repo vendors and where each records

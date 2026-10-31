@@ -174,12 +174,13 @@ not this section.
    above) and
    copy two things into this repo as ordinary tracked files: its
    `practices/` tree, into a tracked path of your choosing (recommended:
-   `precedent/universal/practices/`), with the three source files that
+   `precedent/universal/practices/`), with the source files that
    travel beside it ([precedent-source.json](precedent-source.json),
    [record/WITHDRAWN_FROM_UNIVERSAL.md](record/WITHDRAWN_FROM_UNIVERSAL.md),
-   and [close_detect.json](close_detect.json), which is
-   what lets a closing session offer a rule it noticed), and the loader
-   engine itself.
+   [close_detect.json](close_detect.json), which is
+   what lets a closing session offer a rule it noticed, and
+   [reply_check.json](reply_check.json), the reply requirements the stop
+   hook holds every reply to), and the loader engine itself.
    **Don't hand-copy the engine files** — from the Precedent clone, run
    `python3 tools/precedent_vendor_engine.py seed <this repo's path> --kind consumer`
    to write the engine into this repo's own `tools/`: the loader, the

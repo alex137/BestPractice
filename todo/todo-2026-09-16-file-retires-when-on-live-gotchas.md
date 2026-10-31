@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        null
+blocked_on:        "out of scope for a very deep check -- 74 conditions, each read from its own Story and Fix, are a sitting of their own"
 batch:             null
 decision:          null
 decision_strength: null
@@ -60,3 +60,7 @@ judging whether any entry's stated condition now holds).
 2026-09-16: filed by the session running spec/OPEN_ITEM_AND_GOTCHA_PLAN.md's
 Part 4.1 steps 5-10, per step 9's own instruction to file this as the new
 system's first item rather than populate it as part of the migration.
+2026-10-31, very deep check of 2026-10-30, pass 4 (still live, measured): 15 of the
+89 live gotchas carry a `retires_when`, and 74 still say null. Not done in
+this pass: writing 74 conditions, each from its own Story and Fix, is its
+own sitting, and this pass judged the 15 that exist instead.

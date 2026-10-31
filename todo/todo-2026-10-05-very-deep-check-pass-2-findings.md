@@ -3,7 +3,7 @@ slug:              todo-2026-10-05-very-deep-check-pass-2-findings
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-05
-closed:            null
+closed:            2026-10-31
 ---
 ## What
 
@@ -132,3 +132,15 @@ section judged a check script by filename alone.
 ## How It Closes
 
 Each bullet is fixed or recorded here as declined, with the reason.
+
+## Notes
+2026-10-31, very deep check of 2026-10-30, pass 4 (closed on its condition):
+the last open bullet, the eight files in which the writing and ladder sets
+differ from what the generator writes, is recorded as declined. They are
+the skeleton's per-set files (`.claude/settings.json`, `.gitignore`,
+`README.md`, `leak-blocklist.txt`, `precedent-source.json`,
+`precedent.json`, `tools/generated_files.json`,
+`tools/session_load_budgets.json`), which a set is meant to edit, and the
+BOOTSTRAP DRIFT section now prints them as a note ("what a set being lived
+in looks like, not drift") rather than a finding. Every other bullet was
+fixed on 2026-10-06, as recorded above.

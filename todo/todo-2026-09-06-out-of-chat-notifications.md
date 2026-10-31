@@ -4,7 +4,7 @@ kind:              analysis
 domain:            null
 severity:          null
 status:            open
-disposition:       wait
+disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -22,6 +22,8 @@ closed:            null
    Evaluate a GitHub Actions job that emails a plain-language digest of
    merged changes (or leans on GitHub's built-in Watch notifications,
    documented in the members' page) — as of 2026-08, unexplored.
+
+**Disposition:** parked (2026-10-31, Morgan, 2026-10-31 (strength: assented): "do your recommendations for all", on the very deep check's pick to park it)
 
 ## How It Closes
 

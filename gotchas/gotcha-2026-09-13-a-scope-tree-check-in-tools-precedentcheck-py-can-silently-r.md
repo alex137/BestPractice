@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-09-13-a-scope-tree-check-in-tools-precedentcheck-py-can-silently-r
-status:          live
+status:          retired
 noted:           2026-09-13
 severity:        null
-retired:         null
+retired:         2026-10-31
 retires_when:    null
 ---
 ## Symptom
@@ -39,3 +39,15 @@ Run it between `git commit` and `git push`, never before both.
 ## Fix
 
 (migration could not isolate a distinct Fix paragraph -- read ## Story.)
+
+**Retired 2026-10-31, by the very deep check of 2026-10-30 (pass 4): the
+trap as told can no longer fire.** Both causes were a whole-history walk.
+Since 2026-09-29 `parallel-artifact-ledger` reads only the range a run is
+given, or this branch against its published base, and never every commit a
+member directory had (practice: checks-read-only-the-work, 2026-10-08); it
+also skips the grafted boundary git's own `.git/shallow` records, so a
+shallow clone reads as "cannot verify" rather than clean. And since
+2026-10-16 no practice check runs before a push at all: they run in the
+full check on committed trees, so a dirty working tree is never what they
+read. A new check that walks whole history would bring the trap back, and
+checks-read-only-the-work already forbids that.

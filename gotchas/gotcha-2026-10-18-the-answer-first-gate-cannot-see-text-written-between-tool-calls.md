@@ -47,3 +47,5 @@ the gate sees: run `unanswered()` from the gate over the session's
 `.jsonl`. Never skip the hook. The root fix belongs in the gate, which
 should count from a source that is actually recorded. That is open, and
 this file retires when it lands.
+
+Prevention: the gate refuses once per question and then lets the next change through, held by the planted cases in `check_answer_first_gate_holds_a_change_until_the_question_is_answered`. The root, the harness not writing a long mid-turn text block to the transcript, is outside this repository; nothing mechanical can prevent it, deliberately. (2026-10-30 very deep check, Pass 2 question 20.)
