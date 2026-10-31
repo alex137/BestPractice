@@ -34,6 +34,59 @@ approved_by: "Morgan, 2026-10-01 -- coined both names and wrote the meaning
 strength:    decided
 ---
 ## Rule
+**"Root issues"** -- or "Root fixes", or any plain "anything here we should
+send upstream?" -- **asks what this session hit that should be fixed
+upstream, handed over as one [Prompt Please](prompt-please.md).** A session
+only ever writes "Root issues": the command finds the issues and hands them
+on, and the session the prompt goes to fixes them. The person's own words
+are under "The command and the question in full", in Detail.
+
+**Go back over the whole session, not the last change**: tool and hook
+output, check results, a warning that scrolled past, a rule that steered
+you wrong, a step you worked around, and every fix this session made or
+recommended, band-aids above all.
+
+**Upstream means anywhere the same fix also belongs**: Precedent and the
+precedent-* sets, the original template a file came from, and related repos
+carrying the same file or mistake. A bug whose cause lives only in this repo
+is ordinary work; a vendored or generated copy is its origin's.
+
+**Order the findings by harm, and say which each is**: first what broke
+something, then what could, then warnings. A warning whose cause is
+upstream goes in as a fix to make. **Two parts of the system fighting is
+the first finding**: name both parts, look for earlier rounds of the same
+fight, and recommend settling which part owns the thing. A recurring
+warning is traced to its cause here, once
+([verdict-not-mechanism](verdict-not-mechanism.md)).
+
+**Include the ones that may already be known**, saying so on the item.
+
+**All the findings go in one Prompt Please block**, for one session that
+holds every repo they touch, named in plain prose before the block: one
+section per finding (situation, problem, recommendation, the repo it lands
+in), and no merge authorization unless the person gave one for this
+handoff.
+
+**When there are none, say so in one line**, and what you looked at. Never
+manufacture a finding ([no-invented-specifics](no-invented-specifics.md)).
+
+## Detail
+**A finding this session can fix where it stands is not a handoff.** A
+session rooted in BestPractice, or with push access to the precedent-*
+repo the finding belongs to, says that next to the item and offers to fix
+it here instead of writing a prompt to itself. A handoff is for the part
+this session cannot do.
+
+**This is not [upstream-fix](upstream-fix.md).** That practice is about the
+fix in front of the session and applies to every fix it reports, asked or
+not. Root issues looks back over the whole session for anything whose cause
+or fix belongs elsewhere, fixed here or not, and returns it as handoffs; it
+is the sweep that catches what upstream-fix missed at the time.
+
+Everything under the headings below from "The command and the question in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The command and the question in full
+
 **The command is "Root issues."** "Root fixes" still works as a synonym, and
 so does any plain question like "anything here we should send upstream?" All
 of them get the same answer. **But a session only ever writes "Root issues"**,
@@ -54,11 +107,20 @@ this:
 > relevant repos together, and give it to me as one prompt (as always,
 > telling me beforehand which sessions to root it in).
 
+### The whole session, and your own fixes
+
 **The whole session, not the last change.** Go back over every turn: tool
 output, hook output at session start, check results, a warning that scrolled
 past and was never mentioned, a rule that steered you wrong, a step you had
 to work around. A warning counts as much as a failure; the question is
 whether its cause lives somewhere other than here, not how loud it was.
+
+**Your own fixes count too, band-aids above all.** Every fix this session
+made or recommended gets the same question: does it also belong somewhere
+else? A band-aid applied here is the clearest case, since by definition
+its root is still open.
+
+### Harm order, fights and recurring warnings
 
 **Warnings are fixed too, after what breaks.** A warning whose cause lives
 upstream goes into the prompt as a fix to make -- stop the warning at its
@@ -66,11 +128,6 @@ source -- never as a note to read. Order the findings by harm: **first what
 broke something, then what could break something, then warnings**, and say
 which of the three each one is. A long list of warnings never pushes a
 breakage down the prompt or out of it.
-
-**Your own fixes count too, band-aids above all.** Every fix this session
-made or recommended gets the same question: does it also belong somewhere
-else? A band-aid applied here is the clearest case, since by definition
-its root is still open.
 
 **Two parts of the system fighting is a finding of its own, and the
 first one.** When this session restored, re-added or worked around something
@@ -83,6 +140,8 @@ the pattern for you.
 **A recurring warning is traced, not recited.** A warning this session saw
 that earlier sessions saw too has its cause found here, once, and that cause
 goes in the prompt ([verdict-not-mechanism](verdict-not-mechanism.md)).
+
+### Where upstream is
 
 **Upstream means anywhere the same fix also belongs**, in at least these
 places:
@@ -97,6 +156,8 @@ A bug in the repo this session works in, with its cause there too and
 nowhere else, is ordinary work, not a root issue. A vendored or generated
 copy is its origin's: fixing the copy here does not fix it, and the next
 update brings it back ([upstream-fix](upstream-fix.md), points 2 and 8).
+
+### Known ones, the block, and none
 
 **Include the ones that may already be known.** The person may have passed
 the same thing on from this session or another one. Say so on the item when
@@ -116,19 +177,6 @@ handoff.
 **When there are none, say so in one line**, and say what you looked at.
 Never manufacture a finding so the answer has something in it
 ([no-invented-specifics](no-invented-specifics.md)).
-
-## Detail
-**A finding this session can fix where it stands is not a handoff.** A
-session rooted in BestPractice, or with push access to the precedent-*
-repo the finding belongs to, says that next to the item and offers to fix
-it here instead of writing a prompt to itself. A handoff is for the part
-this session cannot do.
-
-**This is not [upstream-fix](upstream-fix.md).** That practice is about the
-fix in front of the session and applies to every fix it reports, asked or
-not. Root issues looks back over the whole session for anything whose cause
-or fix belongs elsewhere, fixed here or not, and returns it as handoffs; it
-is the sweep that catches what upstream-fix missed at the time.
 
 ## Why
 A session working in a consuming repository runs into Precedent's bugs as
@@ -191,6 +239,8 @@ glossary entry defining it was gone, and every session passed it over as
 known backlog. The root-issues prompt that followed asked for both
 paragraphs above. Strength: proposed, from that prompt; the person's yes on
 the merge decides it.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 808 words; it now holds what to look over, where upstream is, the order and the one block, in 317 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names, the person's question included; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether

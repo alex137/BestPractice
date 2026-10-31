@@ -42,92 +42,41 @@ approved_by: "extended 2026-10-06, Morgan, \"review and do what you think is
 strength:    decided
 ---
 ## Rule
-**A merged-but-undeleted branch is reported as a link that opens GitHub's
-branches page already filtered to that one branch** — the row's trash icon is
-then on screen and deleting it is one click, with no searching. Never a bare
-branch name, and never a link to the branch's tree view, which shows the code
-and offers no way to delete it.
+**Every branch a session names as deletable carries a link to GitHub's
+branches page filtered to that one branch**, so its trash icon is one click
+away: every time, without being asked, however few branches. Never a bare
+name, and never a link to the branch's tree view:
 
     github.com/<owner>/<repo>/branches/all?query=<branch, percent-encoded>
 
-(Written without its `https://` prefix on purpose: a practice file ships
-verbatim into every adopting repository, and a complete URL naming a
-placeholder owner is still a link a reader can click into nothing.)
+**Percent-encode the name**, `/` as `%2F`:
+`urllib.parse.quote(branch, safe='')` ("The link in full", in Detail). A
+merged pull request's page may be given alongside the link, never instead
+of it.
 
-`/branches/all` is the **All branches** tab and `?query=` is its filter box.
-**The branch name must be percent-encoded.** Branch names routinely contain
-`/`, which has to become `%2F` or the filter breaks. In Python that is
-`urllib.parse.quote(branch, safe='')` — `safe=''` is the load-bearing part,
-since the default leaves `/` alone. Filled in against this repository, a
-branch called `claude/tidy-up-abc` becomes
-[that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Ftidy-up-abc).
+**Say which branch it merged into, by name**, never a role-word like "the
+base branch"; once above a list when every branch landed on the same one.
 
-**Every branch a session names as deletable carries this link — every time,
-without exception and without being asked.** One branch mentioned in passing at
-the end of an ordinary merge is the common case and the one that keeps getting
-missed; a sixty-row audit is the rare one. There is no threshold. If a reply
-says a branch can go, the link is in the same sentence. A merged pull request's
-own page also carries a Delete branch button and may be given **alongside** the
-filtered link, never instead of it — the pull request page is where the code
-review lives, and a person who wanted to delete a branch has to find the button
-on it.
+**Deleting is an offer, never a blocker**: never a reason a session cannot
+be archived, never listed as something owed.
 
-**And deleting a branch is never blocking.** It is a recommendation — good
-housekeeping, worth doing, worth making one click — and it is **never** a
-reason to say a session cannot be archived, never an entry in whatever the
-reply calls its blockers, and never phrased as something owed. A branch sitting
-undeleted costs nothing and breaks nothing; treating it as an outstanding item
-turns a courtesy into homework, which is how the whole list stops being read.
-Say it as an offer and let it go.
+**The session never deletes a branch itself**
+([never-delete-a-remote-branch](never-delete-a-remote-branch.md)). The
+cleanup page's delete-all button is an addition: every branch still gets its
+own row and its own link.
 
-**The branch cleanup page's delete-all button is an addition, never a
-replacement.** Each repository's section on that page may open with a link
-that starts the engine's cleanup workflow (practice
-[never-delete-a-remote-branch](never-delete-a-remote-branch.md) says who
-may start it); every branch still gets its own row and its own filtered
-link, so the person can count them, read the names, and delete one at a
-time instead (Morgan, 2026-10-16: "it should ALSO keep the list as it is
-now", strength: decided).
+**Four things the report must not get wrong** ("What the report must not
+get wrong"):
 
-**The session never attempts the deletion itself** — not by any route, and not
-after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
-says why, and lists the routes that get tried in order when that rule is not in
-front of somebody.
-
-**Say which branch it merged INTO, by name, in the same breath.** A branch is
-deletable *because* its work landed somewhere, and the offer is unreadable
-without that: "both branches are merged and can go" asks the reader to take on
-trust that the work reached the branch they care about, which is the one thing
-they would actually want to check. Name it — `main`, or whatever it is called — and
-never a role-word standing in for it ("the base branch", "the default branch").
-In a repository whose configured default and whose working branch are two
-different branches, the role-word and the name point at different places, and
-a reader who resolves it the obvious way gets the wrong answer with nothing to
-correct them.
-
-Where several branches are listed at once and they all landed on the same
-branch, saying so once above the list is enough; where they did not, each row
-carries its own.
-
-Three things the report must not get wrong, each of which fails silently:
-
-1. **A branch with no merged pull request is not a deletion candidate**, and
-   belongs in a separate list under its own heading. Never mixed in.
-2. **A branch whose name is a substring of another branch's name in the same
-   repo gets flagged, not linked** — the filter would show more than one row
-   and the one-click promise is gone.
-3. **Say what success looks like.** After the deletion the filtered page reads
-   *"no branches matched"*, which looks like an error and is not.
-4. <a id="never-a-tier-branch"></a>**Never a long-lived branch.** `main`,
-   any other long-lived branch the repository moves its work through, and
-   any lock branch the engine keeps are never offered for deletion, by any
-   route, whatever a merge test says: a long-lived branch that is
-   fast-forwarded to match another reads as merged right after. A filter
-   that would also show one of them on the page says so on the row. Morgan,
-   2026-09-28 (strength: decided). A branch work no longer moves through is
-   not one of them: one a person has stopped landing on is offered once it
-   holds nothing the branch they land on now lacks, never before
-   (`precedent_branches.never_offered`, 2026-10-09).
+1. **A branch with no merged pull request is not a candidate**; it goes in
+   a separate list under its own heading.
+2. **A branch whose name is a substring of another's is flagged, not
+   linked.**
+3. **Say what success looks like**: the filtered page then reads *"no
+   branches matched"*, which is not an error.
+4. **Never offer a long-lived branch**: `main`, any branch the repository
+   moves its work through, or an engine lock branch, whatever a merge test
+   says.
 
 ## Detail
 ### Deciding which branches qualify
@@ -192,6 +141,107 @@ deleted branch's commits stay reachable by SHA until they are garbage
 collected. Say the first of those where the list is handed over — a person
 who knows a misclick is recoverable works a long list faster than one who
 does not.
+
+Everything under the headings below from "The link in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The link in full
+
+**A merged-but-undeleted branch is reported as a link that opens GitHub's
+branches page already filtered to that one branch** — the row's trash icon is
+then on screen and deleting it is one click, with no searching. Never a bare
+branch name, and never a link to the branch's tree view, which shows the code
+and offers no way to delete it.
+
+    github.com/<owner>/<repo>/branches/all?query=<branch, percent-encoded>
+
+(Written without its `https://` prefix on purpose: a practice file ships
+verbatim into every adopting repository, and a complete URL naming a
+placeholder owner is still a link a reader can click into nothing.)
+
+`/branches/all` is the **All branches** tab and `?query=` is its filter box.
+**The branch name must be percent-encoded.** Branch names routinely contain
+`/`, which has to become `%2F` or the filter breaks. In Python that is
+`urllib.parse.quote(branch, safe='')` — `safe=''` is the load-bearing part,
+since the default leaves `/` alone. Filled in against this repository, a
+branch called `claude/tidy-up-abc` becomes
+[that one row, with its trash icon](https://github.com/alex137/BestPractice/branches/all?query=claude%2Ftidy-up-abc).
+
+### Every time, with no threshold
+
+**Every branch a session names as deletable carries this link — every time,
+without exception and without being asked.** One branch mentioned in passing at
+the end of an ordinary merge is the common case and the one that keeps getting
+missed; a sixty-row audit is the rare one. There is no threshold. If a reply
+says a branch can go, the link is in the same sentence. A merged pull request's
+own page also carries a Delete branch button and may be given **alongside** the
+filtered link, never instead of it — the pull request page is where the code
+review lives, and a person who wanted to delete a branch has to find the button
+on it.
+
+### Never blocking
+
+**And deleting a branch is never blocking.** It is a recommendation — good
+housekeeping, worth doing, worth making one click — and it is **never** a
+reason to say a session cannot be archived, never an entry in whatever the
+reply calls its blockers, and never phrased as something owed. A branch sitting
+undeleted costs nothing and breaks nothing; treating it as an outstanding item
+turns a courtesy into homework, which is how the whole list stops being read.
+Say it as an offer and let it go.
+
+### The delete-all button and the session's own hands
+
+**The branch cleanup page's delete-all button is an addition, never a
+replacement.** Each repository's section on that page may open with a link
+that starts the engine's cleanup workflow (practice
+[never-delete-a-remote-branch](never-delete-a-remote-branch.md) says who
+may start it); every branch still gets its own row and its own filtered
+link, so the person can count them, read the names, and delete one at a
+time instead (Morgan, 2026-10-16: "it should ALSO keep the list as it is
+now", strength: decided).
+
+**The session never attempts the deletion itself** — not by any route, and not
+after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
+says why, and lists the routes that get tried in order when that rule is not in
+front of somebody.
+
+### Naming the branch it merged into
+
+**Say which branch it merged INTO, by name, in the same breath.** A branch is
+deletable *because* its work landed somewhere, and the offer is unreadable
+without that: "both branches are merged and can go" asks the reader to take on
+trust that the work reached the branch they care about, which is the one thing
+they would actually want to check. Name it — `main`, or whatever it is called — and
+never a role-word standing in for it ("the base branch", "the default branch").
+In a repository whose configured default and whose working branch are two
+different branches, the role-word and the name point at different places, and
+a reader who resolves it the obvious way gets the wrong answer with nothing to
+correct them.
+
+Where several branches are listed at once and they all landed on the same
+branch, saying so once above the list is enough; where they did not, each row
+carries its own.
+
+### What the report must not get wrong
+
+Three things the report must not get wrong, each of which fails silently:
+
+1. **A branch with no merged pull request is not a deletion candidate**, and
+   belongs in a separate list under its own heading. Never mixed in.
+2. **A branch whose name is a substring of another branch's name in the same
+   repo gets flagged, not linked** — the filter would show more than one row
+   and the one-click promise is gone.
+3. **Say what success looks like.** After the deletion the filtered page reads
+   *"no branches matched"*, which looks like an error and is not.
+4. <a id="never-a-tier-branch"></a>**Never a long-lived branch.** `main`,
+   any other long-lived branch the repository moves its work through, and
+   any lock branch the engine keeps are never offered for deletion, by any
+   route, whatever a merge test says: a long-lived branch that is
+   fast-forwarded to match another reads as merged right after. A filter
+   that would also show one of them on the page says so on the row. Morgan,
+   2026-09-28 (strength: decided). A branch work no longer moves through is
+   not one of them: one a person has stopped landing on is offered once it
+   holds nothing the branch they land on now lacks, never before
+   (`precedent_branches.never_offered`, 2026-10-09).
 
 ## Why
 **A name is not an affordance.** A list of thirty branch names is a list of
@@ -293,6 +343,8 @@ running a repository; the link is part of the reply the person reads, so it
 goes to everyone. The stop hook then refused a reply that landed a branch
 without its link, until 2026-10-30, when Morgan retired the Boildown's
 list of branches to delete: the branch cleanup page carries them.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 854 words; it now holds the link, what to say beside it and the four things the report must not get wrong, in 248 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. The old list was headed "Three things" over four items; the Rule now says four. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:
