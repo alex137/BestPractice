@@ -40815,6 +40815,135 @@ def check_changed_files_asks_a_new_check_for_its_test():
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
 
 
+def check_changed_files_fetches_a_base_a_single_branch_clone_lacks():
+    """The per-file step of a push to staging fetches origin/staging when
+    the clone has no such ref, and refuses -- never passes -- when the base
+    still names no commit.
+
+    2026-10-31, a consumer's very deep check: its clone fetched main alone,
+    so origin/staging did not exist there, the diff against it failed and
+    read as empty, and the step said "0 changed file(s) checked, 0
+    problem(s)" over a commit that changed 26 files, Python among them. The
+    fixture is that clone: an origin with main and staging, cloned with
+    --single-branch, and a branch changing a Python file that does not
+    compile."""
+    import contextlib, io, tempfile
+    name = ('the changed-files check fetches a base a single-branch clone '
+            'lacks, and refuses one that names no commit')
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), '-c',
+                               'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+    spec = importlib.util.spec_from_file_location(
+        'ppc_single_branch', ROOT / 'tools' / 'precedent_push_check.py')
+    ppc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppc)
+
+    def run(repo, since):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = ppc.changed_files_check(repo, since)
+        return rc, buf.getvalue()
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        seed, origin, clone = td / 'seed', td / 'origin.git', td / 'clone'
+        seed.mkdir()
+        git(seed, 'init', '-q', '-b', 'main')
+        (seed / 'README.md').write_text('fixture\n', encoding='utf-8')
+        git(seed, 'add', '-A'); git(seed, 'commit', '-qm', 'base')
+        git(seed, 'branch', 'staging')
+        subprocess.run(['git', 'clone', '-q', '--bare', str(seed), str(origin)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '-b', 'main',
+                        str(origin), str(clone)], capture_output=True, env=env)
+        had_ref = git(clone, 'rev-parse', '--verify', '-q',
+                      'origin/staging').returncode == 0
+        git(clone, 'switch', '-q', '-c', 'work')
+        (clone / 'tools').mkdir()
+        (clone / 'tools' / 'broken.py').write_text('def (:\n', encoding='utf-8')
+        git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'a broken file')
+        rc, out = run(clone, 'origin/staging')
+        rc2, out2 = run(clone, 'origin/no-such-branch')
+    cases = [
+        ('the fixture is the trap: the clone starts with no origin/staging',
+         not had_ref),
+        ('the missing base is fetched and the broken file is found',
+         rc == 1 and 'tools/broken.py: does not compile' in out),
+        ('...never the empty pass', '0 changed file(s) checked' not in out),
+        ('a base that still names no commit is refused, and says it is not a '
+         'pass', rc2 == 1 and 'names no commit here' in out2
+         and 'this is not a pass' in out2),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-400:]} / {out2[-300:]}'))
+
+
+def check_very_deep_check_record_trips_no_check_in_a_consumer():
+    """The very deep check's run record, written into a consumer's spec/,
+    neither breaks filename-separator nor turns document-status-header from
+    a skip into a violation there.
+
+    2026-10-31, a consumer's very deep check: its spec/ named files with
+    hyphens and stamped none of them. The run wrote spec/VERY_DEEP_CHECK.md
+    (underscores, with lifecycle frontmatter), and the same run's CHECK
+    COVERAGE then reported two violations that only that file caused. The
+    controls are the repository's own choices, which still fire: an
+    underscore name it picked, and a document it stamped itself."""
+    import tempfile as _tf, shutil as _sh
+    name = 'the very deep check\'s run record trips no check in a consumer'
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-vdcrecord-'))
+    stamp = ('---\ntitle: "{t}"\nkind: record\nstatus: live\nopened: 2026-10-31\n'
+             'closed: null\nsuperseded_by: null\nsupersedes: []\naudience: session\n'
+             'summary: "x"\n---\n# {t}\n\nText.\n')
+
+    def run(slug):
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', slug], cwd=str(fx),
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(fx), '--project-name', 'Fixture'],
+                       capture_output=True, text=True)
+        (fx / 'spec').mkdir(exist_ok=True)
+        for n in ('call-notes.md', 'connected-systems.md'):
+            (fx / 'spec' / n).write_text(f'# {n}\n\nNo header.\n', encoding='utf-8')
+        (fx / 'spec' / 'VERY_DEEP_CHECK.md').write_text(
+            stamp.format(t='Very deep check -- run record'), encoding='utf-8')
+        rc_sep, out_sep = run('filename-separator')
+        rc_doc, out_doc = run('document-status-header')
+        (fx / 'spec' / 'OWN_NOTES.md').write_text('# Own\n\nText.\n',
+                                                  encoding='utf-8')
+        rc_sep2, out_sep2 = run('filename-separator')
+        (fx / 'spec' / 'OWN_NOTES.md').unlink()
+        (fx / 'spec' / 'own-plan.md').write_text(stamp.format(t='Own plan'),
+                                                 encoding='utf-8')
+        rc_doc2, out_doc2 = run('document-status-header')
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    cases = [
+        ('filename-separator does not count the run record as the repository\'s '
+         '"_" choice', rc_sep == 0 and 'VIOLATION' not in out_sep),
+        ('document-status-header still skips a repository that stamped nothing '
+         'of its own', rc_doc == 0 and 'none stamped' in out_doc),
+        ('control: an underscore name the repository chose still breaks its '
+         'hyphenated spec/', rc_sep2 == 1 and 'OWN_NOTES.md' in out_sep2),
+        ('control: once the repository stamps a document of its own, its '
+         'unstamped ones are found', rc_doc2 == 1
+         and 'spec/call-notes.md' in out_doc2),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                               f' -- {out_sep[-400:]} / {out_doc[-400:]} / '
+                               f'{out_sep2[-300:]} / {out_doc2[-300:]}'))
+
+
 def check_changed_files_compares_quoted_counts_when_a_practice_changes():
     """A practice change whose quoted count no longer matches what
     tools/catalogue_stats.py computes is refused at push time, not first
@@ -95201,6 +95330,8 @@ def main():
     check_shipped_hooks_pass_rename_links_without_the_mirror()
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
+    check_changed_files_fetches_a_base_a_single_branch_clone_lacks()
+    check_very_deep_check_record_trips_no_check_in_a_consumer()
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()
