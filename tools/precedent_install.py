@@ -101,7 +101,7 @@ MAIN_TEST_KEY = precedent_vendor_engine.MAIN_TEST_KEY
 # check_installer_vendors_the_catalogue_companions); not imported, since
 # precedent_update is a far heavier import than this list.
 CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
-                        'close_detect.json')
+                        'close_detect.json', 'reply_check.json')
 
 # What section 0 instantiates at the project root, and the template each
 # comes from. GETTING_STARTED.md is a template that keeps a plain .md name
@@ -264,8 +264,10 @@ def _vendor_catalogue(dest):
     # The source's own files travel with its catalogue, the same list Update
     # Vendors copies (precedent_update.CATALOGUE_COMPANIONS): its manifest,
     # which a consumer's occasion-index cap sums (2026-09-29), its withdrawal
-    # record, and its close_detect.json, without which "it notices and
-    # offers a rule" did nothing on a fresh install (2026-10-17).
+    # record, its close_detect.json, without which "it notices and
+    # offers a rule" did nothing on a fresh install (2026-10-17), and its
+    # reply_check.json, without which a fresh install declared no reply
+    # requirements at all (2026-10-31).
     for comp in CATALOGUE_COMPANIONS:
         if (ROOT / comp).is_file():
             (dest / UNIVERSAL_PATH / comp).parent.mkdir(parents=True, exist_ok=True)

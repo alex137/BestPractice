@@ -33314,6 +33314,119 @@ def check_installer_vendors_the_catalogue_companions():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_install_ships_universal_reply_requirements():
+    """A fresh install declares universal's reply requirements: its
+    reply_check.json travels beside the catalogue (CATALOGUE_COMPANIONS, on
+    install and on Update Vendors), and the todo-is-a-handoff check, which
+    reads the same gap-names-its-reason rule, finds it there.
+
+    Found 2026-10-30 by the very deep check: the classic process/upstream/
+    layout shipped the file, the installer and Update Vendors never did, so
+    an installed repository declared no reply requirements and that check
+    always skipped. Shipped 2026-10-31 (Morgan, "do your recommendations for
+    all", strength: assented), after each requirement was judged universal
+    or one person's convention.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    companion case fails, the installed copy declares nothing from
+    universal, and the open-item check skips instead of finding the gap.
+    The CONTROL cases plant the copy without the file and assert both go
+    quiet, so the loud cases are about the file and nothing else.
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import precedent_reply_check as prc
+    finally:
+        sys.path.pop(0)
+    upstream = json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-reply-ship-'))
+    no_person = str(tmp / 'no-user-config.json')
+
+    def universal_ids(proj):
+        old = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = no_person
+        try:
+            reqs, _notes = prc.declared_requirements(str(proj))
+        finally:
+            if old is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = old
+        return [r.get('id') or r.get('practice') for r in reqs
+                if r.get('_source') == 'universal/precedent']
+
+    def install(where, ship):
+        proj = tmp / where
+        proj.mkdir()
+        pi._vendor_catalogue(proj)
+        if not ship:
+            (proj / pi.UNIVERSAL_PATH / 'reply_check.json').unlink(missing_ok=True)
+        shutil.copytree(ROOT / 'tools', proj / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        # The materialized practices/ an install carries at its root, as
+        # a consumer's does; one file is all the check needs to be in force.
+        (proj / 'practices').mkdir()
+        shutil.copy2(ROOT / 'practices' / 'todo-is-a-handoff.md',
+                     proj / 'practices' / 'todo-is-a-handoff.md')
+        (proj / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': pi.UNIVERSAL_PATH}]}),
+            encoding='utf-8')
+        g = lambda *a: subprocess.run(['git', '-C', str(proj), *a],
+                                      capture_output=True, text=True,
+                                      env=_fixture_git_env())
+        g('init', '-q', '-b', 'main')
+        (proj / 'todo').mkdir()
+        item = proj / 'todo' / 'todo-2026-10-31-x.md'
+        item.write_text('---\nstatus: open\n---\n## What\nA line.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        item.write_text(item.read_text(encoding='utf-8')
+                        + 'The engine half is not built.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'a gap with no reason')
+        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'todo-is-a-handoff', '--range', 'HEAD~1..HEAD'],
+                           cwd=str(proj), capture_output=True, text=True,
+                           env={**os.environ, 'PRECEDENT_USER_CONFIG': no_person},
+                           timeout=120)
+        return proj, p.stdout + p.stderr
+
+    try:
+        cases.append(('install and Update Vendors both carry reply_check.json '
+                      'beside the catalogue',
+                      'reply_check.json' in pu.CATALOGUE_COMPANIONS
+                      and getattr(pi, 'CATALOGUE_COMPANIONS', None) == pu.CATALOGUE_COMPANIONS,
+                      f'{getattr(pi, "CATALOGUE_COMPANIONS", None)} vs {pu.CATALOGUE_COMPANIONS}'))
+        proj, out = install('shipped', True)
+        copied = proj / pi.UNIVERSAL_PATH / 'reply_check.json'
+        cases.append(("the installed copy is universal's file, byte for byte",
+                      copied.is_file() and copied.read_bytes()
+                      == (ROOT / 'reply_check.json').read_bytes(), str(copied)))
+        got = universal_ids(proj)
+        cases.append(("a fresh install declares every one of universal's reply "
+                      "requirements, gap-names-its-reason among them",
+                      len(got) == len(upstream) and 'gap-names-its-reason' in got,
+                      f'{len(got)} of {len(upstream)}: {got}'))
+        cases.append(('the open-item check finds an unexplained gap in the install',
+                      '1 violated' in out and 'names nothing blocking it' in out,
+                      out[-600:]))
+        proj, out = install('not-shipped', False)
+        got = universal_ids(proj)
+        cases.append(('CONTROL: a copy without the file declares nothing from '
+                      'universal', got == [], str(got)))
+        cases.append(('CONTROL: and the open-item check says it could not read '
+                      'the rule, rather than passing',
+                      'no gap-names-its-reason rule is declared here' in out
+                      and '0 violated' in out, out[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_a_person_with_no_individual_set_can_be_a_code_owner():
     """A person with no individual set is known by the administrator the
     installer was told (--admin), or by the GitHub account the session's
@@ -94625,6 +94738,8 @@ def main():
           *check_a_person_with_no_individual_set_can_be_a_code_owner())
     check("the universal catalogue's close_detect.json travels with it on install and update",
           *check_installer_vendors_the_catalogue_companions())
+    check("a fresh install declares universal's reply requirements",
+          *check_install_ships_universal_reply_requirements())
     check('the installer asks origin for the base branch before taking the current one',
           *check_installer_base_branch_asks_origin_before_the_current_branch())
     check('the installer defaults visibility to public when it cannot be read, and says why',
