@@ -4120,6 +4120,10 @@ def start_reach_run(root, since, landed, label, fixing=None):
         for f, rec in _reach_records(root):
             if rec.get('status') == 'failed' and \
                     (rec.get('landed') or '').startswith(fixing):
+                # The fix's run starts from the red one's base, whichever
+                # route landed it (--land, or --land-confirm after a pull
+                # request), so it covers both.
+                since = rec.get('since') or since
                 rec.update(status='fixed', fixed_by=landed)
                 _write_reach(f, rec)
     nxt = reached_checks_next(root, since, label)
