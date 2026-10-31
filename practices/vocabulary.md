@@ -22,63 +22,32 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
-When the person says **"Vocabulary"**, begin the answer with one line making
-clear that these are not exact-keyword triggers: a session recognizes the
-phrase, but it also reads plain language for the same intent and triggers on
-that ([read-for-intent](read-for-intent.md)), the way [weak-yes](weak-yes.md)
-itself is read (agreeing without conviction counts as much as the phrase
-does). Then give **two lists, and
-nothing else** beyond that opening line:
+When the person says **"Vocabulary"** ("The answer in full"):
 
-1. **Commands** -- the standing commands in force here, each phrase and one
-   plain sentence saying what it does.
-2. **Our language** -- the words a person needs to follow a conversation
-   about Precedent (practice, individual set, shared set, full set, in
-   force, feature branch, the branch tiers), each with its one-line meaning,
-   from [tools/our_language.json](https://github.com/alex137/BestPractice/blob/staging/tools/our_language.json).
+1. **Open with one line** saying these are not exact-keyword triggers: a
+   session also acts on plain language with the same intent
+   ([read-for-intent](read-for-intent.md)).
+2. **Run `python3 tools/precedent_vocabulary.py` and answer from its output;
+   never recall the list** ("Reading the list"). The command most likely
+   missing from memory is the newest.
+3. **Give two lists:** **Commands**, each phrase with one plain sentence on
+   what it does, and **Our language**, the words a person needs to follow a
+   conversation about Precedent, each with its one-line meaning. The tool
+   sorts them: a phrase naming a thing rather than an action is a word.
+4. **Name every source the tool could not read** -- *"I could not read your
+   shared set, so any command it defines is not below"* -- and list no
+   command whose practice did not resolve this session.
 
-No further preamble, no closing offer, and no advice about which to use.
-
-**A phrase that names a thing rather than an action is a word, not a
-command.** "Primary branch" and "Tier branch" answer "what is that?", not
-"do this", so they belong in the second list even though their practices
-keep a trigger. The tool does the sorting: a `command:` phrase that is also
-in the word list is printed under Our language instead.
-
-**Read the list, never recall it.** Run
-`python3 tools/precedent_vocabulary.py`, which collects every practice
-declaring a `command:` field across every source this session resolved,
-then prints the word list, and answer from its output. A list assembled from what a session happens to
-remember is the failure this exists to prevent: the commands change, and
-the one most likely to be missing is the one added most recently.
-
-**Say which sources did not resolve.** The tool prints a note for every
-source it could not read. That note goes into the answer -- *"I could not
-read your shared set, so any command it defines is not below"* -- because a
-short list and an incomplete list look identical.
-
-**A command a session cannot honour is not listed.** If a phrase's practice
-did not resolve this session, it is not in the vocabulary this session has;
-say what is in force, not what exists somewhere.
-
-**"Nothing else" governs the BODY, not whatever closing section the reply
-gate requires.** Where a source in force mandates a closing block on every
-reply, that block still appears -- a rule this answer cannot satisfy is not
-thereby suspended, and a stop hook will refuse the turn without it. What
-"nothing else" forbids is the material a session adds *of its own accord*:
-a preamble, an offer to go deeper, advice about which command to use, and
-above all **an unsolicited diagnosis of something the session noticed while
-assembling the list.**
-
-**The unresolved-source note is the one thing that is NOT an aside.** Saying
-which sources did not resolve is required above. Saying what you think went
-wrong with them is not, and it is where this answer goes astray: the note is
-a fact about the list's completeness, and any theory about its cause is a
-separate investigation the person did not ask for
-([diagnosis-is-measured](diagnosis-is-measured.md) governs that theory if it
-is ever offered).
+**Nothing else in the body** ("What the body leaves out"): no preamble,
+closing offer, advice about which to use, or diagnosis of something noticed
+on the way. A closing section a reply gate requires still appears. The
+unresolved-source note is a fact about the list's completeness; a theory
+about its cause is an investigation nobody asked for.
 
 ## Detail
+Everything under the headings below from "The answer in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The command field, the word list and the count
 **The field is the registry** (practice:
 [registry-source-of-truth](registry-source-of-truth.md)). A command practice
 declares its own phrases in frontmatter:
@@ -139,6 +108,65 @@ recall it.** Both sessions that reported a discrepancy had counted
 something reasonable — output lines, or frontmatter entries — and neither
 number is the answer. The tool is the answer.
 
+### The answer in full
+When the person says **"Vocabulary"**, begin the answer with one line making
+clear that these are not exact-keyword triggers: a session recognizes the
+phrase, but it also reads plain language for the same intent and triggers on
+that ([read-for-intent](read-for-intent.md)), the way [weak-yes](weak-yes.md)
+itself is read (agreeing without conviction counts as much as the phrase
+does). Then give **two lists, and
+nothing else** beyond that opening line:
+
+1. **Commands** -- the standing commands in force here, each phrase and one
+   plain sentence saying what it does.
+2. **Our language** -- the words a person needs to follow a conversation
+   about Precedent (practice, individual set, shared set, full set, in
+   force, feature branch, the branch tiers), each with its one-line meaning,
+   from [tools/our_language.json](https://github.com/alex137/BestPractice/blob/staging/tools/our_language.json).
+
+No further preamble, no closing offer, and no advice about which to use.
+
+**A phrase that names a thing rather than an action is a word, not a
+command.** "Primary branch" and "Tier branch" answer "what is that?", not
+"do this", so they belong in the second list even though their practices
+keep a trigger. The tool does the sorting: a `command:` phrase that is also
+in the word list is printed under Our language instead.
+
+### Reading the list
+**Read the list, never recall it.** Run
+`python3 tools/precedent_vocabulary.py`, which collects every practice
+declaring a `command:` field across every source this session resolved,
+then prints the word list, and answer from its output. A list assembled from what a session happens to
+remember is the failure this exists to prevent: the commands change, and
+the one most likely to be missing is the one added most recently.
+
+**Say which sources did not resolve.** The tool prints a note for every
+source it could not read. That note goes into the answer -- *"I could not
+read your shared set, so any command it defines is not below"* -- because a
+short list and an incomplete list look identical.
+
+**A command a session cannot honour is not listed.** If a phrase's practice
+did not resolve this session, it is not in the vocabulary this session has;
+say what is in force, not what exists somewhere.
+
+### What the body leaves out
+**"Nothing else" governs the BODY, not whatever closing section the reply
+gate requires.** Where a source in force mandates a closing block on every
+reply, that block still appears -- a rule this answer cannot satisfy is not
+thereby suspended, and a stop hook will refuse the turn without it. What
+"nothing else" forbids is the material a session adds *of its own accord*:
+a preamble, an offer to go deeper, advice about which command to use, and
+above all **an unsolicited diagnosis of something the session noticed while
+assembling the list.**
+
+**The unresolved-source note is the one thing that is NOT an aside.** Saying
+which sources did not resolve is required above. Saying what you think went
+wrong with them is not, and it is where this answer goes astray: the note is
+a fact about the list's completeness, and any theory about its cause is a
+separate investigation the person did not ask for
+([diagnosis-is-measured](diagnosis-is-measured.md) governs that theory if it
+is ever offered).
+
 ## Why
 **The commands only work if the person knows them, and they were being asked
 to keep the list in their head.** Precedent ships a growing set of standing
@@ -183,6 +211,17 @@ none of it had been asked for. The listing itself was correct and complete;
 everything that went wrong was in the part this rule already said not to
 write. That is what sharpened "nothing else" into the clause above, and what
 [diagnosis-is-measured](diagnosis-is-measured.md) was written out of.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to
+Detail whole.** The review of the longest quarter of active Rules listed
+this one at 516 words. Morgan, 2026-10-31, after the 2026-10-30 very
+deep check had cut four Rules that way: *"maybe we add to very deep check to
+always review like the 25% of all the rules that are the longest in that
+repo and shorten them like you did?"*, then *"use your judgment, and act
+booked produce"* (strength: assented). The Rule now holds the opening line, the tool to run, the two lists and what "nothing else" covers, in
+202 words (both counted with `wc -w` over the section). Every
+paragraph it held before moved whole into Detail, under a heading the Rule
+names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 The tool ships with the engine as `tools/precedent_vocabulary.py`, and
