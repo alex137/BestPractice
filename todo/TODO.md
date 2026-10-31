@@ -126,6 +126,7 @@ as_of: 2026-10-31
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 23d | ask |  |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | 20d | wait |  |
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 3d | wait |  |
+| [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, | 0d | wait | out of scope of the 2026-10-31 loader-template move, and a judgment on wording w… |
 
 ## Unblocked Work
 
@@ -163,6 +164,7 @@ as_of: 2026-10-31
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | a later commit to tools/ on main, and a real Update Vendors over it (Closes when, 2) |
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens |  |
+| [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, |  |
 
 ## Due Reminders
 

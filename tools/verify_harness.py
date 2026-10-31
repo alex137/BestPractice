@@ -58361,7 +58361,8 @@ def check_retired_template_sections_migrate_into_practices():
         cases.append(('the stock retired sections are removed and said so',
                       '## Working in parallel' not in after
                       and '### Merging a thread branch' not in after
-                      and 'RETIRED:' in out, failure_detail(out, 1500)))
+                      and 'retired: agents.md "## working in parallel' in out.lower(),
+                      failure_detail(out, 1500)))
         addon = repo / 'local' / 'practices' / 'administrator-requests-in-this-repo.md'
         text = addon.read_text(encoding='utf-8') if addon.is_file() else ''
         cases.append(('the own bullet moved word for word into a local add-on '
@@ -58401,7 +58402,13 @@ def check_agents_templates_repeat_no_practice_text():
     as already sitting in practices/<slug>.md, "paid for twice, every
     session". The template is where both instructions came from, so the
     template carries a one-line pointer to the practice instead, and this
-    holds it there."""
+    holds it there.
+
+    The loader template only, since 2026-10-31: that day its sections moved
+    into practices word for word, so the classic template -- for the
+    process/upstream/ vendoring model, which loads no practice on occasion
+    and runs no session-load-budget, so the double payment this guards
+    against cannot happen there -- now shares their text by design."""
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import precedent_check as pc
@@ -58410,7 +58417,7 @@ def check_agents_templates_repeat_no_practice_text():
         sys.path.pop(0)
     corpus = pc._practice_corpus(ROOT)
     bad = []
-    for rel in ('templates/AGENTS.md.loader.template', 'templates/AGENTS.md.template'):
+    for rel in ('templates/AGENTS.md.loader.template',):
         text = (ROOT / rel).read_text(encoding='utf-8')
         for offset, block in pve._md_blocks(text):
             for src, quote, words in pc.duplicated_resident_text(ROOT, block, corpus):
@@ -58442,6 +58449,14 @@ def check_agents_templates_conventions_point_to_practices():
         text = (ROOT / rel).read_text(encoding='utf-8')
         lines = text.split('\n')
         span = [(a, b) for k, a, b in pve._md_sections(text) if k.strip() == '## Conventions']
+        if rel.endswith('.loader.template'):
+            # 2026-10-31: the loader template's Conventions became pointers
+            # nowhere -- the practices load on their own, and commit credit
+            # is practice commits-credit-the-driver. Holding it gone.
+            if span:
+                bad.append(f'{rel}: "## Conventions" is back; its bullets are '
+                           f'practices now (RETIRED_AGENTS_MD_SECTIONS)')
+            continue
         if len(span) != 1:
             bad.append(f'{rel}: no single "## Conventions" section')
             continue
@@ -72634,9 +72649,14 @@ def check_second_pass_judgment_replaces_first_pass_left():
             (tpl / 'T.md').read_text(encoding='utf-8'))[key][1]
         # Pinned on the template's text alone, as before 2026-10-01: this
         # pass matches it and upgrades it, printing PIN UPDATED.
+        # Since 2026-10-31 the block it lacks needs its own verdict too.
+        lacked = [t for _o, t, _h, _a in pve.missing_markdown_blocks(
+            (dest / 'AGENTS.md').read_text(encoding='utf-8').split('\n', 2)[2], section)]
         (dest / 'precedent.json').write_text(json.dumps({
             pve.KEPT_DIVERGENCES_KEY: {item: {
-                'reason': 'ours', 'template_sha256': pve._sha_text(section)}}}),
+                'reason': 'ours', 'template_sha256': pve._sha_text(section),
+                'blocks': {pve.block_id(t): {'verdict': 'covered', 'quote': 'Our own line'}
+                           for t in lacked}}}}),
             encoding='utf-8')
         pve._LEFT_FOR_YOU.clear()
         pve._CARRIED_LEFT[:] = [
@@ -88352,8 +88372,10 @@ def check_declared_exports_consumer_snags():
         f = tmp / 'f'
         tpl = (ROOT / 'templates' / 'AGENTS.md.loader.template').read_text(encoding='utf-8')
         keys = [k for k, _a, _b in pve._md_sections(tpl)]
-        parent = '## Working in parallel (multi-member repos)'
-        sub = '### Review sensitivities (accumulated)'
+        # Repointed 2026-10-31, when "Working in parallel" and its
+        # sensitivities list left the template for a practice.
+        parent = '## <Deliverable build workflow>'
+        sub = '### Two check levels'
         write(f / 'AGENTS.md', '# Agents\n\n## Something of its own\n\nText.\n')
 
         def action(key, kept):
@@ -88369,7 +88391,7 @@ def check_declared_exports_consumer_snags():
         cases.append(('(f) CONTROL: unrecorded, it is missing',
                       action(sub, None) == 'missing'))
         cases.append(('(f) CONTROL: ...and another section is still missing',
-                      action('## Conventions', moved) == 'missing'))
+                      action('## Git / workflow', moved) == 'missing'))
 
         # (g)
         g = tmp / 'g'

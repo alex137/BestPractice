@@ -8134,9 +8134,11 @@ def _report_retired_agents_md(dest_root, plan, applying=False):
     """Print what the retirement does or would do; put 'own' and 'side' on
     the Left-for-you list."""
     for key, slug, action, _span, own, where in plan:
+        carrier = (f'the practices its bullets named, and {slug}, do'
+                   if key == '## Conventions' else f'practice {slug} does')
         if action == 'remove':
             print(f"RETIRED: {AGENTS_MD} \"{key}\" is template text the "
-                  f"template no longer carries -- practice {slug} does, and loads "
+                  f"template no longer carries -- {carrier}, and loads "
                   f"when it applies. {'Removed' if applying else 'Removed by refresh'}; "
                   f"nothing in it was this repository's own.")
         elif action == 'addon':
