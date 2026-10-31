@@ -26,49 +26,35 @@ approved_by: "Morgan, 2026-09-14 (strength: decided) -- shown the lever as a
 strength:    decided
 ---
 ## Rule
-**Grep the clone.** A session working in a repository already has its whole
-tree on disk. Reading a file, finding a symbol, listing what changed, seeing
-who last touched a line — every one of those is a local command that costs
-nothing and answers faster than the API does. **Reach for a GitHub tool only
-for what is not on disk**: another repository, a pull request's comments,
-CI's verdict, what someone said in a review.
+**Grep the clone** ("Local first, in full"). Reading a file, finding a
+symbol, listing what changed and seeing who last touched a line are local
+commands. **Reach for a GitHub tool only for what is not on disk**: another
+repository, a pull request's comments, CI's verdict, a review.
 
-**When you do ask GitHub, ask the narrow question.** A repo-scoped
-`list_*` before a `search_*`; one call that names the thing before a query
-that goes hunting for it. **`search` is 30 requests a MINUTE (as of 2026-09),
-account-wide, shared by every session open at that moment** — the tightest
-allowance on the account by a wide margin, and about eight times tighter
-than the 15,000-an-hour pool (250 a minute) it is easy to mistake it for.
+**Ask GitHub the narrow question:** a repo-scoped `list_*` before a
+`search_*`, a call that names the thing before a query that hunts for it.
+`search` allows 30 requests a minute (as of 2026-09), account-wide, shared
+by every open session.
 
-**A wide search waits for the person's explicit go-ahead.** Wide means its
-reach is everything: every clone on disk, every repository, every file in
-them, a whole fleet. **Do the cheap thing instead, and say it in one line:**
-fix the source you already know, tell the person a full sweep would not be
-worth its cost, and ask them to send an example if they see the problem
-again. **A wide search already running without that go-ahead is stopped** as
-soon as it is noticed, and so is any background job nothing is waiting on
-any more.
+**A wide search -- every clone, every repository, every file, a whole fleet
+-- waits for the person's explicit go-ahead** ("Wide searches"). Instead,
+fix the source you know, say in one line that a full sweep would not be
+worth its cost, and ask for an example if it happens again. Stop a wide
+search already running without that go-ahead, and any background job
+nothing waits on any more.
 
-**The other lever is how many windows are working at once.** Allowances are
-shared across sessions, so the fifth simultaneous session is not five times
-as productive — it is the one that gets refused, or that refuses somebody
-else. **When a rate-limit refusal appears, the question is what else is
-running**, not what to retry.
-
-**A refusal is never answered with a retry.** The allowance is spent; asking
-again spends more of it and, on the secondary limits, extends the block.
-Find the local answer instead, or wait for the window to reset —
+**Never answer a rate-limit refusal with a retry** ("Refusals and parallel
+sessions"): ask what else is running, find the local answer, or wait for
+the reset
 [tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)
-says when that is.
+names.
 
-**This does not license searching less.**
-[search-by-purpose](search-by-purpose.md) asks for two searches before
-concluding nothing exists, and that still holds in full. This rule is about
-**where those searches run**, never about doing fewer of them: a local grep
-is the cheap one, so there is no tension to resolve — search more, search
-locally.
+**Search as much as ever, locally** ("Searching less is not the point").
 
 ## Detail
+Everything under the headings below from "Local first, in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### What is on disk, and where a wide search starts
 **Where a wide search starts.** A grep of the repository you are working in,
 or of the one or two repositories the work names, is ordinary work. The line
 is reach: once the search goes through repositories the task never named,
@@ -108,6 +94,52 @@ The thing to change is the reflex, because nothing local will stop it.
 a question nothing local can answer is the right call, and one search beats
 twenty file reads that guess at where something is. The failure this
 prevents is the other shape: searching a repository that is sitting on disk.
+
+### Local first, in full
+**Grep the clone.** A session working in a repository already has its whole
+tree on disk. Reading a file, finding a symbol, listing what changed, seeing
+who last touched a line — every one of those is a local command that costs
+nothing and answers faster than the API does. **Reach for a GitHub tool only
+for what is not on disk**: another repository, a pull request's comments,
+CI's verdict, what someone said in a review.
+
+**When you do ask GitHub, ask the narrow question.** A repo-scoped
+`list_*` before a `search_*`; one call that names the thing before a query
+that goes hunting for it. **`search` is 30 requests a MINUTE (as of 2026-09),
+account-wide, shared by every session open at that moment** — the tightest
+allowance on the account by a wide margin, and about eight times tighter
+than the 15,000-an-hour pool (250 a minute) it is easy to mistake it for.
+
+### Wide searches
+**A wide search waits for the person's explicit go-ahead.** Wide means its
+reach is everything: every clone on disk, every repository, every file in
+them, a whole fleet. **Do the cheap thing instead, and say it in one line:**
+fix the source you already know, tell the person a full sweep would not be
+worth its cost, and ask them to send an example if they see the problem
+again. **A wide search already running without that go-ahead is stopped** as
+soon as it is noticed, and so is any background job nothing is waiting on
+any more.
+
+### Refusals and parallel sessions
+**The other lever is how many windows are working at once.** Allowances are
+shared across sessions, so the fifth simultaneous session is not five times
+as productive — it is the one that gets refused, or that refuses somebody
+else. **When a rate-limit refusal appears, the question is what else is
+running**, not what to retry.
+
+**A refusal is never answered with a retry.** The allowance is spent; asking
+again spends more of it and, on the secondary limits, extends the block.
+Find the local answer instead, or wait for the window to reset —
+[tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)
+says when that is.
+
+### Searching less is not the point
+**This does not license searching less.**
+[search-by-purpose](search-by-purpose.md) asks for two searches before
+concluding nothing exists, and that still holds in full. This rule is about
+**where those searches run**, never about doing fewer of them: a local grep
+is the cheap one, so there is no tension to resolve — search more, search
+locally.
 
 ## Why
 A shared allowance has no owner, so nothing pushes back on the session
@@ -159,6 +191,8 @@ the same moment, so the reduction pass Morgan approved that day folded
 wide-search-needs-asking in as the wide-search paragraph of the Rule, its
 reach line in Detail and its reasoning in Why. Its file stays as the record;
 the rule in force is this one.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 400 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds local first, the narrow question, the wide-search go-ahead and no retries, in 196 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 Nothing to install. The figure behind it is printed by

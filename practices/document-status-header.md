@@ -19,6 +19,36 @@ approved_by: "Morgan (2026-09-07); the index-lineage sentence in obligation 3 fo
 ---
 ## Rule
 Every document under `spec/` and `record/` opens with frontmatter declaring
+its **kind** and its **status**: `title`, `kind`, `status`, `opened`,
+`closed`, `superseded_by`, `supersedes`, `audience`, `summary`. The schema,
+and the legal `status` values for each `kind`, are in
+[spec/DOCUMENT_LIFECYCLE.md](https://github.com/alex137/BestPractice/blob/staging/spec/DOCUMENT_LIFECYCLE.md).
+**The kind decides what "outdated" can mean:** a `reference` can become
+wrong; a `record` stays true forever (Detail, *Kind and status in full*).
+
+1. **Creating** a document under either tree means stamping it in the same
+   commit.
+2. **Closing** work means setting `status` and the `closed` date, in the
+   commit that closes it — not in a later tidy-up pass.
+3. **Replacing** a document means setting the old one's `status: superseded`
+   and `superseded_by`, and the new one's `supersedes`, in the commit that
+   lands the replacement — a migration that moves, splits or rewrites
+   documents included, which is where it gets skipped. **The lineage itself
+   goes in the repository index, not in either document's prose**: the new
+   document's index row names what it succeeded, the old one's names what
+   replaced it, and neither body gains a "successor to…" note
+   ([index-remembers-past](index-remembers-past.md)).
+
+**Do not declare a status in prose as well**: no bolded "Status: …" line
+and no `Last updated:` comment. Version control says when a file changed,
+and `opened` and `closed` carry the dates a check can read (Detail, *The
+three obligations in full* and *No status in prose, in full*).
+
+## Detail
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### Kind and status in full
+Every document under `spec/` and `record/` opens with frontmatter declaring
 what **kind** of document it is and what **state** it is in, so a reader knows
 in three seconds whether they are holding a live reference or the record of
 something that finished. The fields are `title`, `kind`, `status`, `opened`,
@@ -33,6 +63,7 @@ practices" is not stale, it is the condition the measurement ran under.
 Marking both with the same freshness idea is what makes a reader distrust the
 wrong one.
 
+### The three obligations in full
 Three obligations follow, and the third is the one migrations lose:
 
 1. **Creating** a document under either tree means stamping it in the same
@@ -50,6 +81,7 @@ Three obligations follow, and the third is the one migrations lose:
    ([index-remembers-past](index-remembers-past.md)). This puts it in the
    frontmatter; that puts it in the index.
 
+### No status in prose, in full
 **Do not declare a status in prose as well.** A bolded "Status: …" opening
 line is a second, hand-maintained copy of a field a check can read, and it
 decays independently of the thing it describes. Same for a `Last updated:`
@@ -113,6 +145,8 @@ check could read it.
 other half. The reduction pass Morgan approved that day ("Question 3 - all
 are great, approved", strength: decided) folded that half in, so a session
 replacing a document under spec/ or record/ reads both in one Rule.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 372 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 226 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 Add frontmatter to every document under `spec/` and `record/` with the schema

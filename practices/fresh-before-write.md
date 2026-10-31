@@ -19,15 +19,33 @@ approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precede
 strength: decided
 ---
 ## Rule
-Every project a session works in gets both halves of a freshness guard wired into its own harness settings: a session-start hook that fetches and, where the update is provably lossless, fast-forwards the checkout before anything is read; and a before-tool hook that re-checks once, on the session's first tool call, and refuses that call when the checkout cannot be vouched for. "Stale" means two independent things and both are checked: behind `origin/<this branch>`, and — the one that actually catches it — missing commits from `origin/<the base branch>`, which a branch that is perfectly in sync with its own remote can still be.
+**Every project a session works in wires both halves of the freshness
+guard into its own harness settings** ("The guard in full"): a session-start
+hook that fetches and, where the update is provably lossless,
+fast-forwards before anything is read; and a before-tool hook that
+re-checks on the first tool call and refuses it when the checkout cannot be
+vouched for. Stale means behind `origin/<this branch>` or missing commits
+from `origin/<the base branch>`, and both are checked.
 
-The base branch is passed to the guard explicitly, as an argument, in the settings file. Never detected from `origin/HEAD`, and never assumed to be `main`.
+**Pass the base branch to the guard explicitly, as an argument in the
+settings file**: never detected from `origin/HEAD`, never assumed to be
+`main`.
 
-A repository the session merely has **attached** — added mid-session, or cloned by a hook — is checked too, named in `PRECEDENT_FRESHNESS_ALSO` as `<path>=<base branch>` entries separated by `;`. A hook only ever fires for the project dir, so a repo whose own settings are never read is otherwise invisible to its own guard; an environment variable is what follows a session into every repository it touches. A leading `~` in an entry's path is expanded from `$HOME` by the guard itself, because nothing else will: the variable is typed into a settings field and handed to the hook with no shell in between, so an unexpanded tilde reads as a configured entry and checks nothing. An entry naming somewhere that is not a git repository is noted and skipped, never blocked on.
+**An attached repository is checked through `PRECEDENT_FRESHNESS_ALSO`**,
+`<path>=<base branch>` entries separated by `;`, since its own hooks never
+fire ("Attached repositories").
 
-The automatic half is `git merge --ff-only`, when the fetch succeeded, the working tree is clean, and the branch holds nothing `origin` doesn't. **A diverged branch on a clean tree may also be merged automatically** — a plain `git merge origin/<branch>` that keeps both sides' commits on the branch, with the pre-merge tip saved to its own ref first and the merge aborted if it conflicts. Nothing else is automatic: a dirty tree, a stale base and a conflicting merge are reported and left to the person or to a deliberate command. **Never `reset --hard`, `git pull` or `rebase`** — each settles a divergence by picking a side or rewriting history.
+**Only a lossless update is automatic** ("What is automatic"): `git merge
+--ff-only` after a good fetch on a clean tree with nothing `origin` lacks,
+or a plain `git merge origin/<branch>` of a diverged branch on a clean
+tree, with the old tip saved to its own ref first and the merge aborted on
+a conflict. A dirty tree, a stale base and a conflict are reported. **Never
+`reset --hard`, `git pull` or `rebase`.**
 
 ## Detail
+Everything under the headings below from "The guard in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### How the guard fails, and its limits
 The two hooks fail in opposite directions, deliberately. The session-start half always exits 0: a hook that can wedge a session over a freshness question is a worse failure than the staleness it guards against, the same fail-gracefully contract every session-start hook is held to. The pre-write half refuses — in Claude Code, a `PreToolUse` hook exiting 2, which hands its stderr back as the reason — including when it could not reach `origin` at all. A check that could not run is not a check that passed, and this is the one place where saying so out loud is cheap: the block is recoverable, one tool call later.
 
 "Could not run" has to mean the state where the guard genuinely cannot tell, and a branch created locally and not yet pushed is not that state: it has no counterpart on `origin`, so there is nothing for it to be behind, and the branch comparison has no question to answer. `git fetch origin <branch>` cannot tell the two apart — it fails identically for an unreachable remote and for a remote that answered "no such branch" — so the guard asks `git ls-remote --exit-code` instead, whose exit status separates them: `2` for an absent branch, anything else for a remote it could not talk to. Skipping the branch comparison there never skips the **base** check, which is the half carrying all the weight on a new branch anyway.
@@ -46,6 +64,17 @@ The fix is deliberately the same shape as the one the commit-identity chain alre
 
 What it does **not** fix, and this is the honest limit: the variable has to be set on the environment, so the first session in an environment that lacks it is unguarded exactly as before. There is no mechanism by which a repository can require its own guard to run in a session rooted somewhere else.
 
+### The guard in full
+Every project a session works in gets both halves of a freshness guard wired into its own harness settings: a session-start hook that fetches and, where the update is provably lossless, fast-forwards the checkout before anything is read; and a before-tool hook that re-checks once, on the session's first tool call, and refuses that call when the checkout cannot be vouched for. "Stale" means two independent things and both are checked: behind `origin/<this branch>`, and — the one that actually catches it — missing commits from `origin/<the base branch>`, which a branch that is perfectly in sync with its own remote can still be.
+
+The base branch is passed to the guard explicitly, as an argument, in the settings file. Never detected from `origin/HEAD`, and never assumed to be `main`.
+
+### Attached repositories
+A repository the session merely has **attached** — added mid-session, or cloned by a hook — is checked too, named in `PRECEDENT_FRESHNESS_ALSO` as `<path>=<base branch>` entries separated by `;`. A hook only ever fires for the project dir, so a repo whose own settings are never read is otherwise invisible to its own guard; an environment variable is what follows a session into every repository it touches. A leading `~` in an entry's path is expanded from `$HOME` by the guard itself, because nothing else will: the variable is typed into a settings field and handed to the hook with no shell in between, so an unexpanded tilde reads as a configured entry and checks nothing. An entry naming somewhere that is not a git repository is noted and skipped, never blocked on.
+
+### What is automatic
+The automatic half is `git merge --ff-only`, when the fetch succeeded, the working tree is clean, and the branch holds nothing `origin` doesn't. **A diverged branch on a clean tree may also be merged automatically** — a plain `git merge origin/<branch>` that keeps both sides' commits on the branch, with the pre-merge tip saved to its own ref first and the merge aborted if it conflicts. Nothing else is automatic: a dirty tree, a stale base and a conflicting merge are reported and left to the person or to a deliberate command. **Never `reset --hard`, `git pull` or `rebase`** — each settles a divergence by picking a side or rewriting history.
+
 ## Why
 The failure this exists for is not a branch that has fallen behind its own remote. It is a container that came up on a clone days old, where nothing looks behind because the branch and its remote counterpart are equally out of date, and the work then proceeds against code that has since moved — in the worst recorded case, a session concluding that files merged the week before "did not exist". A session-start warning was already there for that, and it was not enough twice: it prints before any of the work, sixty lines into startup output, and acting on it is left to whoever reads it. A gate on the first write is the same information at the moment it is impossible to skip.
 
@@ -61,6 +90,8 @@ Worth recording that the fix immediately earned itself back. With the branch com
 **Amended 2026-09-23: a diverged branch may be merged.** The rule used to allow only a fast-forward, so a diverged branch was always reported and left. BestPractice's own guard had meanwhile gone further twice: on 2026-09-15 it reset a diverged clean branch to `origin` at session start, and on 2026-09-22 it began merging one mid-session, after reporting-only left the drift in place, every prompt re-reported it, and a stale clone had to be reconciled by hand. The reset broke this rule by name and was removed on 2026-09-23. The merge did not break it in spirit, since it keeps both sides and picks neither. The wording was changed to say so, on a session's recommendation, which Morgan accepted.
 
 **Where it has lived.** Landed first in Morgan's individual set, moved on 2026-09-23 to the shared set for repository maintenance, and **moved here on 2026-09-28**, on Morgan's accepting a session's recommendation that it applies to any repository, not only to maintaining practice sets. The engine had been shipping the mechanism since 2026-09-06, with a header saying the rule it implements was not yet a universal practice; it is now. The rule text was rewritten from Morgan's first person, and its Install now points at the engine's own guard rather than the set's copy.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 368 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the two hooks, the explicit base branch, attached repositories and what is automatic, in 194 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 The mechanism is the engine's own guard, [templates/harness/claude-code/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/hooks/freshness-guard.sh), wired three times in the Claude Code adapter's [settings.json](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/settings.json): session-start, a throttled re-check on each submitted prompt (for a session left open across a break), and pre-write. [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s hook wiring installs it into a consuming repo and adds a missing entry on each refresh; replace the base branch argument on all three entries with the repo's real base branch. A repo that declines it says so, with the reason, in `precedent.json`'s `declined_adapters`.

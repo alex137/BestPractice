@@ -195,3 +195,15 @@ Morgan with the session's pick (needs: a decision -- Morgan's):
 - **An assumption made on Morgan's behalf:** the ladder's file header is now
   re-stamped with whoever edits the file, where before only one person's
   headers were read. A one-line change reverts it.
+
+2026-10-31, Morgan on the open questions above (strength: assented): "On all of
+these, use your judgment, and act booked produce". Acted on each the same day:
+the writing set's hook here is closed as already right (no change: the
+untracked wiring is where a set's hook belongs); the archive guard moved to
+the ladder set with `ladder-required`; universal's finished-plan rule dropped
+the ladder's words; the two private sources the consumer copies in were
+attached read-only so its update could finish; the session-start deepen was
+measured against the history-reading tools before any change; the file-header
+assumption stands. He also asked for the very deep check to review the
+longest quarter of every repo's Rules every run; it now does, and the first
+review ran the same day.

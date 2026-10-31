@@ -44,6 +44,41 @@ as paste-ready. The fence is what gives the client its one-click copy
 button; describing the text without fencing it has not delivered it,
 whatever else the reply says.
 
+**More than one distinct thing to paste gets more than one fence block**: a
+commit message and a PR description are two blocks, never one holding both.
+
+**EVERY FENCE BLOCK SAYS WHERE IT GOES, in the reply, next to the block.**
+Write `**Paste into:**` and then one of:
+
+- **an existing session**, named and linked, with why it is the right one;
+- **a new session**, with **the repository it is rooted in** and **what
+  else is attached**. Both, always: "open a new session and paste this" is
+  the failure this clause exists to stop;
+- **this session**, when that is the honest answer.
+
+**A fence block holding output rather than paste-text says `not for
+pasting` once** — a measurement, a diff, a log excerpt — and gets no
+destination invented for it.
+
+**This binds every reply, independent of any trigger phrase** (Detail,
+*Several blocks, destinations and output, in full*).
+
+## Detail
+**This fires wherever the paste-ready text appears in a reply, not only at
+a close.** [The Boildown](the-boildown.md)'s handoff bullet already carries
+this same requirement when a reply is pointing the person at another
+session at its very end; this practice is what makes the same requirement
+fire at any other moment a reply hands over exact text — mid-reply, before
+a decision is made, anywhere a reply is producing text rather than
+describing an intent to produce it.
+
+**An offer to write something is not yet handing it over.** "I can draft a
+commit message if you want" names an intent; the fence-block requirement
+fires once the actual text is produced, not before.
+
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### Several blocks, destinations and output, in full
 **More than one distinct thing to paste gets more than one fence block.** A
 commit message and a separate PR description, two prompts for two different
 sessions — each is its own fence block, never one block holding both, and
@@ -72,19 +107,6 @@ destination invented for it.
 [My options](my-options.md) and [Prompt Please](prompt-please.md) each
 already required a fence block for their own occasion; both now point here
 instead of restating it.
-
-## Detail
-**This fires wherever the paste-ready text appears in a reply, not only at
-a close.** [The Boildown](the-boildown.md)'s handoff bullet already carries
-this same requirement when a reply is pointing the person at another
-session at its very end; this practice is what makes the same requirement
-fire at any other moment a reply hands over exact text — mid-reply, before
-a decision is made, anywhere a reply is producing text rather than
-describing an intent to produce it.
-
-**An offer to write something is not yet handing it over.** "I can draft a
-commit message if you want" names an intent; the fence-block requirement
-fires once the actual text is produced, not before.
 
 ## Why
 A paragraph that merely reads as paste-ready still has to be selected,
@@ -149,6 +171,8 @@ Code adapter's hook
 Gemini CLI have no prompt-submit hook to wire it into, so in those harnesses
 this rule now arrives through the standing instruction and the occasion
 index rather than automatically. That was weighed and accepted.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 345 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 232 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 Nothing to configure. Same as [my-options](my-options.md) and
