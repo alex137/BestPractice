@@ -75,12 +75,10 @@ def git(root, *args):
 
 
 def _origin_matches(root, owner, repo):
+    sys.path.insert(0, str(HERE))
+    from precedent_repo_id import same_repo
     url = git(root, 'remote', 'get-url', 'origin') or ''
-    url = url.rstrip('/')
-    if url.endswith('.git'):
-        url = url[:-4]
-    want = f'{owner}/{repo}'.lower()
-    return url.lower().endswith('/' + want) or url.lower().endswith(':' + want)
+    return same_repo(url, f'{owner}/{repo}', local_paths=True)
 
 
 def find_checkout(search, owner, repo):
@@ -265,9 +263,10 @@ def tier_source_refusal(head_ref, head_repo, owner, repo, tiers):
     same name is somebody else's and is not refused."""
     if not head_ref or head_ref not in tiers:
         return None
-    if head_repo and head_repo.lower() != f'{owner}/{repo}'.lower():
-        return None
     sys.path.insert(0, str(HERE))
+    from precedent_repo_id import same_repo
+    if head_repo and not same_repo(head_repo, f'{owner}/{repo}'):
+        return None
     try:
         import precedent_branches
         copy = precedent_branches.promote_branch_name(

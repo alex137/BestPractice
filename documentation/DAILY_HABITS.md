@@ -110,6 +110,7 @@ each one saves you a paragraph of explaining:
 | **Vocabulary** | List every standing phrase this project recognizes and what each one does, then the words worth knowing to follow a conversation about it. |
 | **Weak yes** | Go ahead with it, and record that you were not convinced. Nobody will ask you why. |
 | **What's new?** | Write an entry for every finished day that changed the project and has none yet, say which days were quiet and skipped, then show the log: its link first, the newest entries, what changed today so far, and ask what you want to know more about. |
+| **What's waiting for me?** | List the changes waiting for your review, in plain words, and take your verdict on each. Synonym: Add project members |
 <!--/gen:vocabulary-->
 
 *That table is built from the rules themselves every time this page is

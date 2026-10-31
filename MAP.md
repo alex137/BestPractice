@@ -10,11 +10,12 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 176 practice files (6 resident, 170 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 179 practice files (6 resident, 173 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
+| [administrator-requests](practices/administrator-requests.md) | on-demand | a person says "What's waiting for me?" or "Add project members", or asks to review pending changes or add someone to the project |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
 | [answer-first-ask-before-long-work](practices/answer-first-ask-before-long-work.md) | resident | a turn that could start a computation, search or build lasting longer than a few minutes, or that has an answer or a deliverable ready before its slower work is done |
 | [archive-status-check](practices/archive-status-check.md) | on-demand | a message says "Archive" or "Archive?", or asks whether the session can be archived |
@@ -37,6 +38,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [ci-workflow-approved](practices/ci-workflow-approved.md) | on-demand | a .github/workflows file is added, edited, or found in an update or migration |
 | [cite-the-incident](practices/cite-the-incident.md) | on-demand | writing a new convention or rule |
 | [code-cites-practice](practices/code-cites-practice.md) | on-demand | writing code because a specific practice requires it |
+| [commits-credit-the-driver](practices/commits-credit-the-driver.md) | on-demand | making the first commit of a session for a person |
 | [computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md) | on-demand | writing a document that cites a computed number |
 | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on a constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires, or any test or check that reports a failure |
@@ -189,6 +191,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [weak-yes](practices/weak-yes.md) | on-demand | a person says "Weak yes", or agrees without conviction |
 | [whats-new](practices/whats-new.md) | on-demand | a person asks "What's new?", or what has changed in the project lately |
 | [workflow-file-outside-vendoring](practices/workflow-file-outside-vendoring.md) | on-demand | a .github/workflows/*.yml file is added or changed |
+| [working-in-parallel](practices/working-in-parallel.md) | on-demand | starting work, or packaging a change for review, in a repository several members work in |
 | [write-like-a-human](practices/write-like-a-human.md) | resident | writing anything a person will read -- a document, a reply, a commit message |
 
 ## Withdrawn practices
@@ -303,6 +306,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_refresh_sources.py](tools/precedent_refresh_sources.py) | Reports which attached practice-set sources have a stale vendored engine, and with --apply brings them up to date; also writes the git credential helper into any attached source clone that has none |
 | [tools/precedent_regenerate.py](tools/precedent_regenerate.py) | Rebuilds the generated files whose inputs a commit touches, and stages them -- run by the commit backstop, never refuses a commit |
 | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) | The reply gate's BLOCKING half — refuses a stop when the reply missed what a source's reply_check.json requires |
+| [tools/precedent_repo_id.py](tools/precedent_repo_id.py) | One answer to "is this the same repository?", whatever the spelling. |
 | [tools/precedent_resolve.py](tools/precedent_resolve.py) | Resolves the universal, shared and individual sources into one set, by precedence |
 | [tools/precedent_resolve_merge.py](tools/precedent_resolve_merge.py) | Finishes a merge that stopped only on generated files: rebuilds them from the merged sources and stages them, the way a landing does |
 | [tools/precedent_retire.py](tools/precedent_retire.py) | Stage 6 (phase 5) — the periodic removal report; proposes, never acts |

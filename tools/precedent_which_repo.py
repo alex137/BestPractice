@@ -175,7 +175,9 @@ def same_repo(a, b):
     if ca and ca == cb:
         return True
     oa, ob = origin_url(a), origin_url(b)
-    return bool(oa) and oa.lower() == (ob or '').lower()
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from precedent_repo_id import same_repo     # practice: upstream-fix
+    return bool(oa) and (oa == ob or same_repo(oa, ob))
 
 
 def elsewhere_refusal(root, tool, cwd=None, repo=None):

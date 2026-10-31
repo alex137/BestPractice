@@ -5,6 +5,9 @@ the recorded answer for each (practice: upstream-bug-stops-here).
     python3 tools/upstream_edits.py              # list every one, and why it counts
     python3 tools/upstream_edits.py --guard PATH # exit 3, with the reason, when
                                                  # editing PATH needs an answer first
+    python3 tools/upstream_edits.py --staged-template-edits
+                                                 # exit 3, with the reason, when the
+                                                 # staged commit edits template text
 
 WHY (Morgan, 2026-10-17, strength: decided, "Act" on the plan). The rule
 said to classify a change as upstream or local before making it, and
@@ -214,6 +217,104 @@ def guard(path, root=ROOT):
 KEPT_TEMPLATES_KEY = 'kept_template_divergences'
 
 
+# --- An edit to template text, caught at the commit (2026-10-31) ------------
+# The deeper pattern Morgan named that day: a person sees a problem in a
+# session working in a consuming repository, the session fixes it there,
+# and neither notices the text came from BestPractice -- so the fix never
+# goes back upstream and the copy becomes a fork nobody decided. A
+# consuming repository's AGENTS.md sections and tools/bootstrap.sh are
+# written from BestPractice's templates, and tools/ENGINE_MANIFEST.json
+# records the hash of each as written. A commit that changes one that was
+# still the template's text, without recording what it means, is refused
+# here, with the two answers: fix it upstream, or keep it as this
+# repository's own.
+def _git_show(root, spec):
+    import subprocess
+    r = subprocess.run(['git', '-C', str(root), 'show', spec],
+                       capture_output=True)
+    return r.stdout.decode('utf-8', 'replace') if r.returncode == 0 else None
+
+
+def staged_template_edits(root=ROOT):
+    """-> [why] for each template-written section or file this commit's
+    staged state edits away from the template's text with no recorded
+    answer. Read-only; [] wherever there is nothing to judge."""
+    root = pathlib.Path(root)
+    head_m = _read_json_text(_git_show(root, 'HEAD:tools/ENGINE_MANIFEST.json'))
+    staged_m = _read_json_text(_git_show(root, ':tools/ENGINE_MANIFEST.json'))
+    staged_cfg = _read_json_text(_git_show(root, ':precedent.json'))
+    kept = staged_cfg.get(KEPT_TEMPLATES_KEY) or {}
+    answered = staged_cfg.get(REGISTRY_KEY) or {}
+    out = []
+    recorded = head_m.get('agents_md_sections_sha256') or {}
+    if recorded:
+        try:
+            import precedent_vendor_engine as pve
+        except Exception:                            # practice: fail-gracefully
+            pve = None
+        head, staged = _git_show(root, 'HEAD:AGENTS.md'), _git_show(root, ':AGENTS.md')
+        if pve is not None and head is not None and staged is not None and head != staged:
+            retired = set(getattr(pve, 'RETIRED_AGENTS_MD_SECTIONS', {}))
+            now = staged_m.get('agents_md_sections_sha256') or {}
+
+            def sections(text):
+                lines = text.split('\n')
+                return {pve._heading_key(k): pve._section_text(lines, a, b)
+                        for k, a, b in pve._md_sections(text)}
+            before, after = sections(head), sections(staged)
+            for key, sha in recorded.items():
+                hk = pve._heading_key(key)
+                if not isinstance(sha, str) or key in retired or hk not in before:
+                    continue
+                if pve._sha_text(before[hk]) != sha or after.get(hk) == before[hk]:
+                    continue        # not template text before, or untouched
+                if hk in after and pve._sha_text(after[hk]) == now.get(key):
+                    continue        # the engine's own refresh, recorded with it
+                item = f'AGENTS.md {key}'
+                if item in kept or item in answered:
+                    continue
+                out.append(f'AGENTS.md "{key}" is text the Precedent template '
+                           f'wrote, and this commit {"removes" if hk not in after else "edits"} it')
+    tpl = head_m.get('template_instances_sha256') or {}
+    for rel, sha in tpl.items():
+        if not isinstance(sha, str):
+            continue
+        b, a = _git_show(root, f'HEAD:{rel}'), _git_show(root, f':{rel}')
+        if b is None or a is None or a == b:
+            continue
+        if hashlib.sha256(b.encode('utf-8')).hexdigest() != sha:
+            continue
+        if hashlib.sha256(a.encode('utf-8')).hexdigest() == \
+                (staged_m.get('template_instances_sha256') or {}).get(rel):
+            continue
+        if rel in kept or rel in answered:
+            continue
+        out.append(f'{rel} is the Precedent template\'s file, and this commit edits it')
+    return out
+
+
+TEMPLATE_EDIT_ANSWERS = (
+    'This text came from BestPractice, so every repository that uses Precedent '
+    'carries the same copy, and a fix made only here becomes a fork nobody '
+    'decided. Answer first, in this same commit: (1) it belongs upstream -- '
+    'carry the change to BestPractice (the template, or the practice that '
+    'now carries that text) with a Prompt Please (practice: upstream-fix), '
+    'and record it under "upstream_edits" in precedent.json as '
+    '"owed-upstream" with the link; or (2) it is true only here -- record it '
+    'under "kept_template_divergences" with this repository\'s own reason, '
+    'and judge each block it lacks (`python3 tools/precedent_vendor_engine.py '
+    'judge-kept`), or move the local text into a local add-on practice. '
+    'Then commit again.')
+
+
+def _read_json_text(text):
+    try:
+        data = json.loads(text) if text else {}
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def kept_template_answers(root=ROOT):
     """-> one line per section or file made from a template that this
     repository keeps different on purpose (precedent.json's
@@ -243,6 +344,12 @@ def kept_template_answers(root=ROOT):
 def main(argv):
     if '--help' in argv or '-h' in argv:
         print(__doc__)
+        return 0
+    if '--staged-template-edits' in argv:
+        found = staged_template_edits()
+        if found:
+            print('; '.join(found) + '. ' + TEMPLATE_EDIT_ANSWERS)
+            return 3
         return 0
     if '--guard' in argv:
         i = argv.index('--guard')

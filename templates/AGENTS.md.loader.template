@@ -57,28 +57,20 @@ deliverables and indexes which documents back each part of each one.
   if any declared source (`precedent.json`) has moved since the block was
   last regenerated. Re-run without `--check` to refresh it, review the
   diff, and commit.
+- **Open each session by pointing at what's new:** run
+  `python3 tools/precedent_whats_new.py`, and if it reports days missing
+  from the project's log, say so in one line. If the member's branch has
+  fallen behind, offer to bring it up to date; ask first, since it may be
+  mid-thought.
 
 ### Two check levels
 
-<!-- practice `two-check-levels`. Rename the two levels if your team prefers
-     other words, but name them somewhere fixed and say which gates what —
-     the point is that "run the check" resolves to one thing without a
-     session re-deriving it. Add your own repo's audits to the deep check. -->
-
-- **Light check** — `python3 tools/doc_lint.py` on the markdown you touched.
-  Fast, run before every commit without thinking about it. Gates a commit.
-- **Deep check** — `python3 tools/precedent_push_check.py`, run bare, plus
-  `<your own audits>`. It is what the push hook runs, at the tier the
-  branch gets: a quick basic tier for a working branch, and for `staging`
-  and `main` the full list — the practice sweep, the drift check of the
-  generated views, the leak gate, the Markdown lint and
-  `bash tools/checks/tests/run_all.sh` (`--list` says what runs). Gates a
-  push and a merge.
-  For the practice sweep alone, `python3 tools/precedent_check.py
-  --full-sweep`; the bare command runs only a slice. `run_all.sh` runs the
-  tests materialized from this repo's sources and names each failing test's
-  source: a failing one is that source's bug, fixed and reported there —
-  never noted here as pre-existing.
+- **Light check**, before every commit: `python3 tools/doc_lint.py` on the
+  Markdown you touched.
+- **Deep check**, before a push or merge: `python3
+  tools/precedent_push_check.py`, run bare, plus `<your own audits>`. What
+  each tier runs, and whose bug a failing test is: practice
+  `two-check-levels`.
 
 ### Build-environment gotchas — do NOT rediscover these
 
@@ -116,7 +108,9 @@ instructions for this repo, not gotchas.
   start reports missing -- the sets `precedent.json` declares and those
   the person's individual set brings -- silently, with no confirmation
   needed first.** Session start prints the exact `add_repo` call for
-  each one; when the environment's token already cloned them all it
+  each one, in the spelling `precedent.json` declares: use that spelling
+  for the clone too, whatever case the reply answers in, and never
+  `register_repo_root` a source (attach-never-clone-individual); when the environment's token already cloned them all it
   prints none, and the session attaches nothing. Attach a source that is
   already cloned only when this session has to push to it. The settings
   Precedent installs allow the attach and the clone, so neither stops
@@ -145,173 +139,11 @@ instructions for this repo, not gotchas.
 - **Start every thread by merging latest `origin/<default-branch>` into your
   branch**; avoid two concurrent threads editing the same <conflict-prone
   file class>.
-
-### Merging a thread branch (runbook — follow, don't improvise)
-
-Conflicts in shared files are EXPECTED. The fast, safe path:
-
-0. **Capture gate — before the merge, in the thread that did the work**
-   (practice `capture-gate`): did this thread's work imply anything that must be
-   captured — a document update, a registry entry, a decision record? Fold
-   it now; the thread that built the rationale is the one that knows what to
-   record. Also run the parking-lot grep: `grep -rl "<your staging
-   markers>" <docs-root>/` and fold anything ready.
-   **0b. Export gate** (practice `practice-export-loop`): did this thread improve a *generic*
-   practice — one that would hold in an unrelated repo, not just this
-   one's own subject matter? Fold the abstracted form into this repo's own
-   vendored copy of the universal source (`precedent.json`'s `universal`
-   entry — see its `path`), commit it, and send it upstream with
-   `python3 tools/checkin.py push <upstream-clone> --why "<what went wrong>"`:
-   it merges the change onto the source's landing branch in that clone,
-   runs this repo's scrub and the source's leak gate and basic checks, and
-   pushes it as a branch there, then prints the prompt for the session that
-   lands it (it never opens a pull request or merges). Then run
-   `python3 tools/precedent_sync_views.py --repo .` locally to pick your own change
-   back up once it lands upstream.
-1. Fetch and merge the default branch locally.
-2. Resolve by fixed per-file-class rules (practice `merge-runbook`):
-   - Registries: **union** of both sides — never drop an entry or a status.
-   - Logs / index files: **append-only — keep both sides' additions.**
-   - Same content file edited on both sides: keep both sides' text;
-     renumber the side not yet referenced elsewhere.
-   - **Renumbering is repo-wide:** when sections are renumbered, grep
-     every doc — instructions, map, glossary, TODO, not just the content
-     file itself — for the old numbers and update them in the same
-     commit. Partial renumbers ship stale cross-references (observed
-     2026-08: a reorganization updated an index row but left two stale
-     section references standing in the instructions file).
-   - **Generated outputs: never hand-merge.** The side matching the
-     committed manifest wins; unshipped builds are deleted and rebuilt —
-     for the `<!-- BEGIN GENERATED: precedent-loader -->` block above, that
-     means re-running `python3 tools/precedent_sync_views.py --repo .`, never
-     hand-resolving its own conflict markers.
-3. Run the audits — **all must pass before the merge commits**:
-   `<your audit commands>` and
-   `python3 tools/precedent_sync_views.py --repo . --check`.
-4. Commit the merge, push, land per this repo's convention.
-
-## Conventions
-
-Most conventions here are practices that load when they apply, so this
-section names them rather than restating them;
-`python3 tools/precedent_show.py SLUG` prints any one in full.
-
-- **Sections are ordered by the reader's frequency** (practice
-  `section-order-by-frequency`).
-- **PR descriptions come from the diff** (practice
-  `pr-template-honest-gates`).
-- **Doc references are links, and `≈` means "approximately"** (practice
-  `doc-references-are-links`).
-- **Volatile rules carry their dates** (practice
-  `volatile-rules-carry-dates`).
-- **Outward-facing documents use the reader's words**, checked in a pass
-  of its own after drafting (practice `readers-vocabulary`).
-- **A reply that touched files lists them** (practice `reply-links-files`,
-  through the `reply` gate).
-- **Commits are credited to the human driving the session.** Author each
-  commit as the member, with their name and GitHub noreply email (ask
-  **before the first commit** if you don't know who you're working for:
-  `git commit --author="Name <ID+user@users.noreply.github.com>"`), and
-  name yourself in a `Co-Authored-By:` trailer. Where a platform forces its
-  own committer identity, the author field still records the human. Hosted
-  agent harnesses author commits as the agent unless told otherwise, so a
-  session that never asks mis-attributes silently (*observed 2026-08 on
-  hosted Claude Code sessions; GitHub attributes by author email, verified
-  2026-08*).
-- **Open each session by pointing at what's new:** run
-  `python3 tools/precedent_whats_new.py`, and if it reports days missing
-  from the project's log, say so in one line. If the member's branch has
-  fallen behind, offer to bring it up to date; ask first, since it may be
-  mid-thought.
-
-## Working in parallel (multi-member repos)
-
-<!-- These conventions exist so several members' threads don't duplicate
-     or silently trample each other's work. Keep them when instantiating;
-     fill the sensitivities list with the team's real entries. -->
-
-- **Claim before you start.** When a member takes on a [TODO.md](TODO.md) item (or
-  any sizable change), mark the item claimed — *(claimed: NAME, date,
-  branch)* — as the branch's first commit. Before starting any work,
-  check [TODO.md](TODO.md) claims and the repo's open branches and PRs for overlap
-  with what your member wants; if someone is already on it, say so before
-  duplicating their work.
-- **Flag changes to the people they matter to — inferred, not
-  declared.** Before packaging changes for review, work out who has
-  stakes in the diff and name them in the PR description, requesting
-  their review instead of letting the change ride a routine merge.
-  Nobody has to articulate their sensitivities up front; two sources
-  reveal them:
-  1. **Authorship.** Commits are credited to the humans who drove them
-     (see Conventions), so the history says whose work a diff reworks —
-     substantially rewriting or re-toning text another member authored
-     gets flagged to that member by default.
-  2. **The accumulated list below,** which agents maintain from
-     evidence: when a member pushes back in review, reverts a change, or
-     objects in conversation, that session appends a one-line entry —
-     what this member wants flagged, citing the incident that showed it
-     (practice `cite-the-incident`). Members may seed entries directly, but the list grows
-     mainly by observation.
-
-  (For path-based ownership, GitHub's CODEOWNERS enforces review
-  requests natively — as of 2026-08. The list also covers concerns no
-  path expresses, like tone.)
-- **Warn your own member first.** Before proposing, compare their change
-  against the project's recorded decisions, glossary, and prevailing
-  tone. If it cuts against something already decided or established, tell
-  them — "this conflicts in spirit with X; propose anyway, or discuss?" —
-  rather than packaging it silently. Disagreement then happens in review,
-  on purpose, not by surprise.
-
-### Review sensitivities (accumulated)
-
-<!-- Maintained by agents as evidence accumulates: one line per member
-     per concern, each citing the incident that revealed it. Seed entries
-     are welcome but not required — authorship-based flagging works from
-     day one with an empty list. -->
-
-- `<member>`: `<what to flag — e.g. tone changes to member-facing
-  pages>` — `<incident that showed it, date>`
-
-## Administrator requests you must know how to handle
-
-<!-- These are conversational workflows the administrator triggers by
-     plain phrases. Guide them end-to-end in plain language — they may
-     not be a programmer. Keep this section when instantiating. -->
-
-- **"What's waiting for me?"** (or "review pending changes") — the
-  administrator's review loop, entirely in conversation:
-  1. List the open PRs, plus any branches ahead of the default branch
-     with no PR yet. For each: a plain-language summary — what changed,
-     who drove it, and any hits against the review sensitivities or the
-     spirit check (see Working in parallel).
-  2. Point out proposals that collide with each other; offer to
-     integrate colliding proposals and show the combined result before
-     anything merges.
-  3. Take the verdict in chat — approve (merge, with required checks
-     passing), adjust-then-merge, or send back — and record the
-     reasoning in the PR conversation either way.
-  4. Merge only what the administrator has approved in conversation,
-     unless they have told you a category of change is routine for them.
-- **"Add project members"** — guide the administrator through the whole
-  thing:
-  1. Ask, in one message: the member's GitHub username (or email), what
-     they'll work on, and which AI tool they use (Claude, Codex, ChatGPT,
-     Gemini, Grok, other).
-  2. Give the exact GitHub steps to grant access — for a personal repo:
-     repository **Settings → Collaborators → Add people**; in an
-     organization, their existing team flow. One sentence on the choice:
-     read access lets the member's assistant answer questions; write
-     access lets it propose changes (which still need approval to join
-     the project).
-  3. Generate a short personal welcome message the administrator can
-     paste into email or chat: greet the member by name, one sentence on
-     what the project is, the link to this repository's
-     [GETTING_STARTED.md](GETTING_STARTED.md) naming the section for their
-     tool, and one suggested first task drawn from [TODO.md](TODO.md).
-  4. Confirm there is nothing else to install or configure — once access
-     exists, the member's Getting Started section is everything they
-     need.
+- **Merging a branch follows practice `merge-runbook`**, which the merge
+  gate prints: the capture and export gates first, conflicts resolved by
+  file class, and `<your audit commands>` plus
+  `python3 tools/precedent_sync_views.py --repo . --check` passing before
+  the merge commits.
 
 ## Practice sources — Precedent loader (policy)
 
@@ -328,4 +160,4 @@ section names them rather than restating them;
 - `python3 tools/precedent_sync_views.py --repo . --check` is this repo's
   drift gate: run it before trusting this file's generated block, and after
   a vendored copy or `precedent.json` changes.
-- Export gate = merge runbook step 0b, above.
+- Export gate: practice `practice-export-loop`.

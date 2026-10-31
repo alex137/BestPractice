@@ -3271,6 +3271,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_repo_names_compare_without_case": {
+      "verdict": "keep",
+      "why": "precedent_repo_id.py and its engine check; a lowercase clone of a capitalized source read NOT VERIFIED and a person was asked to approve one repository twice.",
+      "date": "2026-10-31",
+      "by": "agent",
+      "seconds": 0.1,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_engine_tools_say_which_repo_they_read": {
       "verdict": "keep",
       "why": "precedent_which_repo.py warning; a tool run from another repo once reported BestPractice's figures as the individual set's.",
