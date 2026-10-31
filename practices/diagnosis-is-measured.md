@@ -27,53 +27,34 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
-**A message that lists what might have gone wrong has not diagnosed
-anything.** A guard reports the condition it can see, then names the causes
-its author thought of. That list is a starting point for an investigation,
-not the result of one -- and the real cause is regularly not on it.
+**A guard's list of possible causes is a starting point, not a
+diagnosis** ("Measuring in full"). Before it reaches the person:
 
-So before that list reaches the person, **measure one of its branches.** Look
-at the thing. `ls` the directory the message says is missing, read the config
-it says is wrong, call the tool it says refused you. One command is usually
-the whole cost.
+1. **Measure one branch of it.** Look at the thing: `ls` the directory it
+   says is missing, read the config, call the tool. One command is usually
+   the whole cost.
+2. **Say which you have:** a finding (*"I looked; the directory is
+   genuinely not there"*), a hypothesis (*"the message suggests this; I have
+   not checked"*), or a relay (*"the guard says this and I am passing it on
+   unexamined"*). Never let the second or third be read as the first.
+3. **Never build a recommendation on an unmeasured cause**, above all one
+   that tells the person to delete something.
 
-**Then say which of the three you have.** A finding (*"I looked; the
-directory is genuinely not there"*), a hypothesis (*"the message suggests
-this; I have not checked"*), or a relay (*"the guard says this and I am
-passing it on unexamined"*). Never let the second or third be read as the
-first.
+**A check that compares two things cannot see the inputs feeding them**
+("Comparing checks and stale inputs"). Where a run was told anything is
+stale, behind or diverged -- a source clone, a cache, a generated tree --
+that notice is an input to every check after it, and a mismatch may be that
+input rather than the file it names. **Reproducing a finding against older
+code rules out the code, not the environment**: both runs read the same
+input.
 
-**Never build a recommendation on an unmeasured cause.** This is the line
-that does the damage. Repeating a guard's guess costs the person a moment;
-telling them to act on it costs them an afternoon -- and where the
-recommended action is to **delete** something, an unmeasured cause can talk
-them into destroying working configuration to fix a problem that was never
-there.
-
-**A check that COMPARES two things names those two things, and never the
-inputs feeding them.** This one has no cause list at all -- it reports a
-fact, and the fact is true: the document does not match what its script
-produces. What it cannot say is that the script read a stale clone, because
-the clone is not one of the two sides being compared, it is an input to one
-of them. So a stale input is reported, correctly and unhelpfully, as a fault
-in the output, and the finding points at the wrong file **by construction**.
-Where a run has been told anything is stale, behind, or diverged -- a source
-clone, a cache, a generated tree -- that notice is an input to every check
-that follows it, not housekeeping to read past.
-
-**And reproducing a finding against older code rules out the code, not the
-environment.** Re-running with the previous version and getting the same
-result feels like the decisive test and is not: both runs read the same
-stale input. It answers *"did my change cause this"*, which is worth
-knowing, and it is silently mistaken for *"what caused this"*.
-
-**The most dangerous message is the one that has already eliminated
-something.** *"A credential IS set, so a missing credential is not the
-explanation"* reads as the output of a completed investigation, and it is
-still only the causes one author enumerated. **Ruling one thing out is not
-the same as having ruled the rest in.**
+**Ruling one thing out is not ruling the rest in** ("Ruled out is not
+ruled in"), however finished the message sounds.
 
 ## Detail
+Everything under the headings below from "Measuring in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Looking again, and where the time went
 **Absence at the moment you looked is not absence.** A great many of these
 messages fire because something was read before the thing that writes it had
 finished: a clone still running, a generated file not yet built, a hook that
@@ -99,6 +80,55 @@ long; the timeline, in the case that added this paragraph, showed two
 ten-minute gaps that were a merge gate's harness check, a check that had
 already reported the failure before the merge was tried, and two
 regenerations a one-minute trial would have saved.
+
+### Measuring in full
+**A message that lists what might have gone wrong has not diagnosed
+anything.** A guard reports the condition it can see, then names the causes
+its author thought of. That list is a starting point for an investigation,
+not the result of one -- and the real cause is regularly not on it.
+
+So before that list reaches the person, **measure one of its branches.** Look
+at the thing. `ls` the directory the message says is missing, read the config
+it says is wrong, call the tool it says refused you. One command is usually
+the whole cost.
+
+**Then say which of the three you have.** A finding (*"I looked; the
+directory is genuinely not there"*), a hypothesis (*"the message suggests
+this; I have not checked"*), or a relay (*"the guard says this and I am
+passing it on unexamined"*). Never let the second or third be read as the
+first.
+
+**Never build a recommendation on an unmeasured cause.** This is the line
+that does the damage. Repeating a guard's guess costs the person a moment;
+telling them to act on it costs them an afternoon -- and where the
+recommended action is to **delete** something, an unmeasured cause can talk
+them into destroying working configuration to fix a problem that was never
+there.
+
+### Comparing checks and stale inputs
+**A check that COMPARES two things names those two things, and never the
+inputs feeding them.** This one has no cause list at all -- it reports a
+fact, and the fact is true: the document does not match what its script
+produces. What it cannot say is that the script read a stale clone, because
+the clone is not one of the two sides being compared, it is an input to one
+of them. So a stale input is reported, correctly and unhelpfully, as a fault
+in the output, and the finding points at the wrong file **by construction**.
+Where a run has been told anything is stale, behind, or diverged -- a source
+clone, a cache, a generated tree -- that notice is an input to every check
+that follows it, not housekeeping to read past.
+
+**And reproducing a finding against older code rules out the code, not the
+environment.** Re-running with the previous version and getting the same
+result feels like the decisive test and is not: both runs read the same
+stale input. It answers *"did my change cause this"*, which is worth
+knowing, and it is silently mistaken for *"what caused this"*.
+
+### Ruled out is not ruled in
+**The most dangerous message is the one that has already eliminated
+something.** *"A credential IS set, so a missing credential is not the
+explanation"* reads as the output of a completed investigation, and it is
+still only the causes one author enumerated. **Ruling one thing out is not
+the same as having ruled the rest in.**
 
 ## Why
 **A guard's cause list is written from the author's imagination, and the
@@ -178,6 +208,17 @@ three correct declarations from a working config file. Morgan's reply was
 *"I don't understand, explain it plainly"* -- twice -- which is what an
 unmeasured diagnosis actually produces: not a wrong answer the reader can
 catch, but a confident one they cannot.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to
+Detail whole.** The review of the longest quarter of active Rules listed
+this one at 467 words. Morgan, 2026-10-31, after the 2026-10-30 very
+deep check had cut four Rules that way: *"maybe we add to very deep check to
+always review like the 25% of all the rules that are the longest in that
+repo and shorten them like you did?"*, then *"use your judgment, and act
+booked produce"* (strength: assented). The Rule now holds the three steps, the comparing-check trap and the ruled-out trap, in
+221 words (both counted with `wc -w` over the section). Every
+paragraph it held before moved whole into Detail, under a heading the Rule
+names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 No mechanical check, and the reason is specific rather than a shrug:
