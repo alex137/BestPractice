@@ -55,7 +55,7 @@ as_of: 2026-10-31
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 20d | ask |  |
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 11d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
 | [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 1d | wait | every line under Left names why this run left it |
-| [`todo-2026-10-31-root-issues-from-the-very-deep-check-session`](todo-2026-10-31-root-issues-from-the-very-deep-check-session.md) | "Root issues" run over the whole transcript of the session that ran the | 0d | ask | three calls for Morgan, and one fix in the ladder set this session cannot push t… |
+| [`todo-2026-10-31-root-issues-from-the-very-deep-check-session`](todo-2026-10-31-root-issues-from-the-very-deep-check-session.md) | "Root issues" run over the whole transcript of the session that ran the | 0d | wait | the harness split, running in a session of its own |
 
 ## Verify Before External Use
 

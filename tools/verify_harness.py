@@ -253,6 +253,14 @@ _inherited = os.environ.get('GIT_CONFIG_GLOBAL')
 if _inherited and not os.path.isfile(_inherited):
     os.environ['GIT_CONFIG_GLOBAL'] = empty_gitconfig()
 
+# NO FIXTURE STARTS A REAL BACKGROUND RUN OR CALLS GITHUB (2026-10-31).
+# --land now starts the harness checks a landing reaches in the background,
+# and opens and merges its pull request itself where a token is set; a
+# fixture that lands must do neither. The test of each turns it back on
+# against a stub (check_land_holds_while_its_reached_tests_are_red).
+os.environ['PRECEDENT_LAND_REACH_RUN'] = '0'
+os.environ['PRECEDENT_LAND_AUTO_PR'] = '0'
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -66172,6 +66180,200 @@ print(json.dumps(out))
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_land_holds_while_its_reached_tests_are_red():
+    """--land starts the harness checks a landing reaches in the background
+    and records the verdict; the next --land refuses while it is red unless
+    it names itself the fix; and a change that takes a pull request has
+    that pull request opened and merged by --land itself.
+
+    Morgan, 2026-10-31 (strength: assented, "Yes on all four"), from the
+    root issues of the 2026-10-30 very deep check's session: staging went
+    red twice from checks only that run reaches, and about ten landings
+    stopped for a pull request the session merged a minute later by hand.
+
+    The fixture: a bare origin with staging, a stub harness whose verdict a
+    file decides (red while it exists), a planted pull-request guard that
+    calls tools/gate.py risky, and a stub GitHub API on localhost that
+    merges by moving staging on the bare origin.
+
+    Negative controls: with the run turned off a landing only prints the
+    command and records nothing; with the automatic pull request off, a
+    gating change stops at the printed steps and staging does not move."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-reach-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import http.server, json, os, pathlib, subprocess, sys, threading, time
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+td = pathlib.Path({str(tmp)!r})
+(td / 'gitconfig').write_text('')
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG=str(td / 'no-config.json'),
+                  GIT_CONFIG_GLOBAL=str(td / 'gitconfig'))
+os.environ.pop('PRECEDENT_NO_LADDERS', None)
+import precedent_branches as pb
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+(work / 'tools').mkdir()
+(work / 'tools' / 'harness_reach.py').write_text('')
+(work / 'tools' / 'verify_harness.py').write_text(
+    'import os, pathlib, sys\\n'
+    'red = pathlib.Path(' + repr(str(td / 'red')) + ')\\n'
+    'out = os.environ.get("PRECEDENT_HARNESS_FAILURES")\\n'
+    'if red.exists():\\n'
+    '    out and pathlib.Path(out).write_text("case one\\\\n")\\n'
+    '    sys.exit(1)\\n'
+    'out and pathlib.Path(out).write_text("")\\n')
+(work / 'tools' / 'landing_pr_guard.py').write_text(
+    'import subprocess\\n'
+    'def in_force():\\n    return True\\n'
+    'def changed(root, base, tip):\\n'
+    '    r = subprocess.run(["git", "-C", str(root), "diff", "--name-only",\\n'
+    '                        f"{{base}}...{{tip}}"], capture_output=True, text=True)\\n'
+    '    return None if r.returncode else [p for p in r.stdout.splitlines() if p]\\n'
+    'def risky(root, paths, rev):\\n'
+    '    return [p for p in paths if p == "tools/gate.py"]\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+pb._check = lambda *a, **k: (True, 'stub check')
+pb.lands_on_staging = lambda root, user_config=None: (True, 'the fixture lands on staging')
+out = {{}}
+
+def branch(name, path):
+    g('fetch', '-q', 'origin', 'staging')
+    g('checkout', '-q', '-B', name, 'origin/staging')
+    (work / path).write_text(name + '\\n'); g('add', '-A'); g('commit', '-qm', name)
+    g('push', '-q', '-f', 'origin', name)
+    return name
+
+def land(name, fixing=None):
+    said = []
+    rc = pb.land(work, name, said.append, fixing=fixing)
+    return rc, '\\n'.join(said)
+
+def wait_record(sha):
+    f = pb._reach_dir(work) / (sha[:12] + '.json')
+    for _ in range(120):
+        try:
+            rec = json.loads(f.read_text())
+            if rec.get('status') != 'running':
+                return rec
+        except (OSError, ValueError):
+            pass
+        time.sleep(0.5)
+    return {{'status': 'timeout'}}
+
+def staging_tip():
+    return subprocess.run(['git', '-C', str(origin), 'rev-parse', 'staging'],
+                          capture_output=True, text=True).stdout.strip()
+
+os.environ['PRECEDENT_LAND_REACH_RUN'] = '1'
+os.environ['PRECEDENT_LAND_AUTO_PR'] = '0'
+(td / 'red').write_text('')
+rc, said = land(branch('b1', 'x.md'))
+one = staging_tip()
+out['first'] = dict(rc=rc, started='STARTED IN THE BACKGROUND' in said,
+                    rec=wait_record(one))
+rc, said = land(branch('b2', 'y.md'))
+out['held'] = dict(rc=rc, said=said[-700:], moved=staging_tip() != one)
+(td / 'red').unlink()
+rc, said = land('b2', fixing=one[:12])
+two = staging_tip()
+first_after = json.loads((pb._reach_dir(work) / (one[:12] + '.json')).read_text())
+out['fix'] = dict(rc=rc, moved=two != one, first=first_after.get('status'),
+                  rec=wait_record(two), since_ok=wait_record(two).get('since')
+                  == out['first']['rec'].get('since'))
+os.environ['PRECEDENT_LAND_REACH_RUN'] = '0'
+rc, said = land(branch('b3', 'z.md'))
+three = staging_tip()
+out['off'] = dict(rc=rc, printed='NEXT, IN THE BACKGROUND' in said,
+                  recorded=(pb._reach_dir(work) / (three[:12] + '.json')).exists())
+
+class Api(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+    def reply(self, code, body):
+        data = json.dumps(body).encode()
+        self.send_response(code); self.send_header('Content-Length', str(len(data)))
+        self.end_headers(); self.wfile.write(data)
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get('Content-Length') or 0))
+        self.reply(201, {{'number': 7}})
+    def do_PUT(self):
+        body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)))
+        r = subprocess.run(['git', '-C', str(origin), 'update-ref', 'refs/heads/staging',
+                            body['sha']], capture_output=True)
+        self.reply(200 if r.returncode == 0 else 405,
+                   {{'merged': r.returncode == 0, 'sha': body['sha']}})
+srv = http.server.HTTPServer(('127.0.0.1', 0), Api)
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+pb._github_repo = lambda root: ('o', 'r')
+os.environ.update(GITHUB_TOKEN='fixture-token',
+                  PRECEDENT_GITHUB_API=f'http://127.0.0.1:{{srv.server_port}}')
+rc, said = land(branch('b4', 'tools/gate.py'))
+out['manual'] = dict(rc=rc, moved=staging_tip() != three,
+                     steps='--land-confirm' in said)
+os.environ['PRECEDENT_LAND_AUTO_PR'] = '1'
+rc, said = land('b4')
+four = staging_tip()
+out['auto'] = dict(rc=rc, moved=four != three, said=said[-600:],
+                   confirmed='LANDED AS CHECKED' in said, pr='#7' in said)
+srv.shutdown()
+print(json.dumps(out))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=600)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-2500:]
+        first, held, fix = out.get('first') or {}, out.get('held') or {}, out.get('fix') or {}
+        off, manual, auto = out.get('off') or {}, out.get('manual') or {}, out.get('auto') or {}
+        cases.append(('a landing starts its reached-tests run and records it red',
+                      first.get('rc') == 0 and first.get('started')
+                      and (first.get('rec') or {}).get('status') == 'failed'
+                      and (first.get('rec') or {}).get('failing') == ['case one'],
+                      str(first) if first else why))
+        cases.append(('THE DISCRIMINATING CASE: the next landing is refused while '
+                      'it is red, naming the failing case and the fix route',
+                      held.get('rc') == 1 and not held.get('moved')
+                      and 'case one' in (held.get('said') or '')
+                      and '--fixing' in (held.get('said') or ''),
+                      str(held) if held else why))
+        cases.append(('...a landing that names itself the fix lands, marks the red '
+                      'one fixed, and its own run covers both and passes',
+                      fix.get('rc') == 0 and fix.get('moved')
+                      and fix.get('first') == 'fixed'
+                      and (fix.get('rec') or {}).get('status') == 'passed'
+                      and fix.get('since_ok'),
+                      str(fix) if fix else why))
+        cases.append(('NEGATIVE CONTROL: with the run off, a landing prints the '
+                      'command and records nothing',
+                      off.get('rc') == 0 and off.get('printed')
+                      and not off.get('recorded'), str(off) if off else why))
+        cases.append(('NEGATIVE CONTROL: with the automatic pull request off, a '
+                      'gating change stops at the printed steps',
+                      manual.get('rc') == 1 and not manual.get('moved')
+                      and manual.get('steps'), str(manual) if manual else why))
+        cases.append(('a gating change has its pull request opened and merged by '
+                      '--land, and confirmed as checked',
+                      auto.get('rc') == 0 and auto.get('moved') and auto.get('pr')
+                      and auto.get('confirmed'), str(auto) if auto else why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--land holds while its reached tests are red, and lands its own '
+          f'pull request ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} ({d})' for n, d in bad))
+
 def check_leak_gate_reads_other_clones_as_themselves_inside_a_hook():
     """Inside a git hook the leak gate still reads every other clone as
     itself, lets a repository name itself, and says where the push goes.
@@ -98092,6 +98294,7 @@ def main():
     check_land_tells_the_push_hooks_what_it_lands()
     check_land_sent_to_a_pull_request_carries_mains_work()
     check_land_skips_a_push_the_pull_request_guard_would_refuse()
+    check_land_holds_while_its_reached_tests_are_red()
     check_land_confirm_says_whether_what_landed_was_checked()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
