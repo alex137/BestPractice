@@ -323,36 +323,22 @@
       "heading": "boildown",
       "item": "^\\W*your next steps\\b",
       "plan_file_written": "(?:^|/)spec/[^/]+\\.md$|_PLAN\\.md$|(?:^|/)plans?/[^/]+\\.md$",
-      "stage_line": "\\bfinished step 1 of 5\\b[^)]{0,10}\\bConsider\\b",
-      "plan_words": "\\b(?:plan it|brainstorm|write it up|spec it out|one-line plan|(?:the|this|my|a|our) plan(?! of record))\\b",
       "plan_line": "^\\W*Plan:",
       "ask": "\\bdo you want (?:me |us )?to act on (?:this|the|that|my) plan\\b",
       "tell": "\\bI(?:'|’)?m (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b|\\bI am (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b"
     },
-    "why": "Morgan, 2026-10-30 (strength: decided), after reading a session's replies twice: \"you made a plan ... nowhere did you suggest that we could act on this plan ... if a session has just considered or made any sort of plan, then upon the completion of the plan, it needs to ask or tell me to see if I want to implement the plan.\" A plan of any size -- Consider, Brainstorm, Plan it, Write it up -- is finished in a reply that writes a plan file, that says Consider on its first Boildown line while making a plan, or that adds a **Plan:** line the last reply lacked. That reply asks \"Do you want to act on this plan?\" under Your next steps, where boildown-ask-states-its-question already wants what acting does and the session's pick; or, when the session is already carrying it out, says \"I'm acting on this plan\".",
+    "why": "Morgan, 2026-10-30 (strength: decided), after reading a session's replies twice: \"you made a plan ... nowhere did you suggest that we could act on this plan ... if a session has just considered or made any sort of plan, then upon the completion of the plan, it needs to ask or tell me to see if I want to implement the plan.\" A plan of any size -- Consider, Brainstorm, Plan it, Write it up -- is finished in a reply that writes a plan file, or that adds a **Plan:** line the last reply lacked. The ladder set adds a third reading, a first Boildown line naming its Consider step while the reply makes a plan, in its own reply_check.json, since only a person who brings the ladder writes that line (moved 2026-10-31: the engine's set-words-stay-in-their-set refused the ladder's step label here). That reply asks \"Do you want to act on this plan?\" under Your next steps, where boildown-ask-states-its-question already wants what acting does and the session's pick; or, when the session is already carrying it out, says \"I'm acting on this plan\".",
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
-        "refused": true
-      },
-      {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** read the write-up.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice\n- **Your next steps:** read the write-up.\n- You can archive this session.\n",
         "refused": true,
         "written": [
           "/home/user/BestPractice/spec/NEW_THING_PLAN.md"
         ]
       },
       {
-        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Do you want to act on this plan? Yes means I build the three steps on a feature branch and land them on staging, about 40 minutes; no leaves it as a plan in this reply. My pick is yes, because the gap it closes keeps costing replies.\n- You can archive this session.\n",
-        "refused": false
-      },
-      {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** **Plan:** [the plan](spec/X_PLAN.md), steps 2 and 3 left; I'm acting on this plan: step 2 is running in [the test session](https://claude.ai/code/session_x) and I start step 3 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
-        "refused": false
-      },
-      {
-        "reply": "The gate reads the transcript.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** **Plan:** [the plan](spec/X_PLAN.md), steps 2 and 3 left; I'm acting on this plan: step 2 is running in [the test session](https://claude.ai/code/session_x) and I start step 3 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
         "refused": false
       }
     ]

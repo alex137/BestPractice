@@ -34410,10 +34410,11 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
     def kinds(body, boildown, **kw):
         return sorted(v['kind'] for v in _rc.violations(
             body + '\n\n## The Boildown\n' + boildown, reqs, **kw))
-    consider = ('- The work of this session is now on: no branch yet (you '
-                'have finished step 1 of 5, Consider)\n')
-    booked = ('- The work of this session is now on: staging in BestPractice '
-              '(you have finished step 3 of 5, Booked)\n')
+    # No ladder step labels: the Consider reading of a finished plan moved
+    # to the ladder set's own reply rules on 2026-10-31, tested there by its
+    # examples (practice: enforcement-lives-with-its-practice).
+    consider = '- The work of this session is now on: no branch yet\n'
+    booked = '- The work of this session is now on: staging in BestPractice\n'
     plan = 'Here is the plan: 1. add the check. 2. test it. 3. land it.'
     ask = ('- **Your next steps:** Do you want to act on this plan? Yes means '
            'I build the three steps and land them on staging, about 40 '
@@ -34425,9 +34426,10 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
              "(https://claude.ai/code/session_x); I start step 4 when it "
              'reports back, about 06:10 Buenos Aires time.\n')
     cases = [
-        ('a Consider reply that makes a plan and never asks is refused',
+        ('a plan said in the reply, with no plan file and no **Plan:** line, '
+         'is not read as finished off the ladder',
          kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
-               'you to do now.\n' + free) == ['plan_without_ask']),
+               'you to do now.\n' + free) == []),
         ('a turn that wrote a plan file and never asks is refused',
          kinds('Written up.', booked + '- **Your next steps:** read it.\n' + free,
                written=['/r/spec/NEW_PLAN.md']) == ['plan_without_ask']),
