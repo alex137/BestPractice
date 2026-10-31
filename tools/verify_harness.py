@@ -29122,6 +29122,17 @@ def check_precedent_check_fires():
 
         case('open-items-outside-todo', _plant_item_outside_todo)
 
+        # exported-files-received -- a sync that left a source's test behind
+        # because no practice in force claims it (2026-10-31).
+        def _plant_not_received(repo):
+            (repo / 'MANIFEST.json').write_text(json.dumps({
+                'practices': [], 'not_received': [
+                    'tools/checks/tests/test_planted.sh (a-set)']}), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a test the sync left behind')
+
+        case('exported-files-received', _plant_not_received)
+
         # manifest-entries-resolve -- an entry left naming a file a sweep
         # deleted (2026-10-01).
         def _plant_dead_manifest_entry(repo):
