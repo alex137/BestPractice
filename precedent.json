@@ -279,27 +279,33 @@
   "no_stale_counts_exempt": [
     {
       "path": "decisions",
-      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "evals",
-      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "gotchas",
-      "reason": "each trap's Story says what a session saw on its day; its counts are measurements, never a claim about today's catalogue"
+      "reason": "each trap's Story says what a session saw on its day; its counts are measurements, never a claim about today's catalogue",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "record",
-      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "spec",
-      "reason": "plans, briefs and run records; every count found here on 2026-10-30 was a dated measurement, never a claim about today's catalogue"
+      "reason": "plans, briefs and run records; every count found here on 2026-10-30 was a dated measurement, never a claim about today's catalogue",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "todo",
-      "reason": "an open item records what its finding measured when it was filed; the check already skips a closed one"
+      "reason": "an open item records what its finding measured when it was filed; the check already skips a closed one",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     }
   ],
   "filename_separator_exempt": [
