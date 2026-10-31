@@ -203,10 +203,26 @@ Run:
       -- the TEST WORTH section alone, after the session has judged the
       tests it listed: re-reads tools/test_verdicts.json and rewrites the
       test review block in the run's write-up. Nothing else runs.
+  python3 tools/very_deep_check.py --refresh-blocks
+      -- every block the run writes into its account (warnings, checks by
+      stage, set independence, test review, token budgets, long Rules),
+      rewritten and stamped with this time; no ledger row. Run it after the
+      run's last fix, before committing the account: the account check
+      refuses a block older than the run's last commit to tools/ or
+      practices/.
   python3 tools/very_deep_check.py --record-pass '2=done,findings=3,tokens=120000,note=...'
       -- record a hand-worked pass's outcome against the most recent run in
       the ledger, and exit. `findings`, `tokens` and `note` are each
       optional; an absent one is recorded as absent, never estimated.
+      For a run from 2026-11-01 on: STATUS is done, partial or not run;
+      partial and not run also carry `skipped=` (what was not done) and
+      `agreed=` (the person's words, quoted); a pass is refused until a
+      green `verify_harness.py --all --record-times` run has finished
+      since the run started and, for done or partial, since the pass
+      recorded before it; pass 1 is refused until the run has a consumer
+      entry, `consumer=PATH` (a consumer repository it checked) or
+      `consumer_declined=` (the person's words). Values may hold commas;
+      `note=` still runs to the end.
   python3 tools/very_deep_check.py --record-read 'tools/verify_harness.py,by=...,note=...'
       (note= comes last and runs to the end, commas included)
       -- record that somebody read that file END TO END today, in
@@ -8227,7 +8243,8 @@ class RunLedger:
         self._real_stdout = sys.stdout
         sys.stdout = _Tee(sys.stdout)
 
-    def end(self, findings=None, items=None, status=None, extra_seconds=0.0):
+    def end(self, findings=None, items=None, status=None, extra_seconds=0.0,
+            extra=None):
         """Close the open section.
 
         `findings` is the count of things a person has to act on. None is
@@ -8252,6 +8269,10 @@ class RunLedger:
             'seconds': round(time.monotonic() - self._open['started']
                              + (extra_seconds or 0.0), 2),
         }
+        # `extra`: what the account check later holds the account against
+        # -- the incidents this run listed, the tests it left to judge
+        # (Morgan, 2026-10-31: "How do we make sure future runs do it?").
+        row.update(extra or {})
         if status:
             row['status'] = status
         elif findings is None:
@@ -8386,7 +8407,7 @@ class RunLedger:
                 seen[name].append((run, row))
         print(f"  {'runs':>5}  {'found':>5}  {'tok/run':>8}  {'last found':>10}"
               f"  section", file=out)
-        quiet, unknown, gone = [], [], []
+        quiet, unknown, gone = quiet_sections(runs), [], []
         for name in order:
             rows = seen[name]
             ran = [r for _, r in rows if r.get('status') != 'skipped']
@@ -8407,10 +8428,6 @@ class RunLedger:
                   f"{last:>10}  {name}", file=out)
             if name not in {r['name'] for r in self.components}:
                 gone.append(name)
-            elif (len(ran) >= QUIET_RUNS_BEFORE_QUESTION and not with_find
-                    and not unk
-                    and any(r.get('kind') == 'mechanical' for _, r in rows)):
-                quiet.append((name, len(ran), avg))
             if len(unk) >= QUIET_RUNS_BEFORE_QUESTION:
                 unknown.append((name, len(unk)))
         # Usefulness is only half the question Morgan asked; the other half
@@ -8463,13 +8480,159 @@ class RunLedger:
         print(file=out)
 
 
+def quiet_sections(runs):
+    """-> [(name, runs it ran, average tokens)]: the sections the cross-run
+    read names as FOUND NOTHING, ACROSS EVERY RECORDED RUN, as of the last
+    run in `runs`. One function, so the printed read and the account check
+    (precedent_check.py --only very-deep-check) cannot disagree about which
+    sections the run owes an answer for."""
+    if len(runs) < 2:
+        return []
+    current = {r.get('name') for r in runs[-1].get('components', [])}
+    seen, order = {}, []
+    for run in runs:
+        for row in run.get('components', []):
+            name = row.get('name')
+            if name not in seen:
+                seen[name] = []
+                order.append(name)
+            seen[name].append(row)
+    out = []
+    for name in order:
+        rows = seen[name]
+        if name not in current:
+            continue
+        ran = [r for r in rows if r.get('status') != 'skipped']
+        if (len(ran) >= QUIET_RUNS_BEFORE_QUESTION
+                and not any((r.get('findings') or 0) > 0 for r in rows)
+                and not any(r.get('status') == 'unknown' for r in rows)
+                and any(r.get('kind') == 'mechanical' for r in rows)):
+            toks = [r.get('output_tokens', 0) for r in rows]
+            out.append((name, len(ran), int(sum(toks) / len(toks)) if toks else 0))
+    return out
+
+
+def unmeasured_sections(run):
+    """-> [name]: the sections of `run` that could not produce a count
+    (status 'unknown'). An unknown is never a quiet section, and the
+    account answers each one too (Morgan, 2026-10-31)."""
+    return [r.get('name') for r in run.get('components', [])
+            if r.get('status') == 'unknown']
+
+
+# THE GUARDS ON --record-pass (Morgan, 2026-10-31, strength: decided: "why
+# didnt this run do it? How do we make sure future runs do it?", then
+# "Update the very deep instructions so to fix this in the future"). The
+# 2026-10-30 run recorded every pass `partial` with nothing saying what was
+# skipped or who agreed; its step-2 suite failed a case, was fixed and never
+# re-run green, so question 27 had no fresh times; and no pass was followed
+# by a re-run. From a run dated RECORD_PASS_RULE_DATE on, a pass is
+# refused unless each of these holds. A run before it is recorded as before.
+RECORD_PASS_RULE_DATE = '2026-11-01'
+PASS_STATUSES = ('done', 'partial', 'not run')
+# Every key --record-pass reads. A value runs to the next `,key=`, so prose
+# may carry commas; `note=` runs to the end, as it always has.
+_PASS_KEYS = ('findings', 'tokens', 'skipped', 'agreed', 'consumer_declined',
+              'consumer', 'note')
+_PASS_SPLIT = re.compile(r',\s*(?=(?:' + '|'.join(_PASS_KEYS) + r')=)')
+STEP2_COMMAND = ("python3 tools/verify_harness.py --all --record-times "
+                 "--because 'very deep check, step 2'")
+GREEN_FULL_RUN_KEY = 'green_full_run'     # verify_harness.py writes it
+
+
+def _stamp(value, tz=None):
+    """-> an aware datetime for an ISO stamp or a bare date, else None. A
+    stamp with no offset takes `tz` (else UTC)."""
+    try:
+        d = datetime.datetime.fromisoformat(str(value or '').strip())
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=tz or datetime.timezone.utc)
+    return d
+
+
+def _green_full_run(repo_root):
+    """-> (applies, stamp): whether `repo_root` runs a harness of its own,
+    and when its last green whole-suite `--all --record-times` run finished
+    (tools/harness_check_times.json's green_full_run), or None."""
+    root = pathlib.Path(repo_root)
+    if not (root / 'tools' / 'verify_harness.py').is_file():
+        return False, None
+    try:
+        rec = json.loads((root / 'tools' / 'harness_check_times.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return True, None
+    return True, (rec.get(GREEN_FULL_RUN_KEY) if isinstance(rec, dict) else None)
+
+
+def _unquote(s):
+    return str(s or '').strip().strip('"\'“”').strip()
+
+
+def _pass_refusals(name, status, fields, target, harness_root):
+    """-> [refusal text] for recording pass `name` with `status` against
+    `target`, a run dated RECORD_PASS_RULE_DATE or later."""
+    out = []
+    if status not in PASS_STATUSES:
+        out.append(f"very deep check FAIL: pass {name}'s status must be "
+                   f"{', '.join(PASS_STATUSES[:-1])} or {PASS_STATUSES[-1]}, "
+                   f"not {status!r}.")
+    if status in ('partial', 'not run') and not (
+            _unquote(fields.get('skipped')) and _unquote(fields.get('agreed'))):
+        out.append(f"very deep check FAIL: pass {name} is {status!r} and does "
+                   f"not say what was skipped and who agreed. A narrowed pass "
+                   f"is said up front and agreed by the person: add "
+                   f"skipped='<what this pass did not do>' and "
+                   f"agreed='<the person's words, quoted>' (practice: "
+                   f"very-deep-check, \"Saying the scope out loud\").")
+    if name == '1' and not (target.get('consumer') or fields.get('consumer')
+                            or _unquote(fields.get('consumer_declined'))
+                            or (pathlib.Path(harness_root) / 'tools'
+                                / 'ENGINE_MANIFEST.json').is_file()):
+        out.append("very deep check FAIL: pass 1 needs a real consumer "
+                   "repository, and this run has none on record. Ask the "
+                   "person for one before pass 1 (step 6), then record it "
+                   "with this pass: consumer=<path of the consumer checked>, "
+                   "or, if they decline, consumer_declined='<their words, "
+                   "quoted>'.")
+    elif name == '1' and fields.get('consumer'):
+        c = pathlib.Path(fields['consumer']).expanduser()
+        if not (c / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+            out.append(f"very deep check FAIL: consumer={fields['consumer']} "
+                       f"is not a consumer repository (no "
+                       f"tools/ENGINE_MANIFEST.json there). Name the clone of "
+                       f"the consumer this run checked.")
+    applies, green = _green_full_run(harness_root)
+    if applies:
+        start = _stamp(target.get('run_id')) or _stamp(target.get('date'))
+        since, what = start, 'this run started'
+        if status in ('done', 'partial'):
+            for p in target.get('passes') or []:
+                at = _stamp(p.get('recorded'))
+                if str(p.get('pass')) != name and at and (since is None or at > since):
+                    since, what = at, f"pass {p.get('pass')} was recorded"
+        g = _stamp(green)
+        if g is None or (since is not None and g < since):
+            out.append(f"very deep check FAIL: pass {name} cannot be recorded: "
+                       f"no green whole-suite run since {what} "
+                       f"({since.isoformat() if since else 'unknown'}); the "
+                       f"last green one finished {green or 'never'} "
+                       f"(tools/harness_check_times.json, {GREEN_FULL_RUN_KEY}). "
+                       f"Fix the failure, re-run `{STEP2_COMMAND}` until it is "
+                       f"green, then record the pass.")
+    return out
+
+
 def _record_pass(value, path=None, repo=None):
     """--record-pass: append a hand-worked pass's outcome to the last run.
 
     The four passes are where this check actually spends its time, and their
     cost is the session's own measurement -- so it is recorded when a session
     has it and left absent when it does not, never estimated here
-    (practice: no-invented-specifics).
+    (practice: no-invented-specifics). From a run dated
+    RECORD_PASS_RULE_DATE on, _pass_refusals() says what else it needs.
     """
     head, _, rest = value.partition('=')
     name = head.strip()
@@ -8479,14 +8642,13 @@ def _record_pass(value, path=None, repo=None):
               file=sys.stderr)
         return 1
     fields, note = {}, None
-    parts = rest.split(',')
     # `note=` takes the rest of the string verbatim, commas included -- it is
     # prose, and splitting it would truncate the one field a person wrote.
-    for i, part in enumerate(parts):
-        if part.strip().startswith('note='):
-            note = ','.join(parts[i:]).strip()[len('note='):].strip()
-            parts = parts[:i]
-            break
+    m = re.search(r'(?:^|,)\s*note=', rest)
+    if m:
+        note = rest[m.end():].strip()
+        rest = rest[:m.start()]
+    parts = _PASS_SPLIT.split(rest)
     status = parts[0].strip() if parts else ''
     for part in parts[1:]:
         k, _, v = part.partition('=')
@@ -8503,6 +8665,9 @@ def _record_pass(value, path=None, repo=None):
                   f"number, not {raw!r}.", file=sys.stderr)
             return 1
         entry[key] = int(raw)
+    for key in ('skipped', 'agreed'):
+        if _unquote(fields.get(key)):
+            entry[key] = _unquote(fields[key])
     if note:
         entry['note'] = note
     path = pathlib.Path(path) if path is not None else ledger_path_for(repo)
@@ -8544,6 +8709,34 @@ def _record_pass(value, path=None, repo=None):
     # entry beside the first, so the run carried two answers for one pass
     # and every reader took whichever it met first. The newer one replaces
     # the older, in place.
+    if str(target.get('date') or '') >= RECORD_PASS_RULE_DATE:
+        if repo:
+            harness_root = pathlib.Path(repo)
+        elif path.resolve().parent.name == 'record':
+            harness_root = path.resolve().parent.parent
+        else:
+            harness_root = path.resolve().parent
+        refusals = _pass_refusals(name, status, fields, target, harness_root)
+        if refusals:
+            for r in refusals:
+                print(r, file=sys.stderr)
+            print(f"  nothing recorded: pass {name} stays as it was in {path}.",
+                  file=sys.stderr)
+            return 1
+        _, green = _green_full_run(harness_root)
+        if green:
+            entry['suite_green'] = green
+        if name == '1' and not target.get('consumer'):
+            if fields.get('consumer'):
+                # Whether, never which: the ledger is tracked, and a
+                # consumer is often private (practice: private-repo-scrub).
+                target['consumer'] = {'checked': entry['recorded']}
+            elif _unquote(fields.get('consumer_declined')):
+                target['consumer'] = {
+                    'declined': _unquote(fields['consumer_declined']),
+                    'recorded': entry['recorded']}
+            else:
+                target['consumer'] = {'run_in_a_consumer': entry['recorded']}
     passes = target.setdefault('passes', [])
     same = [i for i, p in enumerate(passes) if str(p.get('pass')) == name]
     if same:
@@ -9102,6 +9295,9 @@ def _write_warnings_block(repo_root, markdown):
                             markdown, 'refresh with --refresh-warnings')
 
 
+RUN_BLOCK_STAMP = '<!--vdc-measured: '
+
+
 def _write_run_block(repo_root, embed, heading, section, markdown, how=''):
     """Rewrite the `embed` block in the run's write-up, appending a
     `## <heading>` section that carries it when the write-up has none: the
@@ -9111,6 +9307,12 @@ def _write_run_block(repo_root, embed, heading, section, markdown, how=''):
     path = _warnings_doc_path(repo_root)
     if path is None:
         return None
+    # STAMPED WITH WHEN IT WAS MEASURED (2026-10-31). The 2026-10-30 run's
+    # account still showed blocks measured before the run's last fixes; the
+    # account check compares this stamp with the run's last commit to
+    # tools/ or practices/ (precedent_check.py --only very-deep-check).
+    markdown = (f'{RUN_BLOCK_STAMP}{precedent_time.stamp_iso(repo_root)} -->\n'
+                + markdown)
     text = path.read_text(encoding='utf-8')
     pattern = _vdc_embed_re(embed)
     if pattern.search(text):
@@ -9499,10 +9701,11 @@ def _test_targets(repo_root, user_config=None):
     return out
 
 
-def test_worth_section(targets, repo_root):
+def test_worth_section(targets, repo_root, by_repo=None):
     """Print TEST WORTH for every repository in `targets` [(name, path)],
     write its block into the run's write-up, and -> the number of tests
-    still to judge."""
+    still to judge. `by_repo`, a dict, is filled with that number per
+    repository, for the ledger."""
     import test_review as tr
     results = []
     today = precedent_time.today(repo_root)
@@ -9526,6 +9729,8 @@ def test_worth_section(targets, repo_root):
         print()
         results.append((name, r))
     n = sum(len(tr.to_judge(r)) for _n, r in results)
+    if by_repo is not None:
+        by_repo.update({name: len(tr.to_judge(r)) for name, r in results})
     if n:
         print(f'  {n} test(s) to judge in this pass, slowest first: keep (with '
               f'its importance), cheapen, or retire -- recorded in that '
@@ -10034,7 +10239,8 @@ BOOLEAN_FLAGS = ('--json', '--allow-missing-sources', '--skip-branch-scan',
                  '--checklist', '--with-harness', '--skip-visibility',
                  '--skip-liveness', '--landable-only', '--skip-endgame-merge',
                  '--skip-base-drift', '--skip-session-sweep', '--allow-stale',
-                 '--freshen', '--refresh-warnings', '--refresh-tests', '--help',
+                 '--freshen', '--refresh-warnings', '--refresh-tests',
+                 '--refresh-blocks', '--help',
                  '-h')
 
 
@@ -10149,6 +10355,23 @@ def _main(box):
         # this checkout, rewriting the write-up's block.
         root = pathlib.Path(repo or ROOT).resolve()
         test_worth_section(_test_targets(root, user_config), root)
+        return 0
+    if '--refresh-blocks' in args:
+        # THE LAST STEP BEFORE THE ACCOUNT IS COMMITTED (2026-10-31). The
+        # 2026-10-30 run's account still showed blocks measured before its
+        # own fixes, hours earlier; a whole re-run would add a ledger row
+        # and leave the passes on the older one. This rewrites every block
+        # the run writes, stamped, and adds no row.
+        root = pathlib.Path(repo or ROOT).resolve()
+        targets = _test_targets(root, user_config)
+        warnings_section(root, refresh=True)
+        checks_by_stage_section(targets, root)
+        set_independence_section(root)
+        test_worth_section(targets, root)
+        token_budgets_section(targets, root)
+        longest_rules_section(enumerate_scope(root, user_config)['sources'], root)
+        print('\nrefreshed: every block in the run\'s account, stamped with '
+              'this time. Commit the account.')
         return 0
 
     if '--emit' in args:
@@ -11402,7 +11625,9 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_ic_rows) if not _ic_note else None,
-                findings=_ic_findings if not _ic_note else None)
+                findings=_ic_findings if not _ic_note else None,
+                extra={'listed': [r[1] for r in _ic_rows]} if not _ic_note
+                else None)
         led.start('FIX SWEEP -- new detectors, run everywhere')
 
     print("FIX SWEEP -- every detector added since the last run, against "
@@ -11780,10 +12005,11 @@ def _main(box):
 
     print("TEST WORTH -- does every test still test something in use, and is "
           "it worth its time for how much it matters\n")
-    _tw_open = test_worth_section(_orph_targets, repo_root)
+    _tw_by_repo = {}
+    _tw_open = test_worth_section(_orph_targets, repo_root, by_repo=_tw_by_repo)
     print()
     if led:
-        led.end(findings=_tw_open)
+        led.end(findings=_tw_open, extra={'to_judge': _tw_by_repo})
         led.start('CROSS-REPO LINKS')
 
     print("CROSS-REPO LINKS -- do absolute github.com links into a repo "

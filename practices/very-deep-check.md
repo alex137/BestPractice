@@ -152,6 +152,10 @@ saying so, rather than being silently dropped.
    refused while it still describes an earlier run ("The run's full
    account").
 
+**Nor is a run done while a required item is skipped without the person's
+words**: `--record-pass` and `precedent_check.py --only very-deep-check`
+refuse it ("Running the check with helpers").
+
 **After work that invites drift** (a batch of practices added or
 reordered, a practice that changed shape, an install into a new repo, a
 merge that resolved conflicts across several shared files), **propose one;
@@ -199,7 +203,15 @@ cannot tell a drift this run introduced from one that was there before. So:
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
-   `0 violated` is the starting line, not the finish.
+   `0 violated` is the starting line, not the finish. **Repeat the run until
+   it is green, before any pass**: fixing the failing case is not the same
+   as a green run, and only a green
+   `verify_harness.py --all --record-times --because 'very deep check, step 2'`
+   records the day's times question 27 judges by and stamps
+   `green_full_run` in
+   [tools/harness_check_times.json](https://github.com/alex137/BestPractice/blob/staging/tools/harness_check_times.json).
+   From a run dated 2026-11-01 on, `--record-pass` refuses a pass until
+   that stamp is later than the run's start.
 
    **`verify_harness.py --all` here, not the bare command every other gate
    runs.** The push gate runs a 10% rotation of the planted cases per
@@ -251,9 +263,16 @@ cannot tell a drift this run introduced from one that was there before. So:
    question still leaves time to work around it. Asked at the end it is not
    a question, it is a postponement. One sentence: name what it is for
    (updating its vendored tree to current and running its own gates), and
-   carry on with everything else while it is outstanding.
+   carry on with everything else while it is outstanding. Pass 1 is
+   recorded with the answer: `consumer=<path>` for the consumer it checked,
+   or `consumer_declined='<their words>'`; from 2026-11-01, `--record-pass
+   1=...` refuses without one, unless the run is in a consumer.
 7. **Then the passes, 1 through 4**, each ending with the suite from step 2
-   re-run — the fixes a pass makes break links of their own. Whenever a
+   re-run — the fixes a pass makes break links of their own. The
+   coordinating session runs it, green, between one pass's fixes and the
+   next pass's recording: from 2026-11-01, `--record-pass N=done` or
+   `partial` refuses unless a green whole-suite run finished after the pass
+   recorded before it. Whenever a
    pass turns up a gap, check it against step 4's inventory **before**
    writing it up: if a branch already fixes it, the finding is "this is
    written and unlanded", which is a different problem with a different
@@ -263,10 +282,32 @@ cannot tell a drift this run introduced from one that was there before. So:
    puts the expensive half's outcome and cost beside the tool's own
    sections; the cross-run read printed at the end of every run is then
    about the whole check rather than about its cheap half. Answer whatever
-   it names as quiet — keep, cheapen, or retire — in the same run, in
-   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md). A
-   section left on that list across runs with no answer written down is the
-   drift this step exists to stop.
+   it names as quiet — keep, cheapen, or retire — and every section it
+   could not measure, in the same run, under `### Quiet sections, answered`
+   in
+   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
+   or the account, naming this run's date. A section left on that list
+   across runs with no answer written down is the drift this step exists to
+   stop, and an answer copied from the run before is the same drift: from
+   2026-11-01 the account check refuses one that does not name this run's
+   date and every section the ledger names for it. A pass recorded
+   `partial` or `not run` says what it skipped and who agreed:
+   `skipped='<what>'` and `agreed='<the person's words>'`, refused without
+   either; the status is `done`, `partial` or `not run`, nothing else.
+9. **Last, refresh the account's blocks and check it.**
+   `python3 tools/very_deep_check.py --refresh-blocks` rewrites every block
+   the run writes into its account, stamped, after the run's last fix; then
+   `python3 tools/precedent_check.py --only very-deep-check` must pass
+   before the run is reported. From 2026-11-01 it refuses an account whose
+   warnings, checks-by-stage, set-independence or test-review block predates
+   the run's last commit to `tools/` or `practices/`, whose `## Pass 2`
+   leaves out a question number (each one listed: answered, partly or not
+   attempted), whose `## Test review` still shows tests to judge or times
+   from before the run, whose `## Incidents` lacks a verdict line for an
+   incident INCIDENT COVERAGE listed, or whose run left
+   [record/automated_actions.md](https://github.com/alex137/BestPractice/blob/staging/record/automated_actions.md)
+   neither rewritten nor `Confirmed unchanged on <date>.` A section skipped with the person's agreement carries a line
+   opening `Skipped with the person's words:` that quotes them.
 
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
@@ -2464,6 +2505,29 @@ where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
 not run is recorded as not run, with the reason.
 
+#### Running the check with helpers
+**The coordinating session owns every whole-suite run** — step 2, the
+re-run after each pass, and the timing question 27 judges by — and runs
+them itself, between waves of helpers; a helper never runs `--all`, so a
+helper that owns a question needing it reports back, and **a helper's
+"blocked" is the coordinator's to clear before anything is recorded**:
+run what it was blocked on, then answer the question or record it with
+the person's words. **Anything a helper returns for the account** —
+verdict tables, ready-to-paste sections — **is committed into the account
+before any scratch file is cleared**; on 2026-10-30, 62 incident verdicts
+and four ready sections were lost with one. Branch verdict reasons go into
+the committed run record, not only the private review page, with a
+private set named only in general terms in a public repo.
+
+**What the account check refuses**, from a run dated 2026-11-01 on, is
+listed under step 9 of the order of operations; `--record-pass` refuses a
+pass without a green whole-suite run since the run started (and, for
+`done` or `partial`, since the pass before), a `partial` or `not run`
+without `skipped=` and `agreed=`, and pass 1 without a consumer entry. A
+narrowed run is agreed before it starts ("Saying the scope out loud"); the
+person's words then go in the record, quoted, where the skipped item
+would be.
+
 #### The run's full account
 **Every run ends with its full account, written unasked.** When the last
 pass is recorded, the session rewrites the checked repo's own
@@ -3002,6 +3066,30 @@ committed catalogue moved here, above. Morgan, 2026-10-31 (strength:
 assented), on the 2026-10-30 very deep check's call 11: *"do your
 recommendations for all"*, after asking *"maybe we should do a cleanup of
 the long rules?"*
+
+**2026-10-31: the guards on a run's own record.** The 2026-10-30 run
+recorded every pass `partial` through `--record-pass`, with no list of what
+was skipped and no words from Morgan agreeing. Its step-2 suite failed one
+case; the case was fixed and the suite never re-run green, so question 27
+had no fresh times and was written up "Not judged this run". It handed its
+passes to helpers told never to run `--all`; the one owning question 27
+reported blocked, and the coordinator recorded that instead of clearing it.
+A helper's 62 incident verdicts and four ready-to-paste sections were
+written to a scratch file that was deleted before they reached the account.
+Nobody read the component ledger: the quiet-sections answer was the
+2026-10-17 run's, copied. No pass was followed by a re-run of the suite, the
+account's generated blocks still showed bugs fixed hours before, no consumer
+was asked for, and Pass 2's questions were summarised as ranges. An audit
+of the run against every instruction found that the account check looked
+only at the account's date and headings, and that the ledger took any
+status typed. Morgan asked *"why didnt this run do it? How do we make sure
+future runs do it?"*, then *"Update the very deep instructions so to fix
+this in the future"* (strength: decided). Each gap is now refused, for runs
+dated 2026-11-01 on: `--record-pass` by a green whole-suite run, by
+`skipped=` and `agreed=` and by a consumer entry; the account check by
+question 27, question 20, the quiet and unmeasured sections, the Pass 2
+question list, the schedules inventory and the blocks' stamps. Steps 2, 6,
+7, 8 and 9 above and "Running the check with helpers" say so.
 
 
 ### Approval history
