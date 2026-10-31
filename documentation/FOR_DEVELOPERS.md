@@ -66,10 +66,13 @@ is spelled out in full at the link:
    plain documents) are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
-3. **Ask the two questions only a person can answer** — which private
-   names and code words must never reach a public file (this becomes the
-   leak blocklist), and whether the team or the person already has a
-   practices repo to wire in.
+3. **Ask the five questions only a person can answer**, listed with their
+   defaults in
+   [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md):
+   what the project is about; which private names and code words must
+   never reach a public file (this becomes the leak blocklist); whether the
+   team or the person already has a practices repo to wire in; which AI
+   assistant will work in the repo; and whether its GitHub workflows are on.
 4. **Write the manifest** ([INSTALL.md §5](../INSTALL.md#5-the-manifest-schema-processmanifestjson))
    and **run the audit** ([§6](../INSTALL.md#6-the-audit-toolspractice_auditpy)).
 5. **Commit on a branch and open a pull request.** Nothing is official
