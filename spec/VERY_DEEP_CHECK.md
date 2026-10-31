@@ -67,6 +67,13 @@ and `tools/precedent_review_page.py`.
 
 ## Current run
 
+**2026-10-30 run, in progress** (on the phrase, BestPractice and its three
+sets; branch `2026-10-30-themorgan-very-deep-check-hv5gd-0247k`). Steps 1-5
+done: every repo current, the tool run, the full harness run (one failure,
+fixed in a1c59fe7), unlanded work and live sessions read. The four passes
+are split across seven helpers on branches of their own. Until this run's
+account replaces the text below, the text below is the 2026-10-17 run's.
+
 **The full account of this run, pass by pass: [VERY_DEEP_CHECK_LATEST_RUN.md](VERY_DEEP_CHECK_LATEST_RUN.md).**
 What is left: [todo-2026-10-17-very-deep-check-findings](../todo/todo-2026-10-17-very-deep-check-findings.md).
 
