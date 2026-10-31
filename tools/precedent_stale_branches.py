@@ -184,6 +184,7 @@ import subprocess
 import sys
 # finished typography on every HTML page (finish_html.py; practice: curly-quotes)
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from precedent_repo_id import same_repo  # noqa: E402 -- practice: upstream-fix
 try:
     from finish_html import finish as finish_html
 except ImportError:     # a copy of this file without the engine beside it
@@ -275,7 +276,7 @@ def _github_spelling(slug):
     headed the repository in lowercase (2026-10-17). Only an all-lowercase
     spelling is asked about: any capital means someone typed it on purpose."""
     owner, name = slug
-    if f'{owner}/{name}' != f'{owner}/{name}'.lower():
+    if any(ch.isupper() for ch in f'{owner}/{name}'):
         return slug
     gh = _github()
     if gh is None:
@@ -286,7 +287,7 @@ def _github_spelling(slug):
         return slug
     full = data.get('full_name') if not err and isinstance(data, dict) else None
     if (isinstance(full, str) and full.count('/') == 1
-            and full.casefold() == f'{owner}/{name}'.casefold()):
+            and same_repo(full, f'{owner}/{name}')):
         return tuple(full.split('/'))
     return slug
 

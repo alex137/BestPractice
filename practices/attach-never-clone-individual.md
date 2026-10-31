@@ -37,6 +37,12 @@ approved_by: "Morgan, 2026-09-25, in a handoff relayed from a consumer repo's
 - **Two trees already on disk** are reported and left alone by the
   bootstrap: carry any work out of one into the other, remove the emptied
   one, and re-run the bootstrap.
+- **One attach per repository, in its declared spelling, and no root.**
+  Pass `add_repo` the owner and name as `precedent.json` or session start's
+  printed call spells them, and clone that same URL, even when the reply
+  answers in lowercase. **Never call `register_repo_root` for a practice
+  source**, though the reply says to: the engine reads the set from disk,
+  and registering only adds a second approval ("One spelling, no root").
 
 **A shared set lives at the path `python3 tools/precedent_resolve.py
 --declared-paths` prints for it** ("Shared sets in full"). If a working
@@ -94,6 +100,25 @@ Update Vendors removes it from `precedent.json`. Session start says so in a
 one-line note; it is not a missing source (2026-10-09, after a consumer's
 session read the old "did not resolve" message as a clone failure and cloned
 one by hand).
+
+### One spelling, no root
+**Measured 2026-10-31.** `add_repo` for `owner/SomeSet` answers
+`owner/someset added`, with a lowercase clone URL and a lowercase name for
+`register_repo_root`. The platform still treats the spellings as one
+repository: a second `add_repo` under the other spelling answers "already
+attached", and `register_repo_root` takes either. A clone of the
+capitalized URL works. So the lowercase answer is cosmetic, and following
+it only puts a second spelling into files and prompts; the declared one is
+what a session uses, and what Precedent writes
+([`tools/precedent_repo_id.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_repo_id.py), whose `same_repo` is how every tool here
+compares two repository names).
+
+A consumer session that night was asked to approve one source twice. The
+two calls it made per source were `add_repo` and `register_repo_root`, so
+the likelier cause is two tools each confirming, not the spelling.
+`register_repo_root` exists to load a repository's own instructions,
+skills and plugins as a place to work; a practice source needs none of
+that, so skipping it costs nothing and saves a prompt.
 
 ### The permission rules in full
 **None of this stops for a permission prompt** (2026-10-27). The settings

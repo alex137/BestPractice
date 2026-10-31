@@ -105,6 +105,16 @@ def read_manifest(root):
     return _read_json(f)
 
 
+def _on_record(url, src):
+    """-> `url` as the source's declaration in precedent.json spells it,
+    when the two name one repository: a manifest written from a lowercase
+    clone's origin must not print a second spelling of a declared source
+    (Morgan, 2026-10-31: the official spelling, wherever a repository is
+    named)."""
+    from precedent_repo_id import declared_spelling
+    return declared_spelling(url, declared=[src.get('repo')] if src.get('repo') else [])
+
+
 def upstream_tip(repo_url, branch, clone=None):
     """-> the commit `branch` names at `repo_url`, or None.
 
@@ -114,10 +124,16 @@ def upstream_tip(repo_url, branch, clone=None):
     from anywhere else fails ("could not read Username ... terminal
     prompts disabled"), and every session printed NOT VERIFIED for a
     source it could have read (2026-09-30). The bare URL only when there
-    is no such clone."""
+    is no such clone.
+
+    The origin is matched through precedent_repo_id, never letter for
+    letter: add_repo hands out lowercase clone URLs, so a clone of a
+    declared .../SomeSet has origin .../someset, and `==`
+    sent it to the bare URL and NOT VERIFIED again (2026-10-31)."""
     if clone:
+        from precedent_repo_id import same_repo
         rc, origin = _git('remote', 'get-url', 'origin', cwd=clone)
-        if rc == 0 and origin and origin == repo_url:
+        if rc == 0 and origin and same_repo(origin, repo_url):
             rc, out = _git('ls-remote', 'origin', f'refs/heads/{branch}', cwd=clone)
             if rc == 0 and out:
                 return out.split()[0]
@@ -355,7 +371,8 @@ def collect_targets(root='.'):
                 rows.append({'label': label, 'kind': 'vendored', 'problem': why})
             elif up.get('repo') and up.get('branch') and up.get('commit'):
                 rows.append({'label': label, 'kind': 'vendored',
-                             'url': up['repo'], 'branch': up['branch'],
+                             'url': _on_record(up['repo'], src),
+                             'branch': up['branch'],
                              'recorded': up['commit']}
                             | ({'hold': src['hold']} if src.get('hold') else {}))
             else:
@@ -495,7 +512,7 @@ def vendored_entries(root='.'):
         m, _ = _read_json(mp) if mp.is_file() else (None, None)
         up = (m or {}).get('upstream') if isinstance(m, dict) else None
         if isinstance(up, dict) and up.get('repo'):
-            url, branch = up['repo'], up.get('branch')
+            url, branch = _on_record(up['repo'], src), up.get('branch')
         elif (p / CATALOGUE_SYNC).is_file():
             url, branch = eng_url, eng_branch
         seen.add(local)

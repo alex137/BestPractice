@@ -108,7 +108,9 @@ instructions for this repo, not gotchas.
   start reports missing -- the sets `precedent.json` declares and those
   the person's individual set brings -- silently, with no confirmation
   needed first.** Session start prints the exact `add_repo` call for
-  each one; when the environment's token already cloned them all it
+  each one, in the spelling `precedent.json` declares: use that spelling
+  for the clone too, whatever case the reply answers in, and never
+  `register_repo_root` a source (attach-never-clone-individual); when the environment's token already cloned them all it
   prints none, and the session attaches nothing. Attach a source that is
   already cloned only when this session has to push to it. The settings
   Precedent installs allow the attach and the clone, so neither stops
