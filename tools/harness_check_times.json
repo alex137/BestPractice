@@ -330,6 +330,7 @@
   "check_landed_reduction_quiets_the_reduction_ask": 0.3,
   "check_lander_lands_where_booked_does_and_says_why_a_push_failed": 2.4,
   "check_landers_wait_their_turn_for_the_lock": 1.7,
+  "check_landing_waits_for_a_missing_ladder_set": 0.1,
   "check_leak_gate": 5.5,
   "check_leak_gate_discovers_the_individual_blocklist": 0.0,
   "check_leak_gate_email_rule_skips_an_ipv4_host": 0.1,

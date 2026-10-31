@@ -56,6 +56,28 @@ def ladder_sources(repo=None, user_config=None):
     """-> [(name, path)] for every source here that provides the ladder and
     is on disk: the shared sets the repository declares, and the sets the
     person brings. Ignores PRECEDENT_NO_LADDERS; ladder_in_force applies it."""
+    return _scan(repo, user_config)[0]
+
+
+def ladder_unreadable(repo=None, user_config=None):
+    """-> [(name, path)] for every set declared or brought here that is NOT
+    on disk, when no set that is on disk provides the ladder: whether the
+    ladder is in force cannot be read until they arrive. Empty when the
+    ladder is found, or when every candidate is here.
+
+    Why (2026-10-30 very deep check): `precedent_branches.py --landing`
+    printed `main` in a session whose person brings the ladder set, because
+    that set had not been cloned yet, and `staging` once it had. A set that
+    is missing reads exactly like a set that does not provide the ladder,
+    so a person on the ladder was told their work lands on main -- the one
+    wrong answer that skips staging."""
+    found, missing = _scan(repo, user_config)
+    return [] if found else missing
+
+
+def _scan(repo=None, user_config=None):
+    """-> (providing, missing): the candidate sets that provide the ladder
+    and are on disk, and the candidates that are not on disk at all."""
     root = pathlib.Path(repo or ROOT).resolve()
     candidates = []
     try:
@@ -73,20 +95,25 @@ def ladder_sources(repo=None, user_config=None):
     if isinstance(ind, dict) and ind.get('path'):
         for b in pr.brought_sources(ind['path'], warn=False):
             candidates.append((b['name'], pathlib.Path(b['path'])))
-    out, seen, named = [], set(), set()
+    out, seen, named, absent = [], set(), set(), []
     for name, path in candidates:
         real = pathlib.Path(path).resolve()
         # By name too: a set the repository declares (or copies in) wins
         # over the same set brought from a clone elsewhere, as in the
         # resolver.
-        if real in seen or (name and name in named) \
-                or not (real / 'practices').is_dir():
+        if real in seen or (name and name in named):
+            continue
+        if not (real / 'practices').is_dir():
+            absent.append((name, str(real)))
             continue
         seen.add(real)
         named.add(name)
         if pr.LADDER_CAPABILITY in pr.source_provides(real):
             out.append((name, str(real)))
-    return out
+    # A set missing at one path but present under its name at another is
+    # not missing.
+    absent = [(n, p) for n, p in absent if not (n and n in named)]
+    return out, absent
 
 
 def ladder_in_force(repo=None, user_config=None):
@@ -125,6 +152,12 @@ def status_sentence(repo=None, user_config=None):
     if found:
         return ('The ladder is in force here, from '
                 + ', '.join(n for n, _p in found) + '.')
+    missing = ladder_unreadable(repo, user_config)
+    if missing:
+        return ('Whether the ladder is in force here cannot be read: '
+                + ', '.join(f'{n} (expected at {p})' for n, p in missing)
+                + ' is not on disk, and any of them may provide it. '
+                'Attach it, then ask again.')
     return 'The ladder is not in force here.'
 
 

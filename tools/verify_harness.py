@@ -83507,6 +83507,107 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
           not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_landing_waits_for_a_missing_ladder_set():
+    """A brought set that is not on disk yet does not read as "off the
+    ladder" (2026-10-30 very deep check: `precedent_branches.py --landing`
+    said main in a session whose person brings the ladder set, before the set
+    was cloned, and staging after -- the wrong answer being the one that
+    skips staging).
+
+    Fixture world, in a repository whose precedent.json declares staging:
+      1. the brought set is missing: --landing says staging, and why says the
+         ladder cannot be read and names the set; the ladder's own --status
+         says so too; the session check's landing row is not a pass;
+      2. control: the brought set is on disk and provides nothing -- main,
+         as for anyone off the ladder;
+      3. the brought set is on disk and provides the ladder -- staging;
+      4. PRECEDENT_NO_LADDERS with the set missing -- main, never a guess."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='landing-missing-set-'))
+    cases = []
+    try:
+        home = tmp / 'home'
+        ind = home / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'precedent-individual', 'level': 'individual',
+            'brings': [{'name': 'fixture-ladder',
+                        'repo_url': 'https://github.com/example/fixture-ladder'}]}),
+            encoding='utf-8')
+        cfg = tmp / 'cfg.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'sources': [],
+            'base_branch': 'staging', 'landing_branch': 'staging'}),
+            encoding='utf-8')
+        import precedent_branches as pb
+        import precedent_ladder as pl
+        import precedent_session_check as psc
+
+        def landing(**extra):
+            saved = {k: os.environ.get(k) for k in (
+                'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS',
+                'PRECEDENT_USER_CONFIG')}
+            try:              # practice: fixture-owns-its-state
+                for k in saved:
+                    os.environ.pop(k, None)
+                os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+                os.environ.update(extra)
+                branch, why = pb.landing_branch(repo, user_config=str(cfg))
+                status = pl.status_sentence(repo, user_config=str(cfg))
+                old_root, psc.ROOT = psc.ROOT, repo
+                try:
+                    row = psc._landing_row()
+                finally:
+                    psc.ROOT = old_root
+                return branch, why, status, row
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+        out, why, status, row = landing()
+        cases.append(('the brought set is missing: staging, and why names the set and '
+                      'says the ladder cannot be read',
+                      out == 'staging' and 'cannot be read' in why
+                      and 'fixture-ladder' in why, f'{out!r} {why!r}'))
+        cases.append(('the ladder\'s --status says it cannot be read, naming the set',
+                      'cannot be read' in status and 'fixture-ladder' in status, status))
+        cases.append(('the session check\'s landing row is not a pass while it is a guess',
+                      row[1] is None, repr(row)))
+        out, why, _st, _row = landing(PRECEDENT_NO_LADDERS='1')
+        cases.append(('PRECEDENT_NO_LADDERS with the set missing: main, never a guess',
+                      out == 'main', f'{out!r} {why!r}'))
+        brought = home / 'fixture-ladder'
+        (brought / 'practices').mkdir(parents=True)
+        (brought / 'precedent-source.json').write_text(json.dumps({
+            'name': 'fixture-ladder', 'level': 'shared', 'visibility': 'public',
+            'subject': 'a fixture', 'code': []}), encoding='utf-8')
+        out, why, _st, row = landing()
+        cases.append(('control: on disk and providing nothing, main, as for anyone off '
+                      'the ladder, and the row is a pass',
+                      out == 'main' and 'cannot be read' not in why and row[1] is True,
+                      f'{out!r} {why!r} {row!r}'))
+        man = json.loads((brought / 'precedent-source.json').read_text(encoding='utf-8'))
+        man['provides'] = ['ladder']
+        (brought / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+        out, why, _st, _row = landing()
+        cases.append(('on disk and providing the ladder: staging, from the repository',
+                      out == 'staging' and 'cannot be read' not in why,
+                      f'{out!r} {why!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [c for c in cases if not c[1]]
+    check(f'a brought set not on disk yet leaves the landing branch on staging, '
+          f'never a guess of main ({len(cases)} stated cases)',
+          not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_ladder_opt_in_loader():
     """spec/LADDER_OPT_IN_PLAN.md steps 2-4, tested in a fixture world (never a
     real profile: a real one would carry private set text into the harness).
@@ -94387,6 +94488,7 @@ def main():
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
+    check_landing_waits_for_a_missing_ladder_set()
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
     check_moves_core_names_exist_in_the_engine()
