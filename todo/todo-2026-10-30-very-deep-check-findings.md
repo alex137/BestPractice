@@ -207,3 +207,40 @@ measured against the history-reading tools before any change; the file-header
 assumption stands. He also asked for the very deep check to review the
 longest quarter of every repo's Rules every run; it now does, and the first
 review ran the same day.
+
+2026-10-31, the incident verdicts (Pass 2, question 20) redone, because the
+run's first set was lost with a helper's scratch file: 62 incidents, 43
+covered, 14 judgment-only, 5 with a planted case owed. The table is under
+`## Incidents` in
+[VERY_DEEP_CHECK_LATEST_RUN.md](../spec/VERY_DEEP_CHECK_LATEST_RUN.md). The
+endgame merge rehearsal, listed above as owed, is planted now
+(`check_endgame_merge_finds_the_silent_drop` runs it with no global git
+identity), so that half of the "Planted cases owed" line is done. The five
+still owed, none written today because another helper held
+[tools/verify_harness.py](../tools/verify_harness.py) (needs: a session that
+owns the harness):
+
+- **`todo-2026-09-06-nine-practices-carry-an-empty-why`:** nothing refuses an
+  empty `## Why`. Spec: `practice-file-shape` treats an empty `## Why` as it
+  treats an empty `## Rule`, planted in `check_precedent_check_fires`.
+- **`todo-2026-09-06-upstream-only-registries-ride-along-in-vendored-engine-files`:**
+  only the doc_sync half is planted. Spec: in a fixture with
+  `tools/ENGINE_MANIFEST.json`, a vendored [model_audit.py](../tools/model_audit.py) with no
+  `tools/model_audit_host.json` audits nothing, and with one audits that list
+  and never names [tools/catalogue_stats.py](../tools/catalogue_stats.py).
+- **`todo-2026-09-14-no-history-checks-unpushed`:** the code says a test
+  asserts the no-history wording, and none exists. Spec: in a fresh `git init`
+  with a declared identity, [check_commit_author.py](../tools/check_commit_author.py) and
+  [check_commit_dates.py](../tools/check_commit_dates.py)
+  each exit 2 saying the repository has no commits yet, never a traceback or a
+  violation.
+- **`todo-2026-09-14-set-cannot-show-a-universal-practice`:** the show case
+  plants a consumer only. Spec: in a fixture set whose own `practices/` lacks
+  a universal slug, [precedent_show.py](../tools/precedent_show.py) with that slug prints its Rule
+  labelled universal.
+- **`gotcha-2026-10-27-a-citation-of-a-set-practice-passes-locally-and-fails-on-github`:**
+  two directions nothing plants. Spec: (a) `practice: <a set's slug>` in
+  `tools/`, with that set cloned beside the fixture, still fails
+  `code-cites-practice`; (b) a relative link to a file under `tools/ladder/`
+  that git does not track fails the light check locally, as it does on
+  GitHub's runner.
