@@ -8143,7 +8143,40 @@
           "status": "findings"
         }
       ],
-      "passes": [],
+      "passes": [
+        {
+          "pass": "1",
+          "status": "partial",
+          "recorded": "2026-10-31T02:12:25-03:00",
+          "findings": 11,
+          "tokens": 276250,
+          "note": "four rehearsals (guided install; update from 2026-10-16; migration steps 1-7; practice move); six fixed; no real consumer attached"
+        },
+        {
+          "pass": "2",
+          "status": "partial",
+          "recorded": "2026-10-31T02:12:26-03:00",
+          "findings": 15,
+          "tokens": 544260,
+          "note": "two helpers; answered 1-3 8 8a 18 20-22 24-26; partly 4-7 11 13 14 19; not attempted 8b 9 10 12 15-17 27"
+        },
+        {
+          "pass": "3",
+          "status": "partial",
+          "recorded": "2026-10-31T02:12:26-03:00",
+          "findings": 26,
+          "tokens": 581538,
+          "note": "two helpers; BestPractice docs about 60 percent; sets about two thirds; AGENTS.md read whole"
+        },
+        {
+          "pass": "4",
+          "status": "partial",
+          "recorded": "2026-10-31T02:12:26-03:00",
+          "findings": 9,
+          "tokens": 548981,
+          "note": "every branch judged (nine unlanded, all delete); 29 pairs judged (none merged); 24 unblocked items worked (2 closed 6 asked 16 left); 3 gotchas retired; whole-catalogue read not done"
+        }
+      ],
       "completed": true
     }
   ]

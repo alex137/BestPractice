@@ -1,193 +1,180 @@
 ---
-title:         Very Deep Check, 2026-10-17 — What It Found and What Was Done
+title:         Very Deep Check, 2026-10-30 — What It Found and What Was Done
 kind:          record
 status:        closed
-opened:        2026-10-17
-closed:        2026-10-17
+opened:        2026-10-30
+closed:        2026-10-31
 superseded_by: null
 supersedes:    []
 audience:      contributor
 summary:       "The full account of the most recent very deep check: what it read, what each pass found, what was fixed and where, and what is left for a person. The next run rewrites it; git history keeps this one."
 ---
-# Very Deep Check, 2026-10-17 — What It Found and What Was Done
+# Very Deep Check, 2026-10-30 — What It Found and What Was Done
 
 The full record of the latest run (the next run rewrites this file; git
 history keeps each earlier one). The ledger of every run is
 [VERY_DEEP_CHECK.md](VERY_DEEP_CHECK.md); this is the long form behind its
 "Current run" row.
 
-**Scope, as Morgan asked it:** "Very deep check for best practice then very
-deep check for each of the three practice sets attached". BestPractice was
-checked on `main` at 66e05b79, and each of the three sets it declares (the
-individual set, the ladder set, the writing set) was checked whole as a
-repository with an upstream, on its own `main`. All four passes, from 06:44 Buenos Aires time to about 08:45, with nine
-helpers working in parallel in scratch worktrees and the session merging
-their branches. Another session was running Update Vendors in the three sets
-throughout; this run left their vendored engine files alone.
+**Scope:** asked for on the phrase, so BestPractice and the three sets it
+declares (the individual set, the ladder set, the writing set). BestPractice
+was read on `staging` at 1f476e78, which is `main` (d8b68a02) plus one open
+item; each set on its own `main`. The session ran steps 1-5 itself, from
+22:12 Buenos Aires time, then split the four passes across seven helpers in
+worktrees of their own, from about 01:40 to about 03:15, and merged their
+branches. Another session was running Update Vendors in another repository
+throughout; it pushed nothing to these four.
 
 **Two things went wrong during the run, and they are part of the record.**
-A helper ran the deep check bare in its worktree, and the check pushed its
-pass receipt to the receipt branch on origin; nothing else reached origin
-from a helper. And the session pushed one set's branch once with a
-violation it had just introduced (the generated-files registry, below),
-fixed and re-pushed within minutes.
+The container's worker restarted twice in the first hour; nothing was lost,
+because every step had been pushed or was re-readable from disk, and the
+helpers were told to push after every commit for that reason. And two
+helpers fixed the same two faults from different sides (the ladder's words
+in universal's reply rules, and history counted by no-stale-counts); the
+session kept one fix of each and dropped the other, as each merge commit
+says.
 
 ## The Short Version
 
-- **The full harness passed on `main` before any change** (`--all`, 119 of
-  119 planted cases), and again on the finished branch (see the last
-  section).
-- **More than 150 findings across the four repositories, by the helpers'
-  own counts; about 60 fixed in the run**, each code fix with stated cases
-  that fail on the old code.
-- **The check found real faults in itself**: it spent 27 minutes on the
-  suite before refusing in seconds for a stale source, refused the detached
-  checkout a cloud session starts from, skipped two scans in any worktree,
-  and wrote a run record a set could not commit. All fixed.
-- **39 open items closed and 15 gotchas retired**, each on its own
-  condition.
-- **What is left**, with Morgan's calls first, is in
-  [todo-2026-10-17-very-deep-check-findings](../todo/todo-2026-10-17-very-deep-check-findings.md).
+- **The full harness was red on `main` before any change**: one case of 865,
+  a timing record still naming two tests deleted that morning. Fixed, and the
+  push check now refuses that leftover (a1c59fe7).
+- **About 65 findings across the four repositories, by the helpers' own
+  counts; about 40 fixed in the run**, each code fix with a planted case that
+  fails on the old code.
+- **A session without the ladder set on disk was told the wrong landing
+  branch** (`main`, skipping `staging`). Fixed at the cause (38ff2aa9).
+- **The check found faults in itself again**: its freshness gate refused the
+  branch its own practice tells a run to cut, its SECOND LISTS scan flagged a
+  file that cites practices one per test, its stage table printed "none" for
+  Produce, and it listed the `coord` board branch as unmeasurable work every
+  run. All fixed.
+- **Every pass is partial**, said here rather than rounded up; what was not
+  reached is named under each pass and in
+  [todo-2026-10-30-very-deep-check-findings](../todo/todo-2026-10-30-very-deep-check-findings.md),
+  with Morgan's calls first.
 
 ## Pass 1 — Can an Adopter Install, Update and Move Practices?
 
-Six rehearsals in scratch, each with an isolated home directory so no real
-set leaked in: the guided install (SETUP.md, as a non-technical
-administrator), the developer install (INSTALL.md section 0), a
-from-scratch install against `main` alone, an update from a 2026-10-01
-install, a migration from the classic layout, and practice moves in every
-direction the page offers. Every result's own checks came back clean in the
-end; the findings are about what it took to get there.
+Four rehearsals in scratch with a clean home directory and no `PRECEDENT_*`
+variables: the guided install from a fresh clone of `main`, an update of a
+consumer installed from `main` as of 2026-10-16, a migration from the
+classic layout (steps 1, 3 and 7), and a practice move from an individual set
+to a shared one. No real consumer was attached.
 
-Fixed:
+Fixed: a fresh install reported four code-owner practices as reachable by no
+channel (the check stopped one hop short of `tools/bootstrap.sh`); the
+installer's fill-in list named placeholders inside a generated block and an
+escaped pattern; Update Vendors listed every changed upstream practice as a
+file rewritten outside the vendored trees; a session start with
+`tools/bootstrap.sh` missing printed nothing locally and failed in the cloud;
+the developer guide's example still pointed at the retired
+`process/upstream`; and a new individual set's report never said its
+`identity.json` still held placeholders, so its first commit was refused.
+Commits ccce6f4c, 8051886a, 2b8c4706.
 
-- **The freshness guard wrote an origin with no URL into a repository that
-  had none**, so the install's own "give it an origin" step failed. Fixed
-  with a harness case.
-- **A sync took a set's uncommitted new practice file and pinned a commit
-  without it**, with `--check` green. Every practice move leaves exactly
-  that state. Untracked files under what a sync reads now count.
-- **Install documents brought in line with the installer**: three
-  workflows ship, not two; the leak gate's real trigger; ladder words out of
-  the guided install; the developer key described correctly; the migration
-  guide's five stale steps; the move guide's seven.
-- **The set skeletons' README and `.gitignore`** now describe what bootstrap
-  writes; a fresh shared set no longer fails its own check on a dead link.
-
-Found, not fixed (in the findings item): a person with no individual set
-never sees 28 practices; "notices and offers a rule" does nothing on a fresh
-install; the first local session rewrites global git identity; an update
-needs seven hand calls on untouched template text; and the move tool's
-mention fixer and approval line.
+Left: universal's `reply_check.json` reaches no installed repository (a call
+for Morgan); migration steps 8 and 9, the other move directions, and every
+harness other than Claude Code.
 
 ## Pass 2 — Do the Mechanisms Do What They Claim?
 
-All 24 questions answered or explicitly marked partly attempted. Fixed:
+Answered: questions 1, 2, 3, 8, 8a, 18, 20, 21, 22, 24, 25 and 26. Partly:
+4, 5, 6, 7, 11, 13, 14 and 19. Not attempted: 8b, 9, 10, 12, 15, 16, 17 and
+27.
 
-- **The commit-identity check's prevention half had silently stopped
-  running** wherever the hooks are stubs, since 2026-10-07: it looked for a
-  marker the stubs no longer carry and passed without trying anything.
-- **The contributor-boundary section called a set's boundary "on"** without
-  reading the setting.
-- **The very deep check, against itself**: `--with-harness` now waits for the
-  source freshness gate; a detached checkout carrying origin's base is
-  current; a local-only branch behind the base is told to bring the base
-  in, not to push; "unpushed" counts what no origin ref has; a linked
-  worktree is its own checkout; the warnings block links the exclusions
-  registry only where it exists; and the tool lists the record files it
-  writes in the checked repo's registry.
-- **A shared ignore list could expose a private file.** The list that keeps
-  a set's shipped tools out of git is shared by every worktree of a clone,
-  and a run in one worktree rewrote it with only its own ships; three tools,
-  one from a private repository, went back to untracked in the main
-  checkout. Found when they reappeared mid-run; fixed with a stated case.
-- **Four check descriptions, the shipped-class table and the push check's
-  own `--list` and `--help`** said what the code no longer does.
-- **Warnings judged for the first time**: dated records' unlinked references
-  excluded for good, one advisory until its own revisit date. Open groups
-  went from 2282 to about 2020; the rest are live documents to fix, not
-  exclude.
+Fixed:
 
-Found, not fixed: running the materialize tool directly publishes private
-practice text in a public consumer; a read-only check can empty the session
-file; a set's own hooks never run in a set; the deep check pushes a receipt
-and no document says so.
+- **The landing branch.** The ladder was read from sets on disk, so a set not
+  yet cloned looked like "off the ladder", and a session was told `main`. A
+  missing declared set now answers `staging` and names the set to attach
+  (38ff2aa9).
+- **The freshness gate** accepts a branch cut from `origin/main`, as the
+  practice says to cut one (20cd1dfa).
+- **SECOND LISTS** asks for names close together, not a file that mentions
+  most practices somewhere (cc18b26a); the section also went from about 76 s
+  to about 3.5 s.
+- **Universal's reply rules quoted the ladder's step labels**, which kept
+  `set-words-stay-in-their-set` red here. The labels are gone from the
+  examples, the Consider reading moved into the ladder set, and the reply
+  checker now merges a set's partial requirement key by key (b8e29c5a, with
+  the ladder's fab9724).
+- **The writing set's two checks** run against BestPractice: the dated-name
+  check now reads the untracked practice-hooks file the engine runs, and
+  no-stale-counts skips `kind: record` documents, Story sections and
+  frontmatter. BestPractice declares its record directories exempt, each
+  with a reason and a root fix.
+- **CHECKS BY STAGE** reads the moves tool a set supplies (f235db0e); a
+  set-independence test planted its own guard instead of reading the ladder's
+  file (a9273d86); the API budget's visibility audit skips names that occur
+  only in tests, about 54 calls fewer (ecfdb860); four gotchas gained their
+  Prevention answer and one its measured cause (59767bfe); an exclusion can
+  match on a file's own `status:` (7bcd9b1c).
+- **The branch sweep** treats `coord` and `result-cache` as machinery, never
+  as unlanded work (3d1df9b8).
 
 ## Pass 3 — Does the Writing Hold Together?
 
-The always-loaded files read against the rules they summarize, and
-[spec/LOADER.md](LOADER.md) read whole (782 lines, never recorded as read).
-Fixed: the deep check's tier described as before 2026-10-14; the resident
-cap given as 2,000 tokens in four live places; LOADER.md telling a set to
-run `--agents-only`; the TODO.md stub's two false sentences (the previous
-run believed the stub could not be changed; it can); Update All Vendors
-missing from the page on taking updates. AGENTS.md is at 5,554 of its 6,950
-ceiling and has grown about 57 tokens a day.
+BestPractice, about 60 percent: AGENTS.md read end to end (recorded in
+`record/holistic-reads.json`), the tool's link, moved-claim, currency and
+tier sections judged, and searches for retired names across every practice.
+Fixed: AGENTS.md stated the landing rule three times and the light check
+twice, and credited `--run-tests` to the wrong tool; three cross-repository
+links; the developer, shared-set and Actions guides; the vendor-update
+runbook's Rule naming three retired workflows; the document-project template
+still telling every session to attach every source; two branch practices
+pointing at a retired Boildown item; install-question counts; the practice
+format's examples. Commits 81fa8a0b to 90af940d.
+
+The sets, about two thirds: every Rule of the writing set's 19 and the
+ladder's 36 active practices, each set's AGENTS.md, and both mechanical
+sweeps in each. Fixed: TEMPLATE FRESHNESS no longer calls an optional
+`reply_check.json` a gap; PRACTICES.md's frozen count and its false
+"twenty"; the ladder's README, `promote` and source file brought up to the
+2026-10-19 move; the ladder README's headings; the individual set's
+`CLAUDE.md`; both shared sets' `.gitignore` taken to the template's shape.
 
 ## Pass 4 — Catalogue, Backlog, Branches
 
-- **Every open item and live gotcha read**, in BestPractice and each set:
-  39 items closed on their conditions, 15 gotchas retired, 10 items
-  ambiguous and asked (listed in the run record).
-- **One question settled by this run's own pushes**: one session holding
-  every private source can push to both owners, so the cross-owner item is
-  closed. The gotcha stays live: a clone that is not a session source still
-  cannot be pushed.
-- **Thirty practice pairs that read alike judged**: 29 kept, each with its
-  reason; one merge candidate for Morgan.
-- **Every branch judged.** Five unlanded branches recommended for deletion
-  (landed another way, superseded, or already decided: the July spec branch
-  Morgan said to close on 2026-10-11). Every other branch in the four
-  repositories is merged; the ones from the still-running Update Vendors
-  session wait until it ends.
-- **Automated actions**: the daily `deep-check.yml` schedule is the only
-  recurring job in force; one dead one-shot session reminder from September
-  is disabled and can be deleted.
-- The review page was published to Morgan privately, never committed.
-
-## The Three Sets
-
-Each set ran its own very deep check from its own clone, its own gates
-(full sweep 0 violated, check tests, leak gate), and the four passes applied
-to a set. Their run records, with each set's upstream findings and the
-band-aid question, are in their own `spec/VERY_DEEP_CHECK.md`.
-
-- **The individual set**: its install section told an adopter to copy a
-  script carrying the set's private clone URL; fixed. Its shared clone, like
-  the other two, carried stale shallow entries that refused the push check;
-  cleared per the 2026-09-28 gotcha after a reachability check.
-- **The ladder set**: the landing and branch checks above, the prompt-please
-  contradiction, and stale lock and stage names fixed.
-- **The writing set**: stale README, AGENTS.md and config text fixed; its
-  `create-word-doc` never reaches a session building a Word file.
+- **Branches:** every branch of every repository read. Nine carry unlanded
+  work and all nine should go, each with its reason on the review page; none
+  needs landing. Base-branch drift none; the endgame merge rehearsal clean,
+  on full clones.
+- **Catalogue:** the 29 pairs that read alike were judged and none merged;
+  most are the ladder's stage practices, each owning its own command. The
+  practices changed since 2026-10-17 were read in the writing set and in part
+  of the ladder set. Fixed: `install` still told a session to copy the
+  individual hook by hand; two ladder practices still said they lived in the
+  individual set.
+- **Backlog:** the 24 unblocked items worked: two closed on their own
+  conditions, six asked, sixteen left with a reason. Three gotchas retired on
+  their stated conditions; two incident entries answered.
 
 ## Morgan's Calls
 
-Asked in the run's reply; the list, each with the session's pick, opens
-[todo-2026-10-17-very-deep-check-findings](../todo/todo-2026-10-17-very-deep-check-findings.md):
-the ladder's two checks that never run, the ladder's prompt-please
-contradiction, deleting a retired set's repository, code-owner reach for a
-person with no individual set, vendoring `close_detect.json`, the global git
-identity on a local machine, the skeleton's CI default, the update that drops
-18 commands silently, the unlisted daily schedule, and whether this repo
-and the sets carry band-aids until their upstream findings land.
+Asked in the run's reply, each with the session's pick, at the top of
+[todo-2026-10-30-very-deep-check-findings](../todo/todo-2026-10-30-very-deep-check-findings.md):
+shipping universal's reply rules to adopters, re-approving three workflow
+files, the `spec/` count exemption, the session-start deepen, two items to
+close or park, the first person in the moved ladder practices, the ladder's
+hardcoded file header, the writing set's hook here, the set generator's
+first-run gap, splitting the four longest Rules, a one-time visibility probe,
+the old receipts branch, and a real consumer for Pass 1.
 
 ## What Is Left
 
-Everything not fixed, with where its fix lives, is in
-[todo-2026-10-17-very-deep-check-findings](../todo/todo-2026-10-17-very-deep-check-findings.md).
-Not run this time: a real consumer repository's update (none was attached;
-asked at the start, unanswered), the reproduction of every live gotcha, and
-a one-finding-at-a-time re-check of the earlier runs' composite items.
+Everything not fixed, with the reason, is in
+[todo-2026-10-30-very-deep-check-findings](../todo/todo-2026-10-30-very-deep-check-findings.md).
+The largest gap is the test review (question 27), which needs a whole-suite
+re-timing in a session of its own.
 
 ## The Harness, After the Fixes
 
-The whole harness ran again on the finished branch with `--all`. Three
-of its four parts passed (444, 194 and 185 cases). The fourth, every planted
-case of the enforced checks, failed on one: the very deep check's own
-"account owed" case read the real run ledger, whose last run had no passes
-recorded yet, so it could not fire in the middle of a real run. The case now
-plants its own ledger state, and all 119 planted cases pass.
+Not re-run whole: the helpers shared four cores, so each ran only its own
+cases by name. On the merged branch, every test the run added or changed
+passed by name, the whole practice-check sweep came back with 0
+violated, and the deep check passed. Each set's full sweep came back with 0
+violated on its merged branch.
 
 ## Warnings
 
