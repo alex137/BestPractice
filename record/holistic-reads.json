@@ -25,6 +25,12 @@
       "date": "2026-10-17",
       "by": "p3-coherence (very deep check)",
       "note": "read whole 2026-10-17; fixed the resident cap (registry, 1750), the --agents-only advice for sets, the deep check called unbuilt, the view sync never run on a consumer, a phase-1 count read as current, an old private set link; the v2-v5 eval history is sound but long"
+    },
+    {
+      "path": "AGENTS.md",
+      "date": "2026-10-31",
+      "by": "p3-coherence (very deep check)",
+      "note": "read whole 2026-10-31; the landing-branch rule was stated three times (cut to one), the light check twice, --run-tests named on the wrong tool, a fragment explaining what the loader carries cut, unanchored he in the command list made the person"
     }
   ]
 }

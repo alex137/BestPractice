@@ -283,6 +283,33 @@
       "reason": "each is named after the file it generates; those names are set by GitHub and by the leak gate, not here"
     }
   ],
+  "_no_stale_counts_exempt_comment": [
+    "Read by the shared writing set's no-stale-counts check, which runs",
+    "against this repository as a report. Declared 2026-10-31, after the very",
+    "deep check of 2026-10-30 found most remaining findings here in spec/, evals/",
+    "and decisions/, and a reading of each found none a claim about today's total:",
+    "a trial sort of 40, the 52 converted at phase 1, 7 of 8 claiming a check.",
+    "Today's totals are generated (MAP.md, the loader block), and those the",
+    "check still reads. Open todo/ items are left to fire, as the check means",
+    "them to: a measurement in an open item is reworded or closed with it."
+  ],
+  "no_stale_counts_exempt": [
+    {
+      "path": "spec",
+      "reason": "plans, briefs and audits: each count is that document's own measurement on its day, usually of a subset, never the live total",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
+    },
+    {
+      "path": "evals",
+      "reason": "evaluation runs: each count is what that run measured",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
+    },
+    {
+      "path": "decisions",
+      "reason": "dated decision records: a count is the figure the decision was made on",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
+    }
+  ],
   "_grandfathered_commit_shas_comment": [
     "Commits exempted from the shared check_session_trailer.py, which",
     "the very deep check runs against this repository from the",
@@ -814,20 +841,20 @@
   "_github_ci_approved_comment": "The person's approval of a workflow edit, pinned to the file's content (practice: ci-workflow-approved). In this repo the check judges only growth, and a failure-only step is not growth; recorded anyway, so the words behind the step that opens an issue when main's test fails sit beside the file they approved.",
   "github_ci_approved": {
     ".github/workflows/deep-check.yml": {
-      "sha256": "23f8fefe29cfeb807c3e55d34ad7c24917cf59da77b28a04cb8af81794121251",
-      "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue); Morgan, 2026-10-10: \"yes, build it and take it to main\" (a passed test pushes a git marker, refs/precedent/passed/<tree>, with contents: write on the job); Morgan, 2026-10-11: \"Both yml are fine and approved.\" (a passing run on main's head closes the main-test-failed issue, from both jobs, with issues: write on the already-tested job); Alex, 2026-10-12: \"Yes, go ahead with the change-scoped checks\" (a pull request and a push to main run only the checks the change reaches; a green whole-suite run into or on main records and publishes the reach ledger at refs/precedent/harness-reach; a merge landing while its pull request's run of the same files is still going waits on that run), \"yes on daily run\" and \"You may write the approval for the daily run\" (the whole suite once a day at 07:17 UTC, about 15 minutes) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added). Morgan, 2026-10-17: \"yes to both, and booked\" (a passing pull request into main closes the main-test-failed issue when main's head holds exactly the files that run tested; no CI work added)."
+      "sha256": "a8c05bb36759bdcc6f893c171de800b85809c3e34668e3ee0406f2135ba20cee",
+      "approved_by": "Morgan, 2026-10-09: \"Act on the ... plan\" (the plan's piece B, layer 2: a failed test on main opens a GitHub issue); Morgan, 2026-10-10: \"yes, build it and take it to main\" (a passed test pushes a git marker, refs/precedent/passed/<tree>, with contents: write on the job); Morgan, 2026-10-11: \"Both yml are fine and approved.\" (a passing run on main's head closes the main-test-failed issue, from both jobs, with issues: write on the already-tested job); Alex, 2026-10-12: \"Yes, go ahead with the change-scoped checks\" (a pull request and a push to main run only the checks the change reaches; a green whole-suite run into or on main records and publishes the reach ledger at refs/precedent/harness-reach; a merge landing while its pull request's run of the same files is still going waits on that run), \"yes on daily run\" and \"You may write the approval for the daily run\" (the whole suite once a day at 07:17 UTC, about 15 minutes) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added). Morgan, 2026-10-17: \"yes to both, and booked\" (a passing pull request into main closes the main-test-failed issue when main's head holds exactly the files that run tested; no CI work added). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content after the 2026-10-30 very deep check found it edited on 2026-10-29 (it names failing cases in the issue it opens; no CI work added)."
     },
     ".github/workflows/leak-gate.yml": {
       "sha256": "2991d1d89770774e1a4772fbd3549e8b8c67d6a1b27f55c1c08d411cbddbf898",
       "approved_by": "Morgan, 2026-10-11: \"Both yml are fine and approved.\" (the structural leak gate on each push to main, and by hand; a merge made on GitHub never passes the session's own push gate) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added)."
     },
     ".github/workflows/precedent-branch-cleanup.yml": {
-      "sha256": "5ccd72963a7c26a12bbe56a1e94a6d18c57c65567960a98b610982dc7cb6d84a",
-      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked)."
+      "sha256": "2c6dd036beb59b592f72a7f7741be4e300b2745e80d1f14811b1ef206291455c",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content after the 2026-10-30 very deep check found it edited on 2026-10-17 (a comment changed; no CI work added)."
     },
     "templates/github-actions/branch-cleanup.yml.template": {
-      "sha256": "5ccd72963a7c26a12bbe56a1e94a6d18c57c65567960a98b610982dc7cb6d84a",
-      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked)."
+      "sha256": "2c6dd036beb59b592f72a7f7741be4e300b2745e80d1f14811b1ef206291455c",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content with the workflow it installs (a comment changed on 2026-10-17; no CI work added)."
     }
   },
   "landing_branch": "staging",

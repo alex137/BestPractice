@@ -1195,7 +1195,11 @@ def _landing_row():
         branch, why = pb.landing_branch(ROOT)
     except Exception as e:                                   # noqa: BLE001
         return (name, None, f'could not be worked out: {e}')
-    return (name, True, f'{branch} -- {why}' if why else branch)
+    # A guess is not a pass: with a set missing, whether the ladder is in
+    # force -- and so whether this is staging or main -- cannot be read.
+    unread = getattr(pb, 'ladder_unreadable', lambda _r: [])(ROOT)
+    return (name, None if unread else True,
+            f'{branch} -- {why}' if why else branch)
 
 
 def _charge_brought_share(n):

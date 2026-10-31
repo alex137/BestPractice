@@ -38,6 +38,14 @@ set -euo pipefail
 # Vendors, while a bootstrap.sh the repo has edited is only reported and
 # never rewritten, so the two can arrive a release apart.
 bootstrap="${CLAUDE_PROJECT_DIR:-.}/tools/bootstrap.sh"
+# No bootstrap.sh at all is a repo the engine reached without its install
+# step -- a classic install mid-migration, before step 8 instantiates it.
+# Until 2026-10-31 that was silence locally and a failed exec in the cloud;
+# a session start that did nothing has to say so (very deep check pass 1).
+if [ ! -f "$bootstrap" ]; then
+  echo "NOTE: tools/bootstrap.sh is not here, so this session start did nothing -- no session practices file, no commit identity, no freshness check. Instantiate it from Precedent's templates/bootstrap.sh (a migration's step 8 does: spec/MIGRATING_EXISTING_INSTALLS.md)." >&2
+  exit 0
+fi
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   export PRECEDENT_LOCAL_SESSION=1
   if ! grep -q 'PRECEDENT_LOCAL_SESSION' "$bootstrap" 2>/dev/null; then

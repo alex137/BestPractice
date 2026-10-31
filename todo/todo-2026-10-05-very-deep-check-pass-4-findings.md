@@ -81,3 +81,8 @@ recorded here as declined.
 ## Notes
 
 2026-10-17, very deep check pass 4 (still live, narrowed): moot or done: the folded sets were retired together and deleted, the ladder's merge-takes-vendor-update branch is gone. Left: claude/upstream-bug-fix-review-ltbiy8 still on origin with no verdict, issue #394 (Alex), and no ruleset protecting main/staging.
+2026-10-31, very deep check of 2026-10-30, pass 4 (still live): GitHub's API shows
+no ruleset on alex137/BestPractice, themorgan/precedent-shared-ladder or
+themorgan/precedent-shared-writing, and `main` and `staging` in
+BestPractice both report `protected: false`. The branch verdict on
+`claude/upstream-bug-fix-review-ltbiy8` belongs to this run's branch half.

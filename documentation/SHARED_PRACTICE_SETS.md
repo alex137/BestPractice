@@ -1,4 +1,4 @@
-<!-- Last updated: 2026-09-21 (Buenos Aires), first version -->
+<!-- Last updated: 2026-10-31 (Buenos Aires), a set runs no CI; what every session reads is the resident practices and the index -->
 
 # Shared Practice Sets
 
@@ -50,8 +50,10 @@ python3 tools/precedent_bootstrap_source.py \
 ```
 
 That gives you a real, working set: the practice format, a vendored engine
-that can check itself, its own CI workflow, and the manifest that keeps it
-refreshable. It does **not** create the GitHub repository — that stays a
+that can check itself, and the manifest that keeps it refreshable. It
+carries no GitHub workflow: its checks run in the session before each push
+(a public set gets one exception, the branch cleanup button; see
+[GITHUB_ACTIONS.md](GITHUB_ACTIONS.md#a-practice-set-runs-no-ci)). It does **not** create the GitHub repository — that stays a
 step you take, on purpose, because a tool that creates remotes is a tool
 that creates them by accident.
 
@@ -106,8 +108,9 @@ set that hedges every rule so nobody has to disagree with it.
 
 ## What It Costs
 
-Every practice in force is read by every session, before it does anything.
-That budget is real and it is small — see
+What every session reads before it does anything is the resident
+practices in full and one line for each on-demand practice in the occasion
+index. That budget is real and it is small — see
 [session-load-budget](https://github.com/alex137/BestPractice/blob/staging/practices/session-load-budget.md),
 which declares a ceiling on each always-loaded file and fails the build
 when one is exceeded.
@@ -167,5 +170,5 @@ If a diff surprises you, that line is the first thing to read.
   [precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
   mechanizes, including the
   parts that stay a human step
-- [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) — what a set's own CI costs and
-  how to control it
+- [GITHUB_ACTIONS.md](GITHUB_ACTIONS.md) — why a set runs no CI, and
+  what a project's own workflows cost

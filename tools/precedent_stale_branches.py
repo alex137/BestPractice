@@ -26,6 +26,9 @@ copy is on origin and holds the old branch's whole history. The engine then
 reads only the `data-` one, and the old name is checked for nothing but a
 fresh claim by a window on an older engine, which would push the branch back
 anyway -- so deleting it loses nothing (precedent_data_branches.py).
+Not the receipts' old name, `precedent-check-receipts`, while an older
+engine still writes to it (precedent_data_branches.KEPT_OLD_NAMES; seen
+2026-10-28; Morgan, 2026-10-31, strength: assented).
 Reported from an Update Vendors that moved three repositories onto
 `data-promote-lock`: each kept `precedent-promote-lock`, and nothing said
 whether it was dead or how to remove it.
@@ -359,10 +362,13 @@ def reverted_branches(repo, depth=500):
 def _moved_data_branches(repo, names):
     """-> {old name} of each engine data branch whose `data-` copy is on
     origin and contains the old branch's tip: nothing reads the old one, and
-    deleting it loses nothing. Empty when the names cannot be read."""
+    deleting it loses nothing. Never an old name an older engine still
+    writes (precedent_data_branches.KEPT_OLD_NAMES). Empty when the names
+    cannot be read."""
     try:
         import precedent_data_branches as pdb
-        pairs = {pdb.legacy_name(w): pdb.new_name(w) for w in pdb.LEGACY}
+        pairs = {pdb.legacy_name(w): pdb.new_name(w) for w in pdb.LEGACY
+                 if pdb.old_name_deletable(w)}
     except Exception:                                        # noqa: BLE001
         return set()
     return {old for old, new in pairs.items()

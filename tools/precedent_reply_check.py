@@ -145,6 +145,10 @@ on 2026-09-14 (*"I think we should move the next steps at the end to be
 universal"*), so it is now declared in THIS repository's own
 reply_check.json and does bind every adopter -- deliberately, and said out
 loud in the pull request that moved it rather than left to be discovered.
+It reaches an adopter beside the universal catalogue
+(precedent_update.CATALOGUE_COMPANIONS), at <universal source>/reply_check.json,
+since 2026-10-31; before then only the retired process/upstream/ layout
+carried it, and a newer install declared no reply requirements at all.
 
 That changes which source declares one requirement. It changes nothing
 about the mechanism: this file still has no requirement of its own, reads
@@ -362,8 +366,20 @@ def inherit_requirement(earlier, r):
     """-> `r` merged over the `earlier` requirement it replaces with
     "inherits": true: every key of `earlier` that `r` does not set, and each
     require_in_fence_paired_with pair merged with the earlier pair at the
-    same position (_inherit_pair)."""
+    same position (_inherit_pair), and each requirement whose value is a
+    mapping in both merged key by key.
+
+    THE MAPPING MERGE (2026-10-31). A set that adds one trigger to a
+    universal requirement -- the ladder's "step 1 of 5, Consider" line for
+    require_finished_plan_asks_to_act -- would otherwise restate every key
+    of it, the copy-and-drift _inherit_pair exists to end; and the trigger
+    could not stay in universal, which a person who does not bring the
+    ladder reads (precedent_check's set-words-stay-in-their-set)."""
     merged = {**earlier, **r}
+    for k, v in r.items():
+        if (k.startswith('require_') and isinstance(v, dict)
+                and isinstance(earlier.get(k), dict)):
+            merged[k] = {**earlier[k], **v}
     key = 'require_in_fence_paired_with'
     if isinstance(earlier.get(key), list) and isinstance(r.get(key), list):
         merged[key] = [
@@ -2881,8 +2897,11 @@ def main():
             _fin = r.get('require_finished_plan_asks_to_act') or {}
             if _fin.get('ask'):
                 bits.append('a reply that finishes a plan (a plan file written '
-                            'this turn, Consider on the first line with a plan, '
-                            'or a new **Plan:** line) asks under Your next '
+                            'this turn, '
+                            + ('a first line matching '
+                               f"/{_fin['stage_line']}/ with a plan, "
+                               if _fin.get('stage_line') else '')
+                            + 'or a new **Plan:** line) asks under Your next '
                             'steps: "Do you want to act on this plan?", or says '
                             '"I\'m acting on this plan"')
             _hold = r.get('require_hold_names_what_runs') or {}
