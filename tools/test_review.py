@@ -16,7 +16,8 @@ time it takes worth it for its level of importance?"
 WHAT IT DOES. inventory() lists every test the repository owns: each
 `check_*` function in its own tools/verify_harness.py, with the seconds
 tools/harness_check_times.json records for it, and every tracked test script
-(test_*.sh / test_*.py under a tests/ directory, or named test_* anywhere).
+(test_*.sh / test_*.py under a tests/ directory, or named test_* anywhere),
+with the seconds that repo's tools/script_test_times.json records for it.
 A file the vendored-engine manifest lists is upstream's, judged there. For
 each test it reads LEADS from the test's own source: a retired thing it
 names (this registry's `retired` list, tools/our_language.json's retired
@@ -50,17 +51,37 @@ IT REPORTS AND NEVER REFUSES. Nothing here is a gate.
   python3 tools/test_review.py --json      # every test, for a tool
   python3 tools/test_review.py --repo PATH # another repository in force,
                                            # read against this one's retired list too
+  python3 tools/test_review.py --time-scripts [--repo PATH]
+      # run each test script once and record what it took
+
+SCRIPT TIMES (2026-10-31). Nothing recorded a test script's time, so every
+script read as untimed, a set's totals said "0 timed", and the rule that
+judges a keep again when its time more than doubled could never fire for a
+script. --time-scripts runs each test script inventory() lists once, from
+the repository's root (bash for .sh, python3 for .py, SCRIPT_TIMEOUT each),
+and rewrites that repository's tools/script_test_times.json with the
+seconds of the ones that passed; a script that failed or timed out is
+named and left out, never recorded. Exit 1 when one did. The harness's
+writer for tools/harness_check_times.json was not shared: its record
+carries what only --as-ci's deal needs (default_seconds, green_full_run).
+Both files are read by the one reader below, _read_times.
 """
 import ast
 import json
 import pathlib
 import re
+import os
 import subprocess
 import sys
+import time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY_RELPATH = 'tools/test_verdicts.json'
 TIMES_RELPATH = 'tools/harness_check_times.json'
+SCRIPT_TIMES_RELPATH = 'tools/script_test_times.json'
+SCRIPT_TIMEOUT = 600
+# This tool's own file matches test_*.py and is not a test.
+SELF_RELPATH = 'tools/test_review.py'
 HARNESS_RELPATH = 'tools/verify_harness.py'
 VERDICTS = ('keep', 'cheapen', 'retire')
 IMPORTANCE = ('high', 'medium', 'low')
@@ -116,6 +137,23 @@ def _script_about(text):
     return _first_line(' '.join(lines))
 
 
+def _read_times(path):
+    """-> ({test name: seconds}, measured) from a times record, either
+    tools/harness_check_times.json or tools/script_test_times.json;
+    ({}, '') when it is missing or unreadable."""
+    try:
+        rec = json.loads(pathlib.Path(path).read_text(encoding='utf-8'))
+        times = rec.get('seconds') or {}
+        measured = str(rec.get('measured') or '')
+    except (OSError, ValueError, AttributeError):
+        return {}, ''
+    if not isinstance(times, dict):
+        return {}, ''
+    return ({k: float(v) for k, v in times.items()
+             if isinstance(v, (int, float)) and not isinstance(v, bool)},
+            measured)
+
+
 def inventory(root):
     """-> [test]: {name, kind, file, line, seconds, about, source} for every
     test `root` owns. `seconds` is None where nothing records one."""
@@ -124,12 +162,7 @@ def inventory(root):
     tests = []
     harness = root / HARNESS_RELPATH
     if harness.is_file() and HARNESS_RELPATH not in vendored:
-        try:
-            rec = json.loads((root / TIMES_RELPATH).read_text(encoding='utf-8'))
-            times = rec.get('seconds') or {}
-            measured = str(rec.get('measured') or '')
-        except (OSError, ValueError, AttributeError):
-            times, measured = {}, ''
+        times, measured = _read_times(root / TIMES_RELPATH)
         text = harness.read_text(encoding='utf-8')
         lines = text.splitlines()
         try:
@@ -144,12 +177,13 @@ def inventory(root):
                 tests.append({
                     'name': node.name, 'kind': 'harness', 'measured': measured,
                     'file': HARNESS_RELPATH, 'line': node.lineno,
-                    'seconds': float(t) if isinstance(t, (int, float)) else None,
+                    'seconds': t,
                     'about': _first_line(ast.get_docstring(node) or ''),
                     'source': '\n'.join(lines[node.lineno - 1:node.end_lineno])})
+    script_times, script_measured = _read_times(root / SCRIPT_TIMES_RELPATH)
     for rel in _git_files(root):
         p = pathlib.PurePosixPath(rel)
-        if rel in vendored or p.parts[0] == 'templates':
+        if rel in vendored or rel == SELF_RELPATH or p.parts[0] == 'templates':
             continue
         if not (p.name.startswith('test_') and p.suffix in ('.sh', '.py')):
             continue
@@ -158,7 +192,8 @@ def inventory(root):
         except OSError:
             continue
         tests.append({'name': rel, 'kind': 'script', 'file': rel, 'line': 1,
-                      'seconds': None,
+                      'seconds': script_times.get(rel),
+                      'measured': script_measured if rel in script_times else '',
                       'about': (_first_line(ast.get_docstring(ast.parse(text)) or '')
                                 if p.suffix == '.py' and _parses(text)
                                 else _script_about(text)),
@@ -441,6 +476,57 @@ def render_markdown(results):
     return '\n'.join(md).rstrip('\n')
 
 
+def _today(root):
+    try:
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_time
+        return precedent_time.today(root)
+    except Exception:  # noqa: BLE001 -- a date from the container beats none
+        return time.strftime('%Y-%m-%d')
+
+
+def time_scripts(root, timeout=SCRIPT_TIMEOUT, out=print):
+    """--time-scripts: run every test script inventory() lists for `root`
+    once, from its root, and rewrite its tools/script_test_times.json with
+    the seconds of each that passed. -> [(script, why)] for the ones that
+    failed or timed out, which are not recorded."""
+    root = pathlib.Path(root)
+    scripts = [t['name'] for t in inventory(root) if t['kind'] == 'script']
+    seconds, failed = {}, []
+    for rel in scripts:
+        cmd = ['bash', rel] if rel.endswith('.sh') else [sys.executable, rel]
+        start = time.monotonic()
+        try:
+            p = subprocess.run(cmd, cwd=root, capture_output=True, text=True,
+                               stdin=subprocess.DEVNULL, timeout=timeout)
+            why = '' if p.returncode == 0 else f'exit {p.returncode}'
+            tail = (p.stdout + p.stderr).strip().splitlines()[-1:] if why else []
+        except subprocess.TimeoutExpired:
+            why, tail = f'timed out after {timeout} s', []
+        took = round(time.monotonic() - start, 1)
+        if why:
+            failed.append((rel, why))
+            out(f'  FAILED  {took:6.1f} s  {rel} ({why}; not recorded)'
+                + (f': {tail[0][:200]}' if tail else ''))
+        else:
+            seconds[rel] = took
+            out(f'  passed  {took:6.1f} s  {rel}')
+    rec = {'_comment': [
+               'What each test script took, read by tools/test_review.py for '
+               'the very deep check\'s test review (question 27).',
+               'Rewrite with: python3 tools/test_review.py --time-scripts '
+               '--repo <this repo>. Only scripts that passed are recorded.'],
+           'measured': f'{_today(root)}, {os.cpu_count() or 1} cores',
+           'seconds': dict(sorted(seconds.items()))}
+    (root / SCRIPT_TIMES_RELPATH).parent.mkdir(parents=True, exist_ok=True)
+    (root / SCRIPT_TIMES_RELPATH).write_text(json.dumps(rec, indent=1) + '\n',
+                                             encoding='utf-8')
+    out(f'{len(seconds)} of {len(scripts)} script(s) timed, written to '
+        f'{SCRIPT_TIMES_RELPATH}' + (f'; {len(failed)} failed and are not '
+                                     'recorded' if failed else ''))
+    return failed
+
+
 def main(argv):
     if '-h' in argv or '--help' in argv:
         print(__doc__.strip())
@@ -449,6 +535,8 @@ def main(argv):
     if '--repo' in argv:
         i = argv.index('--repo')
         root = pathlib.Path(argv[i + 1]).resolve()
+    if '--time-scripts' in argv:
+        return 1 if time_scripts(root) else 0
     result = review(root, also=(ROOT,))
     if '--json' in argv:
         for t in result['tests']:
