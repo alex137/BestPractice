@@ -25413,7 +25413,11 @@ def check_precedent_check_fires():
                     if k in _pending:
                         _drain(k)
                 if key.endswith('-clean') and slug in _deferred:
-                    _clean_from_baseline(slug)
+                    # Read back before the sweep is done (one assertion
+                    # reads generated-edit-goes-upstream's clean output
+                    # early): its own copy now, rather than every case
+                    # after it waiting about a minute for the sweep.
+                    _clean_from_baseline(slug, wait=False)
 
             def settle_all(self):
                 while _pending:
@@ -25601,14 +25605,17 @@ def check_precedent_check_fires():
                                  unattributed))
             return _by_slug[0]
 
-        def _clean_from_baseline(slug):
+        def _clean_from_baseline(slug, wait=True):
             """The clean case of a plain slug, from the shared sweep: what
             `--only SLUG` on the same tree would have said. Run on its own
             copy instead when the sweep shows it anything but clean, or
             holds something it cannot attribute -- the old path, so its
             failure detail is the old one."""
             at = _deferred.pop(slug)
-            sections, unattributed = _baseline_by_slug()
+            if not wait and not _baseline_read and _baseline.poll() is None:
+                sections, unattributed = {}, True
+            else:
+                sections, unattributed = _baseline_by_slug()
             mine = sections.get(slug, '')
             failing = re.search(r'^(VIOLATION|ADVISORY|ERROR)\s', mine, re.M)
             if unattributed or failing or 'VIOLATION' in mine or 'ADVISORY' in mine:
