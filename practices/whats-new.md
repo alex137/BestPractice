@@ -192,15 +192,7 @@ became a fixed opening line, the heading gained a weekday and a slug, quiet
 days became something the reply says rather than something silently
 skipped, and the ten entries already written were rewritten into the shape.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 594 words; it now holds the two halves and the entry's shape, in
-286 words (both counted with `wc -w` over the section). Every paragraph
-it held moved word for word into Detail, under the headings the Rule
-names; nothing was deleted. Morgan, 2026-10-31 (strength: assented), after
-the 2026-10-30 very deep check cut four Rules: *"maybe we add to very deep
-check to always review like the 25% of all the rules that are the longest
-in that repo and shorten them like you did?"*, then *"use your judgment,
-and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 594 words; it now holds the two halves and the entry's shape, in 286 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing to do: the tool ships with the engine, and the first "What's new?"

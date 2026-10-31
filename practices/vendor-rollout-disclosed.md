@@ -193,16 +193,7 @@ sync says which practices it holds back for a newer engine (Morgan F,
 "go ahead and do the fixes you think are best at the root level",
 strength: decided).
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 728 words; it now holds the five questions, each with what a
-session must do, in 304 words (both counted with `wc -w` over the
-section). Every paragraph it held moved word for word into Detail, under
-"The five questions in full"; nothing was deleted, and the questions keep
-their numbers, which tools cite. Morgan, 2026-10-31 (strength: assented),
-after the 2026-10-30 very deep check cut four Rules: *"maybe we add to very
-deep check to always review like the 25% of all the rules that are the
-longest in that repo and shorten them like you did?"*, then *"use your
-judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 728 words; it now holds the five questions, each with what a session must do, in 304 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under "The five questions in full"; nothing was deleted, and the questions keep their numbers, which tools cite. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

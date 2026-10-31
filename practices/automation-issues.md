@@ -101,16 +101,7 @@ here. It went with the rule, on purpose.
 
 **2026-10-09.** In a private consuming repository, the person ran the sync's alerting test from its button. It failed as intended, filed the usual blocker and opened the issue; he closed the issue as a test. The blocker stayed, because only a successful run closed it, and every session there opened with "the sync failed". He asked for the fix to be made here, upstream, so that every repository's alerting test reads as a test.
 
-**2026-10-31: the Rule cut to what a session does, and the rest moved to
-Detail whole.** The review of the longest quarter of active Rules listed
-this one at 415 words. Morgan, 2026-10-31, after the 2026-10-30 very
-deep check had cut four Rules that way: *"maybe we add to very deep check to
-always review like the 25% of all the rules that are the longest in that
-repo and shorten them like you did?"*, then *"use your judgment, and act
-booked produce"* (strength: assented). The Rule now holds the issue, the optional-input skip, the in-repository fallback and the alerting test, in
-166 words (both counted with `wc -w` over the section). Every
-paragraph it held before moved whole into Detail, under a heading the Rule
-names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 415 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the issue, the optional-input skip, the in-repository fallback and the alerting test, in 166 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 No mechanical check: both halves are properties of an automation's run history, not of any repository's tree. A repository that runs such a job can check them directly -- does a recurrence comment on the existing open issue rather than opening a duplicate, and does a run missing an optional credential exit clean with an issue raised rather than red or silent -- but that check belongs to the automation, and reads its runs.

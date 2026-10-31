@@ -8540,7 +8540,7 @@ STEP2_COMMAND = ("python3 tools/verify_harness.py --all --record-times "
 GREEN_FULL_RUN_KEY = 'green_full_run'     # verify_harness.py writes it
 
 
-def _stamp(value, tz=None):
+def _parse_stamp(value, tz=None):
     """-> an aware datetime for an ISO stamp or a bare date, else None. A
     stamp with no offset takes `tz` (else UTC)."""
     try:
@@ -8606,14 +8606,14 @@ def _pass_refusals(name, status, fields, target, harness_root):
                        f"the consumer this run checked.")
     applies, green = _green_full_run(harness_root)
     if applies:
-        start = _stamp(target.get('run_id')) or _stamp(target.get('date'))
+        start = _parse_stamp(target.get('run_id')) or _parse_stamp(target.get('date'))
         since, what = start, 'this run started'
         if status in ('done', 'partial'):
             for p in target.get('passes') or []:
-                at = _stamp(p.get('recorded'))
+                at = _parse_stamp(p.get('recorded'))
                 if str(p.get('pass')) != name and at and (since is None or at > since):
                     since, what = at, f"pass {p.get('pass')} was recorded"
-        g = _stamp(green)
+        g = _parse_stamp(green)
         if g is None or (since is not None and g < since):
             out.append(f"very deep check FAIL: pass {name} cannot be recorded: "
                        f"no green whole-suite run since {what} "

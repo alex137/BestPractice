@@ -139,16 +139,7 @@ because BestPractice never instantiated the
 adopter. Landing the rule at the universal level is what makes it load
 here at all.
 
-**2026-10-31: the Rule cut to what a session does, and the rest moved to
-Detail whole.** The review of the longest quarter of active Rules listed
-this one at 519 words. Morgan, 2026-10-31, after the 2026-10-30 very
-deep check had cut four Rules that way: *"maybe we add to very deep check to
-always review like the 25% of all the rules that are the longest in that
-repo and shorten them like you did?"*, then *"use your judgment, and act
-booked produce"* (strength: assented). The Rule now holds what is in scope, the tool that applies it, and the exclusion list, in
-144 words (both counted with `wc -w` over the section). Every
-paragraph it held before moved whole into Detail, under a heading the Rule
-names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 519 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is in scope, the tool that applies it, and the exclusion list, in 144 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) is both the definition and

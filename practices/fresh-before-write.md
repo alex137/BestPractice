@@ -91,16 +91,7 @@ Worth recording that the fix immediately earned itself back. With the branch com
 
 **Where it has lived.** Landed first in Morgan's individual set, moved on 2026-09-23 to the shared set for repository maintenance, and **moved here on 2026-09-28**, on Morgan's accepting a session's recommendation that it applies to any repository, not only to maintaining practice sets. The engine had been shipping the mechanism since 2026-09-06, with a header saying the rule it implements was not yet a universal practice; it is now. The rule text was rewritten from Morgan's first person, and its Install now points at the engine's own guard rather than the set's copy.
 
-**2026-10-31: the Rule cut to what a session does, and the rest moved to
-Detail whole.** The review of the longest quarter of active Rules listed
-this one at 368 words. Morgan, 2026-10-31, after the 2026-10-30 very
-deep check had cut four Rules that way: *"maybe we add to very deep check to
-always review like the 25% of all the rules that are the longest in that
-repo and shorten them like you did?"*, then *"use your judgment, and act
-booked produce"* (strength: assented). The Rule now holds the two hooks, the explicit base branch, attached repositories and what is automatic, in
-194 words (both counted with `wc -w` over the section). Every
-paragraph it held before moved whole into Detail, under a heading the Rule
-names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 368 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the two hooks, the explicit base branch, attached repositories and what is automatic, in 194 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 The mechanism is the engine's own guard, [templates/harness/claude-code/hooks/freshness-guard.sh](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/hooks/freshness-guard.sh), wired three times in the Claude Code adapter's [settings.json](https://github.com/alex137/BestPractice/blob/staging/templates/harness/claude-code/settings.json): session-start, a throttled re-check on each submitted prompt (for a session left open across a break), and pre-write. [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s hook wiring installs it into a consuming repo and adds a missing entry on each refresh; replace the base branch argument on all three entries with the repo's real base branch. A repo that declines it says so, with the reason, in `precedent.json`'s `declined_adapters`.

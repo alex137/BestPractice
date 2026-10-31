@@ -89858,6 +89858,43 @@ def check_freshness_gate_fires():
               '; '.join(failed) if failed else '')
 
 
+def check_no_tool_defines_a_function_twice():
+    """2026-10-31: a second top-level `_stamp` in very_deep_check.py, added
+    by a change that never ran the branch sweep's tests, silently replaced
+    the first; every branch row lost its date and two very deep check
+    tests failed only in the whole suite. Python keeps the last definition
+    without a word, so this reads every engine file's top level for a name
+    defined twice. The control plants a file that does it."""
+    import ast
+    import collections
+    import tempfile
+
+    def twice(path):
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+        names = collections.Counter(
+            n.name for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
+        return sorted(k for k, v in names.items() if v > 1)
+
+    found = {}
+    for path in sorted((ROOT / 'tools').glob('*.py')):
+        try:
+            dup = twice(path)
+        except (SyntaxError, UnicodeDecodeError, OSError):
+            continue
+        if dup:
+            found[path.name] = dup
+    with tempfile.TemporaryDirectory() as td:
+        planted = pathlib.Path(td) / 'planted.py'
+        planted.write_text('def a():\n    pass\n\n\ndef a():\n    pass\n',
+                           encoding='utf-8')
+        control = twice(planted) == ['a']
+    check('no engine tool defines the same top-level name twice (a planted '
+          'file that does is caught)',
+          not found and control,
+          f'defined twice: {found}' if found else 'the planted file was not caught')
+
+
 def check_unmerged_branch_verdicts():
     """The unmerged half of the very deep check's branch sweep (practice:
     very-deep-check).
@@ -89939,7 +89976,8 @@ def check_unmerged_branch_verdicts():
         check(f'the very deep check tells unlanded work from a rebased branch '
               f'({len(results)} stated cases, the rebased one being the '
               f'controlling case)',
-              not failed, '; '.join(failed) if failed else '')
+              not failed, ('; '.join(failed) + ' -- rows: ' + repr(rows)[:600])
+              if failed else '')
 
 
 def check_moved_claims_says_when_it_could_not_read_the_tree():
@@ -95592,6 +95630,7 @@ def main():
     check_codex_hooks_template_runs_the_claude_gates()
     check_gemini_settings_template_keeps_stdout_clean()
     check_unmerged_branch_verdicts()
+    check_no_tool_defines_a_function_twice()
     check_branch_scan_sees_every_branch()
     check_freshness_guard_writes_no_origin_into_a_repo_without_one()
     check_branch_name_follows_the_convention()

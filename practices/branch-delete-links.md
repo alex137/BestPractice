@@ -344,16 +344,7 @@ goes to everyone. The stop hook then refused a reply that landed a branch
 without its link, until 2026-10-30, when Morgan retired the Boildown's
 list of branches to delete: the branch cleanup page carries them.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 854 words; it now holds the link, what to say beside it and the four
-things the report must not get wrong, in 248 words (both counted with
-`wc -w` over the section). Every paragraph it held moved word for word into
-Detail, under the headings the Rule names; nothing was deleted. The old
-list was headed "Three things" over four items; the Rule now says four.
-Morgan, 2026-10-31 (strength: assented), after the 2026-10-30 very deep
-check cut four Rules: *"maybe we add to very deep check to always review
-like the 25% of all the rules that are the longest in that repo and shorten
-them like you did?"*, then *"use your judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 854 words; it now holds the link, what to say beside it and the four things the report must not get wrong, in 248 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. The old list was headed "Three things" over four items; the Rule now says four. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:

@@ -199,16 +199,7 @@ an unapproved workflow on its own.
 
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: the push check refuses an unapproved workflow, and `workflow-write-gate.sh` refuses a write through the GitHub tools. Its path and push gate still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 801 words; it now holds what a session may not add, the approval
-record, what Update Vendors settles and what the check refuses, in 333
-words (both counted with `wc -w` over the section). Every paragraph it held
-moved word for word into Detail, under the headings the Rule names; nothing
-was deleted. Morgan, 2026-10-31 (strength: assented), after the 2026-10-30
-very deep check cut four Rules: *"maybe we add to very deep check to always
-review like the 25% of all the rules that are the longest in that repo and
-shorten them like you did?"*, then *"use your judgment, and act booked
-produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 801 words; it now holds what a session may not add, the approval record, what Update Vendors settles and what the check refuses, in 333 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Enforced by `_ci_workflow_approved` in

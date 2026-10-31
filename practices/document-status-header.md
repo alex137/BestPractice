@@ -45,9 +45,7 @@ and `opened` and `closed` carry the dates a check can read (Detail, *The
 three obligations in full* and *No status in prose, in full*).
 
 ## Detail
-Each heading below that ends "in full" holds Rule paragraphs as they stood
-until 2026-10-31, moved here whole when the Rule was cut to what a session
-must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
 
 ### Kind and status in full
 Every document under `spec/` and `record/` opens with frontmatter declaring
@@ -148,17 +146,7 @@ other half. The reduction pass Morgan approved that day ("Question 3 - all
 are great, approved", strength: decided) folded that half in, so a session
 replacing a document under spec/ or record/ reads both in one Rule.
 
-**2026-10-31: the Rule cut to what a session must do, and the rest moved to
-Detail whole.** Reviewing the longest quarter of each repository's Rules
-that day, a session found this one at 372 words, carrying reasons,
-measurements or quotes beside what a session must do; it now holds 226 (both
-counted with `wc -w` over the Rule section). Morgan, after the four cuts of
-2026-10-30: *"maybe we add to very deep check to always review like the 25%
-of all the rules that are the longest in that repo and shorten them like you
-did?"*, then *"use your judgment, and act booked produce"* (strength:
-assented). Every Rule paragraph that changed moved word for word into
-Detail, under the headings ending "in full" that the Rule names; nothing was
-deleted ([reduction-pass](reduction-pass.md)).
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 372 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 226 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 Add frontmatter to every document under `spec/` and `record/` with the schema

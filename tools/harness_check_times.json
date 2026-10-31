@@ -426,6 +426,7 @@
   "check_no_engine_tool_hardcodes_a_mirror_path": 0.2,
   "check_no_invented_content": 0.0,
   "check_no_lost_content": 0.0,
+  "check_no_tool_defines_a_function_twice": 13.1,
   "check_not_binding_actually_exempts_a_check": 17.0,
   "check_not_binding_cannot_be_abused": 0.4,
   "check_null_frontmatter_is_absent": 0.1,

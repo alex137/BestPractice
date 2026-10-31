@@ -215,15 +215,7 @@ deduplicated into this file as of the same change, rather than retired
 outright, because the word itself is still wanted -- only the
 skip-the-check behavior it used to carry is gone.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 707 words; it now holds the trigger, the five conditions and the two
-outcomes, in 322 words (both counted with `wc -w` over the section).
-Every paragraph it held moved word for word into Detail, under the headings
-the Rule names, Morgan's standing test included; nothing was deleted.
-Morgan, 2026-10-31 (strength: assented), after the 2026-10-30 very deep
-check cut four Rules: *"maybe we add to very deep check to always review
-like the 25% of all the rules that are the longest in that repo and shorten
-them like you did?"*, then *"use your judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 707 words; it now holds the trigger, the five conditions and the two outcomes, in 322 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names, Morgan's standing test included; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 `get_session` to resolve this session's own ID, `list_triggers` for a

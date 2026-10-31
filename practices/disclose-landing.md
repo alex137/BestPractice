@@ -66,9 +66,7 @@ The three shapes this actually takes:
   by that branch's own checks rather than a second reviewer. Say so
   explicitly rather than letting "landed" read as "done."
 
-Each heading below that ends "in full" holds Rule paragraphs as they stood
-until 2026-10-31, moved here whole when the Rule was cut to what a session
-must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
 
 ### Deciding and stating the level, in full
 **Say WHY that level, in one clause, and decide it rather than asking.**
@@ -121,17 +119,7 @@ remember, since a rule about what a *reply* contains cannot be verified by
 scanning a repo's tree — only by the tool that generates the sentence in
 the first place, every time it runs.
 
-**2026-10-31: the Rule cut to what a session must do, and the rest moved to
-Detail whole.** Reviewing the longest quarter of each repository's Rules
-that day, a session found this one at 328 words, carrying reasons,
-measurements or quotes beside what a session must do; it now holds 224 (both
-counted with `wc -w` over the Rule section). Morgan, after the four cuts of
-2026-10-30: *"maybe we add to very deep check to always review like the 25%
-of all the rules that are the longest in that repo and shorten them like you
-did?"*, then *"use your judgment, and act booked produce"* (strength:
-assented). Every Rule paragraph that changed moved word for word into
-Detail, under the headings ending "in full" that the Rule names; nothing was
-deleted ([reduction-pass](reduction-pass.md)).
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 328 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 224 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 `tools/precedent_land.py` and `tools/precedent_candidate.py` print the

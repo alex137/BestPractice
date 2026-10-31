@@ -240,16 +240,7 @@ known backlog. The root-issues prompt that followed asked for both
 paragraphs above. Strength: proposed, from that prompt; the person's yes on
 the merge decides it.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 808 words; it now holds what to look over, where upstream is, the
-order and the one block, in 317 words (both counted with `wc -w` over
-the section). Every paragraph it held moved word for word into Detail,
-under the headings the Rule names, the person's question included; nothing
-was deleted. Morgan, 2026-10-31 (strength: assented), after the 2026-10-30
-very deep check cut four Rules: *"maybe we add to very deep check to always
-review like the 25% of all the rules that are the longest in that repo and
-shorten them like you did?"*, then *"use your judgment, and act booked
-produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 808 words; it now holds what to look over, where upstream is, the order and the one block, in 317 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names, the person's question included; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing mechanical checks that a reply found every upstream finding: whether

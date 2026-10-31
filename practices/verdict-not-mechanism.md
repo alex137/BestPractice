@@ -185,15 +185,7 @@ the "except" sent him into working out which items mattered. He asked for
 general form; it is the paragraph after the empty-commit one, since a
 harmless leftover is the same kind of noise as an empty merge.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 634 words; it now holds the three verdicts and the four things a
-reply never reports, in 280 words (both counted with `wc -w` over the
-section). Every paragraph it held moved word for word into Detail, under
-the headings the Rule names; nothing was deleted. Morgan, 2026-10-31
-(strength: assented), after the 2026-10-30 very deep check cut four Rules:
-*"maybe we add to very deep check to always review like the 25% of all the
-rules that are the longest in that repo and shorten them like you did?"*,
-then *"use your judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 634 words; it now holds the three verdicts and the four things a reply never reports, in 280 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing to install. It fires at the `reply` gate

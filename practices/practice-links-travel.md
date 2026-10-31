@@ -344,15 +344,7 @@ if it were the universal source. It now holds a shared or individual set to
 what its copy-in carries (`checkin._files_rules_name`) and prints the
 absolute URL as the repair.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 647 words; it now holds what travels, what does not and how to link
-each, in 234 words (both counted with `wc -w` over the section). Every
-paragraph it held moved word for word into Detail, under the headings the
-Rule names; nothing was deleted. Morgan, 2026-10-31 (strength: assented),
-after the 2026-10-30 very deep check cut four Rules: *"maybe we add to very
-deep check to always review like the 25% of all the rules that are the
-longest in that repo and shorten them like you did?"*, then *"use your
-judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 647 words; it now holds what travels, what does not and how to link each, in 234 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) enforces it, as a

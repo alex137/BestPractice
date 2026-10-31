@@ -76,9 +76,7 @@ describing an intent to produce it.
 commit message if you want" names an intent; the fence-block requirement
 fires once the actual text is produced, not before.
 
-Each heading below that ends "in full" holds Rule paragraphs as they stood
-until 2026-10-31, moved here whole when the Rule was cut to what a session
-must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
 
 ### Several blocks, destinations and output, in full
 **More than one distinct thing to paste gets more than one fence block.** A
@@ -174,17 +172,7 @@ Gemini CLI have no prompt-submit hook to wire it into, so in those harnesses
 this rule now arrives through the standing instruction and the occasion
 index rather than automatically. That was weighed and accepted.
 
-**2026-10-31: the Rule cut to what a session must do, and the rest moved to
-Detail whole.** Reviewing the longest quarter of each repository's Rules
-that day, a session found this one at 345 words, carrying reasons,
-measurements or quotes beside what a session must do; it now holds 232 (both
-counted with `wc -w` over the Rule section). Morgan, after the four cuts of
-2026-10-30: *"maybe we add to very deep check to always review like the 25%
-of all the rules that are the longest in that repo and shorten them like you
-did?"*, then *"use your judgment, and act booked produce"* (strength:
-assented). Every Rule paragraph that changed moved word for word into
-Detail, under the headings ending "in full" that the Rule names; nothing was
-deleted ([reduction-pass](reduction-pass.md)).
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 345 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 232 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 Nothing to configure. Same as [my-options](my-options.md) and

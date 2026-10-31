@@ -351,15 +351,7 @@ findings are reported, never failed and never hidden, and a local
 workaround to an engine file is allowed with a saved Prompt Please beside
 it. Strength: decided.
 
-**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
-to 1,006 words; it now holds the nine points, each in a sentence or two,
-in 523 words (both counted with `wc -w` over the section). Every
-paragraph it held moved word for word into Detail, under the headings the
-Rule names; nothing was deleted. Morgan, 2026-10-31 (strength: assented),
-after the 2026-10-30 very deep check cut four Rules: *"maybe we add to very
-deep check to always review like the 25% of all the rules that are the
-longest in that repo and shorten them like you did?"*, then *"use your
-judgment, and act booked produce"*.
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 1,006 words; it now holds the nine points, each in a sentence or two, in 523 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 **Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,
