@@ -1251,7 +1251,10 @@ confidently.
     lists every test each repo in force owns: every `check_*` in its own
     harness with the seconds
     [tools/harness_check_times.json](https://github.com/alex137/BestPractice/blob/staging/tools/harness_check_times.json)
-    records, and every test script. Beside each it prints its leads: a
+    records, and every test script with the seconds that repo's
+    `tools/script_test_times.json` records, which
+    `python3 tools/test_review.py --time-scripts --repo PATH` writes by
+    running each script once. Beside each it prints its leads: a
     retired thing the test still names (the registry's own `retired` list,
     the retired words in `tools/our_language.json`, a decommissioned tool,
     a retired or deduplicated practice) and a harness test with no recorded

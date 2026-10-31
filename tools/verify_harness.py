@@ -1559,60 +1559,13 @@ def _seed_consumer_engine(dest_tools, extra=(), only=None):
     return copied
 
 
-def check_leak_gate():
-    """The real gate is tools/leak_gate.py, run as a subprocess. It replaces a
-    stand-in that hardcoded a list of private terms -- including a personal
-    email address -- INSIDE this public repo, which is the anti-pattern the
-    gate exists to prevent: a blocklist of secret words, committed to a public
-    repo, publishes the words it guards. Found by pointing the new gate at the
-    tree and reading what it said. Fixed forward, not by rewriting published
-    history (practice 31, no-rewrite-for-warnings).
-
-    The vocabulary layer is reported as not-yet-applicable when no private
-    blocklist is configured -- which is the honest state before phase 3 -- and
-    the structural layer is a real pass or fail either way.
-
-    --structural-only, by name, for the same reason continuous integration
-    passes it: this harness runs with no private blocklist, and since
-    2026-09-08 the gate REFUSES rather than reporting PARTIAL when
-    precedent.json declares a private source. That refusal is correct for a
-    person about to push and wrong for a bare caller, so a bare caller says
-    which half it is asking for. Without the flag this check went red on a
-    clean tree -- the fix belonged in the caller, not in weakening the gate.
-    """
-    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
-                             '--structural-only'],
-                            capture_output=True, text=True)
-    out = (result.stdout + result.stderr).strip()
-    if result.returncode != 0:
-        check('leak gate (tools/leak_gate.py)', False,
-              out.splitlines()[0] if out else 'leak_gate.py failed with no output')
-        for line in out.splitlines():
-            if line.startswith('LEAK:'):
-                print(f"  {line}")
-    elif 'leak gate PARTIAL' in out:
-        check('leak gate, structural layer (no private-source paths, emails, home '
-              'directories, or non-universal practice sources)', True)
-        not_applicable('leak gate, vocabulary layer',
-                       f'no private-term blocklist is configured ({"PRECEDENT_LEAK_BLOCKLIST"} '
-                       f'is unset), and none can live in this public repo -- see '
-                       f'tools/leak_gate.py --explain and '
-                       f'templates/leak-blocklist.txt.template. This is the permanent '
-                       f'state in CI, which has no access to a private list; on a '
-                       f'person\'s own machine it means the layer is not switched on '
-                       f'yet. Reported rather than passed over, because a clean '
-                       f'structural scan is not evidence that no private word is '
-                       f'present. `leak gate fires` below tests the layer either way')
-    else:
-        check('leak gate (structural and vocabulary layers)', True)
-
-
 def check_leak_gate_fires():
     """The gate's own behaviour, as stated cases against a throwaway repo.
 
     WHY THIS EXISTS, AND WHY IT IS NOT A SECOND COPY OF THE GATE'S LOGIC.
-    check_leak_gate() above runs the gate on this tree and reports what it
-    says. That is a check on the TREE, not on the GATE -- it passes just as
+    Running the gate on this tree (the pre-push hook, the push check and the
+    leak-gate workflow all do; a harness check that did the same was retired
+    2026-10-31) is a check on the TREE, not on the GATE -- it passes just as
     happily when the gate has stopped looking. Three real misses were found
     exactly there, each of which printed a confident "leak gate OK" on a push
     that would have published a private term:
@@ -8212,7 +8165,9 @@ def check_stale_freshness_also_says_delete_it():
 
     def row(value):
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = value
-        return [r for r in psc.checks() if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
+        # offline: the row under test is local; only the fetch row is dropped.
+        return [r for r in psc.checks(offline=True)
+                if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
     try:
         with tempfile.TemporaryDirectory() as td:
             tmp = pathlib.Path(td)
@@ -9312,6 +9267,74 @@ def check_very_deep_check_test_worth_judges_what_changed():
           f'({len(cases)} stated cases: inventory, time, leads, new, again, owed, '
           f'stale, malformed, times\' age, a set read against the running repo, '
           f'write-up block)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
+def check_test_review_times_script_tests():
+    """`test_review.py --time-scripts` runs each test script once and records
+    what each that passed took in the repo's tools/script_test_times.json,
+    and inventory() then reports those seconds. Controls: before the file
+    exists every script is untimed, as it was; a failing script is named,
+    left out of the file and stays untimed; and the run exits 1 for it.
+
+    Added 2026-10-31 (Morgan, strength: decided: "Yes do the test review and
+    redo the incident verdicts"): inventory() gave every script None, so a
+    practice set's totals said "0 timed" and the rule that judges a keep
+    again when its time more than doubled could never fire for a script.
+    The repository is a temporary one built here (practice:
+    fixture-owns-its-state)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import test_review as tr
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-script-times-'))
+    try:
+        tests = tmp / 'tools' / 'checks' / 'tests'
+        tests.mkdir(parents=True)
+        (tests / 'test_slow.sh').write_text(
+            '#!/bin/sh\n# Takes a measurable moment.\nsleep 0.3\nexit 0\n', encoding='utf-8')
+        (tests / 'test_quick.py').write_text(
+            '"""Passes at once."""\nimport sys\nsys.exit(0)\n', encoding='utf-8')
+        (tests / 'test_broken.sh').write_text(
+            '#!/bin/sh\n# Fails.\necho "FAIL: the planted failure"\nexit 1\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True)
+        slow, quick, broken = (f'tools/checks/tests/{n}' for n in
+                               ('test_slow.sh', 'test_quick.py', 'test_broken.sh'))
+
+        before = {t['name']: t['seconds'] for t in tr.inventory(tmp)}
+        cases.append(('CONTROL: with no times file every script is untimed, as before',
+                      before == {slow: None, quick: None, broken: None}, repr(before)))
+        run = subprocess.run([sys.executable, str(ROOT / 'tools' / 'test_review.py'),
+                              '--time-scripts', '--repo', str(tmp)],
+                             capture_output=True, text=True, timeout=120)
+        out = run.stdout + run.stderr
+        cases.append(('the run exits 1 and names the failing script as not recorded',
+                      run.returncode == 1
+                      and f'FAILED' in out and f'{broken} (exit 1; not recorded)' in out
+                      and '2 of 3 script(s) timed' in out, failure_detail(out, 600)))
+        try:
+            rec = json.loads((tmp / 'tools' / 'script_test_times.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError) as e:
+            rec = {'error': str(e)}
+        cases.append(('THE CASE: both passing scripts are recorded, the failing one is not',
+                      sorted((rec.get('seconds') or {})) == sorted([slow, quick])
+                      and 'cores' in str(rec.get('measured')) and rec.get('_comment'),
+                      repr(rec)))
+        after = {t['name']: t['seconds'] for t in tr.inventory(tmp)}
+        cases.append(('THE CASE: inventory() reports the recorded seconds; the '
+                      'failing script stays untimed',
+                      isinstance(after.get(slow), float) and after[slow] >= 0.3
+                      and isinstance(after.get(quick), float) and after.get(broken) is None,
+                      repr(after)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'test_review.py --time-scripts records what each passing test script '
+          f'took and inventory() reads it ({len(cases)} stated cases: untimed '
+          f'before, failing one named, recorded, read back)',
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
@@ -11220,12 +11243,18 @@ def check_source_level_reads_go_through_the_normalizer():
     cases = []
     skip = {'verify_harness.py', 'precedent_resolve.py'}
     hits = []
+    # The scanner flags only a comparison with a raw read, and a raw read is
+    # a 'level' string constant, so a file whose text quotes no `level` is
+    # never parsed: about a quarter of tools/ is, at half the time.
+    quoted = re.compile(r"""['"]level['"]""")
     for f in sorted((ROOT / 'tools').glob('*.py')):
         if f.name in skip:
             continue
         try:
-            hits += [f'{f.name}:{n}' for n in
-                     _raw_level_comparisons(f.read_text(encoding='utf-8'))]
+            text = f.read_text(encoding='utf-8')
+            if not quoted.search(text):
+                continue
+            hits += [f'{f.name}:{n}' for n in _raw_level_comparisons(text)]
         except (OSError, SyntaxError) as e:
             hits.append(f'{f.name}: unreadable ({e})')
     cases.append(('no tool compares a raw source level', not hits, ', '.join(hits[:20])))
@@ -11942,15 +11971,26 @@ def check_incident_coverage_reads_what_the_gotcha_names():
         g = got.get('gotcha-g-nothing', {})
         cases.append(('a gotcha with none of these has nothing to show',
                       bool(g) and not any(g.values())))
+        # The two real gotchas, read on their own: a scratch tree holding just
+        # their files, never this whole repository, which was half this
+        # check's time for two rows.
+        named = ('gotcha-2026-09-30-auto-mode-refuses-a-bare-'
+                 'promote-into-main-as-a-production',
+                 'gotcha-2026-09-28-stale-shallow-entries-for-'
+                 'deleted-branches-survive-unshallow')
+        two = fx / 'two-real'
+        (two / 'gotchas').mkdir(parents=True)
+        (two / 'tools').mkdir()
+        (two / 'tools' / 'verify_harness.py').write_text('', encoding='utf-8')
+        for s in named:
+            if (ROOT / 'gotchas' / f'{s}.md').is_file():
+                _sh.copy2(ROOT / 'gotchas' / f'{s}.md', two / 'gotchas' / f'{s}.md')
         real = {r[1]: (r[4] if len(r) > 4 else {})
-                for r in _vdc._incident_coverage(ROOT, since='2026-09-28')[1]}
+                for r in _vdc._incident_coverage(two, since='2026-09-28')[1]}
         cases.append(('the two gotchas with no mechanical prevention say so, '
                       'and why', all(
                           (real.get(s) or {}).get('written', '') or ''
-                          for s in ('gotcha-2026-09-30-auto-mode-refuses-a-bare-'
-                                    'promote-into-main-as-a-production',
-                                    'gotcha-2026-09-28-stale-shallow-entries-for-'
-                                    'deleted-branches-survive-unshallow'))))
+                          for s in named)))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -12005,6 +12045,153 @@ def check_upholds_is_a_listed_field():
           f'its own ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+# --------------------------------------------------------------------------
+# ONE BUILD, COPIED BY PATH: a fixture tree a tool writes its own path into.
+#
+# A fresh precedent_install.py (about 9 seconds) and a pair of bootstrapped
+# practice sets (a couple of seconds each) are the same bytes every time,
+# but for the directory they were made in, which they write into a few
+# files: the install report, a leak blocklist's comment, a session's
+# practice list. _fixture_tree_cache builds one under a scratch directory,
+# keeps it with that directory's path held as a marker, and copies it into
+# each check's own directory with the marker written back as that path.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is what a build in
+# the check's own directory would leave, but for __pycache__, which is never
+# kept (compiled files carry the path, and Python rebuilds them), and the
+# time a build stamps (an install's MANIFEST.json generated_at_utc; checked
+# 2026-10-31, file by file, against an install made in place). The key is
+# _seed_cache_key's for an empty destination (ONE CONSUMER, COPIED above
+# says what that covers) plus the recipe's name and today's UTC date, since
+# a build may write the date. Every build runs under _isolated_env -- an
+# empty HOME, no user config, no token, no PRECEDENT_*/GIT_* variable but
+# PRECEDENT_SEED_OFF_MAIN, local git only -- which is what lets the key read
+# HOME, and a build that writes anything into HOME, or fails, is never kept.
+# PRECEDENT_NO_SEED_CACHE=1, or any error, builds in the check's directory.
+_TREE_CACHE_MARKER = '@@PRECEDENT-HARNESS-FIXTURE-ROOT@@'
+_TREE_CACHE_HOME_MARKER = '@@PRECEDENT-HARNESS-FIXTURE-HOME@@'
+
+
+def _fixture_tree_env(home):
+    """The environment every _fixture_tree_cache build runs under."""
+    return dict(_isolated_env(os.environ, home), PRECEDENT_SEED_OFF_MAIN='1')
+
+
+def _fixture_tree_cache(recipe, target, build, only=None):
+    """build(root, env) -> (ok, outputs): writes a fixture tree into the
+    existing empty directory `root` and returns a JSON-able dict of strings
+    (its reports). This puts the same tree into `target` -- an existing,
+    empty directory -- from the cache when it can, and returns the outputs
+    with `target` and this call's HOME in place of the build's. `only`
+    names the top-level entries of the tree to copy (all when None)."""
+    import tempfile
+    from datetime import datetime, timezone
+    marker, home_marker = _TREE_CACHE_MARKER, _TREE_CACHE_HOME_MARKER
+    target = pathlib.Path(target)
+    with tempfile.TemporaryDirectory(prefix='fixture-home-') as home:
+        env = _fixture_tree_env(home)
+
+        def for_real():
+            ok, outputs = build(target, env)
+            if only is not None:
+                for child in target.iterdir():
+                    if child.name not in only:
+                        shutil.rmtree(child) if child.is_dir() else child.unlink()
+            return outputs
+
+        def rewrite(top, old, new):
+            for p in top.rglob('*') if top.is_dir() else [top]:
+                if p.is_file() and not p.is_symlink():
+                    data = p.read_bytes()
+                    if old in data:
+                        p.write_bytes(data.replace(old, new))
+
+        if os.environ.get('PRECEDENT_NO_SEED_CACHE') == '1':
+            return for_real()
+        probe = pathlib.Path(tempfile.mkdtemp(prefix='fixture-key-'))
+        try:
+            day = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            key = _seed_cache_key(probe, f'fixture-tree {recipe} {day}', env)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            key = None                      # an accelerator, never a dependency
+        finally:
+            shutil.rmtree(probe, ignore_errors=True)
+        if key is None:
+            return for_real()
+        cache = _seed_cache_dir()
+        entry = cache / f'tree-{key}'
+        if not (entry / 'complete').is_file():
+            scratch = pathlib.Path(tempfile.mkdtemp(prefix='fixture-build-'))
+            staging = None
+            try:
+                root = scratch / 'root'
+                root.mkdir()
+                ok, outputs = build(root, env)
+                if ok and not any(pathlib.Path(home).iterdir()):
+                    cache.mkdir(parents=True, exist_ok=True)
+                    _seed_cache_prune(cache)
+                    staging = pathlib.Path(tempfile.mkdtemp(
+                        prefix=f'.build-tree-{key[:12]}-', dir=cache))
+                    shutil.copytree(root, staging / 'root', symlinks=True,
+                                    ignore=shutil.ignore_patterns('__pycache__'))
+                    rewrite(staging / 'root', os.fsencode(str(root)), marker.encode())
+                    (staging / 'outputs.json').write_text(json.dumps(
+                        {k: v.replace(str(root), marker).replace(home, home_marker)
+                         for k, v in outputs.items()}), encoding='utf-8')
+                    (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+                    os.rename(staging, entry)   # atomic; loses to an entry already there
+            except OSError:
+                pass
+            finally:
+                shutil.rmtree(scratch, ignore_errors=True)
+                if staging is not None and staging.exists():
+                    shutil.rmtree(staging, ignore_errors=True)
+            # The build above wrote into HOME (it is still this call's), so
+            # a build for real starts from an emptied one.
+            for child in pathlib.Path(home).iterdir():
+                shutil.rmtree(child) if child.is_dir() else child.unlink()
+        if not (entry / 'complete').is_file():
+            return for_real()
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            outputs = json.loads((entry / 'outputs.json').read_text(encoding='utf-8'))
+            for child in sorted((entry / 'root').iterdir()):
+                if only is not None and child.name not in only:
+                    continue
+                dest = target / child.name
+                if child.is_dir() and not child.is_symlink():
+                    shutil.copytree(child, dest, symlinks=True)
+                else:
+                    shutil.copy2(child, dest, follow_symlinks=False)
+                rewrite(dest, marker.encode(), os.fsencode(str(target)))
+        except OSError:
+            for child in list(target.iterdir()):    # undo, then build for real
+                shutil.rmtree(child, ignore_errors=True) if child.is_dir() else child.unlink()
+            return for_real()
+        return {k: v.replace(marker, str(target)).replace(home_marker, home)
+                for k, v in outputs.items()}
+
+
+def _fresh_install_fixture(dest):
+    """A fresh `precedent_install.py <dest> --project-name Fixture` into an
+    empty repository at `dest` (made here when absent), the install every
+    install check runs, through _fixture_tree_cache.
+    -> (returncode, stdout, stderr) of the install."""
+    dest = pathlib.Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    def build(root, env):
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(root)], env=env,
+                       capture_output=True, check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(root), '--project-name', 'Fixture'], cwd=str(ROOT),
+                           env=env, capture_output=True, text=True)
+        return r.returncode == 0, {'rc': str(r.returncode), 'stdout': r.stdout,
+                                   'stderr': r.stderr}
+    out = _fixture_tree_cache('fresh-install Fixture 1', dest, build)
+    return int(out['rc']), out['stdout'], out['stderr']
+
+
 def check_consumer_engine_carries_what_its_checks_import():
     """A consumer's precedent_check.py imports doc_lifecycle for
     document-status-header and speculation-is-marked, and the module was on
@@ -12032,10 +12219,8 @@ def check_consumer_engine_carries_what_its_checks_import():
               not missing)]
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-doclife-'))
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                        str(fx), '--project-name', 'Fixture'],
-                       capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _fresh_install_fixture(fx)
         (fx / 'spec').mkdir()
         (fx / 'spec' / 'PLAN.md').write_text(
             '---\ntitle: "Plan"\nkind: reference\nstatus: current\n'
@@ -12104,11 +12289,9 @@ def check_install_names_the_other_assistants_adapters():
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-adapters-'))
     cases = []
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(fx), '--project-name', 'Fixture'],
-                           capture_output=True, text=True)
-        tail = r.stdout.split('DONE.', 1)[-1]
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _rc, stdout, _err = _fresh_install_fixture(fx)
+        tail = stdout.split('DONE.', 1)[-1]
         cases.append(("the install report's what-is-left names the adapters "
                       "page for another assistant",
                       'templates/harness/README.md' in tail
@@ -12545,10 +12728,16 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     import tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as _pve
-    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    top = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    fx = top / 'consumer'
+    fx.mkdir()
+    (top / 'home').mkdir()
+    # HOME and the user config are the fixture's own (practice:
+    # fixture-owns-its-state), which also lets the seed cache key them.
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+               PRECEDENT_ALLOW_ANY_AUTHOR='1', HOME=str(top / 'home'),
+               PRECEDENT_USER_CONFIG=str(top / 'no-user-config.json'))
 
     def sh(*args):
         r = subprocess.run(list(args), cwd=str(fx), env=env,
@@ -12561,8 +12750,16 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     cases = []
     try:
         sh('git', 'init', '-q', '-b', 'main')
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(fx),
-           '--project-name', 'Fixture')
+        # A seeded consumer engine, from the harness seed cache: the refresh
+        # reads only the engine and its manifest, never what else an install
+        # writes.
+        (fx / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)}]}) + '\n', encoding='utf-8')
+        (fx / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        _seed_fixture_engine(fx, 'consumer', env, cwd=fx)
         commit('installed')
         recorded = json.loads((fx / 'tools' / _pve.MANIFEST_NAME)
                               .read_text(encoding='utf-8'))['source_commit']
@@ -12588,7 +12785,7 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
                       bool(current) and 'nothing to do' not in current[-1]
                       and 'removed' in current[-1], str(current)))
     finally:
-        _sh.rmtree(fx, ignore_errors=True)
+        _sh.rmtree(top, ignore_errors=True)
     bad = [(n, x) for n, ok, x in cases if not ok]
     check(f'a refresh that removed an engine file never says nothing was done '
           f'({len(cases)} stated cases)', not bad,
@@ -12614,11 +12811,8 @@ def check_fresh_install_links_its_file_names():
     cases = []
     try:
         proj = fx / 'proj'
-        proj.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], check=True)
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(proj), '--project-name', 'Fixture'],
-                           capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _rc, install_out, _err = _fresh_install_fixture(proj)
         step8 = ['AGENTS.md', 'MAP.md', 'TODO.md', 'GLOSSARY.md',
                  'GETTING_STARTED.md', 'local/practices/project-voice.md',
                  'local/practices/project-visual-identity.md', 'README.md',
@@ -12639,8 +12833,8 @@ def check_fresh_install_links_its_file_names():
                       'templates wrote', lint.returncode == 0 and not outside,
                       '; '.join(outside) or failure_detail(lint.stdout, 600)))
         cases.append(('...and the installer\'s own light check passes',
-                      'the light check on the written files: OK' in r.stdout,
-                      failure_detail(r.stdout, 600)))
+                      'the light check on the written files: OK' in install_out,
+                      failure_detail(install_out, 600)))
         # The installer's light check counts a template's unlinked name and
         # leaves the generated block's alone.
         probe = fx / 'probe'
@@ -16331,10 +16525,22 @@ def check_update_vendors_is_one_command():
                   '--repo', str(repo), '--from-ref', ref, '--skip-check', *extra,
                   cwd=repo)
 
+    def copy_of(src, name):
+        # Every consumer below starts the same, so one is built and the rest
+        # are copies, repository and bare origin, made before anything runs
+        # on it: each gets its own, and nothing one does reaches another.
+        repo, bare = tmp / name, tmp / f'{name}.git'
+        shutil.copytree(src, repo, symlinks=True)
+        shutil.copytree(tmp / f'{src.name}.git', bare, symlinks=True)
+        sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+        sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo
+
     import precedent_vendor_engine as _pve
     pve_branch = _pve.SOURCE_BRANCH
     try:
         done = consumer('done')
+        edited, local = copy_of(done, 'edited-engine'), copy_of(done, 'edited-catalogue')
         # The fixture's AGENTS.md is bare, so the first run rightly lists the
         # template's sections as this repo's call. Leaving them out is an
         # answer, and the refresh remembers it: the second run asks nothing.
@@ -16378,7 +16584,6 @@ def check_update_vendors_is_one_command():
                       (done / 'AGENTS.md').read_text() and
                       len((done / 'AGENTS.md').read_text()) > 200, failure_detail(out, 600)))
 
-        edited = consumer('edited-engine')
         with open(edited / 'tools' / 'precedent_show.py', 'a', encoding='utf-8') as f:
             f.write('# a local edit\n')
         rc, out = update(edited)
@@ -16387,7 +16592,6 @@ def check_update_vendors_is_one_command():
                       and 'precedent_show.py' in out.split('LEFT FOR YOU', 1)[-1],
                       failure_detail(out, 1500)))
 
-        local = consumer('edited-catalogue')
         target = next(p for p in sorted((local / 'process' / 'upstream' / 'practices')
                                         .glob('*.md')))
         with open(target, 'a', encoding='utf-8') as f:
@@ -16920,6 +17124,109 @@ class _LocalEditsFixture:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
+# --------------------------------------------------------------------------
+# ONE CONSUMER, COPIED: an Update Vendors fixture past its slow first steps.
+#
+# Several update checks start from the same consumer carried through the same
+# warm-up (a vendored catalogue, a first update run, a commit), which costs
+# 20-25 seconds of real update runs each time and gives the same repository
+# every time. _uv_cached_consumer builds it once per key and copies it, the
+# repository and its bare origin, into each case; every case still gets its
+# own copy, and nothing one case does reaches another.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is used only when a
+# fresh build would leave the same repository. The key is _seed_cache_key's
+# for an empty destination -- this checkout's path, HEAD, its SOURCE_BRANCH
+# refs and every uncommitted or untracked file by content (this harness
+# included, so an edited recipe is a new key), the contents of HOME and the
+# user config, every PRECEDENT_*/GIT_* variable but the harness's own test
+# filter -- plus the recipe's name. A build that leaves anything in HOME, or
+# writes the fixture's temporary path anywhere but the remote URLs and
+# FETCH_HEAD a copy rewrites, is never kept. PRECEDENT_NO_SEED_CACHE=1 turns
+# it off with the seed cache; any error falls back to building, and within
+# one fixture a recipe is still built only once.
+_UV_CONSUMER_FILTER_VARS = ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP')
+_UV_CONSUMER_PATH_OK = ('.git/config', '.git/FETCH_HEAD', 'config')
+
+
+def _uv_consumer_source(fx, recipe, build):
+    """-> (repo, bare) holding fx.consumer() carried through build(repo):
+    a cache entry's, or one built in fx.tmp (and kept when it may be)."""
+    env = {k: v for k, v in fx.env.items() if k not in _UV_CONSUMER_FILTER_VARS}
+    key = None
+    if fx.env.get('PRECEDENT_NO_SEED_CACHE') != '1':
+        probe = fx.tmp / f'.uv-key-{recipe}'
+        probe.mkdir()
+        try:
+            key = _seed_cache_key(probe, f'uv-consumer {recipe}', env)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            key = None                      # an accelerator, never a dependency
+        finally:
+            shutil.rmtree(probe, ignore_errors=True)
+    cache = _seed_cache_dir(fx.env)
+    entry = cache / f'uv-{key}' if key else None
+    if entry is not None and (entry / 'complete').is_file():
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            return entry / 'repo', entry / 'bare'
+        except OSError:
+            pass
+    name = f'.uv-build-{recipe}'
+    repo = fx.consumer(name)
+    bare = fx.tmp / f'{name}.git'
+    build(repo)
+    if entry is None or any((fx.tmp / 'home').iterdir()):
+        return repo, bare
+    needle = os.fsencode(str(fx.tmp))
+    for top, ok in ((repo, _UV_CONSUMER_PATH_OK[:2]), (bare, _UV_CONSUMER_PATH_OK[2:])):
+        for dirpath, dirnames, filenames in os.walk(top):
+            rel_dir = pathlib.Path(dirpath).relative_to(top)
+            if rel_dir.as_posix() in ('.git/objects', 'objects'):
+                dirnames[:] = []            # compressed; the worktree is scanned
+                continue
+            for fn in filenames:
+                p = pathlib.Path(dirpath) / fn
+                rel = (rel_dir / fn).as_posix()
+                if rel not in ok and not p.is_symlink() and needle in p.read_bytes():
+                    return repo, bare       # path-dependent: never kept
+    import tempfile
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        _seed_cache_prune(cache)
+        staging = pathlib.Path(tempfile.mkdtemp(prefix=f'.build-uv-{key[:12]}-', dir=cache))
+    except OSError:
+        return repo, bare
+    try:
+        shutil.copytree(repo, staging / 'repo', symlinks=True)
+        shutil.copytree(bare, staging / 'bare', symlinks=True)
+        (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+        os.rename(staging, entry)           # atomic; loses to an entry already there
+    except OSError:
+        pass
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+    return repo, bare
+
+
+def _uv_cached_consumer(fx, name, recipe, build):
+    """-> fx.tmp/<name>: a copy of fx.consumer() carried through
+    build(repo), with its own copy of the bare origin at fx.tmp/<name>.git
+    (see ONE CONSUMER, COPIED above). `recipe` names what build does, and
+    must change when what it does changes in a way the key cannot see."""
+    built = fx.__dict__.setdefault('_uv_built', {})
+    if recipe not in built:
+        built[recipe] = _uv_consumer_source(fx, recipe, build)
+    src_repo, src_bare = built[recipe]
+    repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
+    shutil.copytree(src_repo, repo, symlinks=True)
+    shutil.copytree(src_bare, bare, symlinks=True)
+    fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+    fx.sh('git', 'remote', 'set-url', 'origin', str(repo), cwd=bare)
+    fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+    return repo
+
+
 def _insert(data, text, at=3):
     lines = data.decode().splitlines(True)
     return ''.join(lines[:at] + [text] + lines[at:]).encode()
@@ -17290,18 +17597,28 @@ def check_update_rerun_after_failed_takes_its_own_output():
             'pu.judged_as_committed = lambda _r, _a: (1, "stubbed red check")\n'
             f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--from-ref", {ref!r}]))\n'),
             cwd=repo)
+    def local_fix(repo):
+        # Answer the bare fixture's first-run questions, so the run below
+        # reaches its check rather than stopping short of it.
+        fx.update(repo, fx.seeded_from(repo))
+        fx.commit(repo, 'first update')
+        f = repo / 'tools' / 'precedent_show.py'
+        f.write_bytes(_insert(f.read_bytes(), '# a local fix\n'))
+        fx.commit(repo, 'a local fix to a received engine file')
     try:
         for name, touch in (('untouched', False), ('touched', True)):
-            repo = fx.consumer(name)
+            # Both cases start from the same consumer, built once and copied
+            # (_uv_cached_consumer).
+            repo = _uv_cached_consumer(fx, name, 'first-update-local-fix', local_fix)
             seeded = fx.seeded_from(repo)
-            # Answer the bare fixture's first-run questions, so the run
-            # below reaches its check rather than stopping short of it.
-            fx.update(repo, seeded)
-            fx.commit(repo, 'first update')
             f = repo / 'tools' / 'precedent_show.py'
-            b = f.read_bytes()
-            f.write_bytes(_insert(b, '# a local fix\n'))
-            fx.commit(repo, 'a local fix to a received engine file')
+            b = subprocess.run(['git', '-C', str(repo), 'show',
+                                'HEAD~1:tools/precedent_show.py'],
+                               capture_output=True, env=fx.env).stdout
+            if f.read_bytes() != _insert(b, '# a local fix\n'):
+                cases.append((f'{name}: the fixture holds the local fix on top of the '
+                              'first update', False, ''))
+                continue
             ref = fx.upstream(seeded, {'tools/precedent_show.py': b + b'\n# upstream\n'})
             rc, out = red_update(repo, ref)
             # Upstream's version, since 2026-10-08 (rule 2 takes it): still
@@ -17490,7 +17807,9 @@ def check_gone_path_matcher_matches_one_regex_per_path():
     gone = {path() for _ in range(400)} | {'odd dir/x.md', 'a+b/c.md'}
     pool = sorted(gone)
     lines = []
-    for _ in range(3000):
+    # 1000 lines, not 3000 (2026-10-31): the old loop is the cost, and every
+    # boundary comes from the same generator either way.
+    for _ in range(1000):
         toks = []
         for _ in range(rnd.randint(1, 10)):
             r = rnd.random()
@@ -17509,7 +17828,7 @@ def check_gone_path_matcher_matches_one_regex_per_path():
     got = [first(l) for l in lines]
     diff = [(l, w, g) for l, w, g in zip(lines, want, got) if w != g]
     hits = sum(1 for w in want if w)
-    return (not diff and hits > 1000, f'{len(lines)} lines, {hits} with a hit, '
+    return (not diff and hits > 300, f'{len(lines)} lines, {hits} with a hit, '
             f'{len(gone)} removed paths', f'{len(diff)} differ, first: {diff[:2]}')
 
 
@@ -19025,38 +19344,30 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                                            capture_output=True).stdout
     up = lambda repo, rel: repo / 'process' / 'upstream' / rel
 
-    pristine = {}
+    def pristine(repo):
+        # Every case starts from the same consumer: its catalogue vendored
+        # at the seeded commit and its first update run. Built once per
+        # checkout state and copied for each case, repository and bare
+        # origin (Morgan, 2026-10-09: "share the fake project"; the build
+        # is about 25 seconds of real update runs), so nothing a case does
+        # reaches another (_uv_cached_consumer).
+        seeded = fx.seeded_from(repo)
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': []}, indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        # Answer the bare fixture's first-run questions, so a later run
+        # can end DONE.
+        fx.update(repo, seeded)
+        fx.commit(repo, 'catalogue at the seeded commit')
 
     def build(name):
-        # Built once, copied for each case (Morgan, 2026-10-09: "share the
-        # fake project"). Every case starts from the same consumer: its
-        # catalogue vendored at the seeded commit and its first update run.
-        # That took about 30 seconds a case, five times over; two builds
-        # differ only by MANIFEST.json's generated_at_utc and their commit
-        # times. Each case gets its own copy of the repository and of its
-        # bare origin, and nothing a case does reaches another.
-        if not pristine:
-            repo = fx.consumer('pristine')
-            seeded = fx.seeded_from(repo)
-            (repo / 'process').mkdir()
-            (repo / 'process' / 'manifest.json').write_text(json.dumps({
-                'upstream': {'repo': 'https://github.com/alex137/BestPractice',
-                             'vendored_at': 'process/upstream', 'branch': branch,
-                             'commit': seeded, 'scrub_blocklist': None},
-                'entries': []}, indent=2) + '\n', encoding='utf-8')
-            fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
-                  '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
-            # Answer the bare fixture's first-run questions, so a later run
-            # can end DONE.
-            fx.update(repo, seeded)
-            fx.commit(repo, 'catalogue at the seeded commit')
-            pristine.update(repo=repo, seeded=seeded)
-        repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
-        shutil.copytree(pristine['repo'], repo, symlinks=True)
-        shutil.copytree(fx.tmp / 'pristine.git', bare, symlinks=True)
-        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
-        fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
-        return repo, pristine['seeded']
+        repo = _uv_cached_consumer(fx, name, 'catalogue-at-seeded', pristine)
+        return repo, fx.seeded_from(repo)
 
     def mismatch(repo, ref):
         """-> the copy-relative paths where the copy is not `ref` under the
@@ -19555,7 +19866,10 @@ def check_send_carries_a_local_edit_upstream():
         # vendored, with a change to the same file.
         fx.env.update(ident)
         owner, bare = fx.tmp / 'owner', fx.tmp / 'owner.git'
-        fx.sh('git', 'clone', '-q', '--no-local', str(ROOT), str(owner), cwd=fx.tmp)
+        # A plain local clone: its objects are hardlinks, never written to in
+        # place, so nothing the owner does reaches this checkout; --no-local
+        # copied every object of this repository, about 12 seconds of 23.
+        fx.sh('git', 'clone', '-q', str(ROOT), str(owner), cwd=fx.tmp)
         landing = fx.sh(sys.executable, 'tools/precedent_branches.py', '--landing',
                         cwd=owner)[1].split()[0]
         fx.sh('git', 'checkout', '-q', '-B', landing, seeded, cwd=owner)
@@ -25350,70 +25664,6 @@ def check_precedent_check_fires():
             p = repo / rel
             p.write_text(fn(p.read_text(encoding='utf-8')), encoding='utf-8')
 
-        # --- the baseline must be clean, or every case below is meaningless
-        base = fresh('baseline')
-        # The same isolation run() applies (fixture-owns-its-state): no
-        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
-        # own individual set. With either, the commit-author check failed
-        # this baseline on the fixture's own `harness` commit (2026-10-10,
-        # once a change touching the check machinery made every check run
-        # here).
-        _env = {k: v for k, v in os.environ.items()
-                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
-                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
-        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
-        # Started here and read just before the closing assertions: a whole
-        # run takes about 30 s, and nothing between reads its result.
-        _baseline = subprocess.Popen(
-            [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            cwd=str(base), env=_env)
-
-        # --- one planted violation per enforced practice --------------------
-        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
-        # processes and returns; the result is collected the first time
-        # anything reads planted[slug] (or `in`, .get, .items), and every
-        # case still pending is collected before the closing assertions.
-        # So a later assertion that reads a case back blocks until that
-        # case is done, without anyone listing which cases are read --
-        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
-        # follow-ups. Two at a time used about one core of four; the width
-        # stays bounded, because a fan-out with no bound ran a container out
-        # of memory once (gotcha-2026-09-18).
-        _pending = {}
-        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
-
-        class _Planted(dict):
-            def _settle(self, key):
-                slug = key[:-len('-clean')] if key.endswith('-clean') else key
-                for k in (key, slug):
-                    if k in _pending:
-                        _pending.pop(k)()
-
-            def settle_all(self):
-                while _pending:
-                    _pending.pop(next(iter(_pending)))()
-
-            def __getitem__(self, key):
-                self._settle(key)
-                return dict.__getitem__(self, key)
-
-            def __contains__(self, key):
-                self._settle(key)
-                return dict.__contains__(self, key)
-
-            def get(self, key, default=None):
-                self._settle(key)
-                return dict.get(self, key, default)
-
-            def items(self):
-                self.settle_all()
-                return dict.items(self)
-
-        planted = _Planted()
-        declared = set()          # every slug case() was ASKED for
-        ran, skipped = [], []     # and which of those actually executed
-
         # ROTATION (Morgan, 2026-09-21, strength: decided -- "build the 10%
         # rotation"). This function was 107.9s of a 211.5s suite: 71 cases,
         # each copying the whole tree twice and starting two interpreters.
@@ -25449,6 +25699,113 @@ def check_precedent_check_fires():
             _selected, _selection_reason = _selected_case_slugs(_all_case_slugs)
         else:
             _selected, _selection_reason = None, 'all (the registry could not be read)'
+
+        # ONE CLEAN RUN SERVES EVERY PLAIN CASE (2026-10-31). Each case used
+        # to check its own unplanted copy as well -- a second tree copy and
+        # a second interpreter per case, about 130 of each, on a tree the
+        # baseline below checks anyway. When every case runs, the baseline
+        # is a --full-sweep (bare, it runs only a rotation slice of the tree
+        # checks), and a case with no setup=, extra= or env_extra= -- whose
+        # clean run would be `--only SLUG` on that same tree -- reads its
+        # slug's verdict out of it (_clean_from_baseline). A slug the sweep
+        # does not show clean, or any output the sweep cannot attribute to
+        # one slug, is checked again on its own copy exactly as before, so a
+        # failure reads the same as it always did. A rotated run keeps the
+        # bare baseline and the per-case clean runs: a whole sweep there
+        # would cost more than the few clean runs it saves.
+        _shared_clean = (_selected is None
+                         or set(_all_case_slugs) <= set(_selected))
+
+        # --- the baseline must be clean, or every case below is meaningless
+        base = fresh('baseline')
+        # The same isolation run() applies (fixture-owns-its-state): no
+        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
+        # own individual set. With either, the commit-author check failed
+        # this baseline on the fixture's own `harness` commit (2026-10-10,
+        # once a change touching the check machinery made every check run
+        # here).
+        _env = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
+        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
+        # Started here and read just before the closing assertions (or by
+        # the first plain case's clean verdict): a bare run takes about 30 s,
+        # a full sweep about a minute, and nothing between reads its result.
+        _baseline = subprocess.Popen(
+            [sys.executable, str(base / 'tools' / 'precedent_check.py'),
+             *(['--full-sweep'] if _shared_clean else [])],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=str(base), env=_env)
+        _baseline_read = []
+
+        def _baseline_result():
+            if not _baseline_read:
+                out, _ = _baseline.communicate()
+                _baseline_read.append((_baseline.returncode, out))
+            return _baseline_read[0]
+
+        # --- one planted violation per enforced practice --------------------
+        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
+        # processes and returns; the result is collected the first time
+        # anything reads planted[slug] (or `in`, .get, .items), and every
+        # case still pending is collected before the closing assertions.
+        # So a later assertion that reads a case back blocks until that
+        # case is done, without anyone listing which cases are read --
+        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
+        # follow-ups. Two at a time used about one core of four; the width
+        # stays bounded, because a fan-out with no bound ran a container out
+        # of memory once (gotcha-2026-09-18).
+        _pending = {}
+        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
+        # The bound is on processes, not cases: a plain case starts one, a
+        # case with its own clean run two, and twice _width processes was
+        # always the most in flight.
+        _weight = {}
+        _deferred = {}            # slug -> index in cases of its clean case
+
+        def _drain(slug):
+            _weight.pop(slug, None)
+            _pending.pop(slug)()
+
+        class _Planted(dict):
+            def _settle(self, key):
+                slug = key[:-len('-clean')] if key.endswith('-clean') else key
+                for k in (key, slug):
+                    if k in _pending:
+                        _drain(k)
+                if key.endswith('-clean') and slug in _deferred:
+                    # Read back before the sweep is done (one assertion
+                    # reads generated-edit-goes-upstream's clean output
+                    # early): its own copy now, rather than every case
+                    # after it waiting about a minute for the sweep.
+                    _clean_from_baseline(slug, wait=False)
+
+            def settle_all(self):
+                while _pending:
+                    _drain(next(iter(_pending)))
+                for slug in list(_deferred):
+                    _clean_from_baseline(slug)
+
+            def __getitem__(self, key):
+                self._settle(key)
+                return dict.__getitem__(self, key)
+
+            def __contains__(self, key):
+                self._settle(key)
+                return dict.__contains__(self, key)
+
+            def get(self, key, default=None):
+                self._settle(key)
+                return dict.get(self, key, default)
+
+            def items(self):
+                self.settle_all()
+                return dict.items(self)
+
+        planted = _Planted()
+        declared = set()          # every slug case() was ASKED for
+        ran, skipped = [], []     # and which of those actually executed
+
 
         # case()'s two sub-runs -- the planted fixture and the clean fixture
         # -- are provably independent: different directories, no shared
@@ -25516,26 +25873,31 @@ def check_precedent_check_fires():
                 shutil.rmtree(clean, ignore_errors=True)
                 return result
 
+            plain = _shared_clean and setup is None and not extra and not env_extra
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
-            p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
-            while len(_pending) >= _width:
-                _pending.pop(next(iter(_pending)))()
+            p2 = None if plain else multiprocessing.Process(
+                target=_case_worker, args=(_clean_pipeline, q2))
+            w = 1 if plain else 2
+            while _pending and sum(_weight.values()) + w > 2 * _width:
+                _drain(next(iter(_pending)))
             p1.start()
-            p2.start()
+            if p2:
+                p2.start()
+            _weight[slug] = w
             _pending[slug] = lambda: _collect(slug, advisory, q1, q2, p1, p2)
 
         def _collect(slug, advisory, q1, q2, p1, p2):
             status1, value1 = q1.get()
-            status2, value2 = q2.get()
+            status2, value2 = q2.get() if p2 else ('ok', None)
             p1.join()
-            p2.join()
+            if p2:
+                p2.join()
             if status1 == 'error':
                 raise value1
             if status2 == 'error':
                 raise value2
             rc, out = value1
-            rc2, out2 = value2
 
             planted[slug] = (rc, out)
             if advisory:
@@ -25556,9 +25918,74 @@ def check_precedent_check_fires():
             else:
                 cases.append((f'{slug}: a planted violation fails the check',
                               rc == 1 and 'VIOLATION' in out))
+            if p2 is None:
+                # Its place in `cases` is kept; the shared baseline fills it.
+                _deferred[slug] = len(cases)
+                cases.append((f'{slug}: the same tree unplanted does not', False,
+                              'not yet read from the shared baseline'))
+                return
+            _clean_case(slug, *value2)
+
+        def _clean_case(slug, rc2, out2, at=None):
             planted[slug + '-clean'] = (rc2, out2)
-            cases.append((f'{slug}: the same tree unplanted does not',
-                          rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
+            stated = (f'{slug}: the same tree unplanted does not',
+                      rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2)
+            if at is None:
+                cases.append(stated)
+            else:
+                cases[at] = stated
+
+        _HEADER = re.compile(r'^(VIOLATION|ADVISORY|ERROR|SKIPPED|COULD NOT VERIFY'
+                             r'|EXEMPT)\s+(\S+)')
+        _by_slug = []
+
+        def _baseline_by_slug():
+            """-> ({slug: its lines of the shared sweep}, whether anything
+            in the sweep could not be put down to one slug). A section is a
+            header naming the slug and the indented lines under it; what is
+            left over may say VIOLATION or ADVISORY only if no slug's own
+            run would have, and a sweep that never reached its summary line
+            is all left over."""
+            if not _by_slug:
+                _rc, out = _baseline_result()
+                sections, rest, cur = {}, [], None
+                for line in out.splitlines():
+                    m = _HEADER.match(line)
+                    if m:
+                        cur = sections.setdefault(m.group(2), [])
+                        cur.append(line)
+                    elif cur is not None and line.startswith((' ', '\t')):
+                        cur.append(line)
+                    else:
+                        cur = None
+                        rest.append(line)
+                rest = '\n'.join(rest)
+                unattributed = ('VIOLATION' in rest or 'ADVISORY' in rest
+                                or not re.search(r'^precedent_check: \d+ passed', rest, re.M))
+                _by_slug.append(({k: '\n'.join(v) for k, v in sections.items()},
+                                 unattributed))
+            return _by_slug[0]
+
+        def _clean_from_baseline(slug, wait=True):
+            """The clean case of a plain slug, from the shared sweep: what
+            `--only SLUG` on the same tree would have said. Run on its own
+            copy instead when the sweep shows it anything but clean, or
+            holds something it cannot attribute -- the old path, so its
+            failure detail is the old one."""
+            at = _deferred.pop(slug)
+            if not wait and not _baseline_read and _baseline.poll() is None:
+                sections, unattributed = {}, True
+            else:
+                sections, unattributed = _baseline_by_slug()
+            mine = sections.get(slug, '')
+            failing = re.search(r'^(VIOLATION|ADVISORY|ERROR)\s', mine, re.M)
+            if unattributed or failing or 'VIOLATION' in mine or 'ADVISORY' in mine:
+                clean = fresh(slug + '-clean')
+                rc2, out2 = run(clean, slug)
+                shutil.rmtree(clean, ignore_errors=True)
+            else:
+                rc2, out2 = 0, mine
+            _clean_case(slug, rc2, out2, at=at)
 
         # cite-the-incident -- a new practice with no ## Story
         def _plant_cite(repo):
@@ -26986,10 +27413,11 @@ def check_precedent_check_fires():
         case('checks-use-generated-blocks', _plant_hand_marker)
 
         # practice-change-propagates -- a live lookup of a practice this tree
-        # renamed away. `go-merge` is a deduplicated stub forwarding to
-        # `go-update` here, so a README telling the reader to look it up
-        # sends them to the stub: the go-merge rename's own shape, planted in
-        # the repository that made the rename.
+        # renamed away. `brief-it` is a deduplicated stub forwarding to
+        # `my-options` here, so a README telling the reader to look it up
+        # sends them to the stub: the shape of the go-merge rename this case
+        # was first written for (go-merge, a stub forwarding to go-update),
+        # planted in the repository that made the rename.
         case('practice-change-propagates',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
                                   '\nBefore merging, read '
@@ -29287,8 +29715,7 @@ def check_precedent_check_fires():
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
 
         planted.settle_all()
-        _out, _ = _baseline.communicate()
-        rc = _baseline.returncode
+        rc, _out = _baseline_result()
         # On a failure, the failing checks' own findings go into the detail:
         # a bare rc said only the slug of this case, and under --as-ci
         # --isolated (UTC) finding that todo/TODO.md had drifted took a
@@ -31926,19 +32353,63 @@ def check_gate_channel():
     # A practice another resolved source replaces (`overrides:`) is not in
     # force and is rightly left out -- present only where that source
     # resolves, as a person's individual set does beside this checkout.
+    #
+    # EVERY GATE RUN STARTS AT ONCE, AND EACH IS RUN ONCE (2026-10-31). The
+    # reply gate takes about 10 s, and this function ran it three times
+    # (here, again for the --brief comparison, and push again for the
+    # SessionStart case below), one after another. precedent_gate.py writes
+    # nothing, so the runs are independent: all of them start here, the
+    # Stop-hook pair runs while they work, and the --brief and push cases
+    # read the same `reply` and `push` results this loop judges.
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as _pg
+
+    def _gate_popen(*args):
+        return subprocess.Popen([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+                                 *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, cwd=str(ROOT))
+    _gate_procs = {g: _gate_popen(g) for g in sorted(vocab)}
+    _gate_procs[('no-such-gate',)] = _gate_popen('no-such-gate')
+    _gate_procs[('reply', '--brief')] = _gate_popen('reply', '--brief')
+    _gate_runs = {}
+
+    # The Stop-hook pair below, started now so it runs beside the gates:
+    # the two runs stay one after the other, in the order they always ran.
+    import tempfile, threading
+    _stop_runs = {}
+
+    def _stop_pair():
+        with tempfile.TemporaryDirectory() as _td:
+            _t = pathlib.Path(_td) / 't.jsonl'
+            _t.write_text(json.dumps({'type': 'user', 'message': {
+                'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
+                               ('without', '{}')):
+                _stop_runs[k] = subprocess.run(
+                    ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
+                    capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+    _stop_thread = threading.Thread(target=_stop_pair, daemon=True)
+    _stop_thread.start()
+
+    def _gate_run(key):
+        if key not in _gate_runs:
+            if key not in _gate_procs:
+                _gate_procs[key] = _gate_popen(*((key,) if isinstance(key, str) else key))
+            proc = _gate_procs[key]
+            out, err = proc.communicate()
+            _gate_runs[key] = subprocess.CompletedProcess(proc.args, proc.returncode,
+                                                          out, err)
+        return _gate_runs[key]
+
     for g in sorted(vocab):
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), g],
-                           capture_output=True, text=True, cwd=str(ROOT))
+        r = _gate_run(g)
         replaced = _pg.resolved_gate_practices(str(ROOT), g)[3]
         ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g]
                                        if s not in replaced)
         cases.append((f'`precedent_gate.py {g}` returns every practice registered to it', ok,
                       (r.stdout + r.stderr).strip()[:120] if not ok else ''))
 
-    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'no-such-gate'],
-                       capture_output=True, text=True, cwd=str(ROOT))
+    r = _gate_run(('no-such-gate',))
     cases.append(('an unknown gate fails loudly rather than printing nothing',
                   r.returncode != 0 and 'no gate named' in (r.stdout + r.stderr)))
 
@@ -32016,16 +32487,8 @@ def check_gate_channel():
     # as a path lost to a worker restart. Planted transcript: the sentence
     # is gone; no path in the payload (the control): it is back.
     no_path = 'no transcript reached this gate'
-    import tempfile
-    with tempfile.TemporaryDirectory() as _td:
-        _t = pathlib.Path(_td) / 't.jsonl'
-        _t.write_text(json.dumps({'type': 'user', 'message': {
-            'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
-        _runs = {k: subprocess.run(
-            ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
-            capture_output=True, text=True, cwd=str(ROOT), timeout=120)
-            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
-                               ('without', '{}'))}
+    _stop_thread.join()
+    _runs = _stop_runs
     cases.append(('the Stop hook hands the gate the transcript its payload names',
                   no_path not in _runs['with'].stdout + _runs['with'].stderr
                   and no_path in _runs['without'].stdout + _runs['without'].stderr,
@@ -32034,10 +32497,8 @@ def check_gate_channel():
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
-    r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],
-                            capture_output=True, text=True, cwd=str(ROOT))
-    r_brief = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
-                              'reply', '--brief'], capture_output=True, text=True, cwd=str(ROOT))
+    r_full = _gate_run('reply')
+    r_brief = _gate_run(('reply', '--brief'))
     cases.append(('`precedent_gate.py reply --brief` is much smaller than the '
                   'full gate -- it fires on every prompt',
                   r_brief.returncode == 0
@@ -32086,8 +32547,7 @@ def check_gate_channel():
     # container's real state is, so the case is meaningful in both a healthy
     # session and a broken one.
     broken = psck.failing_guarantees()
-    r_gate = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'push'],
-                            capture_output=True, text=True, cwd=str(ROOT))
+    r_gate = _gate_run('push')
     said = 'SessionStart guarantee(s) NOT in effect' in r_gate.stdout
     cases.append(('a gate reports broken SessionStart guarantees, and says '
                   'nothing when there are none',
@@ -36878,38 +37338,61 @@ def check_compaction_offer_owed_printed_at_turn_start():
                 for c, t in turns), encoding='utf-8')
             return path
 
-        def run(path):
+        # The tools are linked into the fixture once, before any run: the
+        # four runs below go side by side (2026-10-31; each is a whole
+        # reply-gate.sh, about 10 s, and they share nothing but this
+        # read-only fixture), and linking inside each run raced on the links.
+        (fx / 'tools').mkdir(exist_ok=True)
+        for f in ROOT.joinpath('tools').glob('*.py'):
+            dst = fx / 'tools' / f.name
+            if not dst.exists():
+                dst.symlink_to(f)
+
+        def start(path):
             # Through the hook itself, so the payload-to-env hand-off is what
             # is tested, not only the gate's reading of the variable.
             hook = ROOT / 'tools' / 'reply-gate.sh'
-            (fx / 'tools').mkdir(exist_ok=True)
-            for f in ROOT.joinpath('tools').glob('*.py'):
-                dst = fx / 'tools' / f.name
-                if not dst.exists():
-                    dst.symlink_to(f)
             payload = json.dumps({'transcript_path': str(path)}) if path else ''
-            return subprocess.run(
-                ['bash', str(hook)], input=payload, capture_output=True,
-                text=True, cwd=str(fx),
+            proc = subprocess.Popen(
+                ['bash', str(hook)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, cwd=str(fx),
                 env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
                      'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+            # Handed over now, not at finish(): the hook's first act is to
+            # read stdin to its end, so a payload held back would hold every
+            # run back until the one before it was read.
+            proc.stdin.write(payload)
+            proc.stdin.close()
+            proc.stdin = None
+            return proc
 
-        owed = run(transcript('owed.jsonl', [
-            (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')]))
+        def finish(proc):
+            out, err = proc.communicate()
+            return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
+
+        _started = {
+            'owed': start(transcript('owed.jsonl', [
+                (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')])),
+            'short': start(transcript('short.jsonl', [(96000, 'Opening.'),
+                                                      (120000, 'Done.')])),
+            'said': start(transcript('said.jsonl', [
+                (96000, 'Opening.'),
+                (205000, 'Now is a good time to compact the session.'),
+                (250000, 'More.')])),
+            'blind': start(None),
+        }
+        owed = finish(_started['owed'])
         cases.append(('a grown session is told the offer is OWED, with the '
                       'sentence to say', 'OWED IN THIS REPLY' in owed.stdout
                       and 'Now is a good time to compact the session' in owed.stdout,
                       failure_detail(owed.stdout, 400)))
-        short = run(transcript('short.jsonl', [(96000, 'Opening.'), (120000, 'Done.')]))
+        short = finish(_started['short'])
         cases.append(('a short session hears nothing about compacting',
                       'good time to compact' not in short.stdout, failure_detail(short.stdout, 400)))
-        said = run(transcript('said.jsonl', [
-            (96000, 'Opening.'),
-            (205000, 'Now is a good time to compact the session.'),
-            (250000, 'More.')]))
+        said = finish(_started['said'])
         cases.append(('once said, it is not owed again until another increment',
                       'good time to compact' not in said.stdout, failure_detail(said.stdout, 400)))
-        blind = run(None)
+        blind = finish(_started['blind'])
         cases.append(('no transcript: it says it could not tell, and never '
                       'defers to the stop hook', 'could not be worked out'
                       in blind.stdout and 'stop hook is the thing'
@@ -40743,17 +41226,16 @@ def check_refresh_removes_dropped_engine_files():
                        'tools/precedent_vendor_engine.py is not present here')
         return
 
-    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
     ref = _ref_including_worktree(ROOT)
 
     def _consumer(base):
         """Seed a real consumer engine from THIS working tree."""
         base.mkdir(parents=True)
         subprocess.run(['git', '-C', str(base), 'init', '-q'], capture_output=True)
-        r = subprocess.run(
-            [sys.executable, str(vend), 'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300, env=env)
-        if r.returncode != 0:
+        # The harness seed cache: the second and third consumers (and a later
+        # run at the same checkout state) copy what the first seed wrote.
+        rc, _out = _seed_fixture_engine(base, 'consumer', env, cwd=ROOT)
+        if rc != 0:
             return None
         # AND OVERWRITE THE SEEDED TOOL WITH THIS WORKING TREE'S. `seed`
         # vendors via git, so it copies the COMMITTED engine -- a fixture
@@ -40771,6 +41253,14 @@ def check_refresh_removes_dropped_engine_files():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
+        # HOME and the user config are the fixture's own (practice:
+        # fixture-owns-its-state), which is also what lets the seed cache
+        # key them.
+        (tmp / 'home').mkdir()
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1', HOME=str(tmp / 'home'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+                   GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
         base = _consumer(tmp / 'consumer')
         if base is None:
             not_applicable('refresh removes dropped engine files',
@@ -41550,6 +42040,21 @@ def check_retirement_record_is_not_a_stranded_link():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _seed_consumer_engine_isolated(dest):
+    """Seed a consumer engine into `dest` through the harness seed cache
+    (_seed_fixture_engine), under this process's environment with HOME and
+    the user config swapped for an empty scratch directory and the harness's
+    own test filter dropped. A real HOME is too big for the cache to key, so
+    under it every seed ran for real; the seeded files do not depend on it
+    (2026-10-31: a seed under each wrote the same 146 files, byte for byte).
+    Returns _seed_fixture_engine's (returncode, output)."""
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix='seed-home-') as h:
+        env = {k: v for k, v in os.environ.items() if k not in _UV_CONSUMER_FILTER_VARS}
+        env.update(HOME=h, PRECEDENT_USER_CONFIG=str(pathlib.Path(h) / 'no-user-config.json'))
+        return _seed_fixture_engine(dest, 'consumer', env, cwd=ROOT)
+
+
 def check_shipped_hooks_pass_rename_links_without_the_mirror():
     """Every hook BestPractice ships passes rename-updates-links in a
     consumer whose process/upstream/tools/ was just deleted.
@@ -41577,10 +42082,7 @@ def check_shipped_hooks_pass_rename_links_without_the_mirror():
         base = pathlib.Path(td) / 'repo'
         (base / 'process' / 'upstream' / 'tools').mkdir(parents=True)
         (base / 'tools').mkdir()
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -41666,10 +42168,7 @@ def check_rename_links_spares_a_commit_pinned_permalink():
         (base / 'tools').mkdir()
         # Seeded, then overwritten with this tree's checker -- seeding copies
         # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -41740,10 +42239,7 @@ name the deleted file and are still reported.
         (base / 'tools').mkdir()
         # Seeded, then overwritten with this tree's checker -- seeding copies
         # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -41962,10 +42458,8 @@ def check_very_deep_check_record_trips_no_check_in_a_consumer():
                            capture_output=True, text=True)
         return r.returncode, r.stdout + r.stderr
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                        str(fx), '--project-name', 'Fixture'],
-                       capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _fresh_install_fixture(fx)
         (fx / 'spec').mkdir(exist_ok=True)
         for n in ('call-notes.md', 'connected-systems.md'):
             (fx / 'spec' / n).write_text(f'# {n}\n\nNo header.\n', encoding='utf-8')
@@ -47103,9 +47597,18 @@ def check_main_test_repo_setting():
             cases.append((f'github_ci_main_test {value!r} leaves the file byte-identical '
                           f'to the template', pve.render_ci_workflow(other, raw) == raw))
 
+        # Parsed once per text: the table below asks starts() about the same
+        # two workflow texts some 5,000 times, and parsing them every time
+        # was nearly all of this check's 48 s (2026-10-31). Nothing writes
+        # to what it returns.
+        parsed = {}
+
         def wf(text):
-            doc = _yaml.safe_load(text)
-            return doc.get('on', doc.get(True)) or {}, doc['jobs']['light-check']['if']
+            if text not in parsed:
+                doc = _yaml.safe_load(text)
+                parsed[text] = (doc.get('on', doc.get(True)) or {},
+                                doc['jobs']['light-check']['if'])
+            return parsed[text]
 
         def starts(text, event, branch, private, head_ref=''):
             on, expr = wf(text)
@@ -48093,16 +48596,19 @@ def check_repo_may_declare_its_own_fallback_zone():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-tz-rung-'))
     try:
+        # Only what the check reads: precedent.json, the catalogue and the
+        # engine, and not this harness, whose parse was most of each run.
+        # The check lists untracked files too, so a git init is enough and
+        # nothing is committed. The whole checkout, added and committed,
+        # took 29-61 s; this takes about 4 (2026-10-31).
         repo = tmp / 'repo'
-        shutil.copytree(ROOT, repo, symlinks=True,
-                        ignore=shutil.ignore_patterns('.git', '__pycache__',
-                                                      '*.pyc', 'prompts'))
+        repo.mkdir()
+        shutil.copy2(ROOT / 'precedent.json', repo / 'precedent.json')
+        shutil.copytree(ROOT / 'practices', repo / 'practices', symlinks=True)
+        shutil.copytree(ROOT / 'tools', repo / 'tools', symlinks=True,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc',
+                                                      'prompts', 'verify_harness.py'))
         subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
-        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True,
-                       capture_output=True)
-        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
-                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
-                       check=True, capture_output=True)
 
         def run():
             env = dict(os.environ)
@@ -49108,7 +49614,8 @@ def check_session_check_reports_a_source_cloned_twice():
     saved_head = psc._git_head
 
     def row():
-        for name, ok, detail in psc.checks():
+        # offline: the row under test is local; only the fetch row is dropped.
+        for name, ok, detail in psc.checks(offline=True):
             if name_wanted in name:
                 return ok, detail
         return 'MISSING', ''
@@ -56331,14 +56838,24 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
     import contextlib, inspect, io
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as pg
+    import precedent_reply_check as prc
     cases = []
-    saved = (pg._container_report, pg._is_code_owner)
+    saved = (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+             prc._own_branches)
     report = ('CONTAINER NOT SAFE TO LOSE -- 1 of 2 checkout(s) hold work that '
               'is only here:\n  scratch:abc -- 1 file(s) in a scratch folder')
 
     def gate(owner):
         pg._container_report = lambda: report
         pg._is_code_owner = lambda _root: owner
+        # Neither of these writes a word this test reads, and together they
+        # were about 6 of each call's 6.5 s (2026-10-31): a set's own note
+        # tool, run as a subprocess, and the scan of this session's real
+        # branches on origin for the Boildown's one-line form. Stubbed, the
+        # asserted text is the same and no longer depends on which branches
+        # the session running the harness happens to have pushed.
+        pg._note_from_tool = lambda _root, _spec: []
+        prc._own_branches = lambda root=None, siblings=True: []
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             pg._print_hard_requirements(ROOT)
@@ -56365,7 +56882,8 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
         cases.append(('...and no plain-words instruction',
                       "NOT one of this repository's code owners" not in out, ''))
     finally:
-        pg._container_report, pg._is_code_owner = saved
+        (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+         prc._own_branches) = saved
     # 2026-10-12, Morgan: "Nothing technical should ever be said to a non
     # technical person." The other places that speak through a session.
     import precedent_session_check as psc
@@ -66635,9 +67153,9 @@ def check_shared_helpers_have_one_copy():
                       'are not', not ({'tools/imports_it.py', 'tools/doc_html.py',
                                        'tools/declared_base_branch.py'} & found),
                       sorted(found)))
-        here = [f.where for f in pc._declared_base_branch_is_read(None)]
-        cases.append(('this tree: no tool carries a copy, and none infers '
-                      'unguarded', not here, here))
+        # This tree itself is not scanned here: precedent_check.py runs the
+        # same scan on it as the tree check `declared-base-branch` in every
+        # full check, and it was nearly all of this test's time.
     finally:
         pc.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -66899,11 +67417,24 @@ def check_tools_answer_help_without_writing():
                      if "__main__" not in t.read_text(encoding='utf-8')]
         tools = [t for t in tools if t not in libraries]
         bad_exit, silent, not_help = [], [], []
-        for tool in tools:
-            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
-                                '--help'],
-                               cwd=str(tmp), capture_output=True, text=True,
-                               timeout=120)
+
+        # SIDE BY SIDE (2026-10-31): about 150 interpreters, one after
+        # another, were nearly all of this check's 16 s. They run in the
+        # same copy; the snapshot after all of them still catches any write,
+        # and the results are judged below in the tools' own order. The
+        # whole tracked tree is still copied: a tool whose --help fell
+        # through to a write needs the files it would rewrite to be there,
+        # or the copy would hide exactly what this check is for.
+        def _help(tool):
+            return subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                   '--help'],
+                                  cwd=str(tmp), capture_output=True, text=True,
+                                  timeout=120)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=os.cpu_count() or 2) as _pool:
+            _answers = list(_pool.map(_help, tools))
+        for tool, r in zip(tools, _answers):
             if r.returncode != 0:
                 bad_exit.append(f'{tool.name} exited {r.returncode}')
             elif not r.stdout.strip():
@@ -71223,7 +71754,10 @@ def check_engine_unpacks_tars_in_one_place():
         if py.name == 'verify_harness.py':
             continue
         try:
-            hits = outside_helper(py.read_text(encoding='utf-8'))
+            src = py.read_text(encoding='utf-8')
+            # Only a file naming extractall can call it: the rest are never
+            # parsed, a handful left of 140.
+            hits = outside_helper(src) if 'extractall' in src else []
         except SyntaxError:
             continue
         stray += [f'{py.name}:{n}' for n in hits]
@@ -72969,10 +73503,7 @@ def check_practice_change_propagates_refuses():
         sources, _consumer, write = _renamed_universal_fixture(tmp)
         repo = tmp / 'repo'
         repo.mkdir()
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(repo), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(repo)
         # The seed copies the COMMITTED engine; the code under test is this
         # working tree's (the rename-updates-links fixture found this the hard way).
         for name in ('precedent_check.py', 'precedent_practice_refs.py'):
@@ -79642,8 +80173,12 @@ def check_self_heal_universal_source_leaves_no_bytecode():
             'sources': [{'level': 'universal', 'name': 'precedent',
                         'path': '../universal-sibling-not-yet-cloned'}],
         }), encoding='utf-8')
+        # A source_repo that fails at once, locally: the .pyc is written by
+        # _credential_args()'s import before any git command, so the real
+        # remote (most of this check's time, and an outbound call) adds
+        # nothing to what it asserts.
         (tools_dir / 'ENGINE_MANIFEST.json').write_text(json.dumps({
-            'source_repo': 'https://github.com/alex137/BestPractice',
+            'source_repo': (tmp / 'no-such-remote.git').as_uri(),
             'source_branch': 'precedent-beta-v01',
         }), encoding='utf-8')
 
@@ -81843,19 +82378,11 @@ def check_update_vendors_rehearsal_findings():
 
     # -- a fresh install tracks its hooks ------------------------------------
     cases = []
-    ienv = dict(env, PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
-    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
-        ienv.pop(k, None)
     proj = tmp / 'proj'
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], env=ienv,
-                       capture_output=True, check=True)
-        (proj / 'README.md').write_text('# Notes\n', encoding='utf-8')
-        git(proj, 'add', '-A')
-        git(proj, 'commit', '-qm', 'before')
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
-                           env=ienv, capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not
+        # rerun: no user config and no individual set, as on GitHub.
+        rc, stdout, stderr = _fresh_install_fixture(proj)
         m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
         # The individual-set bootstrap hook is the person's, not the
         # engine's: written only where the person running the install has an
@@ -81878,13 +82405,13 @@ def check_update_vendors_rehearsal_findings():
                           f'first SessionStart command={first} '
                           f'hook_files={m.get("hook_files")}'))
         cases.append(('a fresh install records every hook it wrote, by hash',
-                      r.returncode == 0 and bool(hooks)
+                      rc == 0 and bool(hooks)
                       and sorted(m.get('hook_files') or []) == hooks
                       and all(recorded.get(h) == hashlib.sha256(
                           (proj / '.claude' / 'hooks' / h).read_bytes()).hexdigest()
                           for h in hooks),
-                      f'rc={r.returncode} on disk={hooks} recorded={sorted(recorded)} '
-                      + failure_detail(r.stdout + r.stderr, 400)))
+                      f'rc={rc} on disk={hooks} recorded={sorted(recorded)} '
+                      + failure_detail(stdout + stderr, 400)))
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
     finally:
@@ -84516,13 +85043,11 @@ def check_move_fixes_mentions_of_the_moved_practice():
 
     results = []
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv, other = (tmp / 'precedent-team-fixture',
                               tmp / 'precedent-individual', tmp / 'other')
-        run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
-             '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
-        run([boot, '--level', 'individual', '--name', 'precedent-individual',
-             '--dest', str(indiv)])
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         (other / 'docs').mkdir(parents=True)
         (indiv / 'practices' / 'zz-moves.md').write_text(
             practice('zz-moves', 'Do the thing.', 'A dated incident.'))
@@ -84630,14 +85155,13 @@ def check_move_tool_lands_then_deduplicates():
 
     try:
         tool = str(ROOT / 'tools' / 'precedent_move.py')
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        r1 = run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                  '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
-        r2 = run([boot, '--level', 'individual', '--name', 'precedent-individual',
-                  '--dest', str(indiv)])
-        cases.append(('both fixture sets bootstrap', r1.returncode == 0 and r2.returncode == 0,
-                      failure_detail(r1.stdout + r1.stderr + r2.stdout + r2.stderr, 600)))
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        boots = _move_fixture_sets(tmp)
+        (rc1, out1), (rc2, out2) = boots['team'], boots['individual']
+        cases.append(('both fixture sets bootstrap', rc1 == 0 and rc2 == 0,
+                      failure_detail(out1 + out2, 600)))
         (indiv / 'practices' / 'zz-moves.md').write_text(practice('zz-moves'), encoding='utf-8')
         (indiv / 'practices' / 'zz-no-story.md').write_text(practice('zz-no-story', ''), encoding='utf-8')
 
@@ -84873,6 +85397,34 @@ def _move_fixture_env(tmp):
     return env
 
 
+_MOVE_SETS = {'team': 'precedent-team-fixture', 'individual': 'precedent-individual'}
+
+
+def _move_fixture_sets(tmp, which=('team', 'individual')):
+    """Bootstrap the move checks' starting sets into `tmp`:
+    precedent-team-fixture, a shared set at the `team` level with the
+    fixture approver, and precedent-individual, an individual set -- what
+    every move check below bootstrapped for itself, with the same arguments.
+    Through _fixture_tree_cache, so a run bootstraps the pair once and each
+    check copies the sets it names in `which`.
+    -> {level: (returncode, output)} for each of them."""
+    def build(root, env):
+        env = dict(env, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        got = {}
+        for level, name in _MOVE_SETS.items():
+            extra = ['--approver', 'Fixture Approver:fixture-gh'] if level == 'team' else []
+            r = subprocess.run([sys.executable,
+                                str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                                '--level', level, '--name', name, '--dest', str(root / name),
+                                *extra], capture_output=True, text=True, env=env,
+                               cwd=str(ROOT))
+            got[f'{level} rc'], got[f'{level} out'] = str(r.returncode), r.stdout + r.stderr
+        return all(got[f'{lv} rc'] == '0' for lv in _MOVE_SETS), got
+    out = _fixture_tree_cache('move-sets 1', tmp, build,
+                              only=[_MOVE_SETS[w] for w in which])
+    return {w: (int(out[f'{w} rc']), out[f'{w} out']) for w in which}
+
+
 def _move_fixture_practice(slug, story='A dated incident.', install=None):
     """A minimal practice file, optionally with an ## Install section."""
     return ('---\nslug:        ' + slug + '\n'
@@ -84916,13 +85468,10 @@ def check_move_tool_covers_every_direction_and_team_removals():
         return p.read_text(encoding='utf-8') if p.is_file() else ''
 
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
-                     (boot, '--level', 'individual', '--name', 'precedent-individual',
-                      '--dest', str(indiv))):
-            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         uclone = tmp / 'precedent-universal-fixture'
         (uclone / 'practices').mkdir(parents=True)
         P = _move_fixture_practice
@@ -85307,10 +85856,9 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
 
     try:
         team = tmp / 'precedent-team-fixture'
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'team', '--name', 'precedent-team-fixture', '--dest', str(team),
-                        '--approver', 'Fixture Approver:fixture-gh'],
-                       capture_output=True, text=True, env=env)
+        # The team set every move check starts from, bootstrapped once and
+        # copied (_move_fixture_sets).
+        _move_fixture_sets(tmp, ('team',))
         uclone = tmp / 'precedent'
         (uclone / 'practices').mkdir(parents=True)
         (uclone / 'tools').mkdir()
@@ -88689,13 +89237,10 @@ def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
     env = _move_fixture_env(tmp)
     cases = []
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
-                     (boot, '--level', 'individual', '--name', 'precedent-individual',
-                      '--dest', str(indiv))):
-            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         (indiv / 'practices' / 'zz-moves.md').write_text(
             _move_fixture_practice('zz-moves'), encoding='utf-8')
         (indiv / 'NOTES.md').write_text(
@@ -90035,8 +90580,22 @@ def check_no_tool_defines_a_function_twice():
     import collections
     import tempfile
 
+    # The AST decides, and a line scan decides which files it has to read
+    # (2026-10-31: parsing all of tools/*.py was 5-14 s, nearly all of it
+    # verify_harness.py; the scan reads them all in a tenth of a second).
+    # A top-level def or class always starts at column 0, so the scan sees
+    # every name tree.body holds, as often or more often (more when a
+    # string carries a column-0 `def`, as two files' fixtures do): a file
+    # where the scan sees no name twice cannot have one the AST sees twice.
+    # Measured the same day, the scan's names equalled the AST's in 141 of
+    # the 143 files and were a superset in the other two.
+    scan = re.compile(r'^(?:async[ \t]+)?(?:def|class)[ \t]+(\w+)', re.M)
+
     def twice(path):
-        tree = ast.parse(path.read_text(encoding='utf-8'))
+        text = path.read_text(encoding='utf-8')
+        if all(v < 2 for v in collections.Counter(scan.findall(text)).values()):
+            return []
+        tree = ast.parse(text)
         names = collections.Counter(
             n.name for n in tree.body
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
@@ -90055,10 +90614,18 @@ def check_no_tool_defines_a_function_twice():
         planted.write_text('def a():\n    pass\n\n\ndef a():\n    pass\n',
                            encoding='utf-8')
         control = twice(planted) == ['a']
+        # A second `def a` at column 0 inside a string is no definition:
+        # the scan flags the file and the AST clears it.
+        quoted = pathlib.Path(td) / 'quoted.py'
+        quoted.write_text('def a():\n    pass\n\n\nTEXT = """\ndef a():\n'
+                          '    pass\n"""\n', encoding='utf-8')
+        control_quoted = twice(quoted) == []
     check('no engine tool defines the same top-level name twice (a planted '
           'file that does is caught)',
-          not found and control,
-          f'defined twice: {found}' if found else 'the planted file was not caught')
+          not found and control and control_quoted,
+          f'defined twice: {found}' if found else
+          'the planted file was not caught' if not control else
+          'a `def` inside a string was counted as a definition')
 
 
 def check_unmerged_branch_verdicts():
@@ -90165,9 +90732,19 @@ def check_moved_claims_says_when_it_could_not_read_the_tree():
     caller prints CANNOT TELL rather than counting a clean repository. The
     quiet one: against a real tree it still returns a list, because a guard
     that has learned to answer UNKNOWN to everything is not a guard."""
+    import tempfile
     import very_deep_check as vdc
 
-    root = pathlib.Path(__file__).resolve().parent.parent
+    # A scratch repository with two tracked files, never this tree: the quiet
+    # half asks only that a readable tree answers with a list, and reading
+    # this whole repository for it was most of this check's time.
+    td = tempfile.TemporaryDirectory(prefix='moved-claims-')
+    root = pathlib.Path(td.name)
+    (root / 'docs').mkdir()
+    (root / 'README.md').write_text('# fixture\n\nSee docs/notes.md.\n', encoding='utf-8')
+    (root / 'docs' / 'notes.md').write_text('Moved to docs/gone.md.\n', encoding='utf-8')
+    subprocess.run(['git', 'init', '-q', str(root)], capture_output=True)
+    subprocess.run(['git', '-C', str(root), 'add', '-A'], capture_output=True)
 
     real = vdc._moved_claims(root)
 
@@ -90183,6 +90760,7 @@ def check_moved_claims_says_when_it_could_not_read_the_tree():
         unreadable = vdc._moved_claims(root)
     finally:
         vdc._run_git = original
+        td.cleanup()
 
     results = [
         ('PLANTED, `git ls-files` fails: the answer is UNKNOWN (None)',
@@ -91291,6 +91869,70 @@ def check_public_tree_bakes_in_no_owner_account():
           '; '.join(offenders[:5]) if offenders else '')
 
 
+def _vdc_drift_copy_set(src, src_name, dest, name):
+    """Copy a set the generator wrote at `src` under the name `src_name` to
+    `dest`, as the generator would have written it there under `name`.
+
+    The generator writes its own destination path ({{DEST_PATH}}) and the
+    set's name into its files, and nothing else differs between two runs:
+    measured 2026-10-31, `diff -r` of two runs into different directories,
+    and of two team sets with different names, differed only in those two
+    strings and in __pycache__, which the drift check skips and this copy
+    leaves out. So the copy is byte for byte what a fresh run writes, at
+    about a hundredth of its cost (practice: slow-steps-report-and-cache).
+    A `src` the generator never wrote is not copied, so `dest` stays absent,
+    exactly as after a run that failed."""
+    src, dest = pathlib.Path(src), pathlib.Path(dest)
+    if not src.is_dir():
+        return
+    shutil.copytree(src, dest, symlinks=True,
+                    ignore=shutil.ignore_patterns('__pycache__'))
+    swaps = [(str(src).encode(), str(dest).encode())]
+    if name != src_name:
+        swaps.append((src_name.encode(), name.encode()))
+    for p in dest.rglob('*'):
+        if p.is_symlink() or not p.is_file():
+            continue
+        data = new = p.read_bytes()
+        for a, b in swaps:
+            new = new.replace(a, b)
+        if new != data:
+            p.write_bytes(new)
+
+
+class _VdcDriftGeneratorMemo:
+    """While open, very_deep_check's own call to the generator
+    (bootstrap_source.bootstrap, run once per set by _bootstrap_drift_one)
+    generates once per distinct input and hands every later call a copy
+    (_vdc_drift_copy_set). The inputs are its arguments but the name, which
+    the copy substitutes, and PRECEDENT_SEED_OFF_MAIN, so a call made
+    without the harness's off-main allowance still runs the generator for
+    real. Restores the real generator on close, whatever happened."""
+
+    def __init__(self, vdc, where):
+        self.bs, self.where, self.made = vdc.bootstrap_source, pathlib.Path(where), {}
+
+    def __enter__(self):
+        self.real = real = self.bs.bootstrap
+
+        def memo(level, name, dest, **kw):
+            key = (level, json.dumps(kw, sort_keys=True, default=str),
+                   os.environ.get('PRECEDENT_SEED_OFF_MAIN'))
+            if key not in self.made:
+                src = self.where / f'reference-{len(self.made)}'
+                real(level, name, src, **kw)
+                self.made[key] = (src, name)
+            src, src_name = self.made[key]
+            _vdc_drift_copy_set(src, src_name, dest, name)
+        self.bs.bootstrap = memo
+        return self
+
+    def __exit__(self, *exc):
+        if getattr(self, 'real', None) is not None:
+            self.bs.bootstrap = self.real
+        return False
+
+
 def check_very_deep_check_bootstrap_drift():
     """very_deep_check's BOOTSTRAP DRIFT section compares what the generator
     writes TODAY against a set that already exists (practice:
@@ -91338,15 +91980,28 @@ def check_very_deep_check_bootstrap_drift():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-harness-'))
     cases = []
 
+    # Each case still gets a set of its own; the generator runs once, and
+    # each case gets a copy of what it wrote (_vdc_drift_copy_set), as
+    # does each reference set the drift check generates
+    # (_VdcDriftGeneratorMemo). Twenty generator runs became three:
+    # 96 s to about 15 s (2026-10-31).
+    pristine = tmp / '_pristine'
+
     def fresh(tag):
         dest = tmp / tag
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'individual', '--name', 'precedent-individual',
-                        '--dest', str(dest)], capture_output=True, text=True)
+        if not pristine.exists():
+            subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--level', 'individual', '--name', 'precedent-individual',
+                            '--dest', str(pristine)], capture_output=True, text=True)
+        _vdc_drift_copy_set(pristine, 'precedent-individual', dest,
+                            'precedent-individual')
         return dest, [{'level': 'individual', 'name': 'precedent-individual',
                        'path': str(dest)}]
 
+    memo = _VdcDriftGeneratorMemo(vdc, tmp / '_references')
+    memo.where.mkdir()
     try:
+        memo.__enter__()
         dest, src = fresh('clean')
         out = vdc._bootstrap_drift(src)
         cases.append(('a set the generator just wrote reports no drift at all',
@@ -91477,6 +92132,7 @@ def check_very_deep_check_bootstrap_drift():
                       not any(m.startswith('FINDING') and 'precedent-source.json' in m
                               for m in out), repr(out)))
     finally:
+        memo.__exit__(None, None, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -91535,18 +92191,30 @@ def check_very_deep_check_convergent_drift():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-converge-harness-'))
     cases = []
 
+    # Four sets of their own, one generator run: each is a copy of the
+    # first with its name and path substituted (_vdc_drift_copy_set), and
+    # the drift check's reference sets are too (_VdcDriftGeneratorMemo).
+    # Twelve generator runs became two: 84 s to about 8 s (2026-10-31).
+    pristine = tmp / '_pristine'
+
     def fresh(tag):
         dest = tmp / tag
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'team', '--name', 'precedent-team-' + tag,
-                        '--dest', str(dest), '--approver', 'Fixture:fixture'],
-                       capture_output=True, text=True)
+        if not pristine.exists():
+            subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--level', 'team', '--name', 'precedent-team-pristine',
+                            '--dest', str(pristine), '--approver', 'Fixture:fixture'],
+                           capture_output=True, text=True)
+        _vdc_drift_copy_set(pristine, 'precedent-team-pristine', dest,
+                            'precedent-team-' + tag)
         subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
         subprocess.run(['git', '-C', str(dest), 'add', '-A'], capture_output=True)
         return dest, {'level': 'team', 'name': 'precedent-team-' + tag,
                       'path': str(dest)}
 
+    memo = _VdcDriftGeneratorMemo(vdc, tmp / '_references')
+    memo.where.mkdir(parents=True)
     try:
+        memo.__enter__()
         a_dir, a = fresh('alpha')
         b_dir, b = fresh('beta')
 
@@ -91605,6 +92273,7 @@ def check_very_deep_check_convergent_drift():
                       'reports only as a note',
                       bool(findings) and 'README.md' in findings[0],
                       repr(findings)))
+        converged = collect     # alpha and beta, read again by the ledger cases
 
         # Untracked is container state, never drift. The file itself has to
         # be untracked, not merely the edit: an earlier version of this case
@@ -91635,8 +92304,9 @@ def check_very_deep_check_convergent_drift():
             (d / 'very-deep-check-decisions.json').write_text(
                 json.dumps({'entries': entries}), encoding='utf-8')
 
-        collect = {}
-        vdc._bootstrap_drift([a, b], collect=collect)
+        # alpha and beta have not changed since they converged above, so
+        # the collect from that run is what a second run would give.
+        collect = converged
 
         out = vdc._convergent_drift(collect, sources=[a, b])
         cases.append(('no ledger present -> ordinary FINDING, unchanged '
@@ -91711,6 +92381,7 @@ def check_very_deep_check_convergent_drift():
                                   for m in out),
                       repr(out)))
     finally:
+        memo.__exit__(None, None, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -93198,9 +93869,15 @@ def check_unlanded_work_is_reported_before_the_passes():
         # individual source, so the fixture tests the fixture.
         env = dict(os.environ,
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+        # The sections that reach the network are skipped: this reads the
+        # UNLANDED WORK block and where the checklist starts, neither of
+        # which they print, and the CI FLEET AUDIT that --skip-liveness
+        # skips was 181 of a run's 182 s (measured 2026-10-31). The branch
+        # scan, which prints UNLANDED WORK, stays on.
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work), '--checklist'],
+             '--repo', str(work), '--checklist',
+             '--skip-liveness', '--skip-visibility', '--skip-endgame-merge'],
             capture_output=True, text=True, cwd=str(work), env=env)
         out = r.stdout
 
@@ -93215,8 +93892,17 @@ def check_unlanded_work_is_reported_before_the_passes():
         else:
             results.append(('it is printed BEFORE the checklist the session '
                             'works from -- the whole point', False))
+        # Named IN THE BLOCK, not merely somewhere above the checklist: the
+        # LIVE SESSIONS section a few lines below lists every recently
+        # pushed branch, so the wider slice passed even with the block's
+        # branch list deleted (found 2026-10-31 by breaking it on purpose,
+        # as check_shallow_clone_never_fabricates_unlanded_work already
+        # found for itself).
+        block = out.split('UNLANDED WORK', 1)[-1] if has_block else ''
+        for end in ('\nLIVE SESSIONS', '\nREPOSITORY VISIBILITY', 'Pass 1 —'):
+            block = block.split(end, 1)[0]
         results.append(('the branch carrying unlanded work is named',
-                        'carries-work' in out.split('Pass 1 —')[0]))
+                        'carries-work' in block))
 
         failed = [n for n, ok in results if not ok]
         # SAY WHAT THE TOOL ACTUALLY DID when this fails.
@@ -93604,9 +94290,27 @@ def check_shallow_clone_never_fabricates_unlanded_work():
         _git(up, 'merge', '-q', '--no-ff', 'fully-landed', '-m', 'merge it')
         # Deeper than the tool's routine --depth=50, so the merge base is
         # genuinely out of reach of a shallow clone. See the docstring.
+        # Seventy commits, each adding f{i}.txt, written by one fast-import
+        # rather than 140 git add/commit calls, which each paid the commit
+        # hooks: 13 s to well under one (2026-10-31).
+        stamp = int(time.time())
+        stream = []
         for i in range(70):
-            (up / f'f{i}.txt').write_text(f'later {i}\n')
-            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', f'later {i}')
+            msg, body = f'later {i}\n', f'later {i}\n'
+            stream += ['commit refs/heads/main',
+                       f'committer Harness <harness@example.com> {stamp + i} +0000',
+                       f'data {len(msg)}', msg.rstrip('\n')]
+            if i == 0:
+                stream.append('from refs/heads/main^0')
+            stream += [f'M 100644 inline f{i}.txt', f'data {len(body)}',
+                       body.rstrip('\n')]
+        r = subprocess.run(['git', '-C', str(up), 'fast-import', '--quiet'],
+                           input='\n'.join(stream) + '\n', text=True,
+                           capture_output=True)
+        if r.returncode != 0:
+            raise FixtureSetupError(f'git fast-import (in {up}) exited '
+                                    f'{r.returncode}: {r.stderr.strip()[-300:]}')
+        _git(up, 'reset', '-q', '--hard', 'main')
 
     def _consumer(work, tmp):
         _git(work, 'config', 'user.email', 'harness@example.com')
@@ -93622,9 +94326,13 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     def _run(work, tmp):
         env = dict(os.environ,
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+        # Network-bound sections skipped, as in
+        # check_unlanded_work_is_reported_before_the_passes: the branch scan
+        # is the code under test, and it stays on.
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work), '--checklist'],
+             '--repo', str(work), '--checklist',
+             '--skip-liveness', '--skip-visibility', '--skip-endgame-merge'],
             capture_output=True, text=True, cwd=str(work), env=env)
         # THE UNLANDED WORK BLOCK ONLY, not everything printed before the
         # checklist. This used to slice at 'Pass 1 --' and assert that a
@@ -93646,13 +94354,37 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     results = []
     diag = []
 
+    # The history is built once and each case copies it: both cases start
+    # from the same seeded repository, and neither writes to the original.
+    seeded = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shallow-seed-'))
+    try:
+        (seeded / 'up').mkdir(); _seed(seeded / 'up')
+        _shallow_cases(seeded / 'up', _consumer, _run, results, diag)
+    finally:
+        shutil.rmtree(seeded, ignore_errors=True)
+
+    failed = [n for n, ok in results if not ok]
+    detail = ''
+    if failed:
+        detail = f"{'; '.join(failed)} [{'; '.join(diag)}]"
+    check(f'a shallow clone never fabricates a count of unlanded work, and '
+          f'says so when it cannot tell ({len(results)} stated cases)',
+          not failed, detail)
+
+
+def _shallow_cases(seeded, _consumer, _run, results, diag):
+    """check_shallow_clone_never_fabricates_unlanded_work's two cases,
+    each on its own copy of the `seeded` history."""
+    import shutil, tempfile
+    _git = fixture_git
+
     # CASE 1 -- the real incident: shallow clone, origin still reachable.
     # The tool must deepen and give the CORRECT answer (nothing unlanded),
     # never a fabricated count.
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
-        up.mkdir(); _seed(up)
+        shutil.copytree(seeded, up, symlinks=True)
         subprocess.run(['git', 'clone', '-q', '--depth', '1',
                         f'file://{up}', str(work)], capture_output=True)
         shallow = _git(work, 'rev-parse',
@@ -93686,7 +94418,7 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         deep, mid, work = tmp / 'deep', tmp / 'mid', tmp / 'work'
-        deep.mkdir(); _seed(deep)
+        shutil.copytree(seeded, deep, symlinks=True)
         subprocess.run(['git', 'clone', '-q', '--bare', '--depth', '1',
                         f'file://{deep}', str(mid)], capture_output=True)
         _git(mid, 'fetch', '-q', '--depth=1', 'origin',
@@ -93716,14 +94448,6 @@ def check_shallow_clone_never_fabricates_unlanded_work():
         results.append(('case 2: the all-clear is NOT printed alongside an '
                         'unmeasurable branch',
                         'No branch carries unlanded work' not in head))
-
-    failed = [n for n, ok in results if not ok]
-    detail = ''
-    if failed:
-        detail = f"{'; '.join(failed)} [{'; '.join(diag)}]"
-    check(f'a shallow clone never fabricates a count of unlanded work, and '
-          f'says so when it cannot tell ({len(results)} stated cases)',
-          not failed, detail)
 
 
 def check_a_renamed_engine_file_never_survives_a_reseed():
@@ -95759,7 +96483,6 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
-    check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_practice_audit_loader()
@@ -95876,6 +96599,7 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
     check_very_deep_check_test_worth_judges_what_changed()
+    check_test_review_times_script_tests()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_very_deep_check_lists_the_longest_rules()
     check_very_deep_check_record_pass_needs_a_green_suite()
