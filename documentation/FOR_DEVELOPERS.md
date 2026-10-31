@@ -271,7 +271,7 @@ sources apply to it in a `precedent.json` at its root:
 ```json
 {
   "sources": [
-    {"level": "universal", "name": "precedent", "path": "process/upstream"},
+    {"level": "universal", "name": "precedent", "path": "precedent/universal"},
     {"level": "shared", "name": "<your shared-set repo>", "path": "../<your shared-set repo>"}
   ]
 }

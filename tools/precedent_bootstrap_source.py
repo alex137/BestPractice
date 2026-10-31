@@ -2084,9 +2084,34 @@ def main():
         return 1
 
     print()
+    unfilled = unfilled_identity_fields(dest_path) if level == 'individual' else []
+    if unfilled:
+        print(f"FILL IN identity.json before the first commit: "
+              f"{', '.join(unfilled)} are still placeholders. The set's own "
+              f"commit checks refuse every commit until they are -- they hold "
+              f"commits to the identity this file declares -- and only the "
+              f"person whose set this is can give the values.")
     print(f"The set itself still needs a real git remote -- see "
           f"spec/BOOTSTRAP_NEW_SOURCES.md for that last, deliberately manual step.")
     return 0
+
+
+def unfilled_identity_fields(dest):
+    """-> the identity.json fields still holding the skeleton's {{PERSON_*}}
+    placeholders, in file order.
+
+    The very deep check's pass 1 rehearsal (2026-10-31) bootstrapped an
+    individual set as FOR_DEVELOPERS.md says, committed, and the set's own
+    full sweep then refused the commit: its author was not '{{PERSON_NAME}}'.
+    The closing report had said only that the set needs a remote; the file's
+    own comment was the one place that said to fill it in."""
+    try:
+        data = json.loads((pathlib.Path(dest) / 'identity.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    return [k for k, v in data.items()
+            if isinstance(v, str) and re.search(r'\{\{PERSON_[A-Z_]+\}\}', v)]
 
 
 if __name__ == '__main__':
