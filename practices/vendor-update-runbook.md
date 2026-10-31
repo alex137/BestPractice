@@ -422,31 +422,20 @@ says so, both from the vendored tree under `process/upstream/`.
    `templates/gitignore.template` into `.gitignore`. A consumer's own hook
    wiring stays its own: decline any of these in `precedent.json`'s
    `declined_adapters` with the reason.
-   **Since 2026-09-18 this also refreshes the installed CI workflow file(s)**
-   vendored from `templates/github-actions/*.template` — a dependent repo's
-   `.github/workflows/bestpractice-docs.yml` (from `doc-lint.yml.template`),
-   a practice set's `.github/workflows/views-drift.yml` and
-   `precedent-check.yml` (from their own templates) — drift-checked and
-   tracked the same way, in the same `ENGINE_MANIFEST.json`
-   (`ci_workflow_files`/`ci_workflows_sha256`). Before this date these files
-   were written once, at initial install, and never refreshed: a template fix
-   landing after install — the `concurrency:` block `doc-lint.yml.template`
-   gained on 2026-09-15, then
-   [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
-   Phase C debounce-guard step the very next day — reached an already-installed
-   `bestpractice-docs.yml` only if that repo happened to reinstall from
-   scratch. A repo vendored before this date has no `ci_workflows_sha256` in
-   its manifest yet; its first refresh after taking this change records a
-   baseline hash for whichever of these files it has installed and prints a
-   one-time catch-up notice — but, **unlike the hooks catch-up above, does
-   NOT rewrite the file's content on that first run.** A CI workflow is
-   exactly the kind of file a real repo hand-tunes (an extra job, a changed
-   schedule, a repo-specific secret), so overwriting an unrecorded one the
-   first time this shipped would have discarded that with no warning. Run
-   `refresh` again once the baseline is recorded to pick up template changes
-   normally from then on.
-   **Since 2026-09-27, in a consuming repo, none of that caution applies,
-   and nothing is asked.** A consumer's CI converges to upstream: the
+   **It also refreshes the CI workflow files the engine ships** from
+   `templates/github-actions/*.template` -- a consuming repo's
+   `leak-gate.yml` and `light-check.yml`, and a public practice set's
+   `precedent-branch-cleanup.yml`, the one workflow a set may carry
+   ([source-sets-run-no-ci](source-sets-run-no-ci.md)) -- tracked in the
+   same `ENGINE_MANIFEST.json` (`ci_workflow_files`/`ci_workflows_sha256`).
+   Before 2026-09-18 these files were written once, at install, and never
+   refreshed; the files of that era since retired (a consumer's
+   `bestpractice-docs.yml`, a set's `views-drift.yml` and
+   `precedent-check.yml`) are deleted by the refresh, and a manifest with no
+   `ci_workflows_sha256` yet records a baseline on its first refresh rather
+   than overwriting a file it never recorded.
+   **Since 2026-09-27, in a consuming repo, that baseline caution does not
+   apply, and nothing is asked.** A consumer's CI converges to upstream: the
    refresh rewrites whichever of `leak-gate.yml` and `light-check.yml` is
    installed to the current template, tracked or not, hand-edited or not
    (an absent one stays absent), and
@@ -1190,6 +1179,23 @@ solution to this so it doesn't repeat."* Strength: decided. A source now
 declares the files it exports, a consumer copies them through the same
 refresh, record and freshness a copied-in set gets, and the full check
 fails on a copy nothing declares.
+
+**2026-09-18: CI workflow files start being refreshed.** Moved here whole
+from the Rule on 2026-10-31, when the workflows it named had been retired:
+before 2026-09-18 these files were written once, at initial install, and
+never refreshed: a template fix landing after install -- the `concurrency:`
+block `doc-lint.yml.template` gained on 2026-09-15, then
+[spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s
+Phase C debounce-guard step the very next day -- reached an
+already-installed `bestpractice-docs.yml` only if that repo happened to
+reinstall from scratch. A repo vendored before that date had no
+`ci_workflows_sha256` in its manifest; its first refresh records a baseline
+hash for whichever of these files it has installed and prints a one-time
+catch-up notice, but, unlike the hooks catch-up, does not rewrite the
+file's content on that first run. A CI workflow is exactly the kind of file
+a real repo hand-tunes (an extra job, a changed schedule, a repo-specific
+secret), so overwriting an unrecorded one the first time this shipped would
+have discarded that with no warning.
 
 ## Install
 Before starting, name the layers this repo vendors and where each records
