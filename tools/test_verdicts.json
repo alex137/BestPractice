@@ -144,11 +144,12 @@
       "importance": "high"
     },
     "check_stale_freshness_also_says_delete_it": {
-      "verdict": "cheapen",
-      "why": "The session check's advice to delete an unneeded PRECEDENT_FRESHNESS_ALSO, plus Update Vendors' note; live but low stakes (a warning's wording). The precedent-team-* path is the stale entry it plants on purpose. How: It calls precedent_session_check.checks() three times, which runs every row including the one that fetches over the network. checks(offline=True) keeps the PRECEDENT_FRESHNESS_ALSO row and drops only the fetch; it took 0.26 s per call today, so about 5.0 s becomes under 1 s, and the network dependency goes.",
+      "verdict": "keep",
+      "importance": "low",
+      "why": "The session check's advice to delete an unneeded PRECEDENT_FRESHNESS_ALSO, plus Update Vendors' note. Cheapened 2026-10-31: precedent_session_check.checks(offline=True), which keeps this row and drops only the network fetch; same cases, and changed wording still fails it. 5.0 s before, 0.7 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 5.0,
+      "seconds": 0.7,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -664,11 +665,12 @@
       "leads": []
     },
     "check_update_vendors_leaves_the_copy_its_record_names": {
-      "verdict": "cheapen",
-      "why": "Protects the catalogue copy under process/upstream/ from ending DONE while 440 of 604 files are other upstream versions (2026-10-08 incident); high value, but it pays one consumer build, a checkin.py update and six full precedent_update.py runs (~15-20 s each, measured 14-19 s on a fixture consumer 2026-10-31). How: It already copies a pristine consumer per case. Two real savings: (1) cache the 'pristine' consumer (seeded + catalogue + first update, committed) on disk keyed like _seed_fixture_engine's cache, shared with every other _LocalEditsFixture check that builds the same thing -- saves its ~25 s build here and in check_update_rerun_after_failed_takes_its_own_output, check_update_vendors_resolves_hook_and_engine_path_edits, check_merge_takes_the_vendor_update; (2) inside precedent_update.py each run calls checkin.py twice (update 3.5-4.3 s, record 2.4-2.6 s measured) and both rebuild the same copy-tree listing at the same ref -- doing record's carry check in-process from update's result would cut ~2-3 s from every update run in the suite. Roughly 35-40 s here.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Protects the catalogue copy under process/upstream/ from ending DONE while hundreds of its files are other upstream versions (2026-10-08 incident). Cheapened 2026-10-31: the pristine consumer every case starts from (seeded, catalogue vendored, first update run, committed) is now built once per checkout state and copied from disk by _uv_cached_consumer, repository and bare origin, instead of once per run; same cases, same controls. 123.1 s before, 124.9 s cold and 113.1 s warm after on a loaded machine: the six real update runs are the rest of its time, and making each cheaper (checkin.py update and record rebuilding the same copy-tree listing) is engine work in precedent_update.py, not done here.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 123.3,
+      "seconds": 113.1,
       "leads": []
     },
     "check_very_deep_check_bootstrap_drift": {
@@ -705,11 +707,12 @@
       "importance": "high"
     },
     "check_update_vendors_is_one_command": {
-      "verdict": "cheapen",
-      "why": "End-to-end Update Vendors on a real consumer, three outcomes asserted in their own words, the person's main route for taking upstream; high value, but it builds three consumers from scratch, each with its own checkin.py update --force. How: Build 'done' once and copytree it (with a copied bare origin, as check_update_vendors_leaves_the_copy_its_record_names' build() does) for 'edited-engine' and 'edited-catalogue': saves two seeds, two checkin.py update --force runs and two clones, about 12-15 s of 72.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "End-to-end Update Vendors on a real consumer, three outcomes asserted in their own words, the person's main route for taking upstream. Cheapened 2026-10-31: the 'done' consumer is built once and copied, with its own bare origin, for 'edited-engine' and 'edited-catalogue' before anything runs on it, so two seeds, two checkin.py update --force runs and two clones are gone; same cases. 72.5 s before, 62.8 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 72.5,
+      "seconds": 62.8,
       "leads": []
     },
     "check_repo_may_declare_its_own_fallback_zone": {
@@ -791,11 +794,12 @@
       "importance": "medium"
     },
     "check_update_rerun_after_failed_takes_its_own_output": {
-      "verdict": "cheapen",
-      "why": "Pins that the rerun a FAILED update asks for does not stop on the failed run's own staged output (2026-10-02 consumer incident) while a person's later edit is still refused; worth keeping, but its two consumers are built identically up to the local-fix commit, each paying a consumer build plus a warm-up update. How: Build 'untouched' through 'a local fix to a received engine file', then copytree it (and its bare origin, re-pointing the remote, as check_update_vendors_leaves_the_copy_its_record_names' build() does) for 'touched'. Saves one consumer build and one full update, about 18-20 s of 35.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Pins that the rerun a FAILED update asks for does not stop on the failed run's own staged output (2026-10-02 consumer incident) while a person's later edit is still refused. Cheapened 2026-10-31: both cases copy one consumer carried through its first update and the local fix (_uv_cached_consumer, cached on disk per checkout state), and read the pre-fix bytes from HEAD~1; same cases. 35.1 s before, 25.2 s cold and 13.7 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 35.1,
+      "seconds": 13.7,
       "leads": []
     },
     "check_update_vendors_resolves_hook_and_engine_path_edits": {
@@ -835,11 +839,12 @@
       "importance": "high"
     },
     "check_send_carries_a_local_edit_upstream": {
-      "verdict": "cheapen",
-      "why": "Pins `precedent_local_edits.py send` (three-way merge onto the owner's landing branch, scrubbed both sides, pushed, never a PR); still documented in INSTALL.md and vendor-update-runbook.md, but 12 s of its 23 is `git clone --no-local` of this 139 MB repository. How: Clone the owner with a plain local clone (hardlinked objects) instead of --no-local: measured 2026-10-31, --no-local took 12.5 s and a local clone 0.2 s; the bare 'owner.git' it pushes to works the same. If --no-local guards something (no comment says so), `--shared` is the other cheap option. Saves ~12 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins `precedent_local_edits.py send` (three-way merge onto the owner's landing branch, scrubbed both sides, pushed, never a PR). Cheapened 2026-10-31: the owner is a plain local clone (hardlinked objects, never written in place) instead of `git clone --no-local`, which copied every object of this repository; same cases. 23.1 s before, 15.7 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 23.1,
+      "seconds": 15.7,
       "leads": []
     },
     "check_update_seeds_budgets_on_the_run_that_reports_done": {
@@ -861,11 +866,12 @@
       "importance": "medium"
     },
     "check_refresh_never_says_nothing_to_do_after_removing_a_file": {
-      "verdict": "cheapen",
-      "why": "Wording on one path (the already-current refresh must not say 'nothing to do' after it removed a file); low stakes, but it pays a full precedent_install.py (9.1 s measured 2026-10-31) plus two refreshes for it. How: Seed the consumer with _seed_fixture_engine (cached) instead of precedent_install.py, or fold its three cases into check_refresh_removes_dropped_engine_files, which already builds a seeded consumer and runs refresh against a manifest carrying one extra file -- only the already-current path (refresh at the recorded commit) is new. Saves ~12-15 s of 21.",
+      "verdict": "keep",
+      "importance": "low",
+      "why": "Wording on one path (the already-current refresh must not say 'nothing to do' after it removed a file). Cheapened 2026-10-31: the consumer is a seeded engine from the harness seed cache, under a fixture HOME and user config, instead of a full precedent_install.py; the refresh reads only the engine and its manifest. Same three cases; planting no extra manifest entry still fails it. 21.0 s before, 5.4 s cold and 4.4 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 21.0,
+      "seconds": 4.4,
       "leads": []
     },
     "check_archive_gate_keeps_inner_workings_from_non_owners": {
@@ -1073,11 +1079,12 @@
       "importance": "high"
     },
     "check_self_heal_universal_source_leaves_no_bytecode": {
-      "verdict": "cheapen",
-      "why": "Pins that _self_heal_universal_source runs the bootstrap with -B so no __pycache__ lands in the set it heals; the docstring says the clone attempt is expected to fail offline, but here it reaches out to the real https://github.com/alex137/BestPractice, which is most of its 13.7 s and an outbound call the test does not need. How: Give the fixture's tools/ENGINE_MANIFEST.json a source_repo that fails at once and locally (a file:// path under the fixture's own temp directory that does not exist); the .pyc is written by _credential_args()'s import before any git command, so the assertion is unchanged. Saves ~12 s and the network call.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins that _self_heal_universal_source runs the bootstrap with -B so no __pycache__ lands in the set it heals. Cheapened 2026-10-31: the fixture's source_repo is a file:// path that does not exist, so the clone fails at once and locally instead of reaching the real remote; the .pyc is written by the import before any git command, and dropping -B still fails it. 13.7 s before, 0.1 s after, and no outbound call.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 13.7,
+      "seconds": 0.1,
       "leads": []
     },
     "check_update_vendors_migrates_hand_written_views": {
@@ -1126,11 +1133,12 @@
       "importance": "high"
     },
     "check_refresh_removes_dropped_engine_files": {
-      "verdict": "cheapen",
-      "why": "A file dropped from the engine set must leave every consumer, while a repo's own tools/ file and a hand-edited copy are kept (practice: decommission-deletes-files); high value, but its three consumers each run an uncached `precedent_vendor_engine.py seed`. How: Seed through _seed_fixture_engine(base, 'consumer', env, cwd) instead of calling seed directly, so the second and third consumers (and every later run at the same checkout state) copy the cached files. Saves ~5-7 of 11 s.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "A file dropped from the engine set must leave every consumer, while a repo's own tools/ file and a hand-edited copy are kept (practice: decommission-deletes-files). Cheapened 2026-10-31: the three consumers seed through _seed_fixture_engine under a fixture HOME and user config (which the cache can key), so the second and third copy the first's files; same nine cases, and a changed removal message still fails it. 10.7 s before, 8.3 s cold and 6.3 s warm after: the three refreshes are the rest.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 10.7,
+      "seconds": 6.3,
       "leads": []
     },
     "check_default_blocklist_runs_the_vocabulary_layer": {
@@ -1489,11 +1497,12 @@
       "importance": "medium"
     },
     "check_practice_change_propagates_refuses": {
-      "verdict": "cheapen",
-      "why": "Worth keeping: it pins the practice-change-propagates refusal and its successor naming as a repository runs it. But it pays for a real consumer seed, then overwrites precedent_check.py and precedent_practice_refs.py anyway. How: Replace the direct `precedent_vendor_engine.py seed` subprocess with _seed_fixture_engine(repo, 'consumer', env, ROOT), the harness's seed cache; the fixture uses only the seeded files. A real consumer seed measured 1.6 s here, so this saves roughly 1.3 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins the practice-change-propagates refusal and its successor naming as a repository runs it. Cheapened 2026-10-31: the consumer engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); the fixture overwrites the two files under test as before. 4.5 s before, 5.0 s cold (loaded machine) and 3.1 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 4.5,
+      "seconds": 3.1,
       "leads": []
     },
     "check_refresh_survives_an_upstream_rename": {
@@ -1542,11 +1551,12 @@
       "importance": "medium"
     },
     "check_session_check_reports_a_source_cloned_twice": {
-      "verdict": "cheapen",
-      "why": "The cloned-twice row still matters (two diverging clones silently drop practices), but every case calls psc.checks(), which runs every session row including the network freshness fetch. How: Call psc.checks(offline=True) (the row under test is local), as check_session_check_never_calls_an_unfetched_clone_current already does: measured here 2.6 s per full call vs 0.27 s offline, saving about 3.5 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The cloned-twice row (two diverging clones silently drop practices). Cheapened 2026-10-31: psc.checks(offline=True), as the row under test is local; same cases, and changed DIVERGED wording still fails it. 4.1 s before, 1.4 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 4.1,
+      "seconds": 1.4,
       "leads": []
     },
     "check_freshness_gate_fires": {
@@ -1586,11 +1596,12 @@
       "importance": "high"
     },
     "check_shared_helpers_have_one_copy": {
-      "verdict": "cheapen",
-      "why": "The planted cases (a tool with its own copy is named, an importer and doc_html.py are not) are cheap and worth keeping; nearly all of the 3.6 s is the 'this tree' case, which scans the real tools/. How: Drop the 'this tree: no tool carries a copy' case: precedent_check.py registers the same scan as the tree check `declared-base-branch`, which runs on this tree in every full check. Measured here: that scan alone is 3.8 s, so the test falls to well under a second.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The planted cases (a tool with its own copy is named, an importer and doc_html.py are not) plus the commit checks' imports. Cheapened 2026-10-31: the 'this tree' case is gone because precedent_check.py runs the same scan on this tree as the tree check declared-base-branch in every full check (confirmed passing that day); the planted cases and controls are unchanged. 3.6 s before, under 0.1 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.6,
+      "seconds": 0.1,
       "leads": []
     },
     "check_loader_caps_unmeasured_without_a_declared_source": {
@@ -1657,19 +1668,21 @@
       "importance": "medium"
     },
     "check_rename_links_spares_a_commit_pinned_permalink": {
-      "verdict": "cheapen",
-      "why": "A false refusal of a correctly cited deleted file blocks a deletion, so the case is worth keeping, but it pays for a full engine seed it only uses as a backdrop. How: Replace the direct `precedent_vendor_engine.py seed` subprocess with _seed_fixture_engine(base, 'consumer', env, ROOT), the harness's seed cache (contract pinned by check_seed_cache_copies_what_a_seed_writes); the fixture uses only the seeded files and then overwrites precedent_check.py. A real consumer seed measured 1.6 s here, so this saves roughly 1.3 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "A false refusal of a correctly cited deleted file blocks a deletion. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 3.3 s before, 3.1 s cold and 1.3 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.3,
+      "seconds": 1.3,
       "leads": []
     },
     "check_rename_links_spares_a_longer_path_and_manifest_notes": {
-      "verdict": "cheapen",
-      "why": "Three consumers were refused over correctly repointed lines (2026-10-10); worth keeping, but it pays for a full engine seed it only uses as a backdrop. How: Replace the direct `precedent_vendor_engine.py seed` subprocess with _seed_fixture_engine(base, 'consumer', env, ROOT), the harness's seed cache (contract pinned by check_seed_cache_copies_what_a_seed_writes); the fixture uses only the seeded files and then overwrites precedent_check.py. A real consumer seed measured 1.6 s here, so this saves roughly 1.3 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Three consumers were refused over correctly repointed lines (2026-10-10). Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated), and shares an entry with the permalink check's identical fixture; same cases. 3.3 s before, 1.7 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.3,
+      "seconds": 1.7,
       "leads": []
     },
     "check_docs_name_no_path_this_repo_removed": {
@@ -1682,11 +1695,12 @@
       "importance": "medium"
     },
     "check_source_level_reads_go_through_the_normalizer": {
-      "verdict": "cheapen",
-      "why": "Still worth it: the retired `team` level is read as shared only through precedent_resolve.declared_level, and a raw comparison made Update Vendors skip deleting two sets. This is a test OF the team retirement, not a lead. Its cost is ast-parsing all 143 tools. How: Read each tools/*.py as text first and parse only files containing 'level' (quoted) or LEVELS -- the scanner can only flag a comparison rooted in a 'level' constant or a *LEVELS name, so nothing is missed. 40 of 143 files match today; parsing all of them took 5.6 s cold here, so expect roughly half to two thirds of the 3.2 s back.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The retired `team` level is read as shared only through precedent_resolve.declared_level; a raw comparison made Update Vendors skip deleting two sets. A test OF the team retirement, not a lead. Cheapened 2026-10-31: a tools/*.py whose text quotes no 'level' is never parsed (the scanner needs that constant to flag anything), about a quarter of tools/ left; a planted raw comparison in a tool still fails it. 3.2 s before, 1.8 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.2,
+      "seconds": 1.8,
       "leads": []
     },
     "check_declared_exports_are_copied": {
@@ -1753,11 +1767,12 @@
       "importance": "high"
     },
     "check_shipped_hooks_pass_rename_links_without_the_mirror": {
-      "verdict": "cheapen",
-      "why": "Shipped hooks failing rename-updates-links made every consumer Update Vendors rewrite and re-refuse them, so it is worth keeping, but it seeds a full engine it then overwrites. How: Replace the direct `precedent_vendor_engine.py seed` subprocess with _seed_fixture_engine(base, 'consumer', env, ROOT), the harness's seed cache (contract pinned by check_seed_cache_copies_what_a_seed_writes); the fixture uses only the seeded files and then overwrites precedent_check.py. A real consumer seed measured 1.6 s here, so this saves roughly 1.3 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Shipped hooks failing rename-updates-links made every consumer Update Vendors rewrite and re-refuse them. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 2.9 s before, 3.1 s cold and 1.4 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 2.9,
+      "seconds": 1.4,
       "leads": []
     },
     "check_loader_block_with_an_absent_individual_set": {
@@ -1797,11 +1812,12 @@
       "importance": "medium"
     },
     "check_moved_claims_says_when_it_could_not_read_the_tree": {
-      "verdict": "cheapen",
-      "why": "The UNKNOWN-not-clean contract is worth keeping (a failed ls-files manufactured findings), but it runs _moved_claims over this whole repository just to show the readable case returns a list. How: Run both calls against a small scratch git repo with two tracked files instead of ROOT: the quiet half only asserts isinstance(real, list). Measured here: the real-tree call alone is 2.0 s, so about 2 s saved.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The UNKNOWN-not-clean contract (a failed ls-files manufactured findings). Cheapened 2026-10-31: both calls run against a scratch git repository with two tracked files instead of this repository; the quiet half only asks for a list, and returning [] on a failed read still fails it. 2.8 s before, 0.2 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 2.8,
+      "seconds": 0.2,
       "leads": []
     },
     "check_branch_sweep_sees_work_landed_on_the_base_branch": {
@@ -1994,19 +2010,21 @@
       "importance": "high"
     },
     "check_engine_unpacks_tars_in_one_place": {
-      "verdict": "cheapen",
-      "why": "Keeping one filtered extract_archive is worth a check, but the cost is ast-parsing every tools/*.py to find extractall calls. How: Skip any file whose text does not contain 'extractall' before ast.parse; today that is a handful of files out of 143, so the scan drops from about 2 s to a few hundred milliseconds.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "One filtered extract_archive for every tar the engine unpacks. Cheapened 2026-10-31: only a tools/*.py naming extractall is parsed; a planted unfiltered call in a tool still fails it. 2.1 s before, 0.1 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 2.1,
+      "seconds": 0.1,
       "leads": []
     },
     "check_incident_coverage_reads_what_the_gotcha_names": {
-      "verdict": "cheapen",
-      "why": "The planted cases are fast and protect INCIDENT COVERAGE's reading of a Fix; about half the time is the last case, which runs _incident_coverage over this whole repository to check two gotchas' Prevention lines. How: Assert the two named gotchas by running _incident_coverage on a scratch dir holding just those two gotcha files plus an empty tools/verify_harness.py, or read their Fix sections directly. Measured here: the real-tree call is 1.1 s of the 2.0 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The planted cases protect INCIDENT COVERAGE's reading of a Fix. Cheapened 2026-10-31: the last case reads the two named gotchas from a scratch tree holding just their files instead of running over this whole repository; rewording one gotcha's Prevention line still fails it. 2.0 s before, 0.2 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 2.0,
+      "seconds": 0.2,
       "leads": []
     },
     "check_code_owners_only_practices_reach_only_code_owners": {
@@ -2172,11 +2190,12 @@
       "importance": "low"
     },
     "check_gone_path_matcher_matches_one_regex_per_path": {
-      "verdict": "cheapen",
-      "why": "Worth keeping: gone_path_matcher replaced a five-to-ten-minute loop and must answer line for line the same. The cost is the old loop itself, 400 regexes over 3000 lines. How: Shrink the seeded fixture to about 1000 lines (and the hits threshold from 1000 to about 300); the boundary tokens come from the same generator, so coverage is unchanged. Saves roughly 1 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "gone_path_matcher must answer line for line what the old regex-per-path loop did. Cheapened 2026-10-31: the seeded fixture is 1000 lines, not 3000, and the hits floor 300, not 1000 (478 hits today); a matcher that drops the '.' boundary still differs on 67 lines. 1.7 s before, 0.3 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.7,
+      "seconds": 0.3,
       "leads": []
     },
     "check_lint_refuses_an_open_item_waiting_on_an_upstream_fix": {
