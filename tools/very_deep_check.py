@@ -6915,6 +6915,35 @@ def _referenced_repos(repo_dir):
     return found
 
 
+# FIXTURE-ONLY NAMES ARE NOT ASKED ABOUT (2026-10-30 very deep check, the
+# GITHUB API BUDGET finding: 187 calls against 150). The visibility audit
+# asked GitHub about every owner/name pair the tree mentions, and 110 of 149
+# were mentioned only by the harness and the check tests -- acme/widget,
+# o/zz-set -- one call each, every run. A pair is skipped only when every
+# file naming it is a test AND its owner appears nowhere outside tests, so
+# a real account pasted into a fixture is still asked about; what is
+# skipped is listed in the audit's notes, never dropped silently.
+_FIXTURE_PATHS = ('tools/verify_harness.py', 'tools/checks/tests/', 'tests/')
+
+
+def _is_fixture_file(rel):
+    return rel.startswith(_FIXTURE_PATHS) or '/tests/' in rel
+
+
+def _drop_fixture_only_refs(refs):
+    """-> (refs to ask about, ['owner/name' skipped]) -- see above."""
+    real_owners = {o.lower() for (o, _n), files in refs.items()
+                   if any(not _is_fixture_file(f) for f in files)}
+    keep, skipped = {}, []
+    for (owner, name), files in refs.items():
+        if owner.lower() not in real_owners and all(
+                _is_fixture_file(f) for f in files):
+            skipped.append(f'{owner}/{name}')
+        else:
+            keep[(owner, name)] = files
+    return keep, sorted(skipped)
+
+
 # RENAMED REPOSITORIES, and what the run does about them (Morgan,
 # 2026-09-29, strength: decided). Every audit that asks GitHub about a
 # repository records here when the answer comes back under a different full
@@ -7150,6 +7179,14 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
         return findings, notes
 
     refs = _referenced_repos(repo_dir)
+    refs, fixture_only = _drop_fixture_only_refs(refs)
+    if fixture_only:
+        notes.append(
+            f'{len(fixture_only)} name(s) appear only in test fixtures, under an '
+            f'owner named nowhere else in this tree, and were not asked about '
+            f'(one API call each, and a made-up name in a fixture is no '
+            f'disclosure): {", ".join(fixture_only)}. A fixture that names a '
+            f'real owner is still asked about.')
     # A repository whose name is DELIBERATELY public here -- named on purpose,
     # with the exposure accepted -- is declared in the blocklist file itself,
     # as a comment the audit reads:
@@ -9093,37 +9130,74 @@ def stage_checks(tree):
                                      + (ast.get_source_segment(per_file, node) or
                                         'a call')[:120]))
     routes = []
-    pb_path = tools / 'precedent_branches.py'
-    if pb_path.is_file():
-        src = pb_path.read_text(encoding='utf-8')
+    # WHERE THE MOVES LIVE (2026-10-30 very deep check). Produce moved out of
+    # precedent_branches.py into the moves tool a practice set supplies
+    # (branch_moves in its precedent-source.json), and this scan read only
+    # the engine's file: Produce printed "no check found" and "`--full` on
+    # request: none" while the set's moves still ran the quick tier before
+    # the fast move and the full one on --full. Every file that holds a move
+    # is read, the set's by the key the engine knows, never by a set's name.
+    sources = [('precedent_branches.py', tools / 'precedent_branches.py')]
+    moves_key = getattr(pb, 'MOVES_KEY', None) if pb is not None else None
+    if moves_key:
+        try:
+            import precedent_resolve as _pr
+            found = _pr.set_tool(tree, moves_key)
+        except Exception:                                    # noqa: BLE001
+            found = None
+        if found and pathlib.Path(found).is_file():
+            fp = pathlib.Path(found).resolve()
+            home = next((d for d in fp.parents
+                         if (d / 'precedent-source.json').is_file()), None)
+            try:
+                label = str(fp.relative_to(tree))
+            except ValueError:
+                label = (f'{home.name}/{fp.relative_to(home)}' if home
+                         else str(fp))
+            sources.append((label, fp))
+
+    def _is_check(node):
+        f = node.func
+        return (isinstance(f, ast.Name) and f.id == '_check') or (
+            isinstance(f, ast.Attribute) and f.attr == '_check')
+
+    def _tier_name(arg):
+        name = arg.id if isinstance(arg, ast.Name) else (
+            arg.attr if isinstance(arg, ast.Attribute) else None)
+        return {'BASIC': 'basic', 'FULL': 'full'}.get(name, name) if name else None
+
+    for label, path in sources:
+        if not path.is_file():
+            continue
+        src = path.read_text(encoding='utf-8')
         for fn in ast.walk(ast.parse(src)):
             if not isinstance(fn, ast.FunctionDef):
                 continue
             for node in ast.walk(fn):
-                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                        and node.func.id == '_check' and len(node.args) >= 3
-                        and isinstance(node.args[2], ast.Name)):
-                    tier = {'BASIC': 'basic', 'FULL': 'full'}.get(node.args[2].id,
-                                                                 node.args[2].id)
-                    move, when, dest = STAGE_ROUTES.get(
-                        fn.name, (None, None, None))
-                    routes.append({'fn': fn.name, 'line': node.lineno,
-                                   'tier': tier, 'move': move, 'when': when,
-                                   'dest': dest})
-                    if move is None:
-                        findings.append(('FINDING', f'precedent_branches.py:'
-                                         f'{node.lineno}: {fn.name} runs the '
-                                         f'{tier} check and no stage names it '
-                                         f'-- add it to STAGE_ROUTES in '
-                                         f'tools/very_deep_check.py, saying '
-                                         f'whether it runs before a push'))
-                    elif when == 'before' and tier != 'basic' and dest in (
-                            'staging', 'main'):
-                        findings.append(('VIOLATION', f'{move} runs the {tier} '
-                                         f'check before it pushes '
-                                         f'(precedent_branches.py:{node.lineno},'
-                                         f' {fn.name}) -- only the quick tier '
-                                         f'may run before a push to {dest}'))
+                if not (isinstance(node, ast.Call) and _is_check(node)
+                        and len(node.args) >= 3):
+                    continue
+                tier = _tier_name(node.args[2])
+                if tier is None:
+                    continue
+                move, when, dest = STAGE_ROUTES.get(fn.name, (None, None, None))
+                routes.append({'fn': fn.name, 'line': node.lineno, 'file': label,
+                               'tier': tier, 'move': move, 'when': when,
+                               'dest': dest})
+                if move is None:
+                    findings.append(('FINDING', f'{label}:'
+                                     f'{node.lineno}: {fn.name} runs the '
+                                     f'{tier} check and no stage names it '
+                                     f'-- add it to STAGE_ROUTES in '
+                                     f'tools/very_deep_check.py, saying '
+                                     f'whether it runs before a push'))
+                elif when == 'before' and tier != 'basic' and dest in (
+                        'staging', 'main'):
+                    findings.append(('VIOLATION', f'{move} runs the {tier} '
+                                     f'check before it pushes '
+                                     f'({label}:{node.lineno},'
+                                     f' {fn.name}) -- only the quick tier '
+                                     f'may run before a push to {dest}'))
     gates = {}
     if pb is not None and hasattr(pb, 'tier_for_branch'):
         staging = pb.staging_branch(tree) if hasattr(pb, 'staging_branch') else 'staging'
@@ -9340,8 +9414,10 @@ def _stage_lines(name, r):
         return [x for x in r['routes'] if x['fn'] == fn]
 
     def tiers(fn):
-        return ', '.join(f'{x["tier"]} tier (precedent_branches.py:{x["line"]})'
-                         for x in by(fn)) or 'no check found'
+        return ', '.join(f'{x["tier"]} tier ({x.get("file", "precedent_branches.py")}:'
+                         f'{x["line"]})' for x in by(fn)) or (
+            'no move here (no set in force names one)'
+            if fn.startswith('_promote') else 'no check found')
     st, gates = r['staging'], r['gates']
 
     def gate(b):
@@ -9374,7 +9450,7 @@ def _stage_lines(name, r):
         for x in other:
             out.append(f'      {x["move"] or x["fn"]}: {x["tier"]} tier, '
                        f'{x["when"] or "unclassified"} '
-                       f'(precedent_branches.py:{x["line"]})')
+                       f'({x.get("file", "precedent_branches.py")}:{x["line"]})')
         for k, g in gates.items():
             if k.startswith('for a person'):
                 out.append(f'      a push to {g["branch"]}, {k}: {g["tier"]} tier')
@@ -9403,7 +9479,8 @@ def _stage_markdown(results):
 
         def tier(fn):
             return ', '.join(sorted({x['tier'] for x in r['routes']
-                                     if x['fn'] == fn})) or 'none'
+                                     if x['fn'] == fn})) or (
+                'no move here' if fn.startswith('_promote') else 'none')
         g = {b: (v['tier'] or 'unread') for b, v in r['gates'].items()}
         gh_s = ', '.join(r['gh_after']['staging']) or 'none'
         gh_m = ', '.join(r['gh_after']['main']) or 'none'
@@ -9495,7 +9572,7 @@ def warnings_section(repo_root, precedent_check_output=None, refresh=False,
     groups, collected, notes = wr.collect(
         repo_root, precedent_check_output=precedent_check_output)
     entries, problems = wr.load_registry(repo_root)
-    result = wr.review(groups, entries, collected)
+    result = wr.review(groups, entries, collected, root=repo_root)
     history = _warnings_open_history(repo_root)
     start = None
     if refresh and history and history[-1][0] == result['today']:
