@@ -596,6 +596,7 @@
   "check_session_check_reports_a_source_cloned_twice": 5.5,
   "check_session_check_stamps_at_session_start": 1.2,
   "check_session_check_suggests_anchored_also_list": 0.0,
+  "check_session_deepen_stays_narrow": 2.1,
   "check_session_file_over_ceiling_names_the_individual_share": 0.0,
   "check_session_file_says_each_command_once": 0.0,
   "check_session_file_warning_does_not_count_against_its_ceiling": 0.0,

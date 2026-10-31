@@ -50122,6 +50122,172 @@ def check_freshness_guard_checks_attached_repositories():
           not failed, '; '.join(failed))
 
 
+def check_session_deepen_stays_narrow():
+    """THE SESSION-START DEEPEN IS A STRETCH, AND NOTHING WIDENS OR SHORTENS
+    IT BY ACCIDENT (2026-10-31, todo/todo-2026-09-14-session-start-deepen-is-tentative.md).
+    Session start used to `git fetch --unshallow`, 23 seconds and 33 MB on
+    this repository by then; it now deepens the branch checked out and the
+    landing branch by 100 generations, and freshness-guard.sh used to undo
+    that at its first check by deepening every shallow clone by 500. Planted
+    on a 300-commit origin, each case stating its control:
+
+    1. session start's block deepens a depth-1 clone to about 100 commits,
+       not the whole 300, and leaves it shallow;
+    2. the guard leaves such a clone alone when its counts are provable --
+       one tip contains the other -- and still fast-forwards a merely-behind
+       one (g37's case, answered by the plain fetch, not a deepen);
+    3. the guard still deepens a pair that LOOKS diverged (the control that
+       the g37 repair is not gone);
+    4. the guard's base fetch never shortens a clone that holds more than
+       100 generations (it used `--depth=200`, which cuts a deeper clone);
+    5. with session start's failure marker present, the guard retries the
+       deepen and removes the marker."""
+    import tempfile
+    guard = ROOT / 'tools' / 'freshness-guard.sh'
+    hook = ROOT / '.claude' / 'hooks' / 'session-start.sh'
+    first, last = ('# Give this checkout a working stretch of HISTORY',
+                   '# FRESHNESS LIVES IN')
+    if not guard.exists() or not hook.exists() \
+            or first not in hook.read_text() or last not in hook.read_text():
+        not_applicable('session-start deepen stays narrow',
+                       'no freshness-guard.sh, or no session-start deepen '
+                       'block, in this tree')
+        return
+    env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com',
+                GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1')
+    env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
+
+    def git(cwd, *args):
+        return subprocess.run(['git', '-C', str(cwd), *args], env=env0,
+                              capture_output=True, text=True)
+
+    def count(cwd, ref='--all'):
+        out = git(cwd, 'rev-list', '--count', ref).stdout.strip()
+        return int(out or 0)
+
+    def shallow(cwd):
+        return git(cwd, 'rev-parse', '--is-shallow-repository').stdout.strip() == 'true'
+
+    def run_guard(cwd, mode='session-start', base='main'):
+        return subprocess.run(['bash', str(guard), mode, base], cwd=str(cwd),
+                              env=dict(env0, CLAUDE_PROJECT_DIR=str(cwd)),
+                              capture_output=True, text=True)
+
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+        bare, seed = w / 'o.git', w / 'seed'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                       env=env0, capture_output=True)
+        # 300 linear commits in one fast-import, then a `work` branch two
+        # commits further on, so a base and a branch differ.
+        stream = []
+        for i in range(1, 301):
+            msg, body = f'c{i}', f'{i}\n'
+            stream += [f'commit refs/heads/main', f'mark :{i}',
+                       f'committer t <t@example.com> {1700000000 + i} +0000',
+                       f'data {len(msg)}', msg]
+            if i > 1:
+                stream.append(f'from :{i - 1}')
+            stream += ['M 644 inline f.txt', f'data {len(body)}', body]
+        subprocess.run(['git', f'--git-dir={bare}', 'fast-import', '--quiet'],
+                       input='\n'.join(stream) + '\n', text=True, env=env0,
+                       capture_output=True)
+        subprocess.run(['git', 'clone', '-q', str(bare), str(seed)], env=env0,
+                       capture_output=True)
+        git(seed, 'checkout', '-q', '-b', 'work')
+        for n in ('w1', 'w2'):
+            (seed / f'{n}.txt').write_text(n + '\n')
+            git(seed, 'add', '-A'); git(seed, 'commit', '-qm', n)
+        git(seed, 'push', '-q', 'origin', 'work')
+        url = f'file://{bare}'
+
+        def clone(name, branch='main'):
+            d = w / name
+            subprocess.run(['git', 'clone', '-q', '--depth', '1', '-b', branch,
+                            url, str(d)], env=env0, capture_output=True)
+            git(d, 'config', 'precedent.freshness.intervalSeconds', '0')
+            return d
+
+        # 1. Session start's own block, lifted from the hook as it ships.
+        d = clone('start')
+        text = hook.read_text()
+        block = text[text.index("# Repair a single-branch clone's refspec"):
+                     text.index(last)]
+        r = subprocess.run(['bash', '-c', 'set -euo pipefail\n' + block],
+                           cwd=str(d), env=env0, capture_output=True, text=True)
+        n = count(d, 'HEAD')
+        cases.append((f'1: session start deepens a depth-1 clone by a '
+                      f'stretch, not the whole history ({n} of 300 commits, '
+                      f'rc={r.returncode})',
+                      r.returncode == 0 and 90 <= n <= 110 and shallow(d)))
+
+        # 2. A narrow clone whose counts are provable is left narrow, and a
+        # merely-behind one is still fast-forwarded.
+        before = count(d)
+        g = run_guard(d)
+        cases.append((f'2a: the guard leaves a narrow clone narrow when its '
+                      f'counts are provable ({before} -> {count(d)} commits)',
+                      count(d) == before and shallow(d)))
+        git(seed, 'checkout', '-q', 'main')
+        for n in ('m1', 'm2', 'm3'):
+            (seed / f'{n}.txt').write_text(n + '\n')
+            git(seed, 'add', '-A'); git(seed, 'commit', '-qm', n)
+        git(seed, 'push', '-q', 'origin', 'main')
+        tip = git(seed, 'rev-parse', 'HEAD').stdout.strip()
+        before = count(d)
+        g = run_guard(d)
+        cases.append((f'2b: a merely-behind narrow clone is fast-forwarded, '
+                      f'not deepened ({before} -> {count(d)} commits)',
+                      git(d, 'rev-parse', 'HEAD').stdout.strip() == tip
+                      and count(d) == before + 3 and shallow(d)))
+
+        # 3. Control: a pair that looks diverged is still deepened.
+        d3 = clone('diverged')
+        git(d3, 'fetch', '-q', '--deepen=5', 'origin', 'main')
+        git(d3, 'reset', '-q', '--hard', 'HEAD~4')
+        (d3 / 'local.txt').write_text('local\n')
+        git(d3, 'add', '-A'); git(d3, 'commit', '-qm', 'local')
+        git(d3, 'fetch', '-q', '--depth=1', 'origin', 'main')
+        before = count(d3)
+        g = run_guard(d3)
+        cases.append((f'3: control -- a pair that looks diverged is still '
+                      f'deepened ({before} -> {count(d3)} commits)',
+                      count(d3) > before + 50))
+
+        # 4. The base fetch never shortens a deeper clone.
+        d4 = clone('deep', 'work')
+        git(d4, 'config', '--add', 'remote.origin.fetch',
+            '+refs/heads/*:refs/remotes/origin/*')
+        git(d4, 'fetch', '-q', '--deepen=250', 'origin', 'work', 'main')
+        before = count(d4, 'origin/main')
+        g = run_guard(d4, base='main')
+        cases.append((f'4: the base fetch never shortens a clone holding more '
+                      f'than its bound (origin/main {before} -> '
+                      f'{count(d4, "origin/main")} commits)',
+                      before > 200 and count(d4, 'origin/main') >= before))
+
+        # 5. Session start's failure marker makes the guard retry its deepen.
+        d5 = clone('marker')
+        gd = pathlib.Path(git(d5, 'rev-parse', '--absolute-git-dir').stdout.strip())
+        (gd / 'PRECEDENT_SHALLOW_UNRESOLVED').write_text('')
+        before = count(d5, 'HEAD')
+        g = run_guard(d5)
+        cases.append((f'5: with the failure marker, the guard retries the '
+                      f'deepen and clears the marker ({before} -> '
+                      f'{count(d5, "HEAD")} commits)',
+                      count(d5, 'HEAD') > 50
+                      and not (gd / 'PRECEDENT_SHALLOW_UNRESOLVED').exists()))
+
+    failed = [n for n, ok in cases if not ok]
+    check(f'session-start deepen stays narrow ({len(cases)} stated cases: '
+          f'a stretch at start, left narrow when provable, still deepened '
+          f'when diverged, never shortened, retried on the marker)',
+          not failed, '; '.join(failed))
+
+
 def check_freshness_guard_user_prompt_never_resets_mid_session():
     """`mode_user_prompt` delegates to `mode_session_start` (see the file's
     own comment on that delegation), which carries a diverged-but-clean
@@ -95405,6 +95571,7 @@ def main():
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_freshness_guard_lets_a_read_through_on_a_stale_branch()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
+    check_session_deepen_stays_narrow()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()
     check_update_notes_workflow_changes_in_readme_platform_section()
