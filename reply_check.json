@@ -323,7 +323,7 @@
       "heading": "boildown",
       "item": "^\\W*your next steps\\b",
       "plan_file_written": "(?:^|/)spec/[^/]+\\.md$|_PLAN\\.md$|(?:^|/)plans?/[^/]+\\.md$",
-      "plan_words": "\\b(?:plan it|brainstorm|write it up|spec it out|one-line plan|(?:the|this|my|a|our) plan(?! of record))\\b",
+      "plan_words": "\\b(?:spec it out|one-line plan|(?:the|this|my|a|our) plan(?! of record))\\b",
       "plan_line": "^\\W*Plan:",
       "ask": "\\bdo you want (?:me |us )?to act on (?:this|the|that|my) plan\\b",
       "tell": "\\bI(?:'|’)?m (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b|\\bI am (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b"

@@ -20,65 +20,34 @@ approved_by: "Morgan, 2026-09-26: \"TELL ME IF YOU RECOMMEND ME LOSING THEM OR N
 strength:    decided
 ---
 ## Rule
-**When a hook, check, gate, scanner or any other tool raises something, the
-session works out what it means and hands the person a verdict.** A verdict
-is what to do and why, in terms of what they keep, lose, risk or gain. A
-tool's name and its complaint are not a verdict. Never pass the flag along
-for the person to judge ("the stop hook counts these as unsaved -- tell me
-if you're fine losing them"). They may not know what the tool is, and the
-session has everything it needs to look.
+**When a hook, check, gate, scanner or any other tool raises something,
+look first, then hand the person a verdict**: what to do and why, in terms
+of what they keep, lose, risk or gain. A tool's name and its complaint are
+not a verdict; never pass the flag along for them to judge. Say one of
+three things (in full under "The verdict in full", in Detail):
 
-**So look first, then say one of three things:**
+1. **It's handled.** Say what you did, in one line.
+2. **I recommend X, because Y**, when the choice is theirs or the session
+   was not allowed to act; if it was blocked, say so in plain words.
+3. **This one really needs you**, only when the answer turns on something
+   the session cannot know. Ask that question in their words.
 
-1. **It's handled.** The session could settle it and did. Say what it did
-   in one line.
-2. **I recommend X, because Y.** The choice is the person's, or the session
-   was not allowed to act. Give the recommendation and the concrete reason.
-   If the session tried and was blocked, say that in plain words ("the
-   environment wouldn't let me delete files"). Don't make the person
-   decide from the flag.
-3. **This one really needs you.** Only when the answer turns on something
-   the session cannot know, like whether they still want a draft. Ask that
-   question in their words.
-
-**A commit that changes no file is never mentioned.** A merge commit, an
-empty sync commit, a branch that differs from another only in commits like
-those: none of it is counted, described or reported to the person, by a
-tool or by a session. When a reply says a branch is ahead of or behind
-another, the number is **the commits that changed files**, and when there
-are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
-*"let's have the system stop describing and/or reporting and/or mentioning
-empty merges"*, and on the branch lines, count *"the number of commits
-ahead/behind that made changes to the repo"*.
+**A commit that changes no file is never mentioned.** A branch's count
+ahead or behind is of the commits that changed files.
 
 **A leftover that needs nothing from the person is never listed: the reply
-says "Nothing needed is left unpushed."** When a reply reports what is left
--- unpushed, unmerged, open, still running -- it names only what someone
-would want kept or must act on, and what is being done about it. Branches a
-hook made on its own, scratch copies, caches, a tool's bookkeeping: delete
-what can go, and leave all of it out. "Nothing is left unpushed except X and
-Y" hands the person a list to sort, and they cannot tell from it whether X
-matters. The same holds for anything else reported as left over: when none
-of it needs them, the sentence is "Nothing needed is left \<unpushed, open,
-running\>", and nothing more. Where a shared set asks for "fine to lose,
-and why" (`loss-comes-with-a-verdict`), that sentence is for what the person knows about or asked for -- their own edits, a draft
-they saw -- never for what a tool or the session made by itself. Morgan,
-2026-10-29 (strength: decided): *"Just tell me there's nothing else
-needed."*
+says "Nothing needed is left unpushed"** (or open, or running). Name only
+what someone would want kept or must act on, and delete what can go. "Fine
+to lose, and why" is for what the person knows about, never for what a tool
+or the session made by itself.
 
-**An unchanged, known backlog in a check's output is never re-explained.**
-"Pre-existing warnings only, unrelated to my edit", said again at every
-commit, informs nothing; say "checks passed" or what failed. A run that
-failed, or a warning the current edit introduced, is always reported.
-**Not re-explaining a warning is not the same as knowing its cause:** one
-seen in more than one session is traced to its cause once, by the session
-that notices it recurring, and the cause is fixed or filed. Until then it is
-an open finding, not backlog.
+**An unchanged, known backlog in a check's output is never re-explained**:
+say "checks passed" or what failed. A warning seen in more than one session
+is traced to its cause once, and the cause is fixed or filed.
 
 **When a tool's verdict and the session's disagree, the reply says what the
-session found, not what the tool concluded.** If a fixed sentence the tool
-requires no longer matches the truth, say which part the tool can't see, and
-recommend the fix to the tool.
+session found**, which part the tool can't see, and the fix to recommend
+for the tool.
 
 ## Detail
 **Looking means measuring, not recalling.** "Uncommitted changes" can be
@@ -106,6 +75,78 @@ text of the reply. It is taught at the `reply` gate instead.
 handled" covers what the session was already allowed to do. When the
 environment blocks an action, the verdict is a recommendation, and the
 session does not route around the block.
+
+Everything under the headings below from "The verdict in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The verdict in full
+
+**When a hook, check, gate, scanner or any other tool raises something, the
+session works out what it means and hands the person a verdict.** A verdict
+is what to do and why, in terms of what they keep, lose, risk or gain. A
+tool's name and its complaint are not a verdict. Never pass the flag along
+for the person to judge ("the stop hook counts these as unsaved -- tell me
+if you're fine losing them"). They may not know what the tool is, and the
+session has everything it needs to look.
+
+**So look first, then say one of three things:**
+
+1. **It's handled.** The session could settle it and did. Say what it did
+   in one line.
+2. **I recommend X, because Y.** The choice is the person's, or the session
+   was not allowed to act. Give the recommendation and the concrete reason.
+   If the session tried and was blocked, say that in plain words ("the
+   environment wouldn't let me delete files"). Don't make the person
+   decide from the flag.
+3. **This one really needs you.** Only when the answer turns on something
+   the session cannot know, like whether they still want a draft. Ask that
+   question in their words.
+
+### Commits that change nothing
+
+**A commit that changes no file is never mentioned.** A merge commit, an
+empty sync commit, a branch that differs from another only in commits like
+those: none of it is counted, described or reported to the person, by a
+tool or by a session. When a reply says a branch is ahead of or behind
+another, the number is **the commits that changed files**, and when there
+are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
+*"let's have the system stop describing and/or reporting and/or mentioning
+empty merges"*, and on the branch lines, count *"the number of commits
+ahead/behind that made changes to the repo"*.
+
+### Leftovers that need nothing
+
+**A leftover that needs nothing from the person is never listed: the reply
+says "Nothing needed is left unpushed."** When a reply reports what is left
+-- unpushed, unmerged, open, still running -- it names only what someone
+would want kept or must act on, and what is being done about it. Branches a
+hook made on its own, scratch copies, caches, a tool's bookkeeping: delete
+what can go, and leave all of it out. "Nothing is left unpushed except X and
+Y" hands the person a list to sort, and they cannot tell from it whether X
+matters. The same holds for anything else reported as left over: when none
+of it needs them, the sentence is "Nothing needed is left \<unpushed, open,
+running\>", and nothing more. Where a shared set asks for "fine to lose,
+and why" (`loss-comes-with-a-verdict`), that sentence is for what the person knows about or asked for -- their own edits, a draft
+they saw -- never for what a tool or the session made by itself. Morgan,
+2026-10-29 (strength: decided): *"Just tell me there's nothing else
+needed."*
+
+### A known backlog
+
+**An unchanged, known backlog in a check's output is never re-explained.**
+"Pre-existing warnings only, unrelated to my edit", said again at every
+commit, informs nothing; say "checks passed" or what failed. A run that
+failed, or a warning the current edit introduced, is always reported.
+**Not re-explaining a warning is not the same as knowing its cause:** one
+seen in more than one session is traced to its cause once, by the session
+that notices it recurring, and the cause is fixed or filed. Until then it is
+an open finding, not backlog.
+
+### When the tool and the session disagree
+
+**When a tool's verdict and the session's disagree, the reply says what the
+session found, not what the tool concluded.** If a fixed sentence the tool
+requires no longer matches the truth, say which part the tool can't see, and
+recommend the fix to the tool.
 
 ## Why
 A flag passed along unjudged moves the work onto the person least equipped
@@ -143,6 +184,8 @@ the "except" sent him into working out which items mattered. He asked for
 "Nothing needed is left unpushed" instead, and for the session to find the
 general form; it is the paragraph after the empty-commit one, since a
 harmless leftover is the same kind of noise as an empty merge.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 634 words; it now holds the three verdicts and the four things a reply never reports, in 280 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing to install. It fires at the `reply` gate

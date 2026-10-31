@@ -31,6 +31,47 @@ approved_by: "Morgan F, migrated from RepoPersonalPreferences by the private-set
   copy safe"
 ---
 ## Rule
+Any code written or set up here anticipates its own common failure modes
+instead of crashing on them ("The three clauses in full"):
+
+1. **Never let a degraded result look complete.** A partial scan, a skipped
+   check, a defaulted config or an empty result never renders like the real
+   thing: "could not check" and "checked, nothing wrong" always read
+   differently, for every reader and every stake.
+2. **Keep going.** A part that cannot run gets a documented fallback, a
+   reduced scope or a skip; never a raw stack trace, a hang, or an abort of
+   work that did not depend on it.
+3. **Match the telling to the stake and to the reader.** The cost of acting
+   on a wrong result sets how insistent: someone who could act on it is
+   stopped (a non-zero exit, a message they cannot get past); otherwise it
+   goes in the record, a log line or a report row. The reader sets the form:
+   a technical reader gets the file, the exception and the command that
+   fixes it; a non-technical reader gets a plain sentence on what is not
+   trustworthy, what that means for them and who to tell, with the
+   technical detail sent where a technical person reads it.
+
+**A costly failure in front of a non-technical reader is never met with
+silence** ("The quadrant to watch"): they cannot fix it, and they are about
+to act on the result.
+
+**When it is not obvious, ask: would this person do something different if
+they knew?** Yes: tell them, in words they can act on. No: record it and
+move on ("The test, and what the rule forbids").
+
+## Detail
+Everything under the headings below from "The three clauses in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Shapes that look graceful and are not
+Three shapes recur, all of them "graceful" by the narrow reading and violations by this one:
+
+- **The silent fallback.** A missing optional dependency, a config that did not load, a network call that failed -- handled, defaulted, and never mentioned. The next reader has no way to know the result is partial.
+- **The empty scan reported as clean.** A check whose input did not exist, whose parser is not installed, or whose history was too shallow to reach what it walks, printing the same "OK" it prints when it genuinely looked and found nothing. "Could not check" and "checked, nothing wrong" must never render identically.
+- **The stop that need not be one.** One part failing takes down a whole run that had many independent parts, when the honest outcome was to skip that part, say which, and finish the rest.
+- **The warning aimed at someone who cannot act on it.** A stack trace, a script name, or a remedy command put in front of a reader who does not run scripts. It satisfies the letter of clause 3 and defeats its purpose: nothing in it tells that person what is untrustworthy or what to do, and a steady run of them trains the reader to skip the next one -- including the one that mattered. The fourth shape is the newest, and it is the only one that gets *worse* the more diligently the other three are obeyed.
+
+Where a tool has an exit status, "keep going" applies to the *work*, not to the status: a run that could not check something still reports that honestly rather than exiting 0, and a run whose one purpose could not be served at all may still exit non-zero -- as long as it says why, in words naming the fix.
+
+### The three clauses in full
 Any code written or set up here anticipates its own common failure modes rather than letting them surface as an unhandled crash. Three things, and the first is not negotiable by audience or by stake:
 
 1. **Never let a degraded result look complete.** The invariant, and it holds for every reader and every rule: a partial scan, a skipped check, a defaulted config, an empty result -- none of them may render identically to the real thing. "Could not check" and "checked, nothing wrong" must always be distinguishable. Everything below is about *how* that is said, never about whether.
@@ -43,21 +84,13 @@ Any code written or set up here anticipates its own common failure modes rather 
 
    **What form -- set by who is reading.** A technical reader gets the file, the exception, and the command that fixes it. A non-technical reader gets a plain sentence naming what is not trustworthy, what that means for what they are about to use, and who to tell -- never a stack trace, never a command they cannot run, never a bare script name. The technical detail is not discarded; it goes where a technical person will read it.
 
+### The quadrant to watch
 **The quadrant to watch is a costly failure in front of a non-technical reader.** The pull is toward silence, because that person cannot fix it and the detail would only confuse them. It is the one combination where silence is worst: they cannot fix it *and* they are about to act on the result. Tell them plainly that it is not to be trusted and who to raise it with, and route the diagnosis elsewhere.
 
+### The test, and what the rule forbids
 **The test, when it is not obvious: would this person do something different if they knew?** If yes, tell them, in words they can act on. If no, record it and move on. Volume nobody can act on is not diligence -- it is the noise that teaches people to skip the next warning, including the one that mattered.
 
 The failure mode this rule forbids is not "an error happened." It is **a result that looks complete and is not**, or **a stop that did not have to happen**.
-
-## Detail
-Three shapes recur, all of them "graceful" by the narrow reading and violations by this one:
-
-- **The silent fallback.** A missing optional dependency, a config that did not load, a network call that failed -- handled, defaulted, and never mentioned. The next reader has no way to know the result is partial.
-- **The empty scan reported as clean.** A check whose input did not exist, whose parser is not installed, or whose history was too shallow to reach what it walks, printing the same "OK" it prints when it genuinely looked and found nothing. "Could not check" and "checked, nothing wrong" must never render identically.
-- **The stop that need not be one.** One part failing takes down a whole run that had many independent parts, when the honest outcome was to skip that part, say which, and finish the rest.
-- **The warning aimed at someone who cannot act on it.** A stack trace, a script name, or a remedy command put in front of a reader who does not run scripts. It satisfies the letter of clause 3 and defeats its purpose: nothing in it tells that person what is untrustworthy or what to do, and a steady run of them trains the reader to skip the next one -- including the one that mattered. The fourth shape is the newest, and it is the only one that gets *worse* the more diligently the other three are obeyed.
-
-Where a tool has an exit status, "keep going" applies to the *work*, not to the status: a run that could not check something still reports that honestly rather than exiting 0, and a run whose one purpose could not be served at all may still exit non-zero -- as long as it says why, in words naming the fix.
 
 ## Why
 The three sanctioned degradations look like a list of options and are really one property: **the caller can act on the result.** A clear message naming what is missing and how to fix it, a documented fallback, and a clean non-zero exit all pass that test. The three failures named opposite them do not — and the last two fail it worst, because neither announces that anything happened at all.
@@ -104,6 +137,8 @@ share one property: the caller can act on them. A clear message naming what
 is missing and how to fix it, a documented fallback, or a clean non-zero
 exit. A raw stack trace, a silent wrong answer, and a hang all fail that
 test, the last two worst, because neither announces that anything happened.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 518 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three clauses, the quadrant to watch and the test, in 273 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 No mechanical check, and this is the second attempt rather than an

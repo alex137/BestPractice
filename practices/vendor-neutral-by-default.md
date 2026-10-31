@@ -21,18 +21,12 @@ strength:    decided
 ---
 ## Rule
 **Before writing a hook, script, or practice-file rule in a repository that
-vendors a layer out to other repos, ask whether it
-assumes Claude Code specifically — and if it does, ask whether it needs
-to.** Some repos are not a normal codebase with one
-deployment target: everything a dependent repo vendors or installs from
-them — a practice set's `practices/*.md`, an engine's `tools/`, a template
-tree — ships out whole, into every repo that installs from that source.
-**Precedent and every practice set's own repository are among them**:
-their `practices/*.md` and `tools/` vendor into every project repo that
-installs them. A
-Claude-only assumption written in a vendor-source repo does not
-stay there — it travels into every repo that vendors it, whether or not
-that repo runs Claude Code at all.
+vendors a layer out to other repos, ask whether it assumes Claude Code
+specifically — and if it does, ask whether it needs to.** **Precedent and
+every practice set's own repository are among them**: their
+`practices/*.md` and `tools/` travel into every repo that installs them,
+whether or not that repo runs Claude Code (Detail, *Which repositories, in
+full*).
 
 **The test, concretely**: does this depend on a specific tool call
 (`ListAgents`, `SendMessage`, `create_trigger`, a Model Context Protocol
@@ -43,12 +37,9 @@ either the dependency is genuinely unavoidable and gets named as a Claude
 Code binding explicitly rather than presented as universal, or it belongs
 behind a guard that degrades gracefully when the tool isn't there.
 
-**Default is not the same as required.** Nothing here says every change
-must work identically on every provider — some things genuinely can't.
-What this rule asks is that provider-neutral be the assumption a session
-starts from, checked and consciously departed from when there's a real
-reason, rather than Claude-only being the unexamined default because the
-repo happens to be edited from inside Claude Code most of the time.
+**Default is not the same as required**: provider-neutral is where a
+session starts, departed from on purpose when there is a real reason
+(Detail, *Default, not required, in full*).
 
 ## Detail
 **This is not a new principle in the repo it was coined in** — BestPractice's
@@ -66,6 +57,31 @@ wrong question here — the right one is "would it hold under a different
 harness."** This practice is about a different axis than where a rule
 belongs (that question is [rule-scope-ask](rule-scope-ask.md)'s) — not who
 the rule is for, but which tool is running the session applying it.
+
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### Which repositories, in full
+**Before writing a hook, script, or practice-file rule in a repository that
+vendors a layer out to other repos, ask whether it
+assumes Claude Code specifically — and if it does, ask whether it needs
+to.** Some repos are not a normal codebase with one
+deployment target: everything a dependent repo vendors or installs from
+them — a practice set's `practices/*.md`, an engine's `tools/`, a template
+tree — ships out whole, into every repo that installs from that source.
+**Precedent and every practice set's own repository are among them**:
+their `practices/*.md` and `tools/` vendor into every project repo that
+installs them. A
+Claude-only assumption written in a vendor-source repo does not
+stay there — it travels into every repo that vendors it, whether or not
+that repo runs Claude Code at all.
+
+### Default, not required, in full
+**Default is not the same as required.** Nothing here says every change
+must work identically on every provider — some things genuinely can't.
+What this rule asks is that provider-neutral be the assumption a session
+starts from, checked and consciously departed from when there's a real
+reason, rather than Claude-only being the unexamined default because the
+repo happens to be edited from inside Claude Code most of the time.
 
 ## Why
 The cost of skipping this check lands downstream, in a repo that installed
@@ -106,6 +122,8 @@ any future one shaped the same way, rather than staying readable only as
 a citation to BestPractice's own text.
 
 **Reviewed on 2026-09-28 for a merge into universal, and left here.** Universal has no practice by this name: BestPractice's `vendor-neutral-by-default` is repo-local (`local/practices/`), true only of that repository, and this copy is its generalization to any repository that vendors a layer out -- which is maintaining practice sets and their engine, this set's subject. Merging would have meant promoting it to universal, which the reach test does not support: a repository that ships nothing out has no use for it.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 279 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 177 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 **No mechanical check, and this is a considered gap, not an unexamined

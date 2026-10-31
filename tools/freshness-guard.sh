@@ -486,13 +486,25 @@ _is_shallow() {
   [ "$(_git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]
 }
 
-# `--depth` is only ever passed to a clone that is ALREADY shallow. Passing
-# it to a full clone does not "limit the fetch" -- it truncates the
-# repository into a shallow one, which is how a guard meant to make history
-# more reliable would end up destroying the history every check below reads.
+# How far a session start deepens a shallow clone, along the branch checked
+# out and the landing branch; .claude/hooks/session-start.sh carries the same
+# number, and this guard retries with it when that deepen failed
+# (todo/todo-2026-09-14-session-start-deepen-is-tentative.md, 2026-10-31).
+SESSION_DEEPEN=100
+
+# NEVER `--depth` ON A CLONE THAT HOLDS MORE THAN THAT DEPTH. Passing it to a
+# full clone truncates the repository into a shallow one; passing it to a
+# shallow clone that is already deeper SHORTENS it, too -- measured
+# 2026-10-31: `--depth=100` on a clone holding 3,263 commits of staging left
+# 1,059 reachable. This used `--depth=200` on every shallow clone, so it
+# undid any deeper fetch another tool had made (precedent_branches.py
+# deepens to a merge base by 300 and then 3,000). Now: a base this clone
+# already has is fetched plainly, which brings what moved and never
+# shortens (0.7 seconds, 2 commits, on the measured clone); a base it has
+# never fetched is deepened by SESSION_DEEPEN, which also never shortens.
 _fetch_base() {
-  if _is_shallow; then
-    _git fetch --quiet --depth=200 origin "$1" 2>/dev/null || \
+  if _is_shallow && ! _have_ref "origin/$1"; then
+    _git fetch --quiet --deepen="$SESSION_DEEPEN" origin "$1" 2>/dev/null || \
       _git fetch --quiet origin "$1" 2>/dev/null || true
   else
     _git fetch --quiet origin "$1" 2>/dev/null || true
@@ -521,8 +533,38 @@ _behind_base_count() {
 # was blocked. Deepen once and recount before believing the counts.
 # practice: upstream-fix. See gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md for the merge-base shape of
 # the same false negative.
+#
+# ONLY WHEN THE COUNTS CANNOT BE TRUSTED, OR SESSION START'S OWN DEEPEN
+# FAILED (2026-10-31). This deepened every shallow clone by 500 on every
+# check, which was harmless while session start fetched the whole history and
+# undid it once session start deepened only a stretch: measured, it took a
+# narrowed clone from 16 to 36 MB in 25 seconds at the first check. The
+# counts are exact whenever one tip contains the other -- `merge-base
+# --is-ancestor` answering yes on a truncated graph is a yes on the full one
+# -- and the plain fetch before this call brings origin's new commits down
+# to HEAD, so a merely-behind checkout has one. Only a pair that looks
+# diverged can be a shallow artefact, and that pair is still deepened by
+# 500, then unshallowed. Returns 0 when it fetched more history.
+_counts_provable() {
+  _have_ref "origin/$1" || return 0
+  _git merge-base --is-ancestor HEAD "origin/$1" >/dev/null 2>&1 && return 0
+  _git merge-base --is-ancestor "origin/$1" HEAD >/dev/null 2>&1
+}
+
 _deepen_if_shallow() {
   _is_shallow || return 1
+  local gd base
+  gd="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
+  if [ -n "$gd" ] && [ -f "$gd/PRECEDENT_SHALLOW_UNRESOLVED" ]; then
+    # Session start could not deepen at all: retry its deepen, along this
+    # branch, else along the base when origin has no such branch yet.
+    if _git fetch --quiet --deepen="$SESSION_DEEPEN" origin "$1" 2>/dev/null \
+       || { base="$(_resolve_base)" && [ "$base" != "$1" ] \
+            && _git fetch --quiet --deepen="$SESSION_DEEPEN" origin "$base" 2>/dev/null; }; then
+      rm -f "$gd/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null
+    fi
+  fi
+  _counts_provable "$1" && return 1
   _git fetch --quiet --deepen=500 origin "$1" 2>/dev/null && return 0
   # Some git policy hooks refuse --unshallow; a bounded deepen is tried first
   # for that reason, and a failure here is not fatal -- the caller keeps the
@@ -653,12 +695,15 @@ _session_start_one() {
   # session-start.sh's own attempt had failed. _deepen_if_shallow returns fast
   # (its own first line is `_is_shallow || return 1`) when there is nothing to
   # do, so calling it unconditionally, before the counts below are trusted at
-  # all, costs nothing on an already-complete clone.
+  # all, costs nothing on an already-complete clone. On a shallow one it
+  # retries session start's deepen when that failed, and otherwise deepens
+  # only a pair that looks diverged (2026-10-31: a shallow clone is now the
+  # normal state, so being shallow is no longer a reason to fetch).
   _deepen_if_shallow "$branch" || true
   if _is_shallow; then
     _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
     [ -n "$_shallow_marker" ] && [ -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" ] && \
-      echo "WARN: freshness-guard: this checkout is STILL shallow after session-start.sh's own two attempts and this guard's own retry -- treat history-reading tools (behavioral_replay.py, doc_lint's changed-files scope, precedent_check.py's tree checks) as unverified. Remedy by hand: git fetch --unshallow" >&2
+      echo "WARN: freshness-guard: this checkout is STILL shallow and barely deepened -- session-start.sh's own two attempts and this guard's own retry all failed -- treat history-reading tools (behavioral_replay.py, doc_lint's changed-files scope, precedent_check.py's tree checks) as unverified. Remedy by hand: git fetch --unshallow" >&2
   else
     _shallow_marker="$(_git rev-parse --absolute-git-dir 2>/dev/null || true)"
     [ -n "$_shallow_marker" ] && rm -f "$_shallow_marker/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null
@@ -1019,9 +1064,9 @@ _pre_write_one() {
     fi
   fi
 
-  # Unconditional now, same reasoning as _session_start_one's copy of this
-  # comment: a shallow-but-merely-behind checkout used to get no deepen
-  # attempt here at all, only when the counts already looked diverged.
+  # Called every time, same reasoning as _session_start_one's copy of this
+  # comment; it fetches only when session start's deepen failed or the
+  # counts below cannot be trusted.
   _deepen_if_shallow "$branch" || true
 
   if _have_ref "origin/$branch"; then

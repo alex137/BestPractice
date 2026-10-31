@@ -25,45 +25,34 @@ approved_by: "BestPractice (pre-fork). Extended 2026-09-12, Morgan F, relayed
 source_practice_number: 20
 ---
 ## Rule
-When a mistake is caught — by the owner, by an audit, by the person simply
-reporting it, or by a later pass discovering an earlier session's error —
-fixing the instance is half the job. **The trigger is the fix, not the
-review**: most defects here are never reviewed, they are just mentioned and
-repaired, and a rule that waits for a review never fires on them. Before the session ends, root-cause it *five-whys style*: ask why
-iteratively, past the surface slip, until the answer is a **process
-property** — a missing rule, a missing check, a judgment recorded at the
-wrong granularity, a stale document trusted, a default that invites the
-error — stopping at the level where a cheap guard exists. Then encode the
-prevention at the strongest rung available: (a) an **audit or lint** if the
-failure is mechanically checkable ([convention-to-audit](convention-to-audit.md) — conventions become audits);
-(b) else a **written rule, dated, carrying its origin incident** ([cite-the-incident](cite-the-incident.md)
-and [volatile-rules-carry-dates](volatile-rules-carry-dates.md) — the incident is both the justification and the test case); (c) if
-the lesson is generic, **export it** ([practice-export-loop](practice-export-loop.md)). Discuss the choice with
-the owner when it involves a judgment call — which rung, what scope, whether
-the guard is worth its cost.
+**When a mistake is caught, fixing the instance is half the job**, and
+the fix is the trigger, not a review ("The five whys and the rungs, in
+full"). Before the session ends:
 
-**Proportionality guard.** Not every slip earns a rule: the trigger is a
-systemic cause (it would recur) or real cost (rework, a wrong external
-statement, lost work). Prefer strengthening an existing rule or audit over
-minting a new one — rule-bloat is itself a failure mode, and a silent rule
-nobody agreed to is how it starts.
+1. **Ask why until the answer is a process property** -- a missing rule or
+   check, a stale document trusted, a default that invites the error -- and
+   stop at the level where a cheap guard exists.
+2. **Encode the prevention at the strongest rung:** an audit or lint if it
+   is mechanically checkable ([convention-to-audit](convention-to-audit.md));
+   else a written rule, dated, carrying its incident
+   ([cite-the-incident](cite-the-incident.md)); and export it if it is
+   generic ([practice-export-loop](practice-export-loop.md)). Discuss a
+   judgment call -- which rung, what scope, whether the guard is worth its
+   cost -- with the owner.
 
-**Before minting a rule at any level, search the universal catalogue for its
-subject and say what the search returned.** "Prefer strengthening an existing
-rule" assumes the existing rule is visible, and it often is not: a practice
-source carries its own level's `practices/` only, so a set that resolves no
-sources never sees universal text at all, and the rule you are about to
-duplicate is invisible from inside the repository you are writing in. Search by
-subject *and* by mechanism ([search-by-purpose](search-by-purpose.md)) — a clone
-of the upstream catalogue on disk is enough, with nothing attached — and report
-the result either way: **the slug you are extending, or that the search found
-nothing.** Unsearchable is not the same as absent, and neither is silence.
+**Only a systemic cause or a real cost earns a rule**, and strengthening an
+existing rule or audit beats minting a new one ("Proportionality").
 
-**This is a lookup, not a meditation** — one search, one line. A session that
-cannot reach a catalogue to search says that, in those words, and the rule it
-writes is marked as written blind.
+**Before minting one, search the universal catalogue by subject and by
+mechanism, and say what it returned** ("Searching first, in full"): the
+slug you are extending, or that the search found nothing. One search, one
+line. A session that cannot reach a catalogue says so, and marks the rule
+it writes as written blind.
 
 ## Detail
+Everything under the headings below from "The five whys and the rungs, in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Why search first, and where the rule goes
 **The lookup is aimed at one specific blindness, and it is structural rather
 than careless.** The rungs above assume a session can see what the catalogue
 already says. A repository that resolves no practice sources cannot: its own
@@ -91,6 +80,47 @@ that one step, and that session had been unusually careful.
 **Where the rule finally goes is a separate question**, answered by
 [layered-practice-packs](layered-practice-packs.md) — the lookup tells you
 whether a rule already exists, not which level should hold the one you write.
+
+### The five whys and the rungs, in full
+When a mistake is caught — by the owner, by an audit, by the person simply
+reporting it, or by a later pass discovering an earlier session's error —
+fixing the instance is half the job. **The trigger is the fix, not the
+review**: most defects here are never reviewed, they are just mentioned and
+repaired, and a rule that waits for a review never fires on them. Before the session ends, root-cause it *five-whys style*: ask why
+iteratively, past the surface slip, until the answer is a **process
+property** — a missing rule, a missing check, a judgment recorded at the
+wrong granularity, a stale document trusted, a default that invites the
+error — stopping at the level where a cheap guard exists. Then encode the
+prevention at the strongest rung available: (a) an **audit or lint** if the
+failure is mechanically checkable ([convention-to-audit](convention-to-audit.md) — conventions become audits);
+(b) else a **written rule, dated, carrying its origin incident** ([cite-the-incident](cite-the-incident.md)
+and [volatile-rules-carry-dates](volatile-rules-carry-dates.md) — the incident is both the justification and the test case); (c) if
+the lesson is generic, **export it** ([practice-export-loop](practice-export-loop.md)). Discuss the choice with
+the owner when it involves a judgment call — which rung, what scope, whether
+the guard is worth its cost.
+
+### Proportionality
+**Proportionality guard.** Not every slip earns a rule: the trigger is a
+systemic cause (it would recur) or real cost (rework, a wrong external
+statement, lost work). Prefer strengthening an existing rule or audit over
+minting a new one — rule-bloat is itself a failure mode, and a silent rule
+nobody agreed to is how it starts.
+
+### Searching first, in full
+**Before minting a rule at any level, search the universal catalogue for its
+subject and say what the search returned.** "Prefer strengthening an existing
+rule" assumes the existing rule is visible, and it often is not: a practice
+source carries its own level's `practices/` only, so a set that resolves no
+sources never sees universal text at all, and the rule you are about to
+duplicate is invisible from inside the repository you are writing in. Search by
+subject *and* by mechanism ([search-by-purpose](search-by-purpose.md)) — a clone
+of the upstream catalogue on disk is enough, with nothing attached — and report
+the result either way: **the slug you are extending, or that the search found
+nothing.** Unsearchable is not the same as absent, and neither is silence.
+
+**This is a lookup, not a meditation** — one search, one line. A session that
+cannot reach a catalogue to search says that, in those words, and the rule it
+writes is marked as written blind.
 
 ## Why
 Repos that only fix instances relive their mistakes with new
@@ -153,6 +183,8 @@ carrying its incident — and skipped (c), *if the lesson is generic, export it*
 That is the consumer-template-only shape one level up, landing on the same day
 as fix-the-original (now part of [upstream-fix](upstream-fix.md)), which exists to prevent exactly
 that shape.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 414 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the five whys, the rungs, proportionality and the search before minting, in 203 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 A habit plus a review question. The habit: end any session in

@@ -5,10 +5,10 @@ tier:        on-demand
 severity:    default
 applies_to:  ["tools/**/*.py", "**/tests/**", "**/*_test.py", "**/test_*.py"]
 applies_to_why: "Its own applies_to. A control lives with the code it controls, and in this repo that is tools/ -- verify_harness.py and the check scripts are where every planted case is written. The test-file globs carry it to repos laid out conventionally, which this one is not. Deliberately not '**': the occasion is writing a test, and a glob over everything would surface it on documents and practice files where there is no control to assert anything about. Decided: 2026-09-07, when the practice was added."
-occasion:    "writing a test, fixture or control that proves a guard fires"
+occasion:    "writing a test, fixture or control that proves a guard fires, or any test or check that reports a failure"
 gates:       ["review"]
 gates_why:   "Asking 'what else could produce this failure?' is a reviewer's question about a diff that adds a control, the same shape as checkable-gets-checked's review gate."
-index_clause: "a non-zero exit is not evidence; assert the message that guard prints"
+index_clause: "assert the message the guard prints; a failure report names what failed"
 index_required: false
 checked_by:  null
 defines:     ["positive control", "negative control"]
@@ -27,7 +27,7 @@ says only that the run did not reach the end, and a fixture elaborate enough
 to exercise a guard is elaborate enough to break for three other reasons
 first.
 
-Two halves, and skipping either one leaves the test hollow:
+Three points, and skipping any one leaves the test hollow:
 
 1. **The positive control asserts the guard's own words.** Not
    `returncode != 0`, not "an exception was raised" — a string only the
@@ -36,6 +36,11 @@ Two halves, and skipping either one leaves the test hollow:
 2. **The negative control proves the assertion can fail.** Remove or neuter
    the guard, re-run, and watch the case go red. A control that passes with
    the guard deleted is measuring something else.
+3. **The failure report names what failed**: the check, file, line or
+   case. It never relies on the tail of a tool's output, which drops
+   whatever came earlier. When a test hands back a tool's output, the lines
+   that name the failure (VIOLATION, FAIL, ERROR, REFUSED, a traceback) go
+   first and the tail after.
 
 **A guard that cannot establish its own inputs must say so, never return a
 clean result.** This is where a hollow control does its real damage: a guard
@@ -103,6 +108,19 @@ exit code from a git helper made a failing `git checkout` in a dirty tree
 look like a passing test, so a broken control was indistinguishable from a
 working one. "The command reported nothing" is no evidence at all.
 
+**A report that hid its own check (2026-10-31).** A harness test of
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) run inside a freshly generated practice set failed, and
+its report was the last 600 characters of the tool's output. The VIOLATION
+line naming the check that fired, `vendored-engine-file-refs-resolve`, sat
+earlier, so the failure said that something was wrong and not what. About
+500 tests in the same harness reported a failure the same way. The session
+wrote "One test fails on the combined branch because a check flags a
+violation in a freshly generated practice set, but the output shows only its
+tail. I'm changing it to print the violating line so I can identify the
+check." Morgan, 2026-10-31 (strength: decided): *"that should be a more
+general rule"*. The harness gained one helper for every such report, and
+the push check refuses a new raw tail.
+
 ## Install
 Write every failure assertion against a string the guard itself prints, and
 put that string somewhere both the guard and the test read from if it is
@@ -111,6 +129,12 @@ not testing it. Where a fixture shells out to a tool, confirm the tool is
 resolving the paths you think it is — print them once while writing the
 test — because a fixture that never reaches the code under test still exits
 non-zero for its own reasons.
+
+In Precedent's harness, [`tools/verify_harness.py`](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py), a failure report that
+carries a tool's output is `failure_detail(out, N)`: the lines naming the
+failure first, then the tail, within N characters. The push check refuses
+a change that adds a raw `out[-N:]` to a `check(` or `cases.append(`
+detail, and judges only the lines the change adds.
 
 A reviewer's version of the same question, cheap to ask on any diff that
 adds a control: *what else could produce this failure?* If the answer is
