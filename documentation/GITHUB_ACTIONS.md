@@ -329,7 +329,10 @@ comparison `python3 tools/build_views.py --check` makes). A set created by
 [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 gets no workflow, and the engine refresh deletes one an older set still
 carries. The workflow template sets used to run was retired on
-2026-10-01.
+2026-10-01. **One exception since 2026-10-28:** a set whose
+`precedent.json` says `"visibility": "public"` gets the branch cleanup
+workflow, which runs only when a person clicks its button on the branch
+cleanup page, and which GitHub does not bill a public repository for.
 
 ## Enable GitHub Actions
 

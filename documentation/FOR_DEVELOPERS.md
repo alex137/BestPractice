@@ -262,11 +262,14 @@ tired of repeating is a good set. The catalogue you are reading grew that
 way, one practice at a time, each one written down the first time somebody
 got it wrong twice.
 
-Every level except repo-local is a genuinely separate git repository,
-resolved live into the project rather than copied in — a team or
-individual source is a sibling checkout your session needs read access
-to, not a folder inside the shared project. A project declares which
-sources apply to it in a `precedent.json` at its root:
+Every level except repo-local is a separate git repository. The universal
+library is copied into the project at `process/upstream/`, and Update
+Vendors refreshes it. A shared or individual source is normally resolved
+live: a sibling checkout your session needs read access to, not a folder
+inside the shared project. A shared set can be copied in instead, like the
+universal one, so it never has to arrive at session start
+([spec/VENDORED_SHARED_SETS.md](https://github.com/alex137/BestPractice/blob/staging/spec/VENDORED_SHARED_SETS.md)). A project
+declares which sources apply to it in a `precedent.json` at its root:
 
 ```json
 {
