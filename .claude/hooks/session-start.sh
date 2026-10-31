@@ -85,7 +85,7 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   fi
 fi
 
-# Make this checkout's HISTORY complete, not just its files.
+# Give this checkout a working stretch of HISTORY, not just its files.
 #
 # practice: upstream-fix. The container clones this repo `--depth 1`, so every
 # file of the branch is present and current and almost none of the past is.
@@ -101,17 +101,26 @@ fi
 # overlap, which cost a whole session on 2026-09-14 (#g37) before the
 # freshness guard learned to deepen before believing its own counts.
 #
-# Measured 2026-09-14 against this remote through this container's proxy, in
-# exactly the order below (refspec widened first, so the deepen reaches every
-# branch rather than one): 2.7 MB of history before, 9.5 MB after, 4 seconds.
-# That is the whole cost, once per session, which is why this is
-# unconditional rather than clever about which sessions need it.
+# A STRETCH, NOT THE WHOLE HISTORY (2026-10-31, Morgan: "use your judgment,
+# and act", strength: assented; todo/todo-2026-09-14-session-start-deepen-is-tentative.md
+# has every measurement). This used to be `git fetch --unshallow`: 4 seconds
+# on 2026-09-14, about 23 seconds and 33 MB by 2026-10-31 (one run took 70),
+# because it brings all of origin's ~100 branches and ~5,600 commits. Now it
+# deepens only the branch checked out (when origin has it) and the landing
+# branch, by DEEPEN generations: about 11 seconds and 15 MB, about 1,100
+# commits on this merge-heavy history. Measured on that stretch against the
+# full history, from a fresh depth-1 clone: doc_lint's changed files,
+# precedent_check's base and the whole --full-sweep, behavioral_replay's 142
+# commits, the reply gate's unlanded-work lines and the freshness guard's
+# verdicts all came out the same. What needs more fetches it itself:
+# precedent_push_check.py unshallows before it checks (so the first push pays
+# that, about 15-19 seconds), precedent_branches.py deepens to a merge base,
+# and freshness-guard.sh deepens when its counts cannot be trusted.
 #
 # Bounded and never fatal. `timeout` caps a slow or hanging network so a
-# session cannot be held at the door, and `--deepen` is the fallback because
-# some git policy hooks refuse `--unshallow` outright. A failure reports and
-# continues: a session with a short history is worse off than one without,
-# and far better off than a session that does not start.
+# session cannot be held at the door. A failure reports and continues: a
+# session with a short history is worse off than one without, and far better
+# off than a session that does not start.
 # TODO.md's shallow-clone-self-heal-hardening item, g37's third recurrence.
 # ONE bounded attempt used to be the whole mechanism: on failure this printed
 # a WARN nothing re-surfaced, and the next chance to fix it was whatever this
@@ -119,25 +128,37 @@ fi
 # when it looked diverged, never for a checkout that was merely shallow and
 # behind). A second, independently-bounded attempt costs nothing when the
 # first succeeds, and turns a single transient network hiccup through this
-# container's proxy into a recoverable one instead of a silent WARN.
+# container's proxy into a recoverable one instead of a silent WARN. The
+# marker it leaves on failure is what freshness-guard.sh retries on, with the
+# same DEEPEN (its SESSION_DEEPEN).
 if git rev-parse --git-dir >/dev/null 2>&1 \
    && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+  _deepen=100
+  _deepen_refs=()
+  _cur="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [ -n "$_cur" ] && git rev-parse --verify --quiet "refs/remotes/origin/$_cur" >/dev/null 2>&1; then
+    _deepen_refs+=("$_cur")
+  fi
+  _land="$(python3 tools/precedent_branches.py --landing 2>/dev/null | head -n1 || true)"
+  if [ -n "$_land" ] && [ "$_land" != "$_cur" ]; then
+    _deepen_refs+=("$_land")
+  fi
   _shallow_fixed=0
-  if timeout 90 git fetch --quiet --unshallow 2>/dev/null \
-     || timeout 90 git fetch --quiet --deepen=1000 2>/dev/null; then
-    _shallow_fixed=1
-  elif timeout 60 git fetch --quiet --deepen=1000 2>/dev/null; then
-    _shallow_fixed=1
+  if [ "${#_deepen_refs[@]}" -gt 0 ]; then
+    if timeout 90 git fetch --quiet --deepen="$_deepen" origin "${_deepen_refs[@]}" 2>/dev/null \
+       || timeout 60 git fetch --quiet --deepen="$_deepen" origin "${_deepen_refs[@]}" 2>/dev/null; then
+      _shallow_fixed=1
+    fi
   fi
   _shallow_gitdir="$(git rev-parse --absolute-git-dir 2>/dev/null || true)"
   if [ "$_shallow_fixed" = "1" ]; then
-    echo "NOTE: this clone carried only the most recent commits; fetched the rest of the history so history-reading tools do not silently degrade. (See AGENTS.md gotchas g6, g8, g37.)" >&2
+    echo "NOTE: this clone carried only its most recent commit; fetched the last $_deepen generations of ${_deepen_refs[*]} (not the whole history: the push check, precedent_branches.py and freshness-guard.sh fetch more when they need it). (See AGENTS.md gotchas g6, g8, g37.)" >&2
     [ -n "$_shallow_gitdir" ] && rm -f "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
   else
     # A marker, not just a log line: freshness-guard.sh checks for this on
-    # every session-start, throttled prompt, and first tool call, and says so
-    # out loud if it is STILL shallow after its own retry too -- instead of
-    # this WARN sitting in stdout nobody reads back.
+    # every session-start, throttled prompt, and first tool call, retries
+    # the deepen, and says so out loud if its own retry fails too -- instead
+    # of this WARN sitting in stdout nobody reads back.
     echo "WARN: could not deepen this shallow clone after two attempts -- behavioral_replay.py, doc_lint.py's changed-files scope and precedent_check.py's tree checks may report success while checking little or nothing. freshness-guard.sh will keep retrying. Remedy by hand: git fetch --unshallow" >&2
     [ -n "$_shallow_gitdir" ] && : > "$_shallow_gitdir/PRECEDENT_SHALLOW_UNRESOLVED" 2>/dev/null || true
   fi
