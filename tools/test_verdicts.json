@@ -8184,6 +8184,15 @@
       "seconds": 0.1,
       "leads": [],
       "importance": "medium"
+    },
+    "check_land_holds_while_its_reached_tests_are_red": {
+      "verdict": "keep",
+      "why": "--land starts its reached-tests run and the next landing is refused while it is red, unless it names itself the fix; a gating change has its pull request opened and merged by --land. Both controls: the run off, and the automatic pull request off.",
+      "date": "2026-10-31",
+      "by": "agent",
+      "seconds": 4.6,
+      "leads": [],
+      "importance": "high"
     }
   }
 }

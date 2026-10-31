@@ -3767,7 +3767,7 @@ def update_vendors_note(root, before, after):
             'pushes nothing.')
 
 
-def land(root, work=None, say=print):
+def land(root, work=None, say=print, fixing=None):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
     -> 0 landed or nothing to land; 1 refused (a conflict, a failing quick
@@ -3776,13 +3776,13 @@ def land(root, work=None, say=print):
     label = work or (_git(root, 'symbolic-ref', '--short', '-q', 'HEAD') or 'HEAD')
     verdict = ['LAND REFUSED: see the lines above']
     try:
-        rc, verdict[0] = _land(root, work, label, staging, say)
+        rc, verdict[0] = _land(root, work, label, staging, say, fixing)
         return rc
     finally:
         say(f'{LAND_RESULT}: {staging} <- {label}: {verdict[0]}')
 
 
-def _land(root, work, label, staging, say):
+def _land(root, work, label, staging, say, fixing=None):
     unknown = unknown_landing(root)
     if unknown:
         say(f'{unknown}. Nothing was landed.')
@@ -3794,6 +3794,15 @@ def _land(root, work, label, staging, say):
             f'{staging} with {PROMOTE_ONLY_SETTING} on. Yours is {landing} '
             f'({lwhy}): land there as usual.')
         return 2, f'LAND REFUSED: your landing branch is {landing}'
+    refusal, notes, reach_since = reach_gate(root, fixing)
+    for note in notes:
+        say(note)
+    if refusal:
+        say(refusal)
+        return 1, ('LAND REFUSED: an earlier landing\'s reached tests are red; '
+                   'land its fix with --fixing')
+    # Passed only when set, so the call reads as it always did otherwise.
+    fix_kw = {k: v for k, v in (('fixing', fixing), ('reach_since', reach_since)) if v}
     if work:
         name = work[len('origin/'):] if work.startswith('origin/') else work
         _run(root, 'fetch', '-q', 'origin', name)
@@ -3812,10 +3821,10 @@ def _land(root, work, label, staging, say):
     if state == 'none':
         say(f'NOTE: could not take the landing lock ({info}); going ahead '
             f'without it.')
-        return _land_composed(root, sha, label, staging, why, say)
+        return _land_composed(root, sha, label, staging, why, say, **fix_kw)
     old_handlers = _exit_cleanly_on_signal()
     try:
-        return _land_composed(root, sha, label, staging, why, say)
+        return _land_composed(root, sha, label, staging, why, say, **fix_kw)
     finally:
         _ignore_signals(old_handlers)
         try:
@@ -3850,7 +3859,8 @@ def _takes_pull_request(root, base, tip):
         return []
 
 
-def _land_composed(root, sha, label, staging, why, say):
+def _land_composed(root, sha, label, staging, why, say, fixing=None,
+                   reach_since=None):
     """--land's composition, check and push, run while the lock is held."""
     _run(root, 'fetch', '-q', 'origin', staging)
     stip = _remote_tip(root, staging)
@@ -3938,6 +3948,14 @@ def _land_composed(root, sha, label, staging, why, say):
             # holds the same tree. `new` alone may never reach origin.
             branch = label[len('origin/'):] if label.startswith('origin/') else label
             head = _remote_tip(root, branch) or new
+            if p is None and _remote_tip(root, branch) and \
+                    auto_pull_request(root, branch, staging, head, needs_pr, say):
+                say(carried)
+                rc = land_confirm(root, head, say, fixing=fixing,
+                                  reach_since=reach_since)
+                return (0, f'LANDED by its pull request, at {head}') if rc == 0 \
+                    else (1, f'LANDED by its pull request, and the check after it '
+                             f'failed: see above')
             say(f'Once its pull request merges, run `python3 tools/'
                 f'precedent_branches.py --land-confirm {head}`: {staging} may '
                 f'move while it is open, and that says whether what landed is '
@@ -3959,7 +3977,7 @@ def _land_composed(root, sha, label, staging, why, say):
     if rebuilt:
         say(f'REBUILT what those left stale: {", ".join(rebuilt)}.')
     say(f'{staging} is at {new[:12]} now.')
-    nxt = reached_checks_next(root, stip, label)
+    nxt = start_reach_run(root, reach_since or stip, new, label, fixing=fixing)
     if nxt:
         say(nxt)
     for line in review:
@@ -3995,7 +4013,269 @@ def reached_checks_next(root, since, label):
             f'ends; a red one left here turns main red at the next Produce.')
 
 
-def land_confirm(root, sha, say=print):
+# THE LANDING STARTS ITS OWN REACHED-TESTS RUN, AND A RED ONE HOLDS THE
+# NEXT LANDING (Morgan, 2026-10-31, strength: assented: "Yes on all four",
+# to the pick in todo-2026-10-31-root-issues-from-the-very-deep-check-
+# session). Until then a landing only PRINTED the command for the harness
+# checks it reaches, and nothing remembered the answer: in the 2026-10-30
+# very deep check's session staging went red twice from checks only that
+# run reaches, and the combined branch failed four times on what each
+# helper's branch had passed. Now --land starts that run itself, detached,
+# on a worktree of exactly what landed, and records it under the checkout's
+# git directory (REACH_DIR, one JSON per landing). The next --land reads the
+# records and refuses while one is red -- unless it says it is the fix
+# (--fixing <the red landing's commit>): that one lands, its own run starts
+# from the red one's base so it covers both, and the red record is marked
+# fixed. A run whose process is gone (a container restart) is "lost": said,
+# never a refusal, because nothing is known. The records are this clone's
+# own: another checkout's landings are not seen here.
+REACH_DIR = 'precedent-reach'
+REACH_RUN_ENV = 'PRECEDENT_LAND_REACH_RUN'      # '0': print the command only
+
+
+def _reach_dir(root):
+    common = _git(root, 'rev-parse', '--git-common-dir')
+    if not common:
+        return None
+    path = pathlib.Path(common)
+    if not path.is_absolute():
+        path = pathlib.Path(root) / path
+    return path / REACH_DIR
+
+
+def _reach_records(root):
+    """-> [(path, record)] for every reached-tests run this clone recorded,
+    a running one whose process is gone marked lost on the way."""
+    d = _reach_dir(root)
+    out = []
+    for f in sorted(d.glob('*.json')) if d and d.is_dir() else []:
+        try:
+            rec = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if rec.get('status') == 'running' and rec.get('pid'):
+            try:
+                os.kill(int(rec['pid']), 0)
+            except (OSError, ValueError):
+                rec['status'] = 'lost'
+                _write_reach(f, rec)
+        out.append((f, rec))
+    return out
+
+
+def _write_reach(path, rec):
+    try:
+        path.write_text(json.dumps(rec, indent=1) + '\n', encoding='utf-8')
+    except OSError:
+        pass
+
+
+def reach_gate(root, fixing=None):
+    """-> (refusal or '', notes, base the next run should start from or None).
+    Red records refuse a landing that does not name itself their fix."""
+    red, notes, since = [], [], None
+    for _f, rec in _reach_records(root):
+        landed = rec.get('landed') or ''
+        st = rec.get('status')
+        if st == 'failed':
+            if fixing and landed.startswith(fixing):
+                since = rec.get('since') or since
+                notes.append(f'landing as the fix for {landed[:12]}, whose '
+                             f'reached tests failed; its run starts from '
+                             f'{(since or "?")[:12]}, so it covers both.')
+            else:
+                red.append(rec)
+        elif st == 'running':
+            notes.append(f'NOTE: the reached-tests run of the landing '
+                         f'{landed[:12]} is still running ({rec.get("log")}); '
+                         f'a red result will hold the landing after it.')
+        elif st == 'lost':
+            notes.append(f'NOTE: the reached-tests run of the landing '
+                         f'{landed[:12]} was lost (its process is gone, a '
+                         f'restart most likely): nothing is known about it. '
+                         f'Run it again: PRECEDENT_HARNESS_SINCE='
+                         f'{rec.get("since")} python3 tools/verify_harness.py '
+                         f'--as-ci')
+    if not red:
+        return '', notes, since
+    lines = []
+    for rec in red:
+        cases = rec.get('failing') or ['(no case named; read the log)']
+        lines.append(f'  {rec.get("landed", "?")[:12]} ({rec.get("label")}): '
+                     f'{len(cases)} failing, log {rec.get("log")}\n    '
+                     + '\n    '.join(cases[:8]))
+    first = red[0].get('landed', '')[:12]
+    return (f'LAND REFUSED, and staging did not move: the harness checks an '
+            f'earlier landing reaches FAILED, so staging is red until that is '
+            f'fixed:\n' + '\n'.join(lines) + f'\nFix it on a branch and land '
+            f'the fix with `python3 tools/precedent_branches.py --land BRANCH '
+            f'--fixing {first}`; any other landing waits.'), notes, since
+
+
+def start_reach_run(root, since, landed, label, fixing=None):
+    """-> what to say after a landing. Starts the reached-tests run in the
+    background where this repository has the harness and REACH_RUN_ENV is
+    not '0'; otherwise the printed command, as before."""
+    if fixing:
+        for f, rec in _reach_records(root):
+            if rec.get('status') == 'failed' and \
+                    (rec.get('landed') or '').startswith(fixing):
+                rec.update(status='fixed', fixed_by=landed)
+                _write_reach(f, rec)
+    nxt = reached_checks_next(root, since, label)
+    if not nxt or os.environ.get(REACH_RUN_ENV, '1') == '0' or not landed:
+        return nxt
+    d = _reach_dir(root)
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+    except (OSError, AttributeError):
+        return nxt
+    stamp = time.strftime('%Y%m%dT%H%M%S')
+    rec_path = d / f'{landed[:12]}.json'
+    log = d / f'{landed[:12]}-{stamp}.log'
+    rec = {'landed': landed, 'since': since, 'label': label,
+           'status': 'running', 'started': stamp, 'log': str(log)}
+    _write_reach(rec_path, rec)
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(pathlib.Path(__file__).resolve()),
+             '--reach-run', str(rec_path)], cwd=str(root),
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError as e:
+        rec['status'] = 'lost'
+        _write_reach(rec_path, rec)
+        return nxt + f'\n(It could not be started here: {e}.)'
+    rec['pid'] = proc.pid
+    _write_reach(rec_path, rec)
+    return (f'STARTED IN THE BACKGROUND by this landing: the harness checks it '
+            f'reaches (since {(since or "")[:12]}), on a worktree of exactly '
+            f'what landed, logging to {log}. Nothing to wait on: the next '
+            f'--land refuses while it is red, and says what failed. Land a fix '
+            f'with --land BRANCH --fixing {landed[:12]}.')
+
+
+def reach_run(root, rec_path):
+    """The detached half of start_reach_run: run, then record the verdict."""
+    rec_path = pathlib.Path(rec_path)
+    try:
+        rec = json.loads(rec_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return 2
+    import tempfile
+    failures = pathlib.Path(tempfile.mkstemp(prefix='precedent-reach-fail-')[1])
+    status, failing = 'lost', []
+    try:
+        with _Worktree(root, rec['landed']) as wt:
+            env = dict(os.environ, PRECEDENT_HARNESS_SINCE=rec.get('since') or '',
+                       PRECEDENT_HARNESS_FAILURES=str(failures),
+                       **{REACH_RUN_ENV: '0'})
+            with open(rec['log'], 'w', encoding='utf-8') as lf:
+                p = subprocess.run(
+                    [sys.executable, 'tools/verify_harness.py', '--as-ci',
+                     '--because', f'landing {rec.get("label")} on staging: '
+                                  f'the checks it reaches'],
+                    cwd=str(wt), stdin=subprocess.DEVNULL, stdout=lf,
+                    stderr=subprocess.STDOUT, env=env)
+            status = 'passed' if p.returncode == 0 else 'failed'
+            failing = [l for l in failures.read_text(encoding='utf-8').splitlines()
+                       if l.strip()]
+    except Exception as e:                                   # noqa: BLE001
+        status, failing = 'failed', [f'the run itself broke: {type(e).__name__}: {e}']
+    finally:
+        failures.unlink(missing_ok=True)
+    rec.update(status=status, failing=failing,
+               finished=time.strftime('%Y%m%dT%H%M%S'))
+    rec.pop('pid', None)
+    _write_reach(rec_path, rec)
+    return 0 if status == 'passed' else 1
+
+
+# THE PULL REQUEST A LANDING TAKES, OPENED AND MERGED BY --land ITSELF
+# (Morgan, 2026-10-31, strength: assented: "Yes on all four"). A change to
+# code other work is judged by is never pushed straight at staging: it goes
+# through a pull request, so GitHub keeps the record. Until now --land
+# stopped there and the session opened the pull request and merged it a
+# minute later by hand -- about ten times in the 2026-10-30 very deep
+# check's session -- a round trip that added no review: the quick checks
+# --land had just run on the same composition were the checks. Now, where a
+# GitHub token is set (GITHUB_TOKEN or GH_TOKEN) and the API answers, --land
+# opens the pull request from the branch it pushed the composition to,
+# merges it at exactly that commit, and runs --land-confirm, which checks
+# the tree staging took against the one the checks passed. Anything short
+# of that falls back to the steps printed as before. AUTO_PR_ENV='0' turns
+# it off; the harness turns it off for every fixture.
+AUTO_PR_ENV = 'PRECEDENT_LAND_AUTO_PR'
+GITHUB_API_ENV = 'PRECEDENT_GITHUB_API'          # a fixture's own API
+
+
+def _github_repo(root):
+    url = _git(root, 'remote', 'get-url', 'origin') or ''
+    m = re.search(r'github\.com[:/]+([^/]+)/([^/]+?)(?:\.git)?/?$', url)
+    return (m.group(1), m.group(2)) if m else None
+
+
+def _github_call(method, url, token, body=None):
+    import urllib.request, urllib.error
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers={
+        'Accept': 'application/vnd.github+json', 'User-Agent': 'precedent-land',
+        'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as f:
+            return f.status, json.loads(f.read() or b'{}')
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read() or b'{}')
+        except ValueError:
+            return e.code, {}
+    except Exception as e:                                   # noqa: BLE001
+        return None, {'message': f'{type(e).__name__}: {e}'}
+
+
+def auto_pull_request(root, branch, base, head, paths, say):
+    """-> the pull request's number once GitHub has merged it at `head`, or
+    None (said why) so the caller prints the steps by hand."""
+    if os.environ.get(AUTO_PR_ENV, '1') == '0':
+        return None
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    repo = _github_repo(root)
+    if not token or not repo:
+        say(f'(Not opening the pull request myself: '
+            f'{"no GitHub token is set" if not token else "origin is not a GitHub repository"}.)')
+        return None
+    api = (os.environ.get(GITHUB_API_ENV) or 'https://api.github.com').rstrip('/')
+    owner, name = repo
+    pulls = f'{api}/repos/{owner}/{name}/pulls'
+    code, body = _github_call('POST', pulls, token, {
+        'title': f'Land {branch} on {base}', 'head': branch, 'base': base,
+        'body': (f'Opened and merged by `precedent_branches.py --land`: it '
+                 f'changes {", ".join(paths)}, code other work is judged by, so '
+                 f'it lands by pull request. The quick checks passed on '
+                 f'{head[:12]}, the commit this merges.')})
+    if code == 422:
+        c2, found = _github_call('GET', f'{pulls}?head={owner}:{branch}&base={base}'
+                                        f'&state=open', token)
+        body = found[0] if c2 == 200 and isinstance(found, list) and found else body
+        code = 201 if isinstance(body, dict) and body.get('number') else code
+    number = body.get('number') if isinstance(body, dict) else None
+    if code not in (200, 201) or not number:
+        say(f'(Could not open the pull request myself: GitHub answered '
+            f'{code}: {str((body or {}).get("message", ""))[:160]}.)')
+        return None
+    code, merged = _github_call('PUT', f'{pulls}/{number}/merge', token,
+                                {'sha': head, 'merge_method': 'merge'})
+    if code != 200 or not (merged or {}).get('merged'):
+        say(f'(Opened pull request #{number}, and could not merge it: GitHub '
+            f'answered {code}: {str((merged or {}).get("message", ""))[:160]}. '
+            f'Merge it at {head[:12]}, then --land-confirm {head[:12]}.)')
+        return None
+    say(f'Opened pull request #{number} into {base} and merged it at '
+        f'{head[:12]} ({str(merged.get("sha", ""))[:12]}).')
+    return number
+
+
+def land_confirm(root, sha, say=print, fixing=None, reach_since=None):
     """After a landing's pull request was merged by hand: did staging take
     `sha`, the composition --land checked, exactly? -> 0 landed as checked
     (or staging had moved and the quick checks pass on what landed), 1 not
@@ -4032,8 +4312,9 @@ def land_confirm(root, sha, say=print):
     if _git(root, 'rev-parse', f'{landed}^{{tree}}') == _git(root, 'rev-parse', f'{full}^{{tree}}'):
         say(f'LANDED AS CHECKED: {staging} took {full[:12]} at {landed[:12]}, '
             f'with exactly the tree the quick checks passed.')
-        nxt = reached_checks_next(
-            root, _git(root, 'rev-parse', '--verify', '--quiet', f'{landed}^1'), full[:12])
+        nxt = start_reach_run(
+            root, reach_since or _git(root, 'rev-parse', '--verify', '--quiet',
+                                      f'{landed}^1'), full, full[:12], fixing=fixing)
         if nxt:
             say(nxt)
         return 0
@@ -4046,7 +4327,8 @@ def land_confirm(root, sha, say=print):
     if ok:
         say(f'LANDED, AND CHECKED NOW: the quick checks pass on {landed[:12]}, '
             f'what {staging} took.')
-        nxt = reached_checks_next(root, base, full[:12])
+        nxt = start_reach_run(root, reach_since or base, landed, full[:12],
+                              fixing=fixing)
         if nxt:
             say(nxt)
         return 0
@@ -4457,10 +4739,21 @@ def _main(argv):
                   f'Update Vendors.', file=sys.stderr)
             return 2
         return moves.main(root, argv)
+    fixing = None
+    if argv[:1] in (['--land'], ['--land-confirm']) and '--fixing' in argv:
+        i = argv.index('--fixing')
+        if i + 1 >= len(argv):
+            print('precedent_branches: --fixing needs the red landing\'s commit.',
+                  file=sys.stderr)
+            return 2
+        fixing = argv[i + 1]
+        argv = argv[:i] + argv[i + 2:]
     if argv[:1] == ['--land'] and len(argv) <= 2:
-        return land(root, argv[1] if len(argv) == 2 else None)
+        return land(root, argv[1] if len(argv) == 2 else None, fixing=fixing)
     if argv[:1] == ['--land-confirm'] and len(argv) == 2:
-        return land_confirm(root, argv[1])
+        return land_confirm(root, argv[1], fixing=fixing)
+    if argv[:1] == ['--reach-run'] and len(argv) == 2:
+        return reach_run(root, argv[1])
     if argv[:1] == ['--run-tests'] and len(argv) <= 2:
         return run_tests(root, argv[1] if len(argv) == 2 else None)
     if argv[:1] == ['--ensure-tiers'] and set(argv[1:]) <= {'--apply'}:

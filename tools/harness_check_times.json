@@ -329,6 +329,7 @@
   "check_ladder_opt_in_loader": 6.6,
   "check_ladder_test_session_and_the_two_ladder_checks": 1.1,
   "check_land_confirm_says_whether_what_landed_was_checked": 0.7,
+  "check_land_holds_while_its_reached_tests_are_red": 4.6,
   "check_land_rebuilds_generated_content_without_a_header": 3.8,
   "check_land_refusal_says_whether_a_pull_request_gets_checks": 0.0,
   "check_land_sent_to_a_pull_request_carries_mains_work": 1.3,

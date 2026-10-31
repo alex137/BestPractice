@@ -4,13 +4,13 @@ kind:              analysis
 domain:            mechanism
 severity:          null
 status:            open
-disposition:       ask
+disposition:       wait
 remind_on:         null
-blocked_on:        "three calls for Morgan, and one fix in the ladder set this session cannot push to"
+blocked_on:        "the harness split, running in a session of its own"
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan
+decision:          "all four picks taken"
+decision_strength: assented
+waiting_on:        "the harness-split session"
 noted:             2026-10-31
 closed:            null
 ---
@@ -111,3 +111,21 @@ Each with this session's pick (needs: a decision -- Morgan's).
 2026-10-31: the transcript was read in full by three helpers over a digest
 of every event, each claim then checked against the code here; the
 reproductions are in each fix's commit message.
+
+2026-10-31, Morgan on the four calls (strength: assented): "Yes on all
+four, then booked". What each became:
+
+- **The quick tier and the whole suite:** `--land` now starts the harness
+  checks a landing reaches in the background, on a worktree of what landed,
+  and records the verdict; the next `--land` refuses while it is red, except
+  the one that says it is the fix (`--fixing <commit>`).
+  `check_land_holds_while_its_reached_tests_are_red`.
+- **The pull request a landing takes:** `--land` opens and merges it itself
+  where a GitHub token works, then runs `--land-confirm`; elsewhere it
+  prints the steps, as before. The ladder set's `go-update` says so.
+- **The one-file harness:** handed to the session `split
+  tools/verify_harness.py into one module per area`
+  (https://claude.ai/code/session_01Xcy6TzryhiJpXYaWJphgDM), which reports
+  back when it lands. This item closes when it does.
+- **The ladder set's `/dev/null` lines:** fixed there and on its staging
+  (precedent-shared-ladder #164).
