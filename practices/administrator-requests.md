@@ -76,7 +76,6 @@ The spoken phrases keep their line in the occasion index, as every phrase
 a person says does.
 
 ## Install
-Nothing to install: Update Vendors removes the template's copy of the
-section from AGENTS.md where it is unedited, and moves a repository's own
-lines from an edited one into a local add-on practice (`adds_to:
-administrator-requests`).
+Nothing to install. An installed repository's copy of the old template
+section goes at its next Update Vendors; any lines of its own move into an
+add-on practice that `adds_to: administrator-requests`.

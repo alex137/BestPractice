@@ -295,6 +295,9 @@ def raw_comparisons(path):
 
 
 def _main(argv):
+    if any(a in ('--help', '-h') for a in argv[1:]):
+        print((__doc__ or '').strip())
+        return 0
     if len(argv) == 3 and argv[1].upper() == 'KEY':
         print(repo_key(argv[2]))
         return 0 if repo_key(argv[2]) else 1
