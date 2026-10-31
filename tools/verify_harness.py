@@ -34441,9 +34441,20 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
                            'boildown-finished-plan-asks-to-act and '
                            'boildown-hold-names-what-runs')
 
-    def kinds(body, boildown, **kw):
+    # The Consider trigger is the ladder set's, added over universal's rule
+    # with "inherits": true (2026-10-31); universal alone does not carry it.
+    # Built here rather than read from the set, so the fixture owns it.
+    ladder_add = {'id': ids[0], 'inherits': True,
+                  'require_finished_plan_asks_to_act': {
+                      'stage_line': r'\bfinished step 1 of 5\b[^)]{0,10}\bConsider\b'}}
+    universal = reqs
+    reqs = [_rc.inherit_requirement(r, ladder_add) if r.get('id') == ids[0]
+            else r for r in universal]
+
+    def kinds(body, boildown, rules=None, **kw):
         return sorted(v['kind'] for v in _rc.violations(
-            body + '\n\n## The Boildown\n' + boildown, reqs, **kw))
+            body + '\n\n## The Boildown\n' + boildown,
+            reqs if rules is None else rules, **kw))
     consider = ('- The work of this session is now on: no branch yet (you '
                 'have finished step 1 of 5, Consider)\n')
     booked = ('- The work of this session is now on: staging in BestPractice '
@@ -34459,9 +34470,19 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
              "(https://claude.ai/code/session_x); I start step 4 when it "
              'reports back, about 06:10 Buenos Aires time.\n')
     cases = [
-        ('a Consider reply that makes a plan and never asks is refused',
+        ('a Consider reply that makes a plan and never asks is refused, once '
+         'the ladder adds its stage line',
          kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
                'you to do now.\n' + free) == ['plan_without_ask']),
+        ('universal alone carries no stage line, so the same reply is not '
+         'read as a finished plan there',
+         kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
+               'you to do now.\n' + free, rules=universal) == []),
+        ('the added stage line is merged into universal\'s mapping, which '
+         'keeps its ask and the rest',
+         all(k in (r.get('require_finished_plan_asks_to_act') or {})
+             for r in reqs if r.get('id') == ids[0]
+             for k in ('stage_line', 'ask', 'heading', 'plan_words'))),
         ('a turn that wrote a plan file and never asks is refused',
          kinds('Written up.', booked + '- **Your next steps:** read it.\n' + free,
                written=['/r/spec/NEW_PLAN.md']) == ['plan_without_ask']),
