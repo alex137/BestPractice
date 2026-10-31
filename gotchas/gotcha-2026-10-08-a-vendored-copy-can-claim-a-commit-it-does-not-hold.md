@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-does-not-hold
-status:          live
+status:          retired
 noted:           2026-10-08
 severity:        notable
-retired:         null
+retired:         2026-10-31
 retires_when:    null
 ---
 ## Symptom
@@ -68,3 +68,14 @@ differs is stale, and one clean Update Vendors run re-mirrors it. Run it
 from a BestPractice clone with its full history: in a shallow clone older
 upstream text cannot be recognised, and those files are left for the
 person instead of re-mirrored.
+
+**Retired 2026-10-31, by the very deep check of 2026-10-30 (pass 4).** The
+three fixes above make the symptom impossible to reach silently: Update
+Vendors verifies the copy against the recorded commit before it says DONE,
+and the consumer's own `vendored-copy-matches-record` check (in
+[tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py))
+names any later drift from the fingerprint the manifest records, without a
+BestPractice clone. The currency scan flagged `process/manifest.json` as a
+remedy missing from this tree; it is a consumer's path, which this repo
+never has. The "if you meet the symptom anyway" paragraph above stays as the
+recovery.

@@ -28,8 +28,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A repository attached mid-session clones single-branch, so every branch you create there reads as "unpushed" forever — including to a Stop hook that then blocks the turn.** [story](gotcha-2026-09-13-a-repository-attached-mid-session-clones-single-branch-so-ev.md)
 
-- **A `scope: 'tree'` check in `tools/precedent_check.py` can silently report a false *pass* on an under-fetched local clone, not just degrade loudly like the two entries above.** [story](gotcha-2026-09-13-a-scope-tree-check-in-tools-precedentcheck-py-can-silently-r.md)
-
 - **A scratch COPY of this repo, taken to prototype a change without touching the working tree, goes stale the moment the freshness guard fast-forwards the real checkout under you — and copying the prototyped files back reverts every commit that arrived in between, silently.** [story](gotcha-2026-09-13-a-scratch-copy-of-this-repo-taken-to-prototype-a-change-with.md)
 
 - **A session you spawn can lose its Model Context Protocol (MCP) tools mid-run, and it cannot report back to you either — so a spawned session must take the measurement it was spawned for in its OPENING turn.** [story](gotcha-2026-09-13-a-session-you-spawn-can-lose-its-model-context-protocol-mcp-.md)
@@ -151,8 +149,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **After an Update Vendors run was cut short, HEAD is a commit whose message starts "precedent_update: the staged update, committed only so the deep check judges it as committed -- undone right after". It was never undone.** [story](gotcha-2026-10-07-sigterm-skips-python-finally-blocks.md)
 
 - **A consuming repository's push check refuses every push because a practice set moved, so its copies are out of date. Running the sync to refresh them rewrites `.claude/hooks/commit-identity.sh`, `freshness-guard.sh` and `precedent-individual-bootstrap.sh` as the short pointer stub. Each stub runs a script under `tools/` that the repository does not have yet, so it prints one NOTE and lets everything through: the hook is off, and the sync said nothing about it.** [story](gotcha-2026-10-08-a-set-sync-can-switch-hooks-off-in-a-repo-with-an-older-engine.md)
-
-- **A consuming repository has just finished Update Vendors, and its records say it took BestPractice at a given commit: `process/manifest.json` and `tools/ENGINE_MANIFEST.json` both name it. Yet fixes that commit carries do not show there. Its light check still reports broken links that commit fixed, and two rules that commit has active still read as deduplicated stubs, "in force nowhere". A comparison of `process/upstream/` against BestPractice at that commit finds most of the copy different, and files the trimmed copy no longer carries are back.** [story](gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-does-not-hold.md)
 
 - **A consuming repository's pull request fails GitHub's light check with:** [story](gotcha-2026-10-09-a-loader-block-with-individual-practices-reads-as-hand-edited-in-ci.md)
 

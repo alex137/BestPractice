@@ -39,3 +39,14 @@ it works in) configures the driver by hand, once per clone:
 
 A stale-name failure that is already on a branch goes away with
 `python3 tools/verify_harness.py --record-new-times`.
+
+**Prevention: the driver, and a planted case that proves it merges.**
+`check_harness_times_merge_without_a_conflict` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+merges two branches that each record a test, one deleting another, and
+fails on the old code. Session start configures the driver in each clone
+(`precedent_session_check.py --merge-drivers`); a session rooted above its
+repositories gets it from `python3 tools/precedent_run_session_hooks.py`,
+or the one `git config` line above. Still live on 2026-10-31 (very deep
+check of 2026-10-30, pass 4): this file's condition is about every clone,
+and a clone whose start-up hooks never ran still lacks the driver.
