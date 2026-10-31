@@ -26,6 +26,43 @@ Before a commit that touches shipped content -- a file under `practices/`,
 `templates/`, `.claude/hooks/`, or one of the exact filenames in
 [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
 `ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- or that adds a file
+anywhere, reaches the push or merge side of the chain, answer five
+questions out loud. Each is in full under "The five questions in full", in
+Detail.
+
+1. **Does this need to reach the repos that vendor this one?** Most edits
+   do not: say "no, self-contained" when that is the honest answer.
+2. **If it does, will [Update Vendors](vendor-update-runbook.md) actually
+   carry it there**, or is there a known gap -- a pinned branch, a declined
+   hook, a stale watermark, a rename the vendored copy still points at?
+   Name it.
+3. **Does it still work where the update has not arrived, or has arrived
+   only in part?** A field or file an older repository lacks means the old
+   behaviour, never a refusal; a practice that needs an engine feature
+   names it in `requires:`; a format rule that tightens names every file it
+   binds, a consumer's repo-local practices included. A change that cannot
+   be made safe says so, with what a repository must do first.
+4. **Has a new or changed check run in a consuming repo that received
+   other sources' files?** Run it in that shape, or say why it cannot
+   misread a received file.
+5. **Should each new file ship to consumers at all?** Run
+   `python3 tools/checkin.py rules`. A file ships only if a consumer runs
+   it, instantiates it, or its people read it to adopt and use Precedent:
+   ship the machinery, never this project's own records. When one should
+   stay, add the rule that keeps it here.
+
+**No answer is a promise.** This repo cannot make a consumer run Update
+Vendors; it must say plainly whether a change is waiting on that step.
+
+## Detail
+Everything under the headings below from "The five questions in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The five questions in full
+
+Before a commit that touches shipped content -- a file under `practices/`,
+`templates/`, `.claude/hooks/`, or one of the exact filenames in
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)'s
+`ENGINE_FILES`/`CONSUMER_ENGINE_FILES` lists -- or that adds a file
 anywhere, reaches the push or merge side of the chain, say five things out
 loud, not one:
 
@@ -110,7 +147,6 @@ Named 2026-09-18, from a recurring pattern Morgan described: changes made
 to this repo were not reaching the repos vendoring it in when they needed
 to, because nothing at the point of change asked whether they should.
 
-
 **2026-09-29: the third question, migration.** Building a per-set allowance
 for the occasion index, the first design read each source's allowance from
 its `precedent-source.json` and, where one was missing, fell back to the
@@ -144,7 +180,6 @@ using Precedent runs into, and environment-gotchas tells it to search them
 
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines the push already covers: the push and merge gates print it before anything ships, and the vendoring-decided check refuses a new file with no rule. Its paths still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
-
 2026-10-07: precedent-shared-writing's dated-download-names declared a hook
 in `hooks:` and shipped a check requiring it. A consumer whose vendored
 engine predated wiring declared hooks synced the set, got the check, could
@@ -157,6 +192,18 @@ lists its own (`ENGINE_CAPABILITIES` in tools/precedent_resolve.py), and a
 sync says which practices it holds back for a newer engine (Morgan F,
 "go ahead and do the fixes you think are best at the root level",
 strength: decided).
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 728 words; it now holds the five questions, each with what a
+session must do, in 304 words (both counted with `wc -w` over the
+section). Every paragraph it held moved word for word into Detail, under
+"The five questions in full"; nothing was deleted, and the questions keep
+their numbers, which tools cite. Morgan, 2026-10-31 (strength: assented),
+after the 2026-10-30 very deep check cut four Rules: *"maybe we add to very
+deep check to always review like the 25% of all the rules that are the
+longest in that repo and shorten them like you did?"*, then *"use your
+judgment, and act booked produce"*.
+
 ## Install
 No mechanical check, and this is a considered gap, not the first
 plausible-sounding reason. Two designs were considered and both fail for

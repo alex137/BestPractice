@@ -46,6 +46,65 @@ approved_by: "Morgan, 2026-09-18 -- dictated in full, including the reading
 strength:    decided
 ---
 ## Rule
+When a message says **"Archive"** -- with or without a question mark, alone
+or ending a sentence -- or asks in substance whether the session can be
+archived or anything is still outstanding, **run the check right then, in
+that same turn, and act on what it finds.** The bare word does not skip the
+check.
+
+**The test, in Morgan's words, is under "The standing test", in Detail**:
+nothing pending, nothing unpushed, nothing needed in temporary files, and
+the plan continued elsewhere or dropped. It is
+[the-boildown](the-boildown.md)'s four archive conditions and its plan
+blocker, run on demand (in full under "The five conditions in full"):
+
+1. **Nothing in the container anybody wants would be lost**, in every
+   checkout it holds. Run
+   [tools/precedent_container_safe.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_container_safe.py)
+   and read its answer, which decides the verdict rather than qualifying
+   it; stop each command still running, or wait for it.
+2. **Nothing is left to do in this session**, a message from another
+   session included: read every waiting notification first
+   (`ReadNotifications` in Claude Code) and act on each one.
+3. **No Routine is bound to this session** (`list_triggers`).
+4. **Nothing from the conversation lives only in the chat.** Re-read all
+   of it, compacted parts included, against the committed files, and list
+   anything missing with a suggested home and an offer to put it there.
+5. **No multi-step plan this session is following has a step left**,
+   unless the person says in their own words they are ending it early, or
+   it is handed to a session confirmed running with it.
+
+**All five hold, and nothing else is worth flagging -- archive it**:
+resolve the session, check `list_triggers`, call `archive_session`, and say
+plainly that it's done and that `unarchive_session` reverses it.
+
+**Anything is outstanding -- do not archive.** Say plainly what it is, and
+leave the decision with the person. Work already on the landing branch but
+not on `main` gets a one-line note and does not hold the archive.
+
+## Detail
+**This absorbs `archive-command`'s old job.** That practice used to mean
+the bare word overrides the judgment call -- the three conditions got
+flagged, never enforced, because the person saying just "Archive" was
+taken as having already decided archiving was fine. Morgan withdrew that
+distinction on 2026-09-19: the two spellings feel the same to him, and he
+wants the check run every time, question mark or not. `archive-command` is
+now `deduplicated` into this file rather than describing a live behavior
+of its own -- a session that still archives on a bare `"Archive"` without
+running the check first is doing the retired reading, not this one.
+
+**"Something else you recommend I do" is in scope, not just the mechanical
+three.** The question this phrase answers is broader than the-boildown's own
+archive line -- it also covers a practice idea sitting unstated, a Todo worth
+a look, another session on the same subject -- anything the closing block
+would have surfaced anyway. Answering only the three mechanical conditions
+and staying silent on a live recommendation technically passes the check
+and still leaves the person exactly as much in the dark as before.
+
+Everything under the headings below from "The phrase in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The phrase in full
+
 When a message says **"Archive"** -- with or without a trailing question
 mark, standing alone or as the tail of a sentence -- or asks, in substance,
 **"can I archive this, or is something still outstanding"** in plain
@@ -55,6 +114,8 @@ and act on what it finds.** The bare word does not skip the check: the
 old immediate-action reading of a standalone `"Archive"` is retired, and
 both spellings resolve to this one rule.
 
+### The standing test
+
 **The standing test, in Morgan's words** (2026-10-19, strength: decided):
 *"if a session has nothing else pending, nothing that wasn't pushed to
 [the landing branch], nothing on in the temporary files that's needed, and the plan is
@@ -62,6 +123,8 @@ being continued in another session, or I said that I don't want to
 continue the plan, then you can say, and you should say, it can be
 archived."* The conditions below are that test, spelled out; when they
 hold, say so.
+
+### The five conditions in full
 
 **The check is [the-boildown](the-boildown.md)'s own four archive
 conditions and its plan blocker, run on demand instead of waited for at the
@@ -96,6 +159,8 @@ natural end of a reply:**
    and what is left, in plain words (the-boildown's blocker 5, Morgan,
    2026-10-19).
 
+### Archiving, and the scanner's answer
+
 **All five hold, and there is nothing else worth flagging** (no open
 recommendation, no other live session on the same subject, nothing the
 assistant is itself waiting on) -- **archive it**: resolve the session,
@@ -110,6 +175,8 @@ reply that says the archive sentence with the container unsafe is refused by
 the reply gate ([the-boildown](the-boildown.md)'s
 `require_container_safe_if_says`), which is the 2026-09-22 amendment below.
 
+### When something is outstanding
+
 **Anything is outstanding -- do not archive.** Say plainly what it is: a
 merge into the landing branch still open (never a Produce or a move into
 `main`: work already on the landing branch gets a one-line note that it is not on
@@ -117,25 +184,6 @@ main, and the archive goes ahead, per [the-boildown](the-boildown.md)),
 something the assistant is waiting on, a recommendation worth hearing
 before the person moves on to something else. Leave the decision
 with the person; this phrase asks a question, it does not answer itself.
-
-## Detail
-**This absorbs `archive-command`'s old job.** That practice used to mean
-the bare word overrides the judgment call -- the three conditions got
-flagged, never enforced, because the person saying just "Archive" was
-taken as having already decided archiving was fine. Morgan withdrew that
-distinction on 2026-09-19: the two spellings feel the same to him, and he
-wants the check run every time, question mark or not. `archive-command` is
-now `deduplicated` into this file rather than describing a live behavior
-of its own -- a session that still archives on a bare `"Archive"` without
-running the check first is doing the retired reading, not this one.
-
-**"Something else you recommend I do" is in scope, not just the mechanical
-three.** The question this phrase answers is broader than the-boildown's own
-archive line -- it also covers a practice idea sitting unstated, a Todo worth
-a look, another session on the same subject -- anything the closing block
-would have surfaced anyway. Answering only the three mechanical conditions
-and staying silent on a live recommendation technically passes the check
-and still leaves the person exactly as much in the dark as before.
 
 ## Why
 The bare word `"Archive"` already means act now, no recap -- that is
@@ -166,6 +214,16 @@ want to archive it."* (strength: decided). `archive-command` is
 deduplicated into this file as of the same change, rather than retired
 outright, because the word itself is still wanted -- only the
 skip-the-check behavior it used to carry is gone.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 707 words; it now holds the trigger, the five conditions and the two
+outcomes, in 322 words (both counted with `wc -w` over the section).
+Every paragraph it held moved word for word into Detail, under the headings
+the Rule names, Morgan's standing test included; nothing was deleted.
+Morgan, 2026-10-31 (strength: assented), after the 2026-10-30 very deep
+check cut four Rules: *"maybe we add to very deep check to always review
+like the 25% of all the rules that are the longest in that repo and shorten
+them like you did?"*, then *"use your judgment, and act booked produce"*.
 
 ## Install
 `get_session` to resolve this session's own ID, `list_triggers` for a

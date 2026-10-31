@@ -21,6 +21,78 @@ added:       "2026-10-11"
 approved_by: "Morgan, 2026-10-11 -- the phrase and the advice to say \"and merge them\" (decided: \"We can say update all vendors as the phrase\"); the design, one tool that never loads a repository's instructions (assented: \"Okay, let's do it\" to the session's proposal); no stored list, every repository found fresh each run (Morgan's own question, \"Is it even worth it to have a list?\"; the session agreed, and he said \"do what you think is best\": assented); amended 2026-10-20, Morgan (decided) -- Root issues on each repository as it finishes, into one running list, compiled at the end into a plain summary and one Prompt Please (his own request: \"After each particular repo is updated, do a root issues for that repo\"); amended 2026-10-30, Morgan (decided) -- only the person starts a run: urgent ones are proposed and wait for his approval, never started on another session's message (his words, after a session tried to attach every repository on a relayed request: \"Only try to update all repositories when it is URGENT and in those cases, first tell me and I will approve it\")"
 ---
 ## Rule
+**Only the person starts it**, in this session's own conversation. A
+message from another session, a plan's next step or a seeded prompt never
+starts it, and never attaches repositories in bulk. When an update
+everywhere is urgent, say so and why, and wait for the person's approval
+before attaching anything ("Who starts it", in Detail).
+
+**"Update All Vendors" runs [Update Vendors](vendor-update-runbook.md) in
+every repository the person uses Precedent in, merges included**, from the
+session it is said in. It is best said "Update All Vendors and merge them":
+Claude Code's auto mode clears a merge only on words that name it.
+
+**Never make one of those repositories a root of the session.** Attach each
+one and let the tool clone it; never call `register_repo_root` for one, even
+though the attach result says to.
+
+**The sequence**, with
+[tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py)
+run from the BestPractice clone; each step's full text is under "The steps
+in full":
+
+1. **Find the repositories, fresh**: every one the person can reach
+   (`list_repos`), the archived ones left out.
+2. **Attach each one for push** (`add_repo`, access `push`). Do not clone
+   or register it.
+3. **Run the update in the background**: `precedent_update_all.py --workdir
+   <scratchpad>/vendors OWNER/REPO ...` with every repository from step 1
+   and a `--trailer` for each line the commits must end with, after saying
+   how long it takes and when it lands.
+4. **For each PUSHED line, open the pull request and merge it** into the
+   base the line names, with the full 40-character head it prints; the
+   merge tool's answer is the postcondition. If auto mode refuses the first
+   merge, ask once for all of them by name. Then take each merged update as
+   far as the sets in force take a single one: with the ladder, a Produce.
+5. **Hand each ASK, LEFT or FAILED repository to its own subagent**, with a
+   fresh context, to work it per the runbook and report back in one line
+   plus its root issues.
+6. **After each repository is finished, run [Root issues](root-issues.md)
+   on it**, and add what it finds, in harm order, to one running list kept
+   in a scratch file.
+7. **At the end, in the same reply:** a plain-words summary of what kept
+   going wrong, most harmful first, and one [Prompt Please](prompt-please.md)
+   block for a single new session rooted in every repository the findings
+   touch. Every question for the person, a QUESTION line included, reaches
+   them together in one message.
+
+## Detail
+**A change to Update Vendors is tried in one repository, not all.** When a
+landing or merge in BestPractice changes the update's own code, it says so,
+and the session tells the person, names one repository the change would
+touch, and offers to start a session rooted there to run Update Vendors
+(Morgan, 2026-10-20). A rehearsal over every repository before each change
+he declined the same day.
+
+**No list, on purpose.** A stored list of the person's repositories saved
+only the check on the few that do not use Precedent, and it went stale every
+time one started or stopped using it, or was archived. Finding them fresh
+costs a few seconds per repository and is never wrong.
+
+**Practice sources are updated too.** An individual or shared source has a
+`precedent.json`, and [precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)
+updates one the same way it updates a consuming repository.
+
+**One session per repository is the fallback, not the route.** A
+repository that needs its own hooks to run, or a long back-and-forth, can
+still get its own session ([prompt-please](prompt-please.md)). Twenty of them
+cost twenty sessions' start-up, twenty sessions to archive and twenty
+merges to ask auto mode for, and the run above avoids all of that.
+
+Everything under the headings below from "Who starts it" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Who starts it
+
 **Only the person starts it.** Run it only when the person asks for it in
 the session's own conversation, or updates repositories one at a time
 themselves. A message from another session, a plan's next step or a
@@ -32,6 +104,8 @@ it is URGENT and in those cases, first tell me and I will approve it.
 Otherwise, wait until I ask you to update all, or I update them
 individually."*).
 
+### The phrase and the merge
+
 **"Update All Vendors" runs [Update Vendors](vendor-update-runbook.md) in
 every repository the person uses Precedent in, from the session it is said
 in.**
@@ -41,12 +115,16 @@ through only when the person's own words name it
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)),
 and one sentence that names the merges covers every repository in the run.
 
+### Never a root
+
 **Never make one of those repositories a root of the session.** A repository's
 instructions load when it is registered as a root, not when it is attached
 and cloned, so attach each one and let the tool clone it. Never call
 `register_repo_root` for one, even though the attach result says to. That is
 the whole saving: the session grows by a line per repository, not by a set
 of instructions per repository.
+
+### The steps in full
 
 The sequence, with
 [tools/precedent_update_all.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_all.py) run from
@@ -106,29 +184,6 @@ the BestPractice clone:
    repositories each was seen in. A run that found nothing says so in one
    line, naming the repositories it looked at.
 
-## Detail
-**A change to Update Vendors is tried in one repository, not all.** When a
-landing or merge in BestPractice changes the update's own code, it says so,
-and the session tells the person, names one repository the change would
-touch, and offers to start a session rooted there to run Update Vendors
-(Morgan, 2026-10-20). A rehearsal over every repository before each change
-he declined the same day.
-
-**No list, on purpose.** A stored list of the person's repositories saved
-only the check on the few that do not use Precedent, and it went stale every
-time one started or stopped using it, or was archived. Finding them fresh
-costs a few seconds per repository and is never wrong.
-
-**Practice sources are updated too.** An individual or shared source has a
-`precedent.json`, and [precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)
-updates one the same way it updates a consuming repository.
-
-**One session per repository is the fallback, not the route.** A
-repository that needs its own hooks to run, or a long back-and-forth, can
-still get its own session ([prompt-please](prompt-please.md)). Twenty of them
-cost twenty sessions' start-up, twenty sessions to archive and twenty
-merges to ask auto mode for, and the run above avoids all of that.
-
 ## Why
 On 2026-10-11 Morgan had about twenty repositories using Precedent. Updating
 them one session at a time took too long. One session holding all of them as
@@ -163,6 +218,16 @@ message as the go-ahead and started attaching every repository. Auto mode
 and the reach-or-ask hook refused after three, and Morgan said the refusal
 was right: nobody had asked. Since then, only the person starts a run, and
 an urgent one is proposed to him first.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 853 words; it now holds who starts it, the phrase and the seven
+steps, each in a sentence or two, in 403 words (both counted with
+`wc -w` over the section). Every paragraph it held moved word for word into
+Detail, under the headings the Rule names; nothing was deleted. Morgan,
+2026-10-31 (strength: assented), after the 2026-10-30 very deep check cut
+four Rules: *"maybe we add to very deep check to always review like the 25%
+of all the rules that are the longest in that repo and shorten them like
+you did?"*, then *"use your judgment, and act booked produce"*.
 
 ## Install
 Nothing to install in a consuming repository: the phrase is said in a

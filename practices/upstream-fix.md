@@ -36,107 +36,59 @@ approved_by: "Morgan, 2026-09-24 -- coined the phrase and wrote its meaning
 strength:    decided
 ---
 ## Rule
-**Every fix a session reports answers this, without being asked.** "Will
-this stop it happening again?" and "is that the real cause?" ask for it out
-loud; the answer is owed either way. **A fix is not done when the symptom
-goes away. It is done when the same cause cannot produce it again**, in a
-place that survives, at the origin and in every copy. (This was the
-"Upstream fix" command until 2026-10-01; looking back over a whole session
-for causes that live upstream is [root-issues](root-issues.md).)
-
-It is about **the change in front of the session**: the one it recommended,
-the one it already made, or the one it is about to make.
+**Every fix a session reports answers this, without being asked: will it
+stop the same cause producing the problem again?** A fix is not done when
+the symptom goes away. It is done when the cause is gone, in a place that
+survives, at the origin and in every copy. It is about the change in front
+of the session: the one it recommended, made or is about to make. Looking
+back over a whole session for causes upstream is
+[root-issues](root-issues.md). Each point's full text is in Detail, under
+"Points 1 to 6 in full", "Point 7 in full" and "Points 8 and 9 in full".
 
 **Where the cause lives:**
 
-1. **Does that change also fix whatever produced the problem, or only this
-   instance of it?** Say which, plainly. "Yes, the cause was here and this
-   removes it" is a complete answer when it is true.
-2. **If not, where does the cause live?** Look before answering, in at least
-   these places:
-   - **a template** the broken file was made from;
-   - **a generator**: a script, a hook, or a build step that writes the
-     broken output, whether in this repo or another one;
-   - **something vendored in**: a file this repo copied from an upstream
-     repo. Fixing the copy here leaves the upstream wrong, and the next
-     `Update Vendors` brings the bug back;
-   - **a practice or instruction** that told a session to do the wrong
-     thing in the first place.
+1. **Say plainly whether the change fixes what produced the problem, or
+   only this instance of it.**
+2. **If only the instance, look for the cause before answering**: a
+   template the broken file was made from; a generator (a script, hook or
+   build step, here or in another repo); something vendored in, which the
+   next `Update Vendors` brings back broken; a practice or instruction that
+   steered a session wrong.
 3. **Fix the root yourself where you can reach it and the fix is sound.**
    Where it is a judgment call, say how you would fix it and why, and let
    the person decide.
-4. **For any part that needs a session rooted in a different repository,
-   hand it back the way [Prompt Please](prompt-please.md) says**: one
-   paste-ready block, with the seed root and the repos to attach said once
-   more in plain prose outside it. Under that rule, the block carries a
-   merge authorization only when the person gave one for this handoff.
+4. **Hand a part that needs a session rooted in another repository back as
+   a [Prompt Please](prompt-please.md)**, with no merge authorization unless
+   the person gave one for this handoff.
 5. **A check that catches the problem later is not the fix. Remove what
-   made the mistake possible.** Ask what let it happen in the first place:
-   a second copy of something that has to be kept in step by hand, a manual
-   step no tool does, an instruction that steers the wrong way, a list
-   someone has to remember to update. Remove that. Add a check only for the
-   part that cannot be removed, and say which part that is. Example: new
-   practices kept arriving without an entry in a second routing file, and a
-   full check caught it later; the fix was to move the reason into the
-   practice file itself, so there is no second file to forget.
-6. **Any new exemption is a sign the root fix has not been made.** Before
-   adding an exemption, allowlist or waiver entry to any check, ask why the
-   check is wrong about this case, and teach the check if it can learn.
-   Only when it cannot, or not in this session, add the exemption with a
-   `root_fix` saying which, hand off the root fix with
-   [Prompt Please](prompt-please.md), and tell the person either way.
-   `precedent_check.py --only upstream-fix` refuses a new
-   entry in a `precedent.json` exemption list without a `root_fix`.
+   made the mistake possible**: a second copy kept in step by hand, a manual
+   step, a misleading instruction, a list someone must remember. Add a check
+   only for the part that cannot be removed, and say which part.
+6. **Any new exemption is a sign the root fix has not been made.** Teach
+   the check if it can learn. Only when it cannot, add the exemption with a
+   `root_fix`, hand off the root fix, and tell the person.
 
 **Where the fix lives:**
 
 7. **Default to the fix that survives, and call anything less a band-aid.**
-   Ranked by how long it lasts:
-   1. **a committed file**, which reaches every machine, session and person;
-   2. **a generated file** committed alongside its generator;
-   3. **machine or container state** (a `git config`, a path outside the
-      repo, an environment variable), which dies with the container;
-   4. **this session's own memory**, gone when the session ends.
-
-   Anything below the first rung is a band-aid, however correct. When only
-   a band-aid is available right now, say so in those words, never report
-   it as the fix, and record the durable fix as an open item naming what it
-   is blocked on.
-
-   **When it cannot wait, fix it here, and save the upstream fix as a
-   [Prompt Please](prompt-please.md).** A local workaround to a file this
-   repo receives (an engine file, a vendored copy) is allowed when the fix
-   is urgent. In the same turn, write the upstream fix as a Prompt Please,
-   save it in an open item under `todo/` that names the file (a
-   `## Prompt Please` section, the block in a fence), and give it in the
-   reply, so the person takes it upstream when it suits them.
-   `precedent_check.py --only upstream-fix` refuses an edited engine file
-   with neither that item nor one linking the upstream pull request.
-   **The quick fix ends when upstream has its own**: from then on
-   upstream's version replaces it, keeping only what is this repository's
-   own, without asking ([vendor-update-runbook](vendor-update-runbook.md),
-   "Upstream's version is the default").
-
-   **A check never skips a vendored file silently.** What it finds there is
-   upstream's to fix and never fails this repo, and it is still reported,
-   as upstream's: a skip nobody sees is how a broken copy ships to every
-   repository with nobody noticing.
+   The rungs: a committed file; a generated file committed with its
+   generator; machine or container state; this session's memory. Below the
+   first rung, say "band-aid", never report it as the fix, and record the
+   durable fix as an open item naming what blocks it. **A local fix to a
+   received file is allowed when it cannot wait**, with the upstream fix
+   saved as a Prompt Please in a `todo/` item naming the file and given in
+   the reply; upstream's own fix replaces it once it lands. **A check never
+   skips a vendored file silently**: it reports the finding as upstream's.
 
 **The origin and every copy:**
 
-8. **Who else has a copy?** Every other place the same file, or the same
-   mistake, went. **Fix the origin first, then the copies, and name all of
-   them in the reply.** An origin in another repository is fixed there in
-   the same turn: request access if it is needed and open the pull request
-   (`python3 tools/upstream_fix.py PATH` sets it up). Another repository,
-   or access the session can request, is never a `blocked-on` reason
-   ([todo-is-a-handoff](todo-is-a-handoff.md)); an open item about it only
-   waits on that pull request, and links it -- or, for a fix that could not
-   wait, holds the saved Prompt Please (point 7).
-9. **What should have caught it earlier, and why didn't it?** When one gate
-   passed what a later one failed (local green but GitHub red, one
-   checkout's gate green and another's red), **that difference is its own
-   bug, and its fix ships with this one.**
+8. **Fix the origin first, then every copy, and name them all in the
+   reply.** An origin in another repository is fixed there in the same turn:
+   request access and open the pull request
+   (`python3 tools/upstream_fix.py PATH`). That is never a `blocked-on`
+   reason ([todo-is-a-handoff](todo-is-a-handoff.md)).
+9. **When one gate passed what a later one failed, that difference is its
+   own bug, and its fix ships with this one.**
 
 ## Detail
 **The cause can be a process, not a file**: a generator that keeps writing
@@ -191,6 +143,118 @@ earns a mechanical check. **When there is no deeper cause, say so.** A
 one-off typo has no upstream. Don't invent a template to blame, and don't
 make a change just so the answer looks thorough
 ([no-invented-specifics](no-invented-specifics.md)).
+
+Everything under the headings below from "The opening in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The opening in full
+
+**Every fix a session reports answers this, without being asked.** "Will
+this stop it happening again?" and "is that the real cause?" ask for it out
+loud; the answer is owed either way. **A fix is not done when the symptom
+goes away. It is done when the same cause cannot produce it again**, in a
+place that survives, at the origin and in every copy. (This was the
+"Upstream fix" command until 2026-10-01; looking back over a whole session
+for causes that live upstream is [root-issues](root-issues.md).)
+
+It is about **the change in front of the session**: the one it recommended,
+the one it already made, or the one it is about to make.
+
+### Points 1 to 6 in full
+
+**Where the cause lives:**
+
+1. **Does that change also fix whatever produced the problem, or only this
+   instance of it?** Say which, plainly. "Yes, the cause was here and this
+   removes it" is a complete answer when it is true.
+2. **If not, where does the cause live?** Look before answering, in at least
+   these places:
+   - **a template** the broken file was made from;
+   - **a generator**: a script, a hook, or a build step that writes the
+     broken output, whether in this repo or another one;
+   - **something vendored in**: a file this repo copied from an upstream
+     repo. Fixing the copy here leaves the upstream wrong, and the next
+     `Update Vendors` brings the bug back;
+   - **a practice or instruction** that told a session to do the wrong
+     thing in the first place.
+3. **Fix the root yourself where you can reach it and the fix is sound.**
+   Where it is a judgment call, say how you would fix it and why, and let
+   the person decide.
+4. **For any part that needs a session rooted in a different repository,
+   hand it back the way [Prompt Please](prompt-please.md) says**: one
+   paste-ready block, with the seed root and the repos to attach said once
+   more in plain prose outside it. Under that rule, the block carries a
+   merge authorization only when the person gave one for this handoff.
+5. **A check that catches the problem later is not the fix. Remove what
+   made the mistake possible.** Ask what let it happen in the first place:
+   a second copy of something that has to be kept in step by hand, a manual
+   step no tool does, an instruction that steers the wrong way, a list
+   someone has to remember to update. Remove that. Add a check only for the
+   part that cannot be removed, and say which part that is. Example: new
+   practices kept arriving without an entry in a second routing file, and a
+   full check caught it later; the fix was to move the reason into the
+   practice file itself, so there is no second file to forget.
+6. **Any new exemption is a sign the root fix has not been made.** Before
+   adding an exemption, allowlist or waiver entry to any check, ask why the
+   check is wrong about this case, and teach the check if it can learn.
+   Only when it cannot, or not in this session, add the exemption with a
+   `root_fix` saying which, hand off the root fix with
+   [Prompt Please](prompt-please.md), and tell the person either way.
+   `precedent_check.py --only upstream-fix` refuses a new
+   entry in a `precedent.json` exemption list without a `root_fix`.
+
+### Point 7 in full
+
+**Where the fix lives:**
+
+7. **Default to the fix that survives, and call anything less a band-aid.**
+   Ranked by how long it lasts:
+   1. **a committed file**, which reaches every machine, session and person;
+   2. **a generated file** committed alongside its generator;
+   3. **machine or container state** (a `git config`, a path outside the
+      repo, an environment variable), which dies with the container;
+   4. **this session's own memory**, gone when the session ends.
+
+   Anything below the first rung is a band-aid, however correct. When only
+   a band-aid is available right now, say so in those words, never report
+   it as the fix, and record the durable fix as an open item naming what it
+   is blocked on.
+
+   **When it cannot wait, fix it here, and save the upstream fix as a
+   [Prompt Please](prompt-please.md).** A local workaround to a file this
+   repo receives (an engine file, a vendored copy) is allowed when the fix
+   is urgent. In the same turn, write the upstream fix as a Prompt Please,
+   save it in an open item under `todo/` that names the file (a
+   `## Prompt Please` section, the block in a fence), and give it in the
+   reply, so the person takes it upstream when it suits them.
+   `precedent_check.py --only upstream-fix` refuses an edited engine file
+   with neither that item nor one linking the upstream pull request.
+   **The quick fix ends when upstream has its own**: from then on
+   upstream's version replaces it, keeping only what is this repository's
+   own, without asking ([vendor-update-runbook](vendor-update-runbook.md),
+   "Upstream's version is the default").
+
+   **A check never skips a vendored file silently.** What it finds there is
+   upstream's to fix and never fails this repo, and it is still reported,
+   as upstream's: a skip nobody sees is how a broken copy ships to every
+   repository with nobody noticing.
+
+### Points 8 and 9 in full
+
+**The origin and every copy:**
+
+8. **Who else has a copy?** Every other place the same file, or the same
+   mistake, went. **Fix the origin first, then the copies, and name all of
+   them in the reply.** An origin in another repository is fixed there in
+   the same turn: request access if it is needed and open the pull request
+   (`python3 tools/upstream_fix.py PATH` sets it up). Another repository,
+   or access the session can request, is never a `blocked-on` reason
+   ([todo-is-a-handoff](todo-is-a-handoff.md)); an open item about it only
+   waits on that pull request, and links it -- or, for a fix that could not
+   wait, holds the saved Prompt Please (point 7).
+9. **What should have caught it earlier, and why didn't it?** When one gate
+   passed what a later one failed (local green but GitHub red, one
+   checkout's gate green and another's red), **that difference is its own
+   bug, and its fix ships with this one.**
 
 ## Why
 A fix that removes the symptom and leaves its cause behind costs the
@@ -286,6 +350,16 @@ easily bring it upstream at his convenience later."* So a vendored file's
 findings are reported, never failed and never hidden, and a local
 workaround to an engine file is allowed with a saved Prompt Please beside
 it. Strength: decided.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 1,006 words; it now holds the nine points, each in a sentence or two,
+in 523 words (both counted with `wc -w` over the section). Every
+paragraph it held moved word for word into Detail, under the headings the
+Rule names; nothing was deleted. Morgan, 2026-10-31 (strength: assented),
+after the 2026-10-30 very deep check cut four Rules: *"maybe we add to very
+deep check to always review like the 25% of all the rules that are the
+longest in that repo and shorten them like you did?"*, then *"use your
+judgment, and act booked produce"*.
 
 ## Install
 **Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,
