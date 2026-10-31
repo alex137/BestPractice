@@ -25303,70 +25303,6 @@ def check_precedent_check_fires():
             p = repo / rel
             p.write_text(fn(p.read_text(encoding='utf-8')), encoding='utf-8')
 
-        # --- the baseline must be clean, or every case below is meaningless
-        base = fresh('baseline')
-        # The same isolation run() applies (fixture-owns-its-state): no
-        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
-        # own individual set. With either, the commit-author check failed
-        # this baseline on the fixture's own `harness` commit (2026-10-10,
-        # once a change touching the check machinery made every check run
-        # here).
-        _env = {k: v for k, v in os.environ.items()
-                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
-                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
-        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
-        # Started here and read just before the closing assertions: a whole
-        # run takes about 30 s, and nothing between reads its result.
-        _baseline = subprocess.Popen(
-            [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            cwd=str(base), env=_env)
-
-        # --- one planted violation per enforced practice --------------------
-        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
-        # processes and returns; the result is collected the first time
-        # anything reads planted[slug] (or `in`, .get, .items), and every
-        # case still pending is collected before the closing assertions.
-        # So a later assertion that reads a case back blocks until that
-        # case is done, without anyone listing which cases are read --
-        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
-        # follow-ups. Two at a time used about one core of four; the width
-        # stays bounded, because a fan-out with no bound ran a container out
-        # of memory once (gotcha-2026-09-18).
-        _pending = {}
-        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
-
-        class _Planted(dict):
-            def _settle(self, key):
-                slug = key[:-len('-clean')] if key.endswith('-clean') else key
-                for k in (key, slug):
-                    if k in _pending:
-                        _pending.pop(k)()
-
-            def settle_all(self):
-                while _pending:
-                    _pending.pop(next(iter(_pending)))()
-
-            def __getitem__(self, key):
-                self._settle(key)
-                return dict.__getitem__(self, key)
-
-            def __contains__(self, key):
-                self._settle(key)
-                return dict.__contains__(self, key)
-
-            def get(self, key, default=None):
-                self._settle(key)
-                return dict.get(self, key, default)
-
-            def items(self):
-                self.settle_all()
-                return dict.items(self)
-
-        planted = _Planted()
-        declared = set()          # every slug case() was ASKED for
-        ran, skipped = [], []     # and which of those actually executed
-
         # ROTATION (Morgan, 2026-09-21, strength: decided -- "build the 10%
         # rotation"). This function was 107.9s of a 211.5s suite: 71 cases,
         # each copying the whole tree twice and starting two interpreters.
@@ -25402,6 +25338,109 @@ def check_precedent_check_fires():
             _selected, _selection_reason = _selected_case_slugs(_all_case_slugs)
         else:
             _selected, _selection_reason = None, 'all (the registry could not be read)'
+
+        # ONE CLEAN RUN SERVES EVERY PLAIN CASE (2026-10-31). Each case used
+        # to check its own unplanted copy as well -- a second tree copy and
+        # a second interpreter per case, about 130 of each, on a tree the
+        # baseline below checks anyway. When every case runs, the baseline
+        # is a --full-sweep (bare, it runs only a rotation slice of the tree
+        # checks), and a case with no setup=, extra= or env_extra= -- whose
+        # clean run would be `--only SLUG` on that same tree -- reads its
+        # slug's verdict out of it (_clean_from_baseline). A slug the sweep
+        # does not show clean, or any output the sweep cannot attribute to
+        # one slug, is checked again on its own copy exactly as before, so a
+        # failure reads the same as it always did. A rotated run keeps the
+        # bare baseline and the per-case clean runs: a whole sweep there
+        # would cost more than the few clean runs it saves.
+        _shared_clean = (_selected is None
+                         or set(_all_case_slugs) <= set(_selected))
+
+        # --- the baseline must be clean, or every case below is meaningless
+        base = fresh('baseline')
+        # The same isolation run() applies (fixture-owns-its-state): no
+        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
+        # own individual set. With either, the commit-author check failed
+        # this baseline on the fixture's own `harness` commit (2026-10-10,
+        # once a change touching the check machinery made every check run
+        # here).
+        _env = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
+        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
+        # Started here and read just before the closing assertions (or by
+        # the first plain case's clean verdict): a bare run takes about 30 s,
+        # a full sweep about a minute, and nothing between reads its result.
+        _baseline = subprocess.Popen(
+            [sys.executable, str(base / 'tools' / 'precedent_check.py'),
+             *(['--full-sweep'] if _shared_clean else [])],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=str(base), env=_env)
+        _baseline_read = []
+
+        def _baseline_result():
+            if not _baseline_read:
+                out, _ = _baseline.communicate()
+                _baseline_read.append((_baseline.returncode, out))
+            return _baseline_read[0]
+
+        # --- one planted violation per enforced practice --------------------
+        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
+        # processes and returns; the result is collected the first time
+        # anything reads planted[slug] (or `in`, .get, .items), and every
+        # case still pending is collected before the closing assertions.
+        # So a later assertion that reads a case back blocks until that
+        # case is done, without anyone listing which cases are read --
+        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
+        # follow-ups. Two at a time used about one core of four; the width
+        # stays bounded, because a fan-out with no bound ran a container out
+        # of memory once (gotcha-2026-09-18).
+        _pending = {}
+        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
+        # The bound is on processes, not cases: a plain case starts one, a
+        # case with its own clean run two, and twice _width processes was
+        # always the most in flight.
+        _weight = {}
+        _deferred = {}            # slug -> index in cases of its clean case
+
+        def _drain(slug):
+            _weight.pop(slug, None)
+            _pending.pop(slug)()
+
+        class _Planted(dict):
+            def _settle(self, key):
+                slug = key[:-len('-clean')] if key.endswith('-clean') else key
+                for k in (key, slug):
+                    if k in _pending:
+                        _drain(k)
+                if key.endswith('-clean') and slug in _deferred:
+                    _clean_from_baseline(slug)
+
+            def settle_all(self):
+                while _pending:
+                    _drain(next(iter(_pending)))
+                for slug in list(_deferred):
+                    _clean_from_baseline(slug)
+
+            def __getitem__(self, key):
+                self._settle(key)
+                return dict.__getitem__(self, key)
+
+            def __contains__(self, key):
+                self._settle(key)
+                return dict.__contains__(self, key)
+
+            def get(self, key, default=None):
+                self._settle(key)
+                return dict.get(self, key, default)
+
+            def items(self):
+                self.settle_all()
+                return dict.items(self)
+
+        planted = _Planted()
+        declared = set()          # every slug case() was ASKED for
+        ran, skipped = [], []     # and which of those actually executed
+
 
         # case()'s two sub-runs -- the planted fixture and the clean fixture
         # -- are provably independent: different directories, no shared
@@ -25469,26 +25508,31 @@ def check_precedent_check_fires():
                 shutil.rmtree(clean, ignore_errors=True)
                 return result
 
+            plain = _shared_clean and setup is None and not extra and not env_extra
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
-            p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
-            while len(_pending) >= _width:
-                _pending.pop(next(iter(_pending)))()
+            p2 = None if plain else multiprocessing.Process(
+                target=_case_worker, args=(_clean_pipeline, q2))
+            w = 1 if plain else 2
+            while _pending and sum(_weight.values()) + w > 2 * _width:
+                _drain(next(iter(_pending)))
             p1.start()
-            p2.start()
+            if p2:
+                p2.start()
+            _weight[slug] = w
             _pending[slug] = lambda: _collect(slug, advisory, q1, q2, p1, p2)
 
         def _collect(slug, advisory, q1, q2, p1, p2):
             status1, value1 = q1.get()
-            status2, value2 = q2.get()
+            status2, value2 = q2.get() if p2 else ('ok', None)
             p1.join()
-            p2.join()
+            if p2:
+                p2.join()
             if status1 == 'error':
                 raise value1
             if status2 == 'error':
                 raise value2
             rc, out = value1
-            rc2, out2 = value2
 
             planted[slug] = (rc, out)
             if advisory:
@@ -25509,9 +25553,71 @@ def check_precedent_check_fires():
             else:
                 cases.append((f'{slug}: a planted violation fails the check',
                               rc == 1 and 'VIOLATION' in out))
+            if p2 is None:
+                # Its place in `cases` is kept; the shared baseline fills it.
+                _deferred[slug] = len(cases)
+                cases.append((f'{slug}: the same tree unplanted does not', False,
+                              'not yet read from the shared baseline'))
+                return
+            _clean_case(slug, *value2)
+
+        def _clean_case(slug, rc2, out2, at=None):
             planted[slug + '-clean'] = (rc2, out2)
-            cases.append((f'{slug}: the same tree unplanted does not',
-                          rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
+            stated = (f'{slug}: the same tree unplanted does not',
+                      rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2)
+            if at is None:
+                cases.append(stated)
+            else:
+                cases[at] = stated
+
+        _HEADER = re.compile(r'^(VIOLATION|ADVISORY|ERROR|SKIPPED|COULD NOT VERIFY'
+                             r'|EXEMPT)\s+(\S+)')
+        _by_slug = []
+
+        def _baseline_by_slug():
+            """-> ({slug: its lines of the shared sweep}, whether anything
+            in the sweep could not be put down to one slug). A section is a
+            header naming the slug and the indented lines under it; what is
+            left over may say VIOLATION or ADVISORY only if no slug's own
+            run would have, and a sweep that never reached its summary line
+            is all left over."""
+            if not _by_slug:
+                _rc, out = _baseline_result()
+                sections, rest, cur = {}, [], None
+                for line in out.splitlines():
+                    m = _HEADER.match(line)
+                    if m:
+                        cur = sections.setdefault(m.group(2), [])
+                        cur.append(line)
+                    elif cur is not None and line.startswith((' ', '\t')):
+                        cur.append(line)
+                    else:
+                        cur = None
+                        rest.append(line)
+                rest = '\n'.join(rest)
+                unattributed = ('VIOLATION' in rest or 'ADVISORY' in rest
+                                or not re.search(r'^precedent_check: \d+ passed', rest, re.M))
+                _by_slug.append(({k: '\n'.join(v) for k, v in sections.items()},
+                                 unattributed))
+            return _by_slug[0]
+
+        def _clean_from_baseline(slug):
+            """The clean case of a plain slug, from the shared sweep: what
+            `--only SLUG` on the same tree would have said. Run on its own
+            copy instead when the sweep shows it anything but clean, or
+            holds something it cannot attribute -- the old path, so its
+            failure detail is the old one."""
+            at = _deferred.pop(slug)
+            sections, unattributed = _baseline_by_slug()
+            mine = sections.get(slug, '')
+            failing = re.search(r'^(VIOLATION|ADVISORY|ERROR)\s', mine, re.M)
+            if unattributed or failing or 'VIOLATION' in mine or 'ADVISORY' in mine:
+                clean = fresh(slug + '-clean')
+                rc2, out2 = run(clean, slug)
+                shutil.rmtree(clean, ignore_errors=True)
+            else:
+                rc2, out2 = 0, mine
+            _clean_case(slug, rc2, out2, at=at)
 
         # cite-the-incident -- a new practice with no ## Story
         def _plant_cite(repo):
@@ -26939,10 +27045,11 @@ def check_precedent_check_fires():
         case('checks-use-generated-blocks', _plant_hand_marker)
 
         # practice-change-propagates -- a live lookup of a practice this tree
-        # renamed away. `go-merge` is a deduplicated stub forwarding to
-        # `go-update` here, so a README telling the reader to look it up
-        # sends them to the stub: the go-merge rename's own shape, planted in
-        # the repository that made the rename.
+        # renamed away. `brief-it` is a deduplicated stub forwarding to
+        # `my-options` here, so a README telling the reader to look it up
+        # sends them to the stub: the shape of the go-merge rename this case
+        # was first written for (go-merge, a stub forwarding to go-update),
+        # planted in the repository that made the rename.
         case('practice-change-propagates',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
                                   '\nBefore merging, read '
@@ -29240,8 +29347,7 @@ def check_precedent_check_fires():
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
 
         planted.settle_all()
-        _out, _ = _baseline.communicate()
-        rc = _baseline.returncode
+        rc, _out = _baseline_result()
         # On a failure, the failing checks' own findings go into the detail:
         # a bare rc said only the slug of this case, and under --as-ci
         # --isolated (UTC) finding that todo/TODO.md had drifted took a
