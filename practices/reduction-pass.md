@@ -50,6 +50,13 @@ text is still somewhere it already reads.
 merge and push gates print, naming which part a branch grew, says where to
 start.
 
+**Text that came from a source is shortened at that source, never
+locally.** A template section, a vendored practice or a generated block is
+carried by every repository that uses it, so a local trim saves one
+repository a few hundred tokens and makes its copy a fork nobody decided.
+Hand the cut back with [upstream-fix](upstream-fix.md)'s prompt; the cheap
+local moves above apply to this repository's own text only.
+
 **Over a target, review the generated half practice by practice.** The
 menu cannot trim the occasion index or the resident block, because their
 text lives in the practices. So read every practice in both, with evidence,
@@ -133,6 +140,18 @@ happen before the judgment calls, and the report means the next pass starts
 from what the last one already rejected.
 
 ## Story
+**2026-10-31: text from a source is cut at the source.** A reduction pass
+in a consuming repository measured its session load at about 9,975 of the
+10,000 tokens Morgan allows, and its AGENTS.md at about 8,730, of which
+only about 260 were its own: the rest was generated from practices or
+copied from the AGENTS.md template of BestPractice (BP). Morgan: "If
+something is shortened but is from BP then it should probably go back to BP because
+other repos that have it vendored in will have the same problem as they
+grow." A second consuming repository had already trimmed the same template
+sections locally two days before, and its copies were missing lines the
+template carried, unnoticed. The rule now says where such a cut belongs
+(strength: decided).
+
 **Coined by Morgan, 2026-09-14**, closing the thread that answered
 TODO.md's `agents-md-ceiling-policy` item (since closed and pruned from
 TODO.md). Handed a costed menu of five options for what to do when `AGENTS.md` meets

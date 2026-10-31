@@ -58393,6 +58393,166 @@ def check_retired_template_sections_migrate_into_practices():
             '; '.join(f'{n}: {str(d)[:900]}' for n, d in bad))
 
 
+def check_template_text_edit_trips_the_commit_check():
+    """A commit in a consuming repository that edits text the Precedent
+    template wrote is refused at commit time with the two answers (fix it
+    upstream, or keep it as this repository's own), until one is recorded
+    (2026-10-31, tools/upstream_edits.py staged_template_edits; Morgan: a
+    fix made in a consumer to BestPractice's text becomes a fork nobody
+    decided).
+
+    Cases, each against the tool's own words: editing a template-written
+    AGENTS.md section is refused, through the real commit hook too
+    (tools/doc-lint-gate.sh, deny with the answers); CONTROLS -- editing the
+    repository's own section, an engine refresh that records the new text
+    in the same commit, and an edit with a kept entry recorded in the same
+    commit all pass; editing an unedited tools/bootstrap.sh is refused."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+        import upstream_edits as ue
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory(prefix='precedent-template-edit-') as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        tpl_sec = '### Session start\n\n- Run the bootstrap first, every session, before work.'
+        agents = ('# Agents\n\n' + tpl_sec + '\n\n## Our own section\n\n- Ours to word.\n')
+        boot = '#!/bin/bash\necho template\n'
+        (repo / 'tools').mkdir()
+        for name in ('upstream_edits.py', 'precedent_vendor_engine.py', 'generated_blocks.py',
+                     'doc-lint-gate.sh', 'doc_lint.py'):
+            if (ROOT / 'tools' / name).is_file():
+                shutil.copy2(ROOT / 'tools' / name, repo / 'tools' / name)
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(boot, encoding='utf-8')
+        manifest = {'agents_md_sections_sha256': {'### Session start': pve._sha_text(tpl_sec)},
+                    'template_instances_sha256': {
+                        'tools/bootstrap.sh': hashlib.sha256(boot.encode()).hexdigest()}}
+        mpath = repo / 'tools' / 'ENGINE_MANIFEST.json'
+        mpath.write_text(json.dumps(manifest), encoding='utf-8')
+        (repo / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'installed')
+
+        def staged(**files):
+            g('reset', '-q', '--hard', 'HEAD')
+            for rel, text in files.items():
+                (repo / rel.replace('__', '/')).write_text(text, encoding='utf-8')
+            g('add', '-A')
+            return ue.staged_template_edits(repo)
+
+        edited = agents.replace('every session, before work', 'every session')
+        got = staged(**{'AGENTS.md': edited})
+        cases.append(('editing a template-written section is refused, naming it',
+                      len(got) == 1 and '"### Session start" is text the Precedent '
+                      'template wrote, and this commit edits it' in got[0], got))
+        hook_in = json.dumps({'tool_input': {'command': 'git commit -m x'}})
+        r = subprocess.run(['bash', str(repo / 'tools' / 'doc-lint-gate.sh')],
+                           input=hook_in, capture_output=True, text=True,
+                           env={**env, 'CLAUDE_PROJECT_DIR': str(repo)}, cwd=str(repo))
+        cases.append(('...and through the real commit hook: deny, with both answers',
+                      '"deny"' in r.stdout and 'it belongs upstream' in r.stdout
+                      and 'true only here' in r.stdout, (r.stdout[-500:], r.stderr[-300:])))
+        got = staged(**{'AGENTS.md': agents.replace('Ours to word.', 'Ours, reworded.')})
+        cases.append(('CONTROL: editing the repository\'s own section passes', got == [], got))
+        m2 = dict(manifest, agents_md_sections_sha256={
+            '### Session start': pve._sha_text(edited.split('\n\n## Our')[0].split('# Agents\n\n')[1])})
+        got = staged(**{'AGENTS.md': edited, 'tools__ENGINE_MANIFEST.json': json.dumps(m2)})
+        cases.append(('CONTROL: an engine refresh recording the new text in the same '
+                      'commit passes', got == [], got))
+        got = staged(**{'AGENTS.md': edited, 'precedent.json': json.dumps(
+            {'kept_template_divergences': {'AGENTS.md ### Session start': {
+                'reason': 'we run it only on the web'}}})})
+        cases.append(('CONTROL: an edit with a kept entry recorded in the same commit '
+                      'passes', got == [], got))
+        got = staged(**{'tools__bootstrap.sh': boot + 'echo ours\n'})
+        cases.append(('editing the template\'s tools/bootstrap.sh is refused',
+                      len(got) == 1 and 'tools/bootstrap.sh is the Precedent template' in got[0],
+                      got))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:600]}' for n, d in bad))
+
+
+def check_exported_file_not_received_fails_the_copied_in_check():
+    """Every test a declared source ships reaches the consuming repository,
+    or the copied-in check fails (2026-10-31: a consumer's push check printed
+    "no practice in force here claims these, not vendored" for two of a
+    shared set's tests, and passed).
+
+    Cases: a test claimed by no checked_by is left behind AND recorded as
+    not received, and the exported-files-received check fails on it by
+    name; a test whose header cites `practice: SLUG` for a practice in force
+    here from its own source is claimed and copied (the fix at the source);
+    CONTROL -- one citing a practice from ANOTHER source is still not
+    received; and a MANIFEST.json with nothing left behind passes."""
+    import contextlib
+    import io
+    import tempfile
+    import types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory(prefix='precedent-copied-in-') as td:
+        td = pathlib.Path(td)
+        src = td / 'set'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        t = src / 'tools' / 'checks' / 'tests'
+        (t / 'test_orphan.sh').write_text('#!/bin/bash\n# tests a data file\nexit 0\n')
+        (t / 'test_cited.sh').write_text('#!/bin/bash\n# practice: act\nexit 0\n')
+        (t / 'test_elsewhere.sh').write_text('#!/bin/bash\n# practice: other\nexit 0\n')
+        sources = [{'name': 'the-set', 'path': str(src), 'level': 'team'}]
+        res = {'practices': {
+            'act': {'fm': {}, 'source': 'the-set', 'file': str(src / 'practices' / 'act.md')},
+            'other': {'fm': {}, 'source': 'precedent', 'file': str(td / 'u' / 'other.md')}}}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks(sources, res)
+        names = {name for _l, name, _s, _b in plan}
+        cases.append(('a test cited by its header for a practice in force from its '
+                      'own source is claimed', 'test_cited.sh' in names, sorted(names)))
+        cases.append(('an unclaimed test is left behind and recorded as not received',
+                      'test_orphan.sh' not in names and any('test_orphan.sh' in x
+                                                            for x in pm._NOT_RECEIVED),
+                      list(pm._NOT_RECEIVED)))
+        cases.append(('CONTROL: a citation of another source\'s practice claims nothing',
+                      'test_elsewhere.sh' not in names and any('test_elsewhere.sh' in x
+                                                               for x in pm._NOT_RECEIVED),
+                      list(pm._NOT_RECEIVED)))
+        repo = td / 'consumer'
+        repo.mkdir()
+        fn = pc.CHECKS['exported-files-received']['fn']
+
+        def run(data):
+            (repo / 'MANIFEST.json').write_text(json.dumps(data), encoding='utf-8')
+            old = pc.ROOT
+            pc.ROOT = repo
+            try:
+                return fn(types.SimpleNamespace(root=repo))
+            finally:
+                pc.ROOT = old
+        got = run({'not_received': list(pm._NOT_RECEIVED)})
+        cases.append(('the copied-in check fails on each file not received, by name, '
+                      'with the fix at the source',
+                      len(got) == 2 and all('never received here' in f.detail
+                                            and 'practice: SLUG' in f.detail for f in got),
+                      [f.detail[:120] for f in got]))
+        cases.append(('CONTROL: nothing left behind passes', run({'practices': []}) == [], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:500]}' for n, d in bad))
+
+
 def check_agents_templates_repeat_no_practice_text():
     """No block of an AGENTS.md template repeats a practice's own text.
 
@@ -97588,6 +97748,10 @@ def main():
     check('the AGENTS.md template sections that became practices migrate out of '
           'an installed repository with every rule still reachable',
           *check_retired_template_sections_migrate_into_practices())
+    check('a file a source exports and the consumer never received fails the '
+          'copied-in check', *check_exported_file_not_received_fails_the_copied_in_check())
+    check('a commit that edits template text in a consuming repository is refused '
+          'until it is answered', *check_template_text_edit_trips_the_commit_check())
     check('a kept template divergence is judged block by block, and text moved '
           'out of AGENTS.md is still compared', *check_kept_divergence_is_judged_block_by_block())
     check_legacy_bootstrap_shim_is_replaced()
