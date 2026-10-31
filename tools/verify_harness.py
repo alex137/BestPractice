@@ -53228,7 +53228,7 @@ def check_repo_reference_allowlist():
         cases.append(('the private-owner declaration parses',
                       owners.get('acct', '').startswith('repos private')))
         cases.append(('the allow declaration parses, with its reason',
-                      allowed.get('acct/named-on-purpose') == 'declared source'))
+                      allowed.get(lg._ref_key('acct/named-on-purpose')) == 'declared source'))
 
         def refs(text):
             return [r for _n, r in lg.repo_ref_hits(text, owners, allowed)]
@@ -53298,7 +53298,7 @@ def check_repo_reference_allowlist():
             pathlib.Path(td) / f'g{abs(hash(wrapped))}.txt')
         cases.append(('...and it parses with the reason TRUNCATED at the '
                       'line end, which is why it is only a note',
-                      _a.get('acct/two') == 'a reason that begins here and'))
+                      _a.get(lg._ref_key('acct/two')) == 'a reason that begins here and'))
 
         cases.append(('a plain continuation comment is not flagged on its own',
                       errs(good + '\n#   just an ordinary comment line') == []))
@@ -58861,7 +58861,8 @@ def check_update_seeds_budgets_on_the_run_that_reports_done():
         import precedent_update as pu
     finally:
         sys.path.pop(0)
-    key = '## Conventions'
+    # Repointed 2026-10-31, when Conventions left the template for practices.
+    key = '## Git / workflow'
     reg_rel = pathlib.Path('tools') / 'session_load_budgets.json'
 
     def seeded(repo):
