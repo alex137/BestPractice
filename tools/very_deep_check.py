@@ -11609,8 +11609,9 @@ def _main(box):
             for _c in _ans['missing']:
                 _ic_findings += 1
                 print(f"                  FINDING: names {_c}, which does "
-                      f"not exist (no planted case in tools/verify_harness.py"
-                      f", no tools/checks/{_c}.py)")
+                      f"not exist (no planted case in the harness, "
+                      f"tools/harness/vh_planted_cases.py, "
+                      f"no tools/checks/{_c}.py)")
             if _ans['written']:
                 _w = _ans['written']
                 print(f"                  answered in the file: Prevention: "
