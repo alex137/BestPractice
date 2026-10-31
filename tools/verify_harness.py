@@ -27859,6 +27859,47 @@ def check_precedent_check_fires():
                 return json.dumps(d, indent=2) + '\n'
             rewrite(repo, '.claude/settings.json', _add_identity)
         case('no-hardcoded-git-identity', _plant_hardcoded_identity)
+
+        # repo-name-compare-via-helper -- a tool comparing a clone's origin
+        # with a declared URL letter for letter, the freshness check's own
+        # shape before 2026-10-31.
+        def _plant_raw_repo_compare(repo):
+            (repo / 'tools' / 'planted_repo_compare.py').write_text(
+                'def same(origin, repo_url):\n'
+                '    return origin == repo_url\n', encoding='utf-8')
+        case('repo-name-compare-via-helper', _plant_raw_repo_compare)
+        cases.append(('repo-name-compare-via-helper: the planted violation '
+                      'names the file, line and comparison',
+                      'tools/planted_repo_compare.py:2' in
+                      planted['repo-name-compare-via-helper'][1]
+                      and 'origin == repo_url' in
+                      planted['repo-name-compare-via-helper'][1]))
+
+        # declared-repo-spelling -- a copy manifest recording a declared
+        # source's repository in lowercase, as checkin.py record did from a
+        # lowercase add_repo clone. Merged into precedent.json's sources
+        # (practice: fixture-owns-its-state).
+        def _plant_repo_spelling(repo):
+            def _add_source(t):
+                d = json.loads(t)
+                d.setdefault('sources', []).append(
+                    {'level': 'shared', 'name': 'plantedset',
+                     'path': 'process/plantedset', 'vendored': True,
+                     'repo': 'https://github.com/owner/PlantedSet'})
+                return json.dumps(d, indent=2) + '\n'
+            rewrite(repo, 'precedent.json', _add_source)
+            (repo / 'process').mkdir(exist_ok=True)
+            (repo / 'process' / 'manifest_plantedset.json').write_text(
+                json.dumps({'upstream': {
+                    'repo': 'https://github.com/owner/plantedset'}}),
+                encoding='utf-8')
+        case('declared-repo-spelling', _plant_repo_spelling)
+        cases.append(('declared-repo-spelling: the planted violation names '
+                      'both spellings',
+                      'https://github.com/owner/plantedset' in
+                      planted['declared-repo-spelling'][1]
+                      and 'https://github.com/owner/PlantedSet' in
+                      planted['declared-repo-spelling'][1]))
         cases.append(('no-hardcoded-git-identity: the planted violation '
                       'names the hardcoded fields it found',
                       'GIT_AUTHOR_NAME' in planted['no-hardcoded-git-identity'][1]
