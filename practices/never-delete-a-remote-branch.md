@@ -170,7 +170,8 @@ the occasion index, which every session loads before it works.
 
 **Related:** [branch-delete-links](branch-delete-links.md) — the link form to
 hand over instead, and the rule that deletion is never blocking;
-[the-boildown](the-boildown.md) — item 5, where a safe-to-delete branch is
-reported;
+[the-boildown](the-boildown.md) — item 6, retired 2026-10-30: a reply no
+longer lists safe-to-delete branches, because the branch cleanup page
+carries them;
 [upstream-fix](upstream-fix.md) — why this landed as a committed rule rather
 than as one more session knowing better.

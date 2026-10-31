@@ -27,7 +27,7 @@ branches in a given repository; the first click is that measurement.
 ## The problem
 
 At the close of a session, the ladder's
-[stale-branch-cleanup](https://github.com/alex137/BestPractice/blob/staging/practices/stale-branch-cleanup.md)
+[stale-branch-cleanup](https://github.com/themorgan/precedent-shared-ladder/blob/main/practices/stale-branch-cleanup.md)
 practice publishes one pinned page listing every branch that is already in
 `main`, across every repository the person owns. Each row is a link to
 GitHub's branch list filtered to that one branch
