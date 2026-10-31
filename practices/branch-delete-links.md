@@ -98,7 +98,7 @@ front of somebody.
 deletable *because* its work landed somewhere, and the offer is unreadable
 without that: "both branches are merged and can go" asks the reader to take on
 trust that the work reached the branch they care about, which is the one thing
-they would actually want to check. Name it — `staging`, `main` — and
+they would actually want to check. Name it — `main`, or whatever it is called — and
 never a role-word standing in for it ("the base branch", "the default branch").
 In a repository whose configured default and whose working branch are two
 different branches, the role-word and the name point at different places, and

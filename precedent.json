@@ -296,15 +296,18 @@
   "no_stale_counts_exempt": [
     {
       "path": "spec",
-      "reason": "plans, briefs and audits: each count is that document's own measurement on its day, usually of a subset, never the live total"
+      "reason": "plans, briefs and audits: each count is that document's own measurement on its day, usually of a subset, never the live total",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "evals",
-      "reason": "evaluation runs: each count is what that run measured"
+      "reason": "evaluation runs: each count is what that run measured",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     },
     {
       "path": "decisions",
-      "reason": "dated decision records: a count is the figure the decision was made on"
+      "reason": "dated decision records: a count is the figure the decision was made on",
+      "root_fix": "cannot be taught here: whether a count in prose is a dated measurement or a claim about today is the writer's intent, which no-stale-counts' own Install says no scan can read. The shapes a scan can see are taught in the check itself: a closed todo item, a generated block, and (2026-10-30, precedent-shared-writing) a practice's Story and frontmatter"
     }
   ],
   "_grandfathered_commit_shas_comment": [
