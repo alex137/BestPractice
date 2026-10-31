@@ -36423,7 +36423,19 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
                                   'Nothing blocking for you to do now.\n' + hold)),
         ('negative control: a hold the person owes an action for is not read',
          kinds('Waiting.', booked + '- **Your next steps:** merge [the pull '
-               'request](https://github.com/o/r/pull/1).\n' + hold) == []),
+               'request](https://github.com/o/r/pull/1): the work cannot land '
+               'without it.\n' + hold) == []),
+        # 2026-10-31 (Morgan, strength: decided): a hold beside a go-ahead
+        # any session can start later is refused -- it names no blocker.
+        ('a hold beside a go-ahead that can wait is refused, naming the list',
+         kinds('Done.', booked + '- **Your next steps:** to roll it out, say '
+               '"Update All Vendors and merge them". My pick is yes; without '
+               'it, the rollout waits.\n' + hold) == ['hold_without_blocker']),
+        ('...and the same hold naming a real blocker passes',
+         kinds('Done.', booked + '- **Your next steps:** to roll it out, say '
+               '"Update All Vendors and merge them". My pick is yes.\n'
+               "- What's blocking: two commits exist only in this container, "
+               'not pushed yet.\n' + hold) == []),
         ('negative control: a plain answer on Consider with no plan passes',
          kinds('The gate reads the transcript.', consider
                + '- **Your next steps:** Nothing blocking for you to do now.\n'
