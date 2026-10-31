@@ -4,7 +4,7 @@ kind:              analysis
 domain:            null
 severity:          null
 status:            open
-disposition:       wait
+disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -24,6 +24,8 @@ closed:            null
    losing the practices. Deliberately below the Actions/Issues items
    above: deeper GitHub integration now is acceptable, since equivalents
    can be added later.
+
+**Disposition:** parked (2026-10-31, Morgan, 2026-10-31 (strength: assented): "do your recommendations for all", on the very deep check's pick to park it)
 
 ## How It Closes
 

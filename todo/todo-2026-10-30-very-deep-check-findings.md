@@ -6,11 +6,11 @@ severity:          null
 status:            open
 disposition:       null
 remind_on:         null
-blocked_on:        "Morgan's calls below; every other line names why this run left it"
+blocked_on:        "every line under Left names why this run left it"
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        Morgan
+waiting_on:        null
 noted:             2026-10-30
 closed:            null
 ---
@@ -23,7 +23,13 @@ run fixed is in its commits; the account is
 
 ### Calls for Morgan
 
-Each with the session's pick.
+Each with the session's pick. **Answered 2026-10-31: every pick taken**
+(Morgan, strength: assented: "On your questions above: do your suggestions. On
+your question in the doc you did ...: do your recommendations for all", with
+"You can attach the Pesty consumer"). Call 11 he also asked about in his own
+words: "Those sound huge like 9400 words is a lot, maybe we should do a cleanup
+of the long rules?" -- the split is that cleanup, moving and never deleting.
+What each answer became is noted at the end of this item.
 
 1. **Ship universal's `reply_check.json` to every installed repository?**
    The reply checker's own notes say it binds every adopter and the classic
@@ -112,3 +118,10 @@ Each with the session's pick.
 - **A planted case to re-add by hand:** a practice with no `## Install`, from
   the unlanded `2026-10-11-fix-shape-test-fixture-sections-11fwt-bum5v`
   branch, whose fix otherwise landed another way (needs: a session of its own -- out of this run's time-box).
+
+## Notes
+
+2026-10-31: Morgan's answers acted on the same day. Call 3 needed nothing more
+(the exemption was already in place). Calls 2, 5 and 6 are on the branch
+`2026-10-31-themorgan-vdc-approved-calls-hv5gd-i86bb`. The rest went to helpers
+of the same session; each one's outcome is added here when it lands.

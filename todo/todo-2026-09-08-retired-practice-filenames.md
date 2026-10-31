@@ -3,16 +3,16 @@ slug:              todo-2026-09-08-retired-practice-filenames
 kind:              analysis
 domain:            null
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Morgan -- whether to close it as evaluated"
+decision:          "close it as evaluated; filenames stay as they are"
+decision_strength: assented
+waiting_on:        null
 noted:             2026-09-08
-closed:            null
+closed:            2026-10-31
 ---
 ## What
 
@@ -64,3 +64,6 @@ withdrawn practice with "NOT IN FORCE ANYWHERE (status: ...)" (since
 284b4cf4, 2026-09-06), and MAP.md carries the "Withdrawn practices" table.
 Nothing since has shown a raw listing misleading anyone. The session would
 close it as evaluated, keeping the filenames as they are.
+2026-10-31: closed as evaluated. Morgan (strength: assented): "do your recommendations
+for all", on the very deep check's pick to close it. Its condition, an evaluation of
+filename marking, is met by the note above; the filenames stay as they are.

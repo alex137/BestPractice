@@ -12,17 +12,16 @@ as_of: 2026-10-31
 | Item | What | Age | Disposition | Blocked on |
 |---|---|---|---|---|
 | [`todo-2026-09-06-background-freshness-fetch`](todo-2026-09-06-background-freshness-fetch.md) | Consider making the freshness check's fetch asynchronous. | 55d | parked | nothing external, but it was not worth the complexity at the measured numbers —… |
-| [`todo-2026-09-06-companion-mobile-app`](todo-2026-09-06-companion-mobile-app.md) | Companion mobile app, if the Shortcut proves insufficient. | 55d | wait |  |
+| [`todo-2026-09-06-companion-mobile-app`](todo-2026-09-06-companion-mobile-app.md) | Companion mobile app, if the Shortcut proves insufficient. | 55d | parked |  |
 | [`todo-2026-09-06-document-project-pilot`](todo-2026-09-06-document-project-pilot.md) | Run the document-project pilot once Morgan has a real first project. | 55d | wait | a real subject and a real person, neither of which exists yet. |
-| [`todo-2026-09-06-individual-practice-scoping`](todo-2026-09-06-individual-practice-scoping.md) | `for_team:`/`in_repos:` individual-practice scoping. | 55d | wait |  |
+| [`todo-2026-09-06-individual-practice-scoping`](todo-2026-09-06-individual-practice-scoping.md) | `for_team:`/`in_repos:` individual-practice scoping. | 55d | parked |  |
 | [`todo-2026-09-06-multiple-team-sources-disagree`](todo-2026-09-06-multiple-team-sources-disagree.md) | Define what happens when a consumer repo imports multiple `team` sources that disagree. | 55d | wait | nothing but a decision about what shape the answer takes. Parked deliberately at… |
-| [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 55d | wait |  |
-| [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 55d | wait |  |
+| [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 55d | parked |  |
+| [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 55d | parked |  |
 | [`todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-`](todo-2026-09-06-sweep-for-other-places-bestpractice-does-not-follow-its-own-.md) | Sweep for other places BestPractice does not follow its own install instructions. | 55d | wait | nothing but its size and the per-step judgment call about which steps apply to t… |
 | [`todo-2026-09-06-unreachable-practices`](todo-2026-09-06-unreachable-practices.md) | Populate `not_binding` for the practices in force here that do not bind this repo. | 55d | wait | a session that can resolve the private sources — see `attach-private-sources` fo… |
 | [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 54d | parked |  |
 | [`todo-2026-09-08-branch-move-cause-unknown`](todo-2026-09-08-branch-move-cause-unknown.md) | Something moved this checkout off its working branch mid-session on 2026-09-08, and the cause was not found. | 53d | wait | the next recurrence, with ps and the reflog captured before anything else |
-| [`todo-2026-09-08-retired-practice-filenames`](todo-2026-09-08-retired-practice-filenames.md) | Evaluate marking retired and deduplicated practice files in their filename, so a directory listing shows what is still i | 53d | wait |  |
 | [`todo-2026-09-10-sync-refuses-a-rewind`](todo-2026-09-10-sync-refuses-a-rewind.md) | Make `precedent_sync_views.py` refuse a sync that would rewind a practice's content, not just one that would remove the | 51d | wait | nothing external — it is queued for size, not for permission. It carries no disp… |
 | [`todo-2026-09-11-figures-reach-commit-messages-ungated`](todo-2026-09-11-figures-reach-commit-messages-ungated.md) | A figure can reach a commit message without anything checking it, and it did twice in two days. | 50d | wait |  |
 | [`todo-2026-09-11-renamed-team-source-not-in-allowlist`](todo-2026-09-11-renamed-team-source-not-in-allowlist.md) | Nothing checks that a rename carried its allowlist entry. | 50d | wait | a session that can write to the private individual source, and a decision about… |
@@ -56,7 +55,7 @@ as_of: 2026-10-31
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 26d | ask |  |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 20d | ask |  |
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 11d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
-| [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 1d | wait | Morgan's calls below; every other line names why this run left it |
+| [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 1d | wait | every line under Left names why this run left it |
 
 ## Verify Before External Use
 
@@ -140,7 +139,6 @@ as_of: 2026-10-31
 | [`todo-2026-09-06-out-of-chat-notifications`](todo-2026-09-06-out-of-chat-notifications.md) | Out-of-chat change notifications for members. | 55d |
 | [`todo-2026-09-06-reduce-github-dependency`](todo-2026-09-06-reduce-github-dependency.md) | Reduce GitHub dependency when ready. | 55d |
 | [`todo-2026-09-07-stem-reminder-at-the-refusal`](todo-2026-09-07-stem-reminder-at-the-refusal.md) | Consider putting the stem reminder in the allowlist's REFUSAL message too. | 54d |
-| [`todo-2026-09-08-retired-practice-filenames`](todo-2026-09-08-retired-practice-filenames.md) | Evaluate marking retired and deduplicated practice files in their filename, so a directory listing shows what is still i | 53d |
 | [`todo-2026-09-11-figures-reach-commit-messages-ungated`](todo-2026-09-11-figures-reach-commit-messages-ungated.md) | A figure can reach a commit message without anything checking it, and it did twice in two days. | 50d |
 | [`todo-2026-09-11-repo-name-regex-shape`](todo-2026-09-11-repo-name-regex-shape.md) | Think about the shape of the leak gate's repository-name rule: it refuses `owner/name` and ignores `name`. | 50d |
 | [`todo-2026-09-11-source-clause-check-reads-only-html-comments`](todo-2026-09-11-source-clause-check-reads-only-html-comments.md) | The `Source:` clause check reads only HTML comments, so a generated file whose header is a `#` comment is never asked fo | 50d |
