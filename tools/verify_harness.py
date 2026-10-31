@@ -29382,14 +29382,48 @@ def check_very_deep_check_finds_a_second_list_of_practices():
         (d / 'routing.json').write_text(listing, encoding='utf-8')
         (d / 'MAP.md').write_text('\n'.join(slugs), encoding='utf-8')
         (d / 'NOTES.md').write_text(' '.join(slugs[:3]), encoding='utf-8')
+        # Every practice cited, one per test, far apart: a big test file,
+        # not a list (2026-10-31: tools/verify_harness.py was a candidate on
+        # every run for exactly this shape).
+        filler = 'x = 1\n' * (getattr(vdc, 'WINDOW_LINES_PER_SLUG', 10) * len(slugs))
+        (d / 'tests.py').write_text(''.join(
+            f'# (practice: {s})\n{filler}' for s in slugs), encoding='utf-8')
         subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
         subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
         found = [rel for rel, _n, _t in vdc._second_practice_lists(d)]
     finally:
         shutil.rmtree(d, ignore_errors=True)
     check('the very deep check names a hand-kept list of every practice, and '
-          'not a generated view or a file naming a few',
+          'not a generated view, a file naming a few, or a file citing each '
+          'one far apart',
           found == ['routing.json'], repr(found))
+
+    # The real case, where history holds it: routing_scope.json as it stood
+    # before dcaa1c94 retired it, against practice files for its own keys.
+    real = subprocess.run(['git', '-C', str(ROOT), 'show',
+                           'dcaa1c94^:tools/routing_scope.json'],
+                          capture_output=True, text=True)
+    if real.returncode != 0:
+        not_applicable('the very deep check names the real routing_scope.json',
+                 'dcaa1c94 is not in this clone (a shallow checkout)')
+        return
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-second-list-real-'))
+    try:
+        (d / 'practices').mkdir()
+        for s in json.loads(real.stdout)['practices']:
+            (d / 'practices' / f'{s}.md').write_text(
+                f'---\nslug:        {s}\nstatus:      active\n---\n## Rule\nDo.\n',
+                encoding='utf-8')
+        (d / 'tools').mkdir()
+        (d / 'tools' / 'routing_scope.json').write_text(real.stdout,
+                                                        encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        found = [rel for rel, _n, _t in vdc._second_practice_lists(d)]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    check('the very deep check names the real routing_scope.json',
+          found == ['tools/routing_scope.json'], repr(found))
 
 
 def check_very_deep_check_finds_vendored_surplus():
@@ -34407,9 +34441,20 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
                            'boildown-finished-plan-asks-to-act and '
                            'boildown-hold-names-what-runs')
 
-    def kinds(body, boildown, **kw):
+    # The Consider trigger is the ladder set's, added over universal's rule
+    # with "inherits": true (2026-10-31); universal alone does not carry it.
+    # Built here rather than read from the set, so the fixture owns it.
+    ladder_add = {'id': ids[0], 'inherits': True,
+                  'require_finished_plan_asks_to_act': {
+                      'stage_line': r'\bfinished step 1 of 5\b[^)]{0,10}\bConsider\b'}}
+    universal = reqs
+    reqs = [_rc.inherit_requirement(r, ladder_add) if r.get('id') == ids[0]
+            else r for r in universal]
+
+    def kinds(body, boildown, rules=None, **kw):
         return sorted(v['kind'] for v in _rc.violations(
-            body + '\n\n## The Boildown\n' + boildown, reqs, **kw))
+            body + '\n\n## The Boildown\n' + boildown,
+            reqs if rules is None else rules, **kw))
     consider = ('- The work of this session is now on: no branch yet (you '
                 'have finished step 1 of 5, Consider)\n')
     booked = ('- The work of this session is now on: staging in BestPractice '
@@ -34425,9 +34470,19 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
              "(https://claude.ai/code/session_x); I start step 4 when it "
              'reports back, about 06:10 Buenos Aires time.\n')
     cases = [
-        ('a Consider reply that makes a plan and never asks is refused',
+        ('a Consider reply that makes a plan and never asks is refused, once '
+         'the ladder adds its stage line',
          kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
                'you to do now.\n' + free) == ['plan_without_ask']),
+        ('universal alone carries no stage line, so the same reply is not '
+         'read as a finished plan there',
+         kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
+               'you to do now.\n' + free, rules=universal) == []),
+        ('the added stage line is merged into universal\'s mapping, which '
+         'keeps its ask and the rest',
+         all(k in (r.get('require_finished_plan_asks_to_act') or {})
+             for r in reqs if r.get('id') == ids[0]
+             for k in ('stage_line', 'ask', 'heading', 'plan_words'))),
         ('a turn that wrote a plan file and never asks is refused',
          kinds('Written up.', booked + '- **Your next steps:** read it.\n' + free,
                written=['/r/spec/NEW_PLAN.md']) == ['plan_without_ask']),
@@ -88016,12 +88071,36 @@ def check_freshness_gate_fires():
         results.append(('a detached HEAD behind origin/main is refused',
                         v['status'] == 'detached'))
 
+        # A repo whose declared base is `staging`, with staging AHEAD of
+        # main: the practice says to read main from a branch cut from
+        # origin/main, and until 2026-10-31 the gate refused exactly that
+        # branch because it does not contain origin/staging. The control
+        # beside it, a branch cut behind origin/main, must still be refused.
+        _git(upstream, 'checkout', '-q', '-b', 'staging')
+        (upstream / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        (upstream / 's.txt').write_text('landed, not live\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'staging only')
+        _git(upstream, 'checkout', '-q', 'main')
+        _git(work, 'fetch', '-q', 'origin', 'staging:refs/remotes/origin/staging')
+        _git(work, 'checkout', '-q', '-b', 'read-main', 'origin/main')
+        (work / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        v = vdc.freshness(work)
+        results.append(('a branch cut from origin/main reads clean where the '
+                        'base is a staging branch ahead of main',
+                        v['status'] in vdc.FRESHNESS_CLEAN))
+        _git(work, 'checkout', '-q', '-b', 'read-old-main', 'origin/main~1')
+        v = vdc.freshness(work)
+        results.append(('a branch cut behind origin/main is still refused '
+                        'where the base is staging',
+                        v['status'] == 'branch-not-on-origin'))
+        (work / 'precedent.json').unlink()
+
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check refuses a stale repo ({len(results)} stated '
               f'cases: a current clone, a remoteless repo, a non-checkout, a '
               f'behind clone, --freshen against dirty and clean trees, a '
-              f'diverged clone whose commit must survive, and a local-only '
-              f'branch)',
+              f'diverged clone whose commit must survive, a local-only '
+              f'branch, and a branch cut from main where the base is staging)',
               not failed,
               '; '.join(failed) if failed else '')
 

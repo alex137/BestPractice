@@ -617,11 +617,25 @@ def freshen(repo_dir, verdict):
 
 def _contains_origin_base(repo_dir, out):
     """For a branch origin does not have: True, with `out` set to 'ahead',
-    when HEAD contains origin's declared base branch (else `main`)."""
+    when HEAD contains origin's declared base branch (else `main`), or
+    origin's live branch, `main`.
+
+    THE LIVE BRANCH COUNTS TOO (2026-10-31). The practice says to read
+    `main`, the version people actually run, from a working branch cut from
+    `origin/main`; until this date the gate accepted only the declared base,
+    so in a repo whose base is `staging` and whose staging was ahead of main
+    it refused exactly the branch the practice tells a run to cut. The
+    2026-10-30 run worked around it by branching from staging instead. A
+    branch at or past origin/main is current for what the check reads, and
+    what staging carries that main does not is LIVE VERSUS LANDING's job."""
     base = _declared_base_branch(repo_dir) or 'main'
-    _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', base)
-    ref = f'origin/{base}'
-    if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
+    for ref_branch in dict.fromkeys((base, 'main')):
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin',
+                 ref_branch)
+        ref = f'origin/{ref_branch}'
+        if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] == 0:
+            break
+    else:
         return False
     # What no origin ref has, never what the base lacks: a branch cut from
     # origin/main in a repo whose base is staging carries main's merge
@@ -739,7 +753,21 @@ def _second_practice_lists(repo_dir, threshold=0.8):
     r = subprocess.run(['git', '-C', str(root), 'ls-files'],
                        capture_output=True, text=True)
     out = []
-    pats = {s: re.compile(r'(?<![\w-])' + re.escape(s) + r'(?![\w-])') for s in slugs}
+    # One alternation, longest first, read once per file: 176 separate
+    # patterns over every tracked file cost over a minute a run.
+    pat = re.compile(r'(?<![\w-])(' + '|'.join(
+        re.escape(s) for s in sorted(slugs, key=len, reverse=True))
+        + r')(?![\w-])')
+    # A LIST, NOT A FILE THAT MENTIONS (2026-10-31). Counted across the whole
+    # file, tools/verify_harness.py -- some 94,000 lines of tests, each citing
+    # the practice it guards -- named most of the catalogue and came up as a
+    # candidate on every run, though no stretch of it lists the catalogue: the
+    # citations are scattered one per test. A candidate that is wrong every
+    # time teaches a reader to skip the section. So the slugs must sit
+    # together: within WINDOW_LINES_PER_SLUG lines per active practice, which
+    # the real case (routing_scope.json, about seven lines an entry) fits
+    # with room to spare.
+    window = WINDOW_LINES_PER_SLUG * len(slugs)
     for rel in r.stdout.split():
         if rel.startswith('practices/') or rel in generated:
             continue
@@ -749,10 +777,36 @@ def _second_practice_lists(repo_dir, threshold=0.8):
             text = (root / rel).read_text(encoding='utf-8', errors='ignore')
         except OSError:
             continue
-        named = sum(1 for s in slugs if pats[s].search(text))
+        found = [(m.start(), m.group(1)) for m in pat.finditer(text)]
+        if len({s for _p, s in found}) < threshold * len(slugs):
+            continue
+        named = _densest_slug_window(text, found, window)
         if named >= threshold * len(slugs):
             out.append((rel, named, len(slugs)))
     return out
+
+
+WINDOW_LINES_PER_SLUG = 10
+
+
+def _densest_slug_window(text, found, window):
+    """-> the most distinct slugs named within any `window` consecutive
+    lines of `text`, given `found` as [(offset, slug)] (see
+    _second_practice_lists)."""
+    import bisect
+    starts = [0] + [m.end() for m in re.finditer('\n', text)]
+    hits = sorted((bisect.bisect_right(starts, off) - 1, s) for off, s in found)
+    best, lo, live = 0, 0, {}
+    for line, slug in hits:
+        live[slug] = live.get(slug, 0) + 1
+        while hits[lo][0] <= line - window:
+            old = hits[lo][1]
+            live[old] -= 1
+            if not live[old]:
+                del live[old]
+            lo += 1
+        best = max(best, len(live))
+    return best
 
 
 def _tracked_blobs(repo_dir):
