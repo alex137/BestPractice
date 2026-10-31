@@ -1559,60 +1559,13 @@ def _seed_consumer_engine(dest_tools, extra=(), only=None):
     return copied
 
 
-def check_leak_gate():
-    """The real gate is tools/leak_gate.py, run as a subprocess. It replaces a
-    stand-in that hardcoded a list of private terms -- including a personal
-    email address -- INSIDE this public repo, which is the anti-pattern the
-    gate exists to prevent: a blocklist of secret words, committed to a public
-    repo, publishes the words it guards. Found by pointing the new gate at the
-    tree and reading what it said. Fixed forward, not by rewriting published
-    history (practice 31, no-rewrite-for-warnings).
-
-    The vocabulary layer is reported as not-yet-applicable when no private
-    blocklist is configured -- which is the honest state before phase 3 -- and
-    the structural layer is a real pass or fail either way.
-
-    --structural-only, by name, for the same reason continuous integration
-    passes it: this harness runs with no private blocklist, and since
-    2026-09-08 the gate REFUSES rather than reporting PARTIAL when
-    precedent.json declares a private source. That refusal is correct for a
-    person about to push and wrong for a bare caller, so a bare caller says
-    which half it is asking for. Without the flag this check went red on a
-    clean tree -- the fix belonged in the caller, not in weakening the gate.
-    """
-    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
-                             '--structural-only'],
-                            capture_output=True, text=True)
-    out = (result.stdout + result.stderr).strip()
-    if result.returncode != 0:
-        check('leak gate (tools/leak_gate.py)', False,
-              out.splitlines()[0] if out else 'leak_gate.py failed with no output')
-        for line in out.splitlines():
-            if line.startswith('LEAK:'):
-                print(f"  {line}")
-    elif 'leak gate PARTIAL' in out:
-        check('leak gate, structural layer (no private-source paths, emails, home '
-              'directories, or non-universal practice sources)', True)
-        not_applicable('leak gate, vocabulary layer',
-                       f'no private-term blocklist is configured ({"PRECEDENT_LEAK_BLOCKLIST"} '
-                       f'is unset), and none can live in this public repo -- see '
-                       f'tools/leak_gate.py --explain and '
-                       f'templates/leak-blocklist.txt.template. This is the permanent '
-                       f'state in CI, which has no access to a private list; on a '
-                       f'person\'s own machine it means the layer is not switched on '
-                       f'yet. Reported rather than passed over, because a clean '
-                       f'structural scan is not evidence that no private word is '
-                       f'present. `leak gate fires` below tests the layer either way')
-    else:
-        check('leak gate (structural and vocabulary layers)', True)
-
-
 def check_leak_gate_fires():
     """The gate's own behaviour, as stated cases against a throwaway repo.
 
     WHY THIS EXISTS, AND WHY IT IS NOT A SECOND COPY OF THE GATE'S LOGIC.
-    check_leak_gate() above runs the gate on this tree and reports what it
-    says. That is a check on the TREE, not on the GATE -- it passes just as
+    Running the gate on this tree (the pre-push hook, the push check and the
+    leak-gate workflow all do; a harness check that did the same was retired
+    2026-10-31) is a check on the TREE, not on the GATE -- it passes just as
     happily when the gate has stopped looking. Three real misses were found
     exactly there, each of which printed a confident "leak gate OK" on a push
     that would have published a private term:
@@ -25643,70 +25596,6 @@ def check_precedent_check_fires():
             p = repo / rel
             p.write_text(fn(p.read_text(encoding='utf-8')), encoding='utf-8')
 
-        # --- the baseline must be clean, or every case below is meaningless
-        base = fresh('baseline')
-        # The same isolation run() applies (fixture-owns-its-state): no
-        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
-        # own individual set. With either, the commit-author check failed
-        # this baseline on the fixture's own `harness` commit (2026-10-10,
-        # once a change touching the check machinery made every check run
-        # here).
-        _env = {k: v for k, v in os.environ.items()
-                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
-                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
-        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
-        # Started here and read just before the closing assertions: a whole
-        # run takes about 30 s, and nothing between reads its result.
-        _baseline = subprocess.Popen(
-            [sys.executable, str(base / 'tools' / 'precedent_check.py')],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-            cwd=str(base), env=_env)
-
-        # --- one planted violation per enforced practice --------------------
-        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
-        # processes and returns; the result is collected the first time
-        # anything reads planted[slug] (or `in`, .get, .items), and every
-        # case still pending is collected before the closing assertions.
-        # So a later assertion that reads a case back blocks until that
-        # case is done, without anyone listing which cases are read --
-        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
-        # follow-ups. Two at a time used about one core of four; the width
-        # stays bounded, because a fan-out with no bound ran a container out
-        # of memory once (gotcha-2026-09-18).
-        _pending = {}
-        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
-
-        class _Planted(dict):
-            def _settle(self, key):
-                slug = key[:-len('-clean')] if key.endswith('-clean') else key
-                for k in (key, slug):
-                    if k in _pending:
-                        _pending.pop(k)()
-
-            def settle_all(self):
-                while _pending:
-                    _pending.pop(next(iter(_pending)))()
-
-            def __getitem__(self, key):
-                self._settle(key)
-                return dict.__getitem__(self, key)
-
-            def __contains__(self, key):
-                self._settle(key)
-                return dict.__contains__(self, key)
-
-            def get(self, key, default=None):
-                self._settle(key)
-                return dict.get(self, key, default)
-
-            def items(self):
-                self.settle_all()
-                return dict.items(self)
-
-        planted = _Planted()
-        declared = set()          # every slug case() was ASKED for
-        ran, skipped = [], []     # and which of those actually executed
-
         # ROTATION (Morgan, 2026-09-21, strength: decided -- "build the 10%
         # rotation"). This function was 107.9s of a 211.5s suite: 71 cases,
         # each copying the whole tree twice and starting two interpreters.
@@ -25742,6 +25631,113 @@ def check_precedent_check_fires():
             _selected, _selection_reason = _selected_case_slugs(_all_case_slugs)
         else:
             _selected, _selection_reason = None, 'all (the registry could not be read)'
+
+        # ONE CLEAN RUN SERVES EVERY PLAIN CASE (2026-10-31). Each case used
+        # to check its own unplanted copy as well -- a second tree copy and
+        # a second interpreter per case, about 130 of each, on a tree the
+        # baseline below checks anyway. When every case runs, the baseline
+        # is a --full-sweep (bare, it runs only a rotation slice of the tree
+        # checks), and a case with no setup=, extra= or env_extra= -- whose
+        # clean run would be `--only SLUG` on that same tree -- reads its
+        # slug's verdict out of it (_clean_from_baseline). A slug the sweep
+        # does not show clean, or any output the sweep cannot attribute to
+        # one slug, is checked again on its own copy exactly as before, so a
+        # failure reads the same as it always did. A rotated run keeps the
+        # bare baseline and the per-case clean runs: a whole sweep there
+        # would cost more than the few clean runs it saves.
+        _shared_clean = (_selected is None
+                         or set(_all_case_slugs) <= set(_selected))
+
+        # --- the baseline must be clean, or every case below is meaningless
+        base = fresh('baseline')
+        # The same isolation run() applies (fixture-owns-its-state): no
+        # PRECEDENT_COMMIT_*, and no user-level config to reach the person's
+        # own individual set. With either, the commit-author check failed
+        # this baseline on the fixture's own `harness` commit (2026-10-10,
+        # once a change touching the check machinery made every check run
+        # here).
+        _env = {k: v for k, v in os.environ.items()
+                if k not in ('PRECEDENT_COMMIT_NAME', 'PRECEDENT_COMMIT_EMAIL',
+                             'PRECEDENT_COMMIT_TZ', 'PRECEDENT_LEAK_BLOCKLIST')}
+        _env['PRECEDENT_USER_CONFIG'] = str(base / '.no-user-config.json')
+        # Started here and read just before the closing assertions (or by
+        # the first plain case's clean verdict): a bare run takes about 30 s,
+        # a full sweep about a minute, and nothing between reads its result.
+        _baseline = subprocess.Popen(
+            [sys.executable, str(base / 'tools' / 'precedent_check.py'),
+             *(['--full-sweep'] if _shared_clean else [])],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            cwd=str(base), env=_env)
+        _baseline_read = []
+
+        def _baseline_result():
+            if not _baseline_read:
+                out, _ = _baseline.communicate()
+                _baseline_read.append((_baseline.returncode, out))
+            return _baseline_read[0]
+
+        # --- one planted violation per enforced practice --------------------
+        # SEVERAL CASES IN FLIGHT (2026-10-11). case() starts its two
+        # processes and returns; the result is collected the first time
+        # anything reads planted[slug] (or `in`, .get, .items), and every
+        # case still pending is collected before the closing assertions.
+        # So a later assertion that reads a case back blocks until that
+        # case is done, without anyone listing which cases are read --
+        # sketch (a) of spec/VERIFY_HARNESS_PERFORMANCE.md's 2026-09-19
+        # follow-ups. Two at a time used about one core of four; the width
+        # stays bounded, because a fan-out with no bound ran a container out
+        # of memory once (gotcha-2026-09-18).
+        _pending = {}
+        _width = max(1, ((os.cpu_count() or 2) + 2) // 2)
+        # The bound is on processes, not cases: a plain case starts one, a
+        # case with its own clean run two, and twice _width processes was
+        # always the most in flight.
+        _weight = {}
+        _deferred = {}            # slug -> index in cases of its clean case
+
+        def _drain(slug):
+            _weight.pop(slug, None)
+            _pending.pop(slug)()
+
+        class _Planted(dict):
+            def _settle(self, key):
+                slug = key[:-len('-clean')] if key.endswith('-clean') else key
+                for k in (key, slug):
+                    if k in _pending:
+                        _drain(k)
+                if key.endswith('-clean') and slug in _deferred:
+                    # Read back before the sweep is done (one assertion
+                    # reads generated-edit-goes-upstream's clean output
+                    # early): its own copy now, rather than every case
+                    # after it waiting about a minute for the sweep.
+                    _clean_from_baseline(slug, wait=False)
+
+            def settle_all(self):
+                while _pending:
+                    _drain(next(iter(_pending)))
+                for slug in list(_deferred):
+                    _clean_from_baseline(slug)
+
+            def __getitem__(self, key):
+                self._settle(key)
+                return dict.__getitem__(self, key)
+
+            def __contains__(self, key):
+                self._settle(key)
+                return dict.__contains__(self, key)
+
+            def get(self, key, default=None):
+                self._settle(key)
+                return dict.get(self, key, default)
+
+            def items(self):
+                self.settle_all()
+                return dict.items(self)
+
+        planted = _Planted()
+        declared = set()          # every slug case() was ASKED for
+        ran, skipped = [], []     # and which of those actually executed
+
 
         # case()'s two sub-runs -- the planted fixture and the clean fixture
         # -- are provably independent: different directories, no shared
@@ -25809,26 +25805,31 @@ def check_precedent_check_fires():
                 shutil.rmtree(clean, ignore_errors=True)
                 return result
 
+            plain = _shared_clean and setup is None and not extra and not env_extra
             q1, q2 = multiprocessing.Queue(), multiprocessing.Queue()
             p1 = multiprocessing.Process(target=_case_worker, args=(_planted_pipeline, q1))
-            p2 = multiprocessing.Process(target=_case_worker, args=(_clean_pipeline, q2))
-            while len(_pending) >= _width:
-                _pending.pop(next(iter(_pending)))()
+            p2 = None if plain else multiprocessing.Process(
+                target=_case_worker, args=(_clean_pipeline, q2))
+            w = 1 if plain else 2
+            while _pending and sum(_weight.values()) + w > 2 * _width:
+                _drain(next(iter(_pending)))
             p1.start()
-            p2.start()
+            if p2:
+                p2.start()
+            _weight[slug] = w
             _pending[slug] = lambda: _collect(slug, advisory, q1, q2, p1, p2)
 
         def _collect(slug, advisory, q1, q2, p1, p2):
             status1, value1 = q1.get()
-            status2, value2 = q2.get()
+            status2, value2 = q2.get() if p2 else ('ok', None)
             p1.join()
-            p2.join()
+            if p2:
+                p2.join()
             if status1 == 'error':
                 raise value1
             if status2 == 'error':
                 raise value2
             rc, out = value1
-            rc2, out2 = value2
 
             planted[slug] = (rc, out)
             if advisory:
@@ -25849,9 +25850,74 @@ def check_precedent_check_fires():
             else:
                 cases.append((f'{slug}: a planted violation fails the check',
                               rc == 1 and 'VIOLATION' in out))
+            if p2 is None:
+                # Its place in `cases` is kept; the shared baseline fills it.
+                _deferred[slug] = len(cases)
+                cases.append((f'{slug}: the same tree unplanted does not', False,
+                              'not yet read from the shared baseline'))
+                return
+            _clean_case(slug, *value2)
+
+        def _clean_case(slug, rc2, out2, at=None):
             planted[slug + '-clean'] = (rc2, out2)
-            cases.append((f'{slug}: the same tree unplanted does not',
-                          rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2))
+            stated = (f'{slug}: the same tree unplanted does not',
+                      rc2 == 0 and 'VIOLATION' not in out2 and 'ADVISORY' not in out2)
+            if at is None:
+                cases.append(stated)
+            else:
+                cases[at] = stated
+
+        _HEADER = re.compile(r'^(VIOLATION|ADVISORY|ERROR|SKIPPED|COULD NOT VERIFY'
+                             r'|EXEMPT)\s+(\S+)')
+        _by_slug = []
+
+        def _baseline_by_slug():
+            """-> ({slug: its lines of the shared sweep}, whether anything
+            in the sweep could not be put down to one slug). A section is a
+            header naming the slug and the indented lines under it; what is
+            left over may say VIOLATION or ADVISORY only if no slug's own
+            run would have, and a sweep that never reached its summary line
+            is all left over."""
+            if not _by_slug:
+                _rc, out = _baseline_result()
+                sections, rest, cur = {}, [], None
+                for line in out.splitlines():
+                    m = _HEADER.match(line)
+                    if m:
+                        cur = sections.setdefault(m.group(2), [])
+                        cur.append(line)
+                    elif cur is not None and line.startswith((' ', '\t')):
+                        cur.append(line)
+                    else:
+                        cur = None
+                        rest.append(line)
+                rest = '\n'.join(rest)
+                unattributed = ('VIOLATION' in rest or 'ADVISORY' in rest
+                                or not re.search(r'^precedent_check: \d+ passed', rest, re.M))
+                _by_slug.append(({k: '\n'.join(v) for k, v in sections.items()},
+                                 unattributed))
+            return _by_slug[0]
+
+        def _clean_from_baseline(slug, wait=True):
+            """The clean case of a plain slug, from the shared sweep: what
+            `--only SLUG` on the same tree would have said. Run on its own
+            copy instead when the sweep shows it anything but clean, or
+            holds something it cannot attribute -- the old path, so its
+            failure detail is the old one."""
+            at = _deferred.pop(slug)
+            if not wait and not _baseline_read and _baseline.poll() is None:
+                sections, unattributed = {}, True
+            else:
+                sections, unattributed = _baseline_by_slug()
+            mine = sections.get(slug, '')
+            failing = re.search(r'^(VIOLATION|ADVISORY|ERROR)\s', mine, re.M)
+            if unattributed or failing or 'VIOLATION' in mine or 'ADVISORY' in mine:
+                clean = fresh(slug + '-clean')
+                rc2, out2 = run(clean, slug)
+                shutil.rmtree(clean, ignore_errors=True)
+            else:
+                rc2, out2 = 0, mine
+            _clean_case(slug, rc2, out2, at=at)
 
         # cite-the-incident -- a new practice with no ## Story
         def _plant_cite(repo):
@@ -27279,10 +27345,11 @@ def check_precedent_check_fires():
         case('checks-use-generated-blocks', _plant_hand_marker)
 
         # practice-change-propagates -- a live lookup of a practice this tree
-        # renamed away. `go-merge` is a deduplicated stub forwarding to
-        # `go-update` here, so a README telling the reader to look it up
-        # sends them to the stub: the go-merge rename's own shape, planted in
-        # the repository that made the rename.
+        # renamed away. `brief-it` is a deduplicated stub forwarding to
+        # `my-options` here, so a README telling the reader to look it up
+        # sends them to the stub: the shape of the go-merge rename this case
+        # was first written for (go-merge, a stub forwarding to go-update),
+        # planted in the repository that made the rename.
         case('practice-change-propagates',
              lambda repo: rewrite(repo, 'README.md', lambda t: t +
                                   '\nBefore merging, read '
@@ -29580,8 +29647,7 @@ def check_precedent_check_fires():
              setup=_setup_buenos_aires_dates, env_extra=_ID_ENV)
 
         planted.settle_all()
-        _out, _ = _baseline.communicate()
-        rc = _baseline.returncode
+        rc, _out = _baseline_result()
         # On a failure, the failing checks' own findings go into the detail:
         # a bare rc said only the slug of this case, and under --as-ci
         # --isolated (UTC) finding that todo/TODO.md had drifted took a
@@ -32219,19 +32285,63 @@ def check_gate_channel():
     # A practice another resolved source replaces (`overrides:`) is not in
     # force and is rightly left out -- present only where that source
     # resolves, as a person's individual set does beside this checkout.
+    #
+    # EVERY GATE RUN STARTS AT ONCE, AND EACH IS RUN ONCE (2026-10-31). The
+    # reply gate takes about 10 s, and this function ran it three times
+    # (here, again for the --brief comparison, and push again for the
+    # SessionStart case below), one after another. precedent_gate.py writes
+    # nothing, so the runs are independent: all of them start here, the
+    # Stop-hook pair runs while they work, and the --brief and push cases
+    # read the same `reply` and `push` results this loop judges.
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as _pg
+
+    def _gate_popen(*args):
+        return subprocess.Popen([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+                                 *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, cwd=str(ROOT))
+    _gate_procs = {g: _gate_popen(g) for g in sorted(vocab)}
+    _gate_procs[('no-such-gate',)] = _gate_popen('no-such-gate')
+    _gate_procs[('reply', '--brief')] = _gate_popen('reply', '--brief')
+    _gate_runs = {}
+
+    # The Stop-hook pair below, started now so it runs beside the gates:
+    # the two runs stay one after the other, in the order they always ran.
+    import tempfile, threading
+    _stop_runs = {}
+
+    def _stop_pair():
+        with tempfile.TemporaryDirectory() as _td:
+            _t = pathlib.Path(_td) / 't.jsonl'
+            _t.write_text(json.dumps({'type': 'user', 'message': {
+                'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
+                               ('without', '{}')):
+                _stop_runs[k] = subprocess.run(
+                    ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
+                    capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+    _stop_thread = threading.Thread(target=_stop_pair, daemon=True)
+    _stop_thread.start()
+
+    def _gate_run(key):
+        if key not in _gate_runs:
+            if key not in _gate_procs:
+                _gate_procs[key] = _gate_popen(*((key,) if isinstance(key, str) else key))
+            proc = _gate_procs[key]
+            out, err = proc.communicate()
+            _gate_runs[key] = subprocess.CompletedProcess(proc.args, proc.returncode,
+                                                          out, err)
+        return _gate_runs[key]
+
     for g in sorted(vocab):
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), g],
-                           capture_output=True, text=True, cwd=str(ROOT))
+        r = _gate_run(g)
         replaced = _pg.resolved_gate_practices(str(ROOT), g)[3]
         ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g]
                                        if s not in replaced)
         cases.append((f'`precedent_gate.py {g}` returns every practice registered to it', ok,
                       (r.stdout + r.stderr).strip()[:120] if not ok else ''))
 
-    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'no-such-gate'],
-                       capture_output=True, text=True, cwd=str(ROOT))
+    r = _gate_run(('no-such-gate',))
     cases.append(('an unknown gate fails loudly rather than printing nothing',
                   r.returncode != 0 and 'no gate named' in (r.stdout + r.stderr)))
 
@@ -32309,16 +32419,8 @@ def check_gate_channel():
     # as a path lost to a worker restart. Planted transcript: the sentence
     # is gone; no path in the payload (the control): it is back.
     no_path = 'no transcript reached this gate'
-    import tempfile
-    with tempfile.TemporaryDirectory() as _td:
-        _t = pathlib.Path(_td) / 't.jsonl'
-        _t.write_text(json.dumps({'type': 'user', 'message': {
-            'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
-        _runs = {k: subprocess.run(
-            ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
-            capture_output=True, text=True, cwd=str(ROOT), timeout=120)
-            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
-                               ('without', '{}'))}
+    _stop_thread.join()
+    _runs = _stop_runs
     cases.append(('the Stop hook hands the gate the transcript its payload names',
                   no_path not in _runs['with'].stdout + _runs['with'].stderr
                   and no_path in _runs['without'].stdout + _runs['without'].stderr,
@@ -32327,10 +32429,8 @@ def check_gate_channel():
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
-    r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],
-                            capture_output=True, text=True, cwd=str(ROOT))
-    r_brief = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
-                              'reply', '--brief'], capture_output=True, text=True, cwd=str(ROOT))
+    r_full = _gate_run('reply')
+    r_brief = _gate_run(('reply', '--brief'))
     cases.append(('`precedent_gate.py reply --brief` is much smaller than the '
                   'full gate -- it fires on every prompt',
                   r_brief.returncode == 0
@@ -32379,8 +32479,7 @@ def check_gate_channel():
     # container's real state is, so the case is meaningful in both a healthy
     # session and a broken one.
     broken = psck.failing_guarantees()
-    r_gate = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'push'],
-                            capture_output=True, text=True, cwd=str(ROOT))
+    r_gate = _gate_run('push')
     said = 'SessionStart guarantee(s) NOT in effect' in r_gate.stdout
     cases.append(('a gate reports broken SessionStart guarantees, and says '
                   'nothing when there are none',
@@ -37171,38 +37270,61 @@ def check_compaction_offer_owed_printed_at_turn_start():
                 for c, t in turns), encoding='utf-8')
             return path
 
-        def run(path):
+        # The tools are linked into the fixture once, before any run: the
+        # four runs below go side by side (2026-10-31; each is a whole
+        # reply-gate.sh, about 10 s, and they share nothing but this
+        # read-only fixture), and linking inside each run raced on the links.
+        (fx / 'tools').mkdir(exist_ok=True)
+        for f in ROOT.joinpath('tools').glob('*.py'):
+            dst = fx / 'tools' / f.name
+            if not dst.exists():
+                dst.symlink_to(f)
+
+        def start(path):
             # Through the hook itself, so the payload-to-env hand-off is what
             # is tested, not only the gate's reading of the variable.
             hook = ROOT / 'tools' / 'reply-gate.sh'
-            (fx / 'tools').mkdir(exist_ok=True)
-            for f in ROOT.joinpath('tools').glob('*.py'):
-                dst = fx / 'tools' / f.name
-                if not dst.exists():
-                    dst.symlink_to(f)
             payload = json.dumps({'transcript_path': str(path)}) if path else ''
-            return subprocess.run(
-                ['bash', str(hook)], input=payload, capture_output=True,
-                text=True, cwd=str(fx),
+            proc = subprocess.Popen(
+                ['bash', str(hook)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, cwd=str(fx),
                 env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
                      'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+            # Handed over now, not at finish(): the hook's first act is to
+            # read stdin to its end, so a payload held back would hold every
+            # run back until the one before it was read.
+            proc.stdin.write(payload)
+            proc.stdin.close()
+            proc.stdin = None
+            return proc
 
-        owed = run(transcript('owed.jsonl', [
-            (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')]))
+        def finish(proc):
+            out, err = proc.communicate()
+            return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
+
+        _started = {
+            'owed': start(transcript('owed.jsonl', [
+                (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')])),
+            'short': start(transcript('short.jsonl', [(96000, 'Opening.'),
+                                                      (120000, 'Done.')])),
+            'said': start(transcript('said.jsonl', [
+                (96000, 'Opening.'),
+                (205000, 'Now is a good time to compact the session.'),
+                (250000, 'More.')])),
+            'blind': start(None),
+        }
+        owed = finish(_started['owed'])
         cases.append(('a grown session is told the offer is OWED, with the '
                       'sentence to say', 'OWED IN THIS REPLY' in owed.stdout
                       and 'Now is a good time to compact the session' in owed.stdout,
                       failure_detail(owed.stdout, 400)))
-        short = run(transcript('short.jsonl', [(96000, 'Opening.'), (120000, 'Done.')]))
+        short = finish(_started['short'])
         cases.append(('a short session hears nothing about compacting',
                       'good time to compact' not in short.stdout, failure_detail(short.stdout, 400)))
-        said = run(transcript('said.jsonl', [
-            (96000, 'Opening.'),
-            (205000, 'Now is a good time to compact the session.'),
-            (250000, 'More.')]))
+        said = finish(_started['said'])
         cases.append(('once said, it is not owed again until another increment',
                       'good time to compact' not in said.stdout, failure_detail(said.stdout, 400)))
-        blind = run(None)
+        blind = finish(_started['blind'])
         cases.append(('no transcript: it says it could not tell, and never '
                       'defers to the stop hook', 'could not be worked out'
                       in blind.stdout and 'stop hook is the thing'
@@ -56648,14 +56770,24 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
     import contextlib, inspect, io
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as pg
+    import precedent_reply_check as prc
     cases = []
-    saved = (pg._container_report, pg._is_code_owner)
+    saved = (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+             prc._own_branches)
     report = ('CONTAINER NOT SAFE TO LOSE -- 1 of 2 checkout(s) hold work that '
               'is only here:\n  scratch:abc -- 1 file(s) in a scratch folder')
 
     def gate(owner):
         pg._container_report = lambda: report
         pg._is_code_owner = lambda _root: owner
+        # Neither of these writes a word this test reads, and together they
+        # were about 6 of each call's 6.5 s (2026-10-31): a set's own note
+        # tool, run as a subprocess, and the scan of this session's real
+        # branches on origin for the Boildown's one-line form. Stubbed, the
+        # asserted text is the same and no longer depends on which branches
+        # the session running the harness happens to have pushed.
+        pg._note_from_tool = lambda _root, _spec: []
+        prc._own_branches = lambda root=None, siblings=True: []
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             pg._print_hard_requirements(ROOT)
@@ -56682,7 +56814,8 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
         cases.append(('...and no plain-words instruction',
                       "NOT one of this repository's code owners" not in out, ''))
     finally:
-        pg._container_report, pg._is_code_owner = saved
+        (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+         prc._own_branches) = saved
     # 2026-10-12, Morgan: "Nothing technical should ever be said to a non
     # technical person." The other places that speak through a session.
     import precedent_session_check as psc
@@ -67216,11 +67349,24 @@ def check_tools_answer_help_without_writing():
                      if "__main__" not in t.read_text(encoding='utf-8')]
         tools = [t for t in tools if t not in libraries]
         bad_exit, silent, not_help = [], [], []
-        for tool in tools:
-            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
-                                '--help'],
-                               cwd=str(tmp), capture_output=True, text=True,
-                               timeout=120)
+
+        # SIDE BY SIDE (2026-10-31): about 150 interpreters, one after
+        # another, were nearly all of this check's 16 s. They run in the
+        # same copy; the snapshot after all of them still catches any write,
+        # and the results are judged below in the tools' own order. The
+        # whole tracked tree is still copied: a tool whose --help fell
+        # through to a write needs the files it would rewrite to be there,
+        # or the copy would hide exactly what this check is for.
+        def _help(tool):
+            return subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                   '--help'],
+                                  cwd=str(tmp), capture_output=True, text=True,
+                                  timeout=120)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=os.cpu_count() or 2) as _pool:
+            _answers = list(_pool.map(_help, tools))
+        for tool, r in zip(tools, _answers):
             if r.returncode != 0:
                 bad_exit.append(f'{tool.name} exited {r.returncode}')
             elif not r.stdout.strip():
@@ -96269,7 +96415,6 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
-    check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_practice_audit_loader()
