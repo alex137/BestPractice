@@ -157,12 +157,16 @@ def self_check():
     import json
     import os
     import tempfile
-    env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
-               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-               GIT_CONFIG_GLOBAL=os.devnull)
     cases = []
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
+        # An empty file of its own, never os.devnull: a `git config
+        # --global` under GIT_CONFIG_GLOBAL=/dev/null replaces the device
+        # (gotcha-2026-10-10-git-config-global-with-dev-null-replaces-dev-null).
+        (td / 'gitconfig').write_text('', encoding='utf-8')
+        env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
+                   GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
+                   GIT_CONFIG_GLOBAL=str(td / 'gitconfig'))
         bare = td / 'remote' / 'Engine.git'
         work = td / 'seed'
         _run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)], td, env)

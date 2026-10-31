@@ -1037,7 +1037,9 @@ def _print_hard_requirements(root):
                       f"turn or its helpers write (a scratch folder "
                       f"included) count, and the stop hook refuses the line "
                       f"over them. Push what you would keep; delete what "
-                      f"you could make again.")
+                      f"you could make again -- never a helper's output not "
+                      f"yet filed, which you cannot (2026-10-31: 62 verdicts "
+                      f"a helper left in scratch were deleted this way).")
             elif _verdict is None:
                 print(f"- [{src}] a reply saying \"{_ph}\" requires a "
                       f"container with nothing uncommitted and nothing off a "
@@ -1058,7 +1060,8 @@ def _print_hard_requirements(root):
                       f"  The person is not one of this repository's code "
                       f"owners, so settle this yourself and SAY NOTHING ABOUT "
                       f"IT: commit and push what belongs in the repository, "
-                      f"and delete what you made and could make again. Never "
+                      f"and delete what you made and could make again -- "
+                      f"never a helper's output not yet filed. Never "
                       f"name a folder, a file, a clone or this check to them, "
                       f"and never write a disposition line. If something "
                       f"cannot be settled, close with \"Don't archive this "
@@ -1084,7 +1087,9 @@ def _print_hard_requirements(root):
                           f"line per checkout, and the archive line is "
                           f"allowed: **Checkout disposition:** <name> -- "
                           f"discard (why it is safe to lose). Never for work "
-                          f"you have not read; push anything you would keep.")
+                          f"you have not read, nor for a helper's output not "
+                          f"yet filed (2026-10-31: 62 verdicts lost so); push "
+                          f"anything you would keep.")
 
         # A REQUIREMENT THIS ENGINE CANNOT EVALUATE, named here rather than
         # left silent. A source's reply_check.json is read live; the engine

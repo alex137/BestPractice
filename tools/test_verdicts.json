@@ -8175,6 +8175,15 @@
       "by": "agent",
       "seconds": 0.4,
       "leads": []
+    },
+    "check_no_fixture_points_git_config_at_dev_null": {
+      "verdict": "keep",
+      "why": "Refuses os.devnull or /dev/null as git's global or system config anywhere under tools/: one git config --global under it replaces the container's null device (2026-10-10, 2026-10-31).",
+      "date": "2026-10-31",
+      "by": "agent",
+      "seconds": 0.1,
+      "leads": [],
+      "importance": "medium"
     }
   }
 }

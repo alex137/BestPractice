@@ -178,10 +178,18 @@ def person_messages(records, repo=None):
     /compact (2026-09-30), one of them "Pick up the last task as if the
     break never happened". Other harnesses mark neither, and are read as
     before.
+
+    A background job's or a helper's report is dropped too: it arrives as a
+    `type: user` record whose `origin.kind` is "task-notification", its text
+    a <task-notification> block. Read as the person's words, it raised about
+    twenty "the person said" signals across three turns of the 2026-10-30
+    very deep check's session (2026-10-31), every one a helper's report
+    sentence such as "Each one still fails when its check is broken so it
+    never fires."
     """
     skip = ('<system-reminder>', '<command-name>', '<local-command',
             'UserPromptSubmit hook', 'SessionStart', 'Caveat: The messages below',
-            '<wake ', '<event ', '<webhook-payload>')
+            '<wake ', '<event ', '<webhook-payload>', '<task-notification>')
     out = []
     said = ''                     # every assistant text so far, folded
     seeded = _seeded_header(repo)
@@ -190,6 +198,9 @@ def person_messages(records, repo=None):
                                      if b.get('type') == 'text'))
         if rec.get('isCompactSummary') or rec.get('isMeta'):
             continue              # the harness's words, not the person's
+        origin = rec.get('origin') if isinstance(rec.get('origin'), dict) else {}
+        if origin.get('kind') == 'task-notification':
+            continue              # a helper's or a job's report, not the person
         for b in _blocks(rec, 'user'):
             if b.get('type') != 'text':
                 continue          # tool_result and friends are not the person

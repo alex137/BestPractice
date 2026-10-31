@@ -88,14 +88,56 @@ def terms(root=ROOT):
     return out
 
 
+# A git command that takes a message: its message is local text that the
+# commit carries, never a request.
+_GIT_MESSAGE_CMD = re.compile(r'\bgit\b(?:\s+-[Cc]\s+\S+)*\s+(?:commit|tag|notes|merge)\b')
+_HEREDOC = re.compile(r'<<-?[ \t]*([\'"]?)([A-Za-z_]\w*)\1')
+_MESSAGE_ARG = re.compile(
+    r'(\s(?:-m|--message)(?:=|\s+))("(?:[^"\\]|\\.)*"|\'[^\']*\'|\S+)')
+
+
+def without_commit_messages(cmd):
+    """`cmd` with the messages of its git commit, tag, notes and merge
+    commands blanked: a heredoc that feeds one, and each -m / --message
+    value. Everything else is kept, an inline script included.
+
+    WHY (2026-10-31, and 2026-10-20 before it). Every commit here carries
+    a `Claude-Session: https://...` trailer, and the author's address goes
+    in `--author` or `-c user.email`. The URL read as "this command reaches
+    the network" and the address as a private term, so a plain local
+    commit was refused as outbound -- twice on 2026-10-20 and again on
+    2026-10-31. A push is still read whole: it is the network step."""
+    lines = cmd.split('\n')
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        m = _HEREDOC.search(line)
+        if m and _GIT_MESSAGE_CMD.search(line[:m.start()]):
+            out.append(_MESSAGE_ARG.sub(r'\1""', line))
+            end = m.group(2)
+            i += 1
+            while i < len(lines) and lines[i].strip() != end:
+                i += 1
+            if i < len(lines):
+                out.append(lines[i])
+            i += 1
+            continue
+        if _GIT_MESSAGE_CMD.search(line):
+            line = _MESSAGE_ARG.sub(r'\1""', line)
+        out.append(line)
+        i += 1
+    return '\n'.join(out)
+
+
 def outbound_text(tool, tool_input):
     """The text of a request that would leave the machine, or None."""
     if tool in OUTBOUND_TOOLS or OUTBOUND_MCP.match(tool or ''):
         return json.dumps(tool_input, ensure_ascii=False)
     if tool == 'Bash':
         cmd = str(tool_input.get('command') or '')
-        if NETWORK.search(cmd):
-            return cmd
+        read = without_commit_messages(cmd)
+        if NETWORK.search(read):
+            return read
     return None
 
 

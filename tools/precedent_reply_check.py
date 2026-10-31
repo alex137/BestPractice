@@ -556,6 +556,13 @@ def assistant_timeline(transcript):
 # events arrive the same way but carry no <status>: an event is progress,
 # never the end of anything.
 _BG_STARTED_RE = re.compile(r'Command running in background with ID:\s*([A-Za-z0-9_-]+)')
+# Where the harness says that job's output goes, on the same line.
+_BG_OUTPUT_RE = re.compile(r'Output is being written to:\s*(\S+?)\.?(?:\s|$)')
+# A helper launched with the Agent tool answers "Async agent launched
+# successfully" and names its agentId; its end is a <task-notification>
+# carrying that id as the task-id, the same as a command's.
+_AGENT_STARTED_RE = re.compile(
+    r'Async agent launched successfully.*?\bagentId:\s*([A-Za-z0-9_-]+)', re.S)
 _NOTIFICATION_RE = re.compile(r'<task-notification>(.*?)</task-notification>', re.S)
 _TAG_RE = r'<{0}>(.*?)</{0}>'
 # A finished job counts as failed on a non-zero exit code; a progress event
@@ -675,6 +682,25 @@ def last_prompt_text(transcript):
     return last
 
 
+def _output_is_gone(started_text):
+    """True when the started line names an output file this machine does
+    not have: the job ran in a container that has since been replaced (a
+    worker restart, a resumed session), so it is not running here and its
+    end will never be reported.
+
+    WHY (2026-10-31, the 2026-10-30 very deep check's session). Its first
+    full test run started at 01:19 UTC; the worker restarted in the first
+    hour, the job died with the old container, and no notification ever
+    came. The gate counted it as running for the rest of the day and
+    refused about fifteen turns, over eight hours, for one waiting line.
+    A started line with no output path is counted as before."""
+    m = _BG_OUTPUT_RE.search(started_text)
+    if not m:
+        return False
+    path = m.group(1)
+    return path.startswith('/') and not os.path.exists(path)
+
+
 def turn_wake(transcript):
     """What started this turn, when a background job did -> dict, else None.
 
@@ -702,10 +728,15 @@ def turn_wake(transcript):
     assistant text in the file: a turn that said nothing must not be judged
     by the previous turn's words.
 
-    Blind spot, said rather than hidden: only a Bash command's own "running
-    in background" line marks a job as started. A job launched some other
-    way is not counted as running, so its batch is judged done early -- the
-    session may then speak, which is the old behavior, never a wrong refusal.
+    What marks a job as started: a Bash command's own "running in
+    background" line, and a helper's "Async agent launched successfully"
+    with its agentId (2026-10-31: four helpers running and no shell job,
+    and a "(Waiting on four helpers.)" line was refused for want of a
+    Boildown). A command whose output file this machine does not have is
+    not counted: it died with an earlier container (`_output_is_gone`).
+    A job launched any other way is not counted as running, so its batch
+    is judged done early -- the session may then speak, which is the old
+    behavior, never a wrong refusal.
     """
     try:
         rows = [json.loads(l) for l in
@@ -747,6 +778,10 @@ def turn_wake(transcript):
                         x.get('text', '') for x in (c or [])
                         if isinstance(x, dict) and isinstance(x.get('text'), str))
                     m = _BG_STARTED_RE.match(c.lstrip())
+                    if m and m.group(1) not in started \
+                            and not _output_is_gone(c):
+                        started.append(m.group(1))
+                    m = _AGENT_STARTED_RE.match(c.lstrip())
                     if m and m.group(1) not in started:
                         started.append(m.group(1))
             if _is_prompt_row(d):
