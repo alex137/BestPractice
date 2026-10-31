@@ -167,7 +167,6 @@ import split_practices as sp
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 import generated_blocks  # noqa: E402
-import harness_parts  # noqa: E402
 try:                                     # practice: upstream-fix
     from precedent_repo_id import same_repo  # noqa: E402
 except ImportError:
@@ -9112,7 +9111,7 @@ def _enforcement_lives_with_its_practice(ctx):
         if rel in shipped_here:
             continue
         hits = _set_names_in_strings(path, wanted, set_only, names)
-        test = harness_parts.is_harness(rel) or '/tests/' in rel \
+        test = _is_harness_file(rel) or '/tests/' in rel \
             or pathlib.PurePosixPath(rel).name.startswith('test_')
         for h in sorted(hits):
             what = (f'the set {h}' if h in names else
@@ -12960,6 +12959,18 @@ def _vendored_engine_files():
 @functools.lru_cache(maxsize=None)
 def _retired_term_re(term):
     return re.compile(r'(?<![\w-])' + re.escape(term) + r'(?![\w-])')
+
+
+def _is_harness_file(rel):
+    """True for tools/verify_harness.py and its area files
+    (tools/harness_parts.py). Imported here, not at the top: a tree that
+    copies this file without harness_parts.py, as many fixtures and older
+    vendored copies do, has no harness parts either."""
+    try:
+        import harness_parts
+    except ImportError:
+        return rel == 'tools/verify_harness.py'
+    return harness_parts.is_harness(rel)
 
 
 RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'

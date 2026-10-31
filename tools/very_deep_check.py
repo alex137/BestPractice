@@ -1801,8 +1801,12 @@ _FILE_SUFFIXES = ('.sh', '.py', '.json')
 
 def _harness_part_paths(repo_dir):
     """-> the harness's area files in `repo_dir` (tools/harness/vh_*.py):
-    the tests that lived in tools/verify_harness.py until 2026-10-31."""
-    import harness_parts
+    the tests that lived in tools/verify_harness.py until 2026-10-31.
+    [] in a tree copied without tools/harness_parts.py, which has none."""
+    try:
+        import harness_parts
+    except ImportError:
+        return []
     return harness_parts.part_paths(repo_dir)
 
 
@@ -1924,11 +1928,10 @@ def _incident_coverage(repo_dir, since=None):
                         encoding='utf-8')
                 except (OSError, UnicodeDecodeError):
                     continue
-    try:
-        import harness_parts
-        harness = harness_parts.read_all(repo_dir)
-    except (OSError, UnicodeDecodeError):
-        harness = ''
+    harness = '\n\n'.join(
+        p.read_text(encoding='utf-8', errors='replace')
+        for p in [repo_dir / 'tools' / 'verify_harness.py',
+                  *_harness_part_paths(repo_dir)] if p.is_file())
     cases = _harness_cases(harness)
     rows = []
     for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),

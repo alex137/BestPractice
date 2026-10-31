@@ -1393,7 +1393,6 @@ def _unplanted_checks(root):
     every check_*.py script precedent_check.register_materialized_checks()
     would add (named by the practice whose checked_by claims it, else by its
     stem -- the same naming). [] where either file is missing."""
-    import harness_parts
     pc, vh = root / 'tools' / 'precedent_check.py', root / 'tools' / 'verify_harness.py'
     if not (pc.is_file() and vh.is_file()):
         return []
@@ -1410,7 +1409,7 @@ def _unplanted_checks(root):
         for script in sorted((root / d).glob('check_*.py')):
             slug = claimed.get(script.name, script.stem)
             registered.add(slug)
-    declared = set(_CASE_RE.findall(harness_parts.read_all(root)))
+    declared = set(_CASE_RE.findall(_harness_text(root)))
     return sorted(registered - declared)
 
 
@@ -1425,10 +1424,34 @@ def _unplanted_checks(root):
 _HARNESS_DEF_RE = re.compile(r'^def (check_[a-z_0-9]+)\(', re.M)
 
 
+def _harness_parts():
+    """-> tools/harness_parts.py, or None in a tree copied without it (a
+    fixture's handful of tools, say), which then has no area files either:
+    every caller falls back to tools/verify_harness.py alone."""
+    try:
+        import harness_parts
+    except ImportError:
+        return None
+    return harness_parts
+
+
+_RUNNER = 'tools/verify_harness.py'
+
+
 def _is_harness_file(rel):
     """True for tools/verify_harness.py and its area files (harness_parts)."""
-    import harness_parts
-    return harness_parts.is_harness(rel)
+    hp = _harness_parts()
+    return hp.is_harness(rel) if hp else rel == _RUNNER
+
+
+def _harness_text(root):
+    """-> the source of every harness file under `root`."""
+    hp = _harness_parts()
+    if hp:
+        return hp.read_all(root)
+    runner = Path(root) / _RUNNER
+    return runner.read_text(encoding='utf-8', errors='replace') \
+        if runner.is_file() else ''
 
 
 def unrecorded_harness_checks(src):
@@ -1523,14 +1546,13 @@ def _new_tests_have_times(root, since, files, problems):
     2026-10-16: "The new heavy tests should be in the batch of tests as they
     land on the branch"). A text read of the diff and the timing list --
     no test runs here; the command it names times only the new ones."""
-    import harness_parts
-    touched = harness_parts.changed(files)
-    if not touched:
+    if not any(_is_harness_file(f) for f in files):
         return
     # Every harness file, not only the ones this change touched: a test moved
     # from one area file to another is deleted in one and added in the other.
+    hp = _harness_parts()
     diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--',
-               harness_parts.HARNESS, harness_parts.PARTS_DIR) or ''
+               *((hp.HARNESS, hp.PARTS_DIR) if hp else (_RUNNER,))) or ''
     added = re.findall(r'^\+def (check_\w+)\(', diff, re.M)
     # 2026-10-30: 7e5d9d26 deleted two tests and left their times, and the
     # full suite's partition case failed on main until a very deep check
@@ -1638,8 +1660,7 @@ def raw_tail_reports(tree):
 def _added_raw_tail_reports(root, since, files, problems):
     """A change to any harness file (tools/verify_harness.py, or an area
     file under tools/harness/) adds no raw-tail failure report."""
-    import harness_parts
-    for rel in harness_parts.changed(files):
+    for rel in [f for f in files if _is_harness_file(f)]:
         _added_raw_tail_reports_in(root, since, rel, problems)
 
 
@@ -1915,9 +1936,13 @@ def changed_files_check(root, since):
                 f'the next full check runs it')
     harness = root / 'tools' / 'verify_harness.py'
     if any(_is_harness_file(f) for f in files) and harness.is_file():
-        import harness_parts
-        for fn, why in unrecorded_harness_checks(harness_parts.read_all(root)):
-            problems.append(f'the harness: {fn} {why}')
+        hp, where = _harness_parts(), {}
+        for path in (hp.paths(root) if hp else [harness]):
+            for fn in _HARNESS_DEF_RE.findall(
+                    path.read_text(encoding='utf-8', errors='replace')):
+                where.setdefault(fn, path.relative_to(root).as_posix())
+        for fn, why in unrecorded_harness_checks(_harness_text(root)):
+            problems.append(f'{where.get(fn, _RUNNER)}: {fn} {why}')
     problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]

@@ -163,8 +163,12 @@ def inventory(root):
     harness = root / HARNESS_RELPATH
     if harness.is_file() and HARNESS_RELPATH not in vendored:
         times, measured = _read_times(root / TIMES_RELPATH)
-        import harness_parts
-        for path in harness_parts.paths(root):
+        try:
+            import harness_parts
+            paths = harness_parts.paths(root)
+        except ImportError:          # a tree copied without it has no parts
+            paths = [harness]
+        for path in paths:
             tests += _harness_tests(path, path.relative_to(root).as_posix(),
                                     times, measured)
     return tests + _script_tests(root, vendored)

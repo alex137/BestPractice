@@ -423,16 +423,27 @@ def plan(names, head=None, fetch=True):
                  f'reaches since {base[:12]}')
 
 
-def _names():
+def _harness_parts():
+    """-> tools/harness_parts.py, or None in a tree copied without it,
+    which then has tools/verify_harness.py alone."""
     sys.path.insert(0, str(ROOT / 'tools'))
-    import harness_parts
-    return sorted(harness_parts.check_names(harness_parts.read_all(ROOT)))
+    try:
+        import harness_parts
+    except ImportError:
+        return None
+    return harness_parts
+
+
+def _names():
+    hp = _harness_parts()
+    src = hp.read_all(ROOT) if hp else (ROOT / HARNESS).read_text(encoding='utf-8')
+    return sorted({ln[4:].split('(', 1)[0] for ln in src.splitlines()
+                   if ln.startswith('def check_')})
 
 
 def _is_harness(rel):
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import harness_parts
-    return harness_parts.is_harness(rel)
+    hp = _harness_parts()
+    return hp.is_harness(rel) if hp else rel == HARNESS
 
 
 def main(argv):
