@@ -41728,6 +41728,34 @@ def check_a_pushed_branch_in_a_shallow_clone_is_safe():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_visibility_audit_skips_only_fixture_names():
+    """The visibility audit does not spend an API call on a name only a test
+    mentions, under an owner nothing else names -- and still asks about a
+    real owner a fixture happens to name (2026-10-30 very deep check: 187
+    GitHub calls against a declared 150, 110 of 149 names fixture-only).
+
+    Control: a name in a test whose owner is named in a document is kept."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as v
+    refs = {('zz-made-up', 'a'): ['tools/verify_harness.py'],
+            ('zz-made-up', 'b'): ['tools/checks/tests/test_x.sh'],
+            ('realacct', 'in-test'): ['tools/verify_harness.py'],
+            ('realacct', 'documented'): ['README.md'],
+            ('mixed', 'both'): ['tools/verify_harness.py', 'INSTALL.md']}
+    keep, skipped = v._drop_fixture_only_refs(refs)
+    cases = [('a made-up owner named only in tests is skipped, and listed',
+              skipped == ['zz-made-up/a', 'zz-made-up/b'], skipped),
+             ('control: a real owner named in a document is still asked about '
+              'where only a test names the repository',
+              ('realacct', 'in-test') in keep, sorted(keep)),
+             ('a name a document also mentions is asked about',
+              ('mixed', 'both') in keep and ('realacct', 'documented') in keep,
+              sorted(keep))]
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the visibility audit skips only fixture-only names ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(bad))
+
+
 def check_very_deep_check_lists_checks_by_stage():
     """The very deep check's CHECKS BY STAGE reads, from a repository's own
     push check and branch tool, what runs before and after Booked, Produce
@@ -94527,6 +94555,7 @@ def main():
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
     check_landing_waits_for_a_missing_ladder_set()
+    check_visibility_audit_skips_only_fixture_names()
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
     check_moves_core_names_exist_in_the_engine()

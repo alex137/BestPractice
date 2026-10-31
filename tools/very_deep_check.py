@@ -6861,6 +6861,35 @@ def _referenced_repos(repo_dir):
     return found
 
 
+# FIXTURE-ONLY NAMES ARE NOT ASKED ABOUT (2026-10-30 very deep check, the
+# GITHUB API BUDGET finding: 187 calls against 150). The visibility audit
+# asked GitHub about every owner/name pair the tree mentions, and 110 of 149
+# were mentioned only by the harness and the check tests -- acme/widget,
+# o/zz-set -- one call each, every run. A pair is skipped only when every
+# file naming it is a test AND its owner appears nowhere outside tests, so
+# a real account pasted into a fixture is still asked about; what is
+# skipped is listed in the audit's notes, never dropped silently.
+_FIXTURE_PATHS = ('tools/verify_harness.py', 'tools/checks/tests/', 'tests/')
+
+
+def _is_fixture_file(rel):
+    return rel.startswith(_FIXTURE_PATHS) or '/tests/' in rel
+
+
+def _drop_fixture_only_refs(refs):
+    """-> (refs to ask about, ['owner/name' skipped]) -- see above."""
+    real_owners = {o.lower() for (o, _n), files in refs.items()
+                   if any(not _is_fixture_file(f) for f in files)}
+    keep, skipped = {}, []
+    for (owner, name), files in refs.items():
+        if owner.lower() not in real_owners and all(
+                _is_fixture_file(f) for f in files):
+            skipped.append(f'{owner}/{name}')
+        else:
+            keep[(owner, name)] = files
+    return keep, sorted(skipped)
+
+
 # RENAMED REPOSITORIES, and what the run does about them (Morgan,
 # 2026-09-29, strength: decided). Every audit that asks GitHub about a
 # repository records here when the answer comes back under a different full
@@ -7096,6 +7125,14 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
         return findings, notes
 
     refs = _referenced_repos(repo_dir)
+    refs, fixture_only = _drop_fixture_only_refs(refs)
+    if fixture_only:
+        notes.append(
+            f'{len(fixture_only)} name(s) appear only in test fixtures, under an '
+            f'owner named nowhere else in this tree, and were not asked about '
+            f'(one API call each, and a made-up name in a fixture is no '
+            f'disclosure): {", ".join(fixture_only)}. A fixture that names a '
+            f'real owner is still asked about.')
     # A repository whose name is DELIBERATELY public here -- named on purpose,
     # with the exposure accepted -- is declared in the blocklist file itself,
     # as a comment the audit reads:
