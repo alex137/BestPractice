@@ -26437,9 +26437,19 @@ def check_precedent_check_fires():
                 encoding='utf-8')
         case('environment-gotchas', _plant_eg)
 
-        # session-bootstrap -- setup named in prose, no hook to run it
-        case('session-bootstrap',
-             lambda repo: shutil.rmtree(repo / '.claude' / 'hooks'))
+        # session-bootstrap -- setup named in prose, no hook to run it. Both
+        # halves are planted (practice: fixture-owns-its-state): until
+        # 2026-10-31 the case leaned on AGENTS.md happening to say
+        # `pip install cmarkgfm`, and a rewording that dropped the phrase
+        # left the check skipping the plant instead of failing it.
+        def _plant_sb(repo):
+            shutil.rmtree(repo / '.claude' / 'hooks')
+            agents = repo / 'AGENTS.md'
+            agents.write_text(agents.read_text(encoding='utf-8')
+                              + '\nBefore working, run `pip install '
+                                'planted-package` in this repository.\n',
+                              encoding='utf-8')
+        case('session-bootstrap', _plant_sb)
 
         # session-load-budget -- the instructions file over its declared
         # ceiling. Planted by moving the CEILING rather than by growing the
