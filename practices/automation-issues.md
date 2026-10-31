@@ -18,16 +18,43 @@ added:       "2026-09-28"
 approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precedent-shared-repo-maintenance, Morgan F accepting the session's recommendation to move it (the move: strength assented); the rule itself: Morgan F, migrated from RepoPersonalPreferences by the private-set migration session"
 ---
 ## Rule
-Any unattended job -- whatever a team's own automation adds -- that hits something blocking it from finishing its normal work (a missing or revoked credential, an unexpected failure) reports that blocker by opening or updating a tracked issue, not only a CI annotation or a job-summary line. Keep the annotation too -- it's free and some readers will still see it -- but treat it as a backup, not the primary channel.
+**An unattended job that hits a blocker to its normal work -- a missing or
+revoked credential, an unexpected failure -- opens or updates a tracked
+issue** ("Issues, not annotations"). A CI annotation or job-summary line
+stays as a backup, never the primary channel.
 
-**Where the blocker is an OPTIONAL input the job can proceed without -- a credential for a private source it would have consulted, a step that only applies to some repositories -- the job skips that work and reports, rather than failing the run.** A hard failure there blocks an otherwise successful run over something nobody has to act on today. **What makes the skip safe is the report**, and only the report: a silent skip and a run that is genuinely working are indistinguishable from the outside, so a job that skips without opening the issue has chosen the worst of both. Skip and report, never skip quietly, never fail loudly over an optional input.
+**An optional input the job can proceed without is skipped and reported:
+never skipped quietly, never failed on** ("Skipping an optional input").
 
-**Where no issue can be opened -- the host's issues API is down or out of reach, `gh` is not signed in, or the host has no issues -- the report goes into the repository instead:** [open_failures.py](https://github.com/alex137/BestPractice/blob/staging/tools/open_failures.py) `--file` writes the blocker as an open item under `todo/` (`severity: blocker`, the `failures` batch), and the job commits and pushes it with its other work. The session-start bootstrap lists every open one, on any harness, so the next session hears of it first and fixes it (Alex, 2026-10-08, decided: "maybe we use an issues file or directory in the repo. Then if the session is closed, another agent can check the directory and work on a fix"). A job may file there every time; it must whenever the issue could not be opened.
+**Where no issue can be opened, the report goes into the repository** ("When
+no issue can be opened"):
+[open_failures.py](https://github.com/alex137/BestPractice/blob/staging/tools/open_failures.py)
+`--file` writes it as an open item under `todo/`, and the job commits and
+pushes it with its other work. A job may file there every time, and must
+whenever the issue could not be opened.
 
-**A job's alerting test is filed as a test, never as a failure.** A run that fails on purpose, to prove the alert reaches the person, still opens the issue and files the item, since that path is what it tests; but it files with `--alerting-test`, which session start lists apart as a test to confirm. The session asks the person whether the alert arrived, checks in the run's log that it failed the way the test intends, and closes the item on the answer with `open_failures.py --close`, not by spending another run (Morgan, 2026-10-09).
+**A deliberate alerting test files with `--alerting-test`, never as a
+failure** ("Alerting tests"). The session asks the person whether the alert
+arrived, checks in the run's log that it failed the way the test intends,
+and closes the item on the answer with `open_failures.py --close`.
 
 ## Detail
+Everything under the headings below from "Issues, not annotations" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### One issue per blocker
 Idempotent by design: one open issue per blocker, not one per run -- a second occurrence of the same blocker comments on the existing open issue (with a "recurred: `<date>`" stamp) instead of opening a duplicate, so a blocker that fires every week for months reads as one ongoing problem with a comment thread, not fifty separate issues. Fails gracefully if the reporting mechanism itself can't reach the host or authenticate: prints a warning, exits cleanly, never turns a failure to report a blocker into a second, more confusing blocker.
+
+### Issues, not annotations
+Any unattended job -- whatever a team's own automation adds -- that hits something blocking it from finishing its normal work (a missing or revoked credential, an unexpected failure) reports that blocker by opening or updating a tracked issue, not only a CI annotation or a job-summary line. Keep the annotation too -- it's free and some readers will still see it -- but treat it as a backup, not the primary channel.
+
+### Skipping an optional input
+**Where the blocker is an OPTIONAL input the job can proceed without -- a credential for a private source it would have consulted, a step that only applies to some repositories -- the job skips that work and reports, rather than failing the run.** A hard failure there blocks an otherwise successful run over something nobody has to act on today. **What makes the skip safe is the report**, and only the report: a silent skip and a run that is genuinely working are indistinguishable from the outside, so a job that skips without opening the issue has chosen the worst of both. Skip and report, never skip quietly, never fail loudly over an optional input.
+
+### When no issue can be opened
+**Where no issue can be opened -- the host's issues API is down or out of reach, `gh` is not signed in, or the host has no issues -- the report goes into the repository instead:** [open_failures.py](https://github.com/alex137/BestPractice/blob/staging/tools/open_failures.py) `--file` writes the blocker as an open item under `todo/` (`severity: blocker`, the `failures` batch), and the job commits and pushes it with its other work. The session-start bootstrap lists every open one, on any harness, so the next session hears of it first and fixes it (Alex, 2026-10-08, decided: "maybe we use an issues file or directory in the repo. Then if the session is closed, another agent can check the directory and work on a fix"). A job may file there every time; it must whenever the issue could not be opened.
+
+### Alerting tests
+**A job's alerting test is filed as a test, never as a failure.** A run that fails on purpose, to prove the alert reaches the person, still opens the issue and files the item, since that path is what it tests; but it files with `--alerting-test`, which session start lists apart as a test to confirm. The session asks the person whether the alert arrived, checks in the run's log that it failed the way the test intends, and closes the item on the answer with `open_failures.py --close`, not by spending another run (Morgan, 2026-10-09).
 
 ## Why
 A CI annotation lives inside one workflow run; nobody sees it unless they already know to go check that run. A tracked issue persists in the repo itself and rides the host's own notification system for free.
@@ -73,6 +100,17 @@ here. It went with the rule, on purpose.
 **Moved to the universal catalogue on 2026-09-28**, from the shared set for repository maintenance, on Morgan's accepting a session's recommendation that it, with four others, applies to any repository and not only to maintaining practice sets. His framing of the line, said about one of the four: *"Repo-maintenance is just for things to help maintain the practices etc."* Nothing in the rule itself changed; its Install was rewritten, since it had described the set it lived in rather than the check a repository with such a job could run.
 
 **2026-10-09.** In a private consuming repository, the person ran the sync's alerting test from its button. It failed as intended, filed the usual blocker and opened the issue; he closed the issue as a test. The blocker stayed, because only a successful run closed it, and every session there opened with "the sync failed". He asked for the fix to be made here, upstream, so that every repository's alerting test reads as a test.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to
+Detail whole.** The review of the longest quarter of active Rules listed
+this one at 415 words. Morgan, 2026-10-31, after the 2026-10-30 very
+deep check had cut four Rules that way: *"maybe we add to very deep check to
+always review like the 25% of all the rules that are the longest in that
+repo and shorten them like you did?"*, then *"use your judgment, and act
+booked produce"* (strength: assented). The Rule now holds the issue, the optional-input skip, the in-repository fallback and the alerting test, in
+166 words (both counted with `wc -w` over the section). Every
+paragraph it held before moved whole into Detail, under a heading the Rule
+names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 No mechanical check: both halves are properties of an automation's run history, not of any repository's tree. A repository that runs such a job can check them directly -- does a recurrence comment on the existing open issue rather than opening a duplicate, and does a run missing an optional credential exit clean with an issue raised rather than red or silent -- but that check belongs to the automation, and reads its runs.

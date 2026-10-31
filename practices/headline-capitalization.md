@@ -19,6 +19,29 @@ approved_by: "Morgan"
 source_practice_number: null
 ---
 ## Rule
+**Every heading in a document published for people outside the project
+is in New York Times headline capitalization, applied by
+[tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py)
+rather than by whoever is drafting** ("The capitalization rules"). The tool
+checks by default and fixes with `--write`; its rules live in that one file,
+and nothing else restates them. A phrase whose own capitalization carries
+meaning is exempt by name, in the tool's `KEEP_PHRASES`.
+
+**Internal working files are out of scope on purpose** ("Scope in full"):
+practice files, specs, briefs, `AGENTS.md`, `TODO.md` and the rest the
+tool's `INTERNAL_DIRS` / `INTERNAL_FILES` name. Sentence case there is
+correct and is never "fixed"; [heading-outline](heading-outline.md) is the
+rule for those files.
+
+**Scope is an exclusion, not a list of directories** ("Why scope is an
+exclusion"): every document is published unless that list names it
+internal, so an unclassified directory gets capitalized, the safe way to
+fail.
+
+## Detail
+Everything under the headings below from "Scope in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Scope in full
 **This rule governs content published for people outside the project, and
 nothing else.** Headings in internal working files — practice files,
 specs, briefs, `AGENTS.md`, `TODO.md`, this file — are out of scope on
@@ -29,6 +52,7 @@ it; `applies_to` and the check are scoped to match, and the counterpart
 rule for internal files is [heading-outline](heading-outline.md), which is
 about whether an outline is *broken* rather than how it looks.
 
+### The capitalization rules
 Every heading in an outward-facing document is written in **New York Times
 headline capitalization**, and the rule is applied by
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) rather than by whoever is
@@ -55,6 +79,7 @@ document or person restates them:
   the [whats-new](whats-new.md) log). The match is the whole heading, so a
   hyphenated compound anywhere else is still prose.
 
+### Why scope is an exclusion
 **Scope is stated as an exclusion, not a list of directories.** Every
 document is in scope unless it is named internal in
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py)'s `INTERNAL_DIRS` /
@@ -113,6 +138,17 @@ because BestPractice never instantiated the
 `.claude/hooks/precedent-individual-bootstrap.sh` it ships to every other
 adopter. Landing the rule at the universal level is what makes it load
 here at all.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to
+Detail whole.** The review of the longest quarter of active Rules listed
+this one at 519 words. Morgan, 2026-10-31, after the 2026-10-30 very
+deep check had cut four Rules that way: *"maybe we add to very deep check to
+always review like the 25% of all the rules that are the longest in that
+repo and shorten them like you did?"*, then *"use your judgment, and act
+booked produce"* (strength: assented). The Rule now holds what is in scope, the tool that applies it, and the exclusion list, in
+144 words (both counted with `wc -w` over the section). Every
+paragraph it held before moved whole into Detail, under a heading the Rule
+names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) is both the definition and

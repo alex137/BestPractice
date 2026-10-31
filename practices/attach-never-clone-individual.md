@@ -21,6 +21,39 @@ approved_by: "Morgan, 2026-09-25, in a handoff relayed from a consumer repo's
   own pick among the two routes the handoff named)"
 ---
 ## Rule
+**Attach the individual source; never make a second clone of it**
+("The individual set in full"):
+
+- **Call the repo-attach tool** (`add_repo` in Claude Code on the web) for
+  `precedent-individual` when session start says it is missing; the attach
+  is what grants push. When session start already cloned it
+  (`PRECEDENT_GIT_TOKEN` is set), attach nothing until the session has to
+  push to the set.
+- **Keep one working tree.** If the attach reply's clone command stops with
+  "destination path already exists", that path is the set, already there:
+  use it. If the session cloned first, the next bootstrap run (or `python3
+  tools/precedent_session_check.py --apply`) links `~/precedent-individual`
+  to it. **A clone anywhere else is a second copy nothing loads.**
+- **Two trees already on disk** are reported and left alone by the
+  bootstrap: carry any work out of one into the other, remove the emptied
+  one, and re-run the bootstrap.
+
+**A shared set lives at the path `python3 tools/precedent_resolve.py
+--declared-paths` prints for it** ("Shared sets in full"). If a working
+clone is there, use it, and link (`ln -s`) any other path the attach reply
+names to it; if not, clone it there, even when the attach tool attached
+nothing. **A deleted set** (`tools/deleted_sets.json`, or the individual
+set's `deleted_sets`) **is never cloned**; session start's note about it is
+not a missing source.
+
+**None of this stops for a permission prompt** ("The permission rules in
+full"). One that still appears comes from claude.ai, and no file here
+clears it.
+
+## Detail
+Everything under the headings below from "The individual set in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The individual set in full
 **Attach the individual source; never make a second clone of it.** Call the
 repo-attach tool (`add_repo` in Claude Code on the web) for
 `precedent-individual` when the session-start step says it is missing: it
@@ -44,6 +77,7 @@ already on disk, the bootstrap and the session check report both and touch
 neither: carry any work out of one into the other, remove the emptied one,
 and re-run the bootstrap, which links its path instead of cloning again.
 
+### Shared sets in full
 **A shared set is the other way round:** its clone lives at the path
 `python3 tools/precedent_resolve.py --declared-paths` prints for it --
 `../<name>` beside the repo for a set the repo declares, and beside the
@@ -61,6 +95,7 @@ one-line note; it is not a missing source (2026-10-09, after a consumer's
 session read the old "did not resolve" message as a clone failure and cloned
 one by hand).
 
+### The permission rules in full
 **None of this stops for a permission prompt** (2026-10-27). The settings
 Precedent installs allow `add_repo`, `register_repo_root` and the clone
 command the attach tool's reply prescribes, for the GitHub owners of the
@@ -130,6 +165,17 @@ path becomes a link. Two trees that already exist are reported and never
 merged or removed by the bootstrap (practice `repair-cannot-discard-work`),
 since in the diverged report the hand clone could have held commits nobody
 had pushed.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to
+Detail whole.** The review of the longest quarter of active Rules listed
+this one at 568 words. Morgan, 2026-10-31, after the 2026-10-30 very
+deep check had cut four Rules that way: *"maybe we add to very deep check to
+always review like the 25% of all the rules that are the longest in that
+repo and shorten them like you did?"*, then *"use your judgment, and act
+booked produce"* (strength: assented). The Rule now holds when to attach, the one working tree, where a shared set lives, and the deleted-set exception, in
+245 words (both counted with `wc -w` over the section). Every
+paragraph it held before moved whole into Detail, under a heading the Rule
+names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 Nothing to install beyond the engine. The templates' own attach bullet
