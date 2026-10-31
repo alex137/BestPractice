@@ -31879,19 +31879,63 @@ def check_gate_channel():
     # A practice another resolved source replaces (`overrides:`) is not in
     # force and is rightly left out -- present only where that source
     # resolves, as a person's individual set does beside this checkout.
+    #
+    # EVERY GATE RUN STARTS AT ONCE, AND EACH IS RUN ONCE (2026-10-31). The
+    # reply gate takes about 10 s, and this function ran it three times
+    # (here, again for the --brief comparison, and push again for the
+    # SessionStart case below), one after another. precedent_gate.py writes
+    # nothing, so the runs are independent: all of them start here, the
+    # Stop-hook pair runs while they work, and the --brief and push cases
+    # read the same `reply` and `push` results this loop judges.
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as _pg
+
+    def _gate_popen(*args):
+        return subprocess.Popen([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
+                                 *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                text=True, cwd=str(ROOT))
+    _gate_procs = {g: _gate_popen(g) for g in sorted(vocab)}
+    _gate_procs[('no-such-gate',)] = _gate_popen('no-such-gate')
+    _gate_procs[('reply', '--brief')] = _gate_popen('reply', '--brief')
+    _gate_runs = {}
+
+    # The Stop-hook pair below, started now so it runs beside the gates:
+    # the two runs stay one after the other, in the order they always ran.
+    import tempfile, threading
+    _stop_runs = {}
+
+    def _stop_pair():
+        with tempfile.TemporaryDirectory() as _td:
+            _t = pathlib.Path(_td) / 't.jsonl'
+            _t.write_text(json.dumps({'type': 'user', 'message': {
+                'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
+                               ('without', '{}')):
+                _stop_runs[k] = subprocess.run(
+                    ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
+                    capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+    _stop_thread = threading.Thread(target=_stop_pair, daemon=True)
+    _stop_thread.start()
+
+    def _gate_run(key):
+        if key not in _gate_runs:
+            if key not in _gate_procs:
+                _gate_procs[key] = _gate_popen(*((key,) if isinstance(key, str) else key))
+            proc = _gate_procs[key]
+            out, err = proc.communicate()
+            _gate_runs[key] = subprocess.CompletedProcess(proc.args, proc.returncode,
+                                                          out, err)
+        return _gate_runs[key]
+
     for g in sorted(vocab):
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), g],
-                           capture_output=True, text=True, cwd=str(ROOT))
+        r = _gate_run(g)
         replaced = _pg.resolved_gate_practices(str(ROOT), g)[3]
         ok = r.returncode == 0 and all(s in r.stdout for s in by_gate[g]
                                        if s not in replaced)
         cases.append((f'`precedent_gate.py {g}` returns every practice registered to it', ok,
                       (r.stdout + r.stderr).strip()[:120] if not ok else ''))
 
-    r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'no-such-gate'],
-                       capture_output=True, text=True, cwd=str(ROOT))
+    r = _gate_run(('no-such-gate',))
     cases.append(('an unknown gate fails loudly rather than printing nothing',
                   r.returncode != 0 and 'no gate named' in (r.stdout + r.stderr)))
 
@@ -31969,16 +32013,8 @@ def check_gate_channel():
     # as a path lost to a worker restart. Planted transcript: the sentence
     # is gone; no path in the payload (the control): it is back.
     no_path = 'no transcript reached this gate'
-    import tempfile
-    with tempfile.TemporaryDirectory() as _td:
-        _t = pathlib.Path(_td) / 't.jsonl'
-        _t.write_text(json.dumps({'type': 'user', 'message': {
-            'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
-        _runs = {k: subprocess.run(
-            ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
-            capture_output=True, text=True, cwd=str(ROOT), timeout=120)
-            for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
-                               ('without', '{}'))}
+    _stop_thread.join()
+    _runs = _stop_runs
     cases.append(('the Stop hook hands the gate the transcript its payload names',
                   no_path not in _runs['with'].stdout + _runs['with'].stderr
                   and no_path in _runs['without'].stdout + _runs['without'].stderr,
@@ -31987,10 +32023,8 @@ def check_gate_channel():
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
-    r_full = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'reply'],
-                            capture_output=True, text=True, cwd=str(ROOT))
-    r_brief = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'),
-                              'reply', '--brief'], capture_output=True, text=True, cwd=str(ROOT))
+    r_full = _gate_run('reply')
+    r_brief = _gate_run(('reply', '--brief'))
     cases.append(('`precedent_gate.py reply --brief` is much smaller than the '
                   'full gate -- it fires on every prompt',
                   r_brief.returncode == 0
@@ -32039,8 +32073,7 @@ def check_gate_channel():
     # container's real state is, so the case is meaningful in both a healthy
     # session and a broken one.
     broken = psck.failing_guarantees()
-    r_gate = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_gate.py'), 'push'],
-                            capture_output=True, text=True, cwd=str(ROOT))
+    r_gate = _gate_run('push')
     said = 'SessionStart guarantee(s) NOT in effect' in r_gate.stdout
     cases.append(('a gate reports broken SessionStart guarantees, and says '
                   'nothing when there are none',
@@ -36831,38 +36864,56 @@ def check_compaction_offer_owed_printed_at_turn_start():
                 for c, t in turns), encoding='utf-8')
             return path
 
-        def run(path):
+        # The tools are linked into the fixture once, before any run: the
+        # four runs below go side by side (2026-10-31; each is a whole
+        # reply-gate.sh, about 10 s, and they share nothing but this
+        # read-only fixture), and linking inside each run raced on the links.
+        (fx / 'tools').mkdir(exist_ok=True)
+        for f in ROOT.joinpath('tools').glob('*.py'):
+            dst = fx / 'tools' / f.name
+            if not dst.exists():
+                dst.symlink_to(f)
+
+        def start(path):
             # Through the hook itself, so the payload-to-env hand-off is what
             # is tested, not only the gate's reading of the variable.
             hook = ROOT / 'tools' / 'reply-gate.sh'
-            (fx / 'tools').mkdir(exist_ok=True)
-            for f in ROOT.joinpath('tools').glob('*.py'):
-                dst = fx / 'tools' / f.name
-                if not dst.exists():
-                    dst.symlink_to(f)
             payload = json.dumps({'transcript_path': str(path)}) if path else ''
-            return subprocess.run(
-                ['bash', str(hook)], input=payload, capture_output=True,
-                text=True, cwd=str(fx),
+            proc = subprocess.Popen(
+                ['bash', str(hook)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, cwd=str(fx),
                 env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
                      'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+            return proc, payload
 
-        owed = run(transcript('owed.jsonl', [
-            (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')]))
+        def finish(started):
+            proc, payload = started
+            out, err = proc.communicate(payload)
+            return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
+
+        _started = {
+            'owed': start(transcript('owed.jsonl', [
+                (96000, 'Opening.'), (150000, 'Middle.'), (205000, 'Done.')])),
+            'short': start(transcript('short.jsonl', [(96000, 'Opening.'),
+                                                      (120000, 'Done.')])),
+            'said': start(transcript('said.jsonl', [
+                (96000, 'Opening.'),
+                (205000, 'Now is a good time to compact the session.'),
+                (250000, 'More.')])),
+            'blind': start(None),
+        }
+        owed = finish(_started['owed'])
         cases.append(('a grown session is told the offer is OWED, with the '
                       'sentence to say', 'OWED IN THIS REPLY' in owed.stdout
                       and 'Now is a good time to compact the session' in owed.stdout,
                       failure_detail(owed.stdout, 400)))
-        short = run(transcript('short.jsonl', [(96000, 'Opening.'), (120000, 'Done.')]))
+        short = finish(_started['short'])
         cases.append(('a short session hears nothing about compacting',
                       'good time to compact' not in short.stdout, failure_detail(short.stdout, 400)))
-        said = run(transcript('said.jsonl', [
-            (96000, 'Opening.'),
-            (205000, 'Now is a good time to compact the session.'),
-            (250000, 'More.')]))
+        said = finish(_started['said'])
         cases.append(('once said, it is not owed again until another increment',
                       'good time to compact' not in said.stdout, failure_detail(said.stdout, 400)))
-        blind = run(None)
+        blind = finish(_started['blind'])
         cases.append(('no transcript: it says it could not tell, and never '
                       'defers to the stop hook', 'could not be worked out'
                       in blind.stdout and 'stop hook is the thing'
