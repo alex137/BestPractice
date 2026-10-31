@@ -34,3 +34,5 @@ Edit a hook installer script, or any script that writes global git
 configuration, with the Edit tool, not with `sed -i`, a heredoc or a
 script run through Bash. Nothing needs asking: the Edit goes through, and
 so does the commit that follows.
+
+Prevention: nothing mechanical, deliberately, because the refusal is Claude Code's auto-mode classifier judging a command, outside this repository; no check here can see it or change it. The Fix above is the whole answer, and it costs one retry with the Edit tool. (2026-10-30 very deep check, Pass 2 question 20.)

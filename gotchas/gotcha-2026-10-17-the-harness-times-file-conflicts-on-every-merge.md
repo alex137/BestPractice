@@ -39,3 +39,5 @@ it works in) configures the driver by hand, once per clone:
 
 A stale-name failure that is already on a branch goes away with
 `python3 tools/verify_harness.py --record-new-times`.
+
+Prevention: the merge driver, [tools/harness_times_merge.py](https://github.com/alex137/BestPractice/blob/staging/tools/harness_times_merge.py), with a planted case in `check_harness_times_merge_without_a_conflict`; the stale-name half is held by `check_as_ci_parts_partition_the_suite`, and since 2026-10-30 the push check refuses a deleted test that keeps its time. A session whose hooks did not run still has no driver configured, which nothing mechanical catches before the conflict appears. (2026-10-30 very deep check, Pass 2 question 20.)
