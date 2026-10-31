@@ -29163,6 +29163,17 @@ def check_precedent_check_fires():
 
         case('open-items-outside-todo', _plant_item_outside_todo)
 
+        # exported-files-received -- a sync that left a source's test behind
+        # because no practice in force claims it (2026-10-31).
+        def _plant_not_received(repo):
+            (repo / 'MANIFEST.json').write_text(json.dumps({
+                'practices': [], 'not_received': [
+                    'tools/checks/tests/test_planted.sh (a-set)']}), encoding='utf-8')
+            git(repo, 'add', '-A')
+            git(repo, 'commit', '-qm', 'planted a test the sync left behind')
+
+        case('exported-files-received', _plant_not_received)
+
         # manifest-entries-resolve -- an entry left naming a file a sweep
         # deleted (2026-10-01).
         def _plant_dead_manifest_entry(repo):
@@ -58184,6 +58195,22 @@ class _KeptDivergenceFixture:
             'reason': reason, 'template_sha256': template_sha}
         self.write_config(repo, cfg)
 
+    def judge(self, repo, item, titles, verdict='local-add-on'):
+        """Record one block verdict per title (precedent_vendor_engine's ONE
+        VERDICT PER BLOCK): since 2026-10-31 a reason and a pin alone no
+        longer keep a section that lacks blocks. local-add-on points at an
+        add-on practice the fixture writes, so the verdict holds."""
+        addon = repo / 'local' / 'practices' / 'fixture-local-add-on.md'
+        addon.parent.mkdir(parents=True, exist_ok=True)
+        addon.write_text('---\nslug: fixture-local-add-on\n---\n## Rule\nLocal.\n',
+                         encoding='utf-8')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        blocks = cfg['kept_template_divergences'][item].setdefault('blocks', {})
+        for t in titles:
+            blocks[self.pve.block_id(t)] = {
+                'verdict': verdict, 'practice': 'local/practices/fixture-local-add-on.md'}
+        self.write_config(repo, cfg)
+
     def update(self, repo, ref=None):
         return self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                        '--repo', str(repo), '--from-ref', ref or self.base,
@@ -58191,6 +58218,393 @@ class _KeptDivergenceFixture:
 
     def close(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def check_kept_divergence_is_judged_block_by_block():
+    """A kept template divergence is judged block by block (2026-10-31,
+    precedent_vendor_engine's ONE VERDICT PER BLOCK). Measured that day in a
+    consuming repository: six AGENTS.md sections waived on 2026-10-01 with
+    one identical stock reason, and the copies lacked template lines nobody
+    had judged; then a reduction pass moved four of them to a side file,
+    where nothing compared them again.
+
+    Cases, each against the engine's own words (practice:
+    control-asserts-which-failure): a whole-section waiver with a reason and
+    a matching pin is no longer kept; the same reason on two items is
+    refused as stock even with every block judged; a judged item with its
+    own reason is kept (the positive control); a "covered" quote that is
+    not in the local text, a send-upstream with no link and a local-add-on
+    whose practice is missing each fail by name, and "standardize" never
+    rests; judge-kept records a verdict and refuses standardize; and a
+    section moved out of AGENTS.md is still compared where it lives, both
+    when it lacks a block (listed) and when it carries every one (quiet)."""
+    import contextlib
+    import io
+    fx = _KeptDivergenceFixture('precedent-kept-blocks-')
+    pve = fx.pve
+    cases = []
+    key = '### Session start'
+    item = f'AGENTS.md {key}'
+    try:
+        tpl = fx.template(fx.AGENTS_SRC).decode()
+        raw = pve._template_sections(tpl)[key][1]
+        repo = fx.consumer('blocks')
+        sec = pve._instantiate(raw, pve._agents_md_subs(repo))
+        own = f'{key}\n\n- This repository starts its sessions its own way.'
+        lacks = pve.missing_markdown_blocks(own, sec)
+        titles = [t for _o, t, _h, _a in lacks]
+        sha, carried = pve._sha_text(sec), pve._carried_sha(sec, lacks)
+        fx.keep(repo, item, 'we start sessions our own way, on purpose here', sha)
+
+        def verdict(it=item, local=own):
+            return pve._kept_divergence(repo, it, sha, carried, titles, local)[0]
+
+        cases.append(('a whole-section waiver (reason + matching pin, no block '
+                      'verdicts) is no longer kept',
+                      verdict() == 'unjudged', verdict()))
+        cases.append(('...while the pin alone, asked without the blocks, still '
+                      'matches (so nothing else that reads the pin moved)',
+                      pve._kept_divergence(repo, item, sha, carried)[0] == 'kept', ''))
+        fx.judge(repo, item, titles)
+        cases.append(('POSITIVE CONTROL: every lacked block judged, own reason: kept',
+                      verdict() == 'kept', verdict()))
+
+        stock = ('This repository words this section in its own terms, so the '
+                 'template wording is not copied in.')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['kept_template_divergences'][item]['reason'] = stock
+        cfg['kept_template_divergences']['AGENTS.md ## Conventions'] = {
+            'reason': '  ' + stock.upper() + ' ', 'template_sha256': 'x'}
+        fx.write_config(repo, cfg)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            kept = pve._report_kept(repo, item, 'the template', sha, carried, titles, own)
+        cases.append(('the same reason on two items (case and spacing aside) is '
+                      'refused as stock, with every block judged',
+                      verdict() == 'stock' and not kept
+                      and 'word for word on another item' in buf.getvalue(),
+                      buf.getvalue()[:600]))
+        cfg['kept_template_divergences'][item]['reason'] = 'we start sessions our own way'
+        del cfg['kept_template_divergences']['AGENTS.md ## Conventions']
+        fx.write_config(repo, cfg)
+
+        b0 = pve.block_id(titles[0])
+        for v, want in (({'verdict': 'covered', 'quote': 'words nobody wrote here'},
+                         'not in the local text'),
+                        ({'verdict': 'covered', 'quote': 'its own way'}, None),
+                        ({'verdict': 'send-upstream', 'detail': 'later'}, 'needs "detail"'),
+                        ({'verdict': 'send-upstream',
+                          'detail': 'https://github.com/OWNER/REPO/pull/1'}, None),
+                        ({'verdict': 'local-add-on', 'practice': 'local/practices/gone.md'},
+                         'must exist'),
+                        ({'verdict': 'standardize'}, 'not a verdict to keep')):
+            cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg['kept_template_divergences'][item]['blocks'][b0] = v
+            fx.write_config(repo, cfg)
+            probs = [w for i, _t, w in pve.block_problems(repo, item, titles, own) if i == b0]
+            ok = (not probs) if want is None else (len(probs) == 1 and want in probs[0])
+            cases.append((f'block verdict {v} -> {want or "holds"}', ok, probs))
+
+        ok, msg = pve.judge_kept_block(repo, item, b0, 'standardize')
+        cases.append(('judge-kept refuses standardize as a resting verdict',
+                      not ok and 'a fix, not a verdict' in msg, msg))
+        ok, msg = pve.judge_kept_block(repo, item, b0, 'covered', quote='its own way')
+        stored = json.loads((repo / 'precedent.json').read_text(encoding='utf-8')
+                            )['kept_template_divergences'][item]['blocks'][b0]
+        cases.append(('judge-kept records a covered verdict with its quote',
+                      ok and stored == {'verdict': 'covered', 'quote': 'its own way'},
+                      (msg, stored)))
+
+        # Moved out: AGENTS.md without the section, docs/ carrying it.
+        moved = fx.consumer('moved')
+        stock_md = (moved / 'AGENTS.md').read_text(encoding='utf-8')
+        (moved / 'AGENTS.md').write_text(
+            stock_md.replace(sec, f'{key}\n\nSee [docs/agents-detail.md](docs/agents-detail.md).')
+            .replace(f'{key}\n\nSee', 'Session start: see'), encoding='utf-8')
+        (moved / 'docs').mkdir()
+
+        def report(side_text):
+            (moved / 'docs' / 'agents-detail.md').write_text(
+                '# Detail\n\n' + side_text + '\n', encoding='utf-8')
+            plan = pve._agents_md_plan(moved, 'consumer', ROOT, {})
+            buf = io.StringIO()
+            left_before = list(pve._LEFT_FOR_YOU)
+            with contextlib.redirect_stdout(buf):
+                pve._report_agents_md(moved, ROOT, plan)
+            if left_before is not None:
+                pve._LEFT_FOR_YOU[:] = left_before
+            return [r[3] for r in plan if r[0] == key], buf.getvalue()
+
+        acts, out = report(own)
+        cases.append(('a section moved to docs/ that lacks template blocks is '
+                      'compared THERE and listed',
+                      acts == ['moved'] and 'lives in docs/agents-detail.md' in out
+                      and '(in docs/agents-detail.md) has local edits' in out,
+                      (acts, out[:800])))
+        acts, out = report(sec)
+        cases.append(('...and one that carries every block is compared and quiet',
+                      acts == ['moved'] and 'carries every block' in out
+                      and 'DIVERGED' not in out, (acts, out[:800])))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:600]}' for n, d in bad))
+
+
+def check_retired_template_sections_migrate_into_practices():
+    """The AGENTS.md template sections that became practices on 2026-10-31
+    (precedent_vendor_engine.RETIRED_AGENTS_MD_SECTIONS) leave an installed
+    repository at its next Update Vendors with every rule still reachable.
+
+    A consumer is installed from the template as it stood before the move,
+    then edited the ways real ones are: one own bullet added to
+    "Administrator requests", a real entry in "Review sensitivities", and a
+    repo-local source declared. After one update: the stock sections are
+    gone (Working in parallel, the merge runbook); the own bullet is in a
+    local add-on practice with `adds_to: administrator-requests`, word for
+    word, and the section is gone; the sensitivities list stays; and each
+    retired section's practice reaches a session -- an occasion-index line
+    in the regenerated AGENTS.md, or a gate. CONTROL: a consumer installed
+    from today's template has nothing to retire."""
+    fx = _KeptDivergenceFixture('precedent-retired-sections-')
+    pve = fx.pve
+    cases = []
+    try:
+        last_with = subprocess.run(
+            ['git', '-C', str(ROOT), 'show', f'{fx.base}:{fx.AGENTS_SRC}'],
+            capture_output=True, text=True).stdout
+        if '## Administrator requests' in last_with:
+            return (False, '0 stated cases', 'the template still carries the '
+                    'retired sections; nothing to migrate')
+        # The newest template version that still had them.
+        log = subprocess.run(['git', '-C', str(ROOT), 'log', '--format=%H', fx.base,
+                              '--', fx.AGENTS_SRC], capture_output=True, text=True
+                             ).stdout.split()
+        old_tpl = None
+        for sha in log:
+            t = subprocess.run(['git', '-C', str(ROOT), 'show', f'{sha}:{fx.AGENTS_SRC}'],
+                               capture_output=True, text=True).stdout
+            if '## Administrator requests you must know how to handle' in t:
+                old_tpl = t
+                break
+        if old_tpl is None:
+            return (False, '0 stated cases', 'no past template version with the '
+                    'retired sections in this clone (shallow?)')
+        control = fx.consumer('control')
+        plan = pve._retired_agents_md_plan(control, 'consumer', ROOT)
+        cases.append(('CONTROL: today\'s template has nothing to retire', plan == [], plan))
+
+        repo = fx.consumer('old')
+        agents = pve._instantiate(old_tpl, pve._agents_md_subs(repo))
+        own = ('- **"Ship it"** -- this repository\'s own phrase for a release: '
+               'build the site and post the link in the team channel.')
+        agents = agents.replace('- **"Add project members"**', own + '\n- **"Add project members"**', 1)
+        agents = agents.replace("- `<member>`: `<what to flag — e.g. tone changes to member-facing\n  pages>` — `<incident that showed it, date>`",
+                                '- Dana: flag tone changes to the welcome page -- reverted 2026-09-02.')
+        assert own in agents and 'Dana:' in agents, 'old template shape moved; repoint this fixture'
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['sources'].append({'level': 'repo-local', 'name': 'local', 'path': 'local'})
+        fx.write_config(repo, cfg)
+        (repo / 'local' / 'practices').mkdir(parents=True)
+        fx.sh('git', 'add', '-A', cwd=repo)
+        fx.sh('git', 'commit', '-qm', 'installed from the old template', cwd=repo)
+        rc, out = fx.update(repo)
+        after = (repo / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('the stock retired sections are removed and said so',
+                      '## Working in parallel' not in after
+                      and '### Merging a thread branch' not in after
+                      and 'retired: agents.md "## working in parallel' in out.lower(),
+                      failure_detail(out, 1500)))
+        addon = repo / 'local' / 'practices' / 'administrator-requests-in-this-repo.md'
+        text = addon.read_text(encoding='utf-8') if addon.is_file() else ''
+        cases.append(('the own bullet moved word for word into a local add-on '
+                      'practice that adds to administrator-requests, and the section went',
+                      'adds_to:     administrator-requests' in text
+                      and ' '.join(own.split()) in ' '.join(text.split())
+                      and '## Administrator requests' not in after,
+                      (text[:600], failure_detail(out, 800))))
+        cases.append(('the review-sensitivities list with a real entry stays',
+                      '### Review sensitivities (accumulated)' in after and 'Dana:' in after,
+                      failure_detail(after, 800)))
+        unreached = []
+        for slug in sorted(set(pve.RETIRED_AGENTS_MD_SECTIONS.values())):
+            fm = (ROOT / 'practices' / f'{slug}.md').read_text(encoding='utf-8')
+            gated = re.search(r'^gates:\s*\[\s*"', fm, re.M) is not None
+            if not (gated or f'  {slug} — ' in after):
+                unreached.append(slug)
+        cases.append(('every retired section\'s practice reaches a session: an '
+                      'occasion-index line in the regenerated AGENTS.md, or a gate',
+                      not unreached, unreached))
+        cases.append(('the spoken phrases stay in the occasion index',
+                      "What's waiting for me?" in after and 'Add project members' in after,
+                      [ln for ln in after.split('\n') if 'administrator' in ln][:4]))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:900]}' for n, d in bad))
+
+
+def check_template_text_edit_trips_the_commit_check():
+    """A commit in a consuming repository that edits text the Precedent
+    template wrote is refused at commit time with the two answers (fix it
+    upstream, or keep it as this repository's own), until one is recorded
+    (2026-10-31, tools/upstream_edits.py staged_template_edits; Morgan: a
+    fix made in a consumer to BestPractice's text becomes a fork nobody
+    decided).
+
+    Cases, each against the tool's own words: editing a template-written
+    AGENTS.md section is refused, through the real commit hook too
+    (tools/doc-lint-gate.sh, deny with the answers); CONTROLS -- editing the
+    repository's own section, an engine refresh that records the new text
+    in the same commit, and an edit with a kept entry recorded in the same
+    commit all pass; editing an unedited tools/bootstrap.sh is refused."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+        import upstream_edits as ue
+    finally:
+        sys.path.pop(0)
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory(prefix='precedent-template-edit-') as td:
+        repo = pathlib.Path(td)
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
+                                      capture_output=True, text=True)
+        g('init', '-q', '-b', 'main')
+        tpl_sec = '### Session start\n\n- Run the bootstrap first, every session, before work.'
+        agents = ('# Agents\n\n' + tpl_sec + '\n\n## Our own section\n\n- Ours to word.\n')
+        boot = '#!/bin/bash\necho template\n'
+        (repo / 'tools').mkdir()
+        for name in ('upstream_edits.py', 'precedent_vendor_engine.py', 'generated_blocks.py',
+                     'doc-lint-gate.sh', 'doc_lint.py'):
+            if (ROOT / 'tools' / name).is_file():
+                shutil.copy2(ROOT / 'tools' / name, repo / 'tools' / name)
+        (repo / 'AGENTS.md').write_text(agents, encoding='utf-8')
+        (repo / 'tools' / 'bootstrap.sh').write_text(boot, encoding='utf-8')
+        manifest = {'agents_md_sections_sha256': {'### Session start': pve._sha_text(tpl_sec)},
+                    'template_instances_sha256': {
+                        'tools/bootstrap.sh': hashlib.sha256(boot.encode()).hexdigest()}}
+        mpath = repo / 'tools' / 'ENGINE_MANIFEST.json'
+        mpath.write_text(json.dumps(manifest), encoding='utf-8')
+        (repo / 'precedent.json').write_text('{}\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'installed')
+
+        def staged(**files):
+            g('reset', '-q', '--hard', 'HEAD')
+            for rel, text in files.items():
+                (repo / rel.replace('__', '/')).write_text(text, encoding='utf-8')
+            g('add', '-A')
+            return ue.staged_template_edits(repo)
+
+        edited = agents.replace('every session, before work', 'every session')
+        got = staged(**{'AGENTS.md': edited})
+        cases.append(('editing a template-written section is refused, naming it',
+                      len(got) == 1 and '"### Session start" is text the Precedent '
+                      'template wrote, and this commit edits it' in got[0], got))
+        hook_in = json.dumps({'tool_input': {'command': 'git commit -m x'}})
+        r = subprocess.run(['bash', str(repo / 'tools' / 'doc-lint-gate.sh')],
+                           input=hook_in, capture_output=True, text=True,
+                           env={**env, 'CLAUDE_PROJECT_DIR': str(repo)}, cwd=str(repo))
+        cases.append(('...and through the real commit hook: deny, with both answers',
+                      '"deny"' in r.stdout and 'it belongs upstream' in r.stdout
+                      and 'true only here' in r.stdout, (failure_detail(r.stdout, 500), failure_detail(r.stderr, 300))))
+        got = staged(**{'AGENTS.md': agents.replace('Ours to word.', 'Ours, reworded.')})
+        cases.append(('CONTROL: editing the repository\'s own section passes', got == [], got))
+        m2 = dict(manifest, agents_md_sections_sha256={
+            '### Session start': pve._sha_text(edited.split('\n\n## Our')[0].split('# Agents\n\n')[1])})
+        got = staged(**{'AGENTS.md': edited, 'tools__ENGINE_MANIFEST.json': json.dumps(m2)})
+        cases.append(('CONTROL: an engine refresh recording the new text in the same '
+                      'commit passes', got == [], got))
+        got = staged(**{'AGENTS.md': edited, 'precedent.json': json.dumps(
+            {'kept_template_divergences': {'AGENTS.md ### Session start': {
+                'reason': 'we run it only on the web'}}})})
+        cases.append(('CONTROL: an edit with a kept entry recorded in the same commit '
+                      'passes', got == [], got))
+        got = staged(**{'tools__bootstrap.sh': boot + 'echo ours\n'})
+        cases.append(('editing the template\'s tools/bootstrap.sh is refused',
+                      len(got) == 1 and 'tools/bootstrap.sh is the Precedent template' in got[0],
+                      got))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:600]}' for n, d in bad))
+
+
+def check_exported_file_not_received_fails_the_copied_in_check():
+    """Every test a declared source ships reaches the consuming repository,
+    or the copied-in check fails (2026-10-31: a consumer's push check printed
+    "no practice in force here claims these, not vendored" for two of a
+    shared set's tests, and passed).
+
+    Cases: a test claimed by no checked_by is left behind AND recorded as
+    not received, and the exported-files-received check fails on it by
+    name; a test whose header cites `practice: SLUG` for a practice in force
+    here from its own source is claimed and copied (the fix at the source);
+    CONTROL -- one citing a practice from ANOTHER source is still not
+    received; and a MANIFEST.json with nothing left behind passes."""
+    import contextlib
+    import io
+    import tempfile
+    import types
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_materialize as pm
+        import precedent_check as pc
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory(prefix='precedent-copied-in-') as td:
+        td = pathlib.Path(td)
+        src = td / 'set'
+        (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        t = src / 'tools' / 'checks' / 'tests'
+        (t / 'test_orphan.sh').write_text('#!/bin/bash\n# tests a data file\nexit 0\n')
+        (t / 'test_cited.sh').write_text('#!/bin/bash\n# practice: act\nexit 0\n')
+        (t / 'test_elsewhere.sh').write_text('#!/bin/bash\n# practice: other\nexit 0\n')
+        sources = [{'name': 'the-set', 'path': str(src), 'level': 'team'}]
+        res = {'practices': {
+            'act': {'fm': {}, 'source': 'the-set', 'file': str(src / 'practices' / 'act.md')},
+            'other': {'fm': {}, 'source': 'precedent', 'file': str(td / 'u' / 'other.md')}}}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            plan = pm._plan_checks(sources, res)
+        names = {name for _l, name, _s, _b in plan}
+        cases.append(('a test cited by its header for a practice in force from its '
+                      'own source is claimed', 'test_cited.sh' in names, sorted(names)))
+        cases.append(('an unclaimed test is left behind and recorded as not received',
+                      'test_orphan.sh' not in names and any('test_orphan.sh' in x
+                                                            for x in pm._NOT_RECEIVED),
+                      list(pm._NOT_RECEIVED)))
+        cases.append(('CONTROL: a citation of another source\'s practice claims nothing',
+                      'test_elsewhere.sh' not in names and any('test_elsewhere.sh' in x
+                                                               for x in pm._NOT_RECEIVED),
+                      list(pm._NOT_RECEIVED)))
+        repo = td / 'consumer'
+        repo.mkdir()
+        fn = pc.CHECKS['exported-files-received']['fn']
+
+        def run(data):
+            (repo / 'MANIFEST.json').write_text(json.dumps(data), encoding='utf-8')
+            old = pc.ROOT
+            pc.ROOT = repo
+            try:
+                return fn(types.SimpleNamespace(root=repo))
+            finally:
+                pc.ROOT = old
+        got = run({'not_received': list(pm._NOT_RECEIVED)})
+        cases.append(('the copied-in check fails on each file not received, by name, '
+                      'with the fix at the source',
+                      len(got) == 2 and all('never received here' in f.detail
+                                            and 'practice: SLUG' in f.detail for f in got),
+                      [f.detail[:120] for f in got]))
+        cases.append(('CONTROL: nothing left behind passes', run({'practices': []}) == [], ''))
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:500]}' for n, d in bad))
 
 
 def check_agents_templates_repeat_no_practice_text():
@@ -58202,7 +58616,13 @@ def check_agents_templates_repeat_no_practice_text():
     as already sitting in practices/<slug>.md, "paid for twice, every
     session". The template is where both instructions came from, so the
     template carries a one-line pointer to the practice instead, and this
-    holds it there."""
+    holds it there.
+
+    The loader template only, since 2026-10-31: that day its sections moved
+    into practices word for word, so the classic template -- for the
+    process/upstream/ vendoring model, which loads no practice on occasion
+    and runs no session-load-budget, so the double payment this guards
+    against cannot happen there -- now shares their text by design."""
     sys.path.insert(0, str(ROOT / 'tools'))
     try:
         import precedent_check as pc
@@ -58211,7 +58631,7 @@ def check_agents_templates_repeat_no_practice_text():
         sys.path.pop(0)
     corpus = pc._practice_corpus(ROOT)
     bad = []
-    for rel in ('templates/AGENTS.md.loader.template', 'templates/AGENTS.md.template'):
+    for rel in ('templates/AGENTS.md.loader.template',):
         text = (ROOT / rel).read_text(encoding='utf-8')
         for offset, block in pve._md_blocks(text):
             for src, quote, words in pc.duplicated_resident_text(ROOT, block, corpus):
@@ -58243,6 +58663,14 @@ def check_agents_templates_conventions_point_to_practices():
         text = (ROOT / rel).read_text(encoding='utf-8')
         lines = text.split('\n')
         span = [(a, b) for k, a, b in pve._md_sections(text) if k.strip() == '## Conventions']
+        if rel.endswith('.loader.template'):
+            # 2026-10-31: the loader template's Conventions became pointers
+            # nowhere -- the practices load on their own, and commit credit
+            # is practice commits-credit-the-driver. Holding it gone.
+            if span:
+                bad.append(f'{rel}: "## Conventions" is back; its bullets are '
+                           f'practices now (RETIRED_AGENTS_MD_SECTIONS)')
+            continue
         if len(span) != 1:
             bad.append(f'{rel}: no single "## Conventions" section')
             continue
@@ -58478,7 +58906,16 @@ def check_kept_agents_md_divergence_is_recorded():
 
         # Recorded the way an engine before 2026-09-30 printed it: the whole
         # section's hash. Still honoured, and narrowed to the pin above.
+        titles = [t for _o, t, _h, _a in pve.missing_markdown_blocks(own, sec)]
         fx.keep(repo, item, 'we say this our own way', full_now)
+        rc, out = fx.update(repo)
+        cases.append(('since 2026-10-31 a reason alone no longer keeps it: each '
+                      'block the section lacks is listed for its own verdict',
+                      rc == 1 and 'whole-section waiver no longer holds' in out
+                      and out.count('no verdict') >= len(titles) >= 1,
+                      failure_detail(out, 1500)))
+        first_out = out
+        fx.judge(repo, item, titles)
         rc, out = fx.update(repo)
         cases.append(('THE FIX: recorded with a reason against the current '
                       'template, the next update is DONE, exit 0',
@@ -58490,7 +58927,8 @@ def check_kept_agents_md_divergence_is_recorded():
                       'beside the template\'s own text, and says so',
                       entry['template_sha256'] == full_now
                       and entry.get('carried_sha256') == sha_now
-                      and 'now records both' in out, failure_detail(out, 1500)))
+                      and 'now records both' in first_out + out,
+                      failure_detail(first_out + out, 1500)))
         cases.append(('...and says it once, with the reason, as a note',
                       out.count('kept on purpose: ') == 2   # step line + summary
                       and 'we say this our own way' in out, failure_detail(out, 1500)))
@@ -58506,14 +58944,19 @@ def check_kept_agents_md_divergence_is_recorded():
                               pve.missing_markdown_blocks(own, sec)), \
             'this fixture needs a section whose blocks are all missing'
         head, rest = raw.split('\n', 1)
-        word = next(w for w in rest.split() if len(w) > 5 and w.isalpha())
+        word = next(w for w in blocks[0][:60].split() if len(w) > 5 and w.isalpha())
         reworded = tpl.replace(raw, head + '\n' + rest.replace(word, word + 'x', 1))
         assert reworded != tpl
         rc, out = fx.update(repo, fx.upstream_with(fx.AGENTS_SRC,
                                                    reworded.encode()))
+        # Since 2026-10-31 a lacked block is judged by its own words: a
+        # rewording in its title is a new block to judge, and only that one
+        # is asked about -- the pin still holds, so the section is not
+        # listed as changed.
+        reasked = [ln for ln in out.split('\n') if ln.rstrip().endswith('-- no verdict')]
         cases.append(('a rewording inside a block the section lacks entirely '
-                      'keeps the decision: DONE, exit 0, said as kept',
-                      rc == 0 and 'DONE' in out and 'kept on purpose: ' in out,
+                      'asks for that one block\'s verdict, never "has changed since"',
+                      rc == 1 and len(reasked) == 1 and 'has changed since' not in out,
                       failure_detail(out, 1500)))
 
         moved = tpl.replace(raw, raw + '\n- **FIXTURE BULLET** -- a sentence '
@@ -58534,6 +58977,7 @@ def check_kept_agents_md_divergence_is_recorded():
         # local text and the report said upstream had changed).
         local = fx.consumer('local-edit', agents=ours)
         fx.keep(local, item, 'we say this our own way', full_now)
+        fx.judge(local, item, titles)
         fx.update(local)
         first = blocks[0].split('\n')[0]
         text = (local / 'AGENTS.md').read_text(encoding='utf-8')
@@ -58676,6 +59120,8 @@ def check_kept_bootstrap_divergence_is_recorded():
                       failure_detail(out, 1500)))
 
         fx.keep(repo, rel, 'our scripts import yaml', sha_now)
+        fx.judge(repo, rel, [t for _n, t, _h in fx.pve.missing_template_blocks(
+            ours.decode(), tpl.decode())])
         rc, out = fx.update(repo)
         cases.append(('THE FIX: recorded with a reason, the next update is DONE, '
                       'exit 0, and names it once as kept on purpose',
@@ -72417,9 +72863,14 @@ def check_second_pass_judgment_replaces_first_pass_left():
             (tpl / 'T.md').read_text(encoding='utf-8'))[key][1]
         # Pinned on the template's text alone, as before 2026-10-01: this
         # pass matches it and upgrades it, printing PIN UPDATED.
+        # Since 2026-10-31 the block it lacks needs its own verdict too.
+        lacked = [t for _o, t, _h, _a in pve.missing_markdown_blocks(
+            (dest / 'AGENTS.md').read_text(encoding='utf-8').split('\n', 2)[2], section)]
         (dest / 'precedent.json').write_text(json.dumps({
             pve.KEPT_DIVERGENCES_KEY: {item: {
-                'reason': 'ours', 'template_sha256': pve._sha_text(section)}}}),
+                'reason': 'ours', 'template_sha256': pve._sha_text(section),
+                'blocks': {pve.block_id(t): {'verdict': 'covered', 'quote': 'Our own line'}
+                           for t in lacked}}}}),
             encoding='utf-8')
         pve._LEFT_FOR_YOU.clear()
         pve._CARRIED_LEFT[:] = [
@@ -88199,8 +88650,10 @@ def check_declared_exports_consumer_snags():
         f = tmp / 'f'
         tpl = (ROOT / 'templates' / 'AGENTS.md.loader.template').read_text(encoding='utf-8')
         keys = [k for k, _a, _b in pve._md_sections(tpl)]
-        parent = '## Working in parallel (multi-member repos)'
-        sub = '### Review sensitivities (accumulated)'
+        # Repointed 2026-10-31, when "Working in parallel" and its
+        # sensitivities list left the template for a practice.
+        parent = '## <Deliverable build workflow>'
+        sub = '### Two check levels'
         write(f / 'AGENTS.md', '# Agents\n\n## Something of its own\n\nText.\n')
 
         def action(key, kept):
@@ -88216,7 +88669,7 @@ def check_declared_exports_consumer_snags():
         cases.append(('(f) CONTROL: unrecorded, it is missing',
                       action(sub, None) == 'missing'))
         cases.append(('(f) CONTROL: ...and another section is still missing',
-                      action('## Conventions', moved) == 'missing'))
+                      action('## Git / workflow', moved) == 'missing'))
 
         # (g)
         g = tmp / 'g'
@@ -97410,6 +97863,15 @@ def main():
     check_update_seeds_budgets_on_the_run_that_reports_done()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
+    check('the AGENTS.md template sections that became practices migrate out of '
+          'an installed repository with every rule still reachable',
+          *check_retired_template_sections_migrate_into_practices())
+    check('a file a source exports and the consumer never received fails the '
+          'copied-in check', *check_exported_file_not_received_fails_the_copied_in_check())
+    check('a commit that edits template text in a consuming repository is refused '
+          'until it is answered', *check_template_text_edit_trips_the_commit_check())
+    check('a kept template divergence is judged block by block, and text moved '
+          'out of AGENTS.md is still compared', *check_kept_divergence_is_judged_block_by_block())
     check_legacy_bootstrap_shim_is_replaced()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()

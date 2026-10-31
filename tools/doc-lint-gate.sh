@@ -96,6 +96,30 @@ printf '%s' "$bare" \
 
 project_dir="${CLAUDE_PROJECT_DIR:-.}"
 
+# TEMPLATE TEXT EDITED HERE (2026-10-31): a commit that changes an
+# AGENTS.md section or tools/bootstrap.sh still carrying the Precedent
+# template's text, with no answer recorded, is refused with the two
+# answers -- fix it upstream, or keep it as this repository's own.
+# tools/upstream_edits.py decides and words it; any failure of its own
+# lets the commit through (practice: fail-gracefully).
+edits="$project_dir/tools/upstream_edits.py"
+if [[ -f "$edits" ]]; then
+  set +e
+  why="$(cd "$project_dir" && python3 "$edits" --staged-template-edits 2>/dev/null)"
+  rc=$?
+  set -e
+  if [[ $rc -eq 3 && -n "$why" ]]; then
+    printf '%s' "$why" | jq -Rs '{
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason: .
+      }
+    }'
+    exit 0
+  fi
+fi
+
 script="$project_dir/tools/doc_lint.py"
 [[ -f "$script" ]] || exit 0
 

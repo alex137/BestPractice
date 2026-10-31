@@ -207,7 +207,11 @@ Detail section.
     `python3 tools/precedent_vendor_engine.py repin-kept ../BestPractice
     "AGENTS.md <heading>" --by-rule --reason "<why>"` (`--confirmed "<their
     words>"` only after a close call the person answered). Never paste the
-    hashes by hand. **(e)** No `tools/ENGINE_MANIFEST.json`: say so, confirm
+    hashes by hand. **Each block a kept item lacks takes its own verdict**
+    (since 2026-10-31): covered (quote where), send-upstream (the link),
+    local-add-on (the add-on practice) or standardize (copy it in), with
+    `python3 tools/precedent_vendor_engine.py judge-kept "<item>" BLOCK_ID
+    VERDICT`; a reason copied onto several items is refused. **(e)** No `tools/ENGINE_MANIFEST.json`: say so, confirm
     with the person, and finish the migration; if not now, stop before
     publishing. **(f)** File the secrets only the person can delete in one
     `todo/` item, `disposition: ask`, `remind_on` today; a session never
@@ -1054,9 +1058,20 @@ comparison.
     }
     ```
 
-    From then on the refresh prints one `KEPT ON PURPOSE` line with the
-    reason, leaves it off **Left for you**, and `precedent_update.py` can
-    end DONE. The hash pins the decision to the template text it was made
+    **Since 2026-10-31 the reason alone is not enough: each block the item
+    lacks takes its own verdict**, recorded under the entry's `blocks` by
+    `python3 tools/precedent_vendor_engine.py judge-kept "<item>" BLOCK_ID
+    VERDICT` with the id the report prints -- `covered --quote "<the local
+    words that say it>"`, `send-upstream --detail <link to the pull request
+    or issue>`, or `local-add-on --practice <path of the add-on practice>`;
+    `standardize` means copy upstream's block in, never a verdict to keep.
+    A reason recorded word for word on two items is refused as stock (a
+    consuming repository waived six sections with one reason on 2026-10-01,
+    and its copies lacked template lines nobody had judged). A section moved
+    out of AGENTS.md is compared wherever it now lives (`moved_to`, or the
+    same heading in a top-level or `docs/` file). From then on the refresh
+    prints one `KEPT ON PURPOSE` line with the reason, leaves it off **Left
+    for you**, and `precedent_update.py` can end DONE. The hash pins the decision to the template text it was made
     against. When upstream changes the text of a kept `AGENTS.md` section,
     the report shows upstream's own change, from the pinned text to today's,
     rather than every block the section has always left out. A change that

@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 151 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 154 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -196,6 +196,8 @@ When a person says "Vocabulary", or asks what the standing commands are:
   vocabulary — list every command in force; read it, never recall it
 When a person says "Weak yes", or agrees without conviction:
   weak-yes — do it, and record the approval as `assented`
+When a person says "What's waiting for me?" or "Add project members", or asks to review pending changes or add someone to the project:
+  administrator-requests — list what waits, with stakes and collisions; or guide adding a member
 When a person's account of their own situation seems contradicted by the evidence:
   their-constraints-are-given — say it once, then work from theirs
 When a second implementation of the same mechanism turns up:
@@ -254,6 +256,8 @@ When finishing substantial work, or merging a branch:
   capture-gate — capture it in the turn that finds it; a separate second pass; merge is backstop
 When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
+When making the first commit of a session for a person:
+  commits-credit-the-driver — author each commit as the person; name yourself as co-author
 When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
@@ -272,6 +276,8 @@ When starting work the repository or another session may already cover:
   base-branch-is-the-record — read the base branch before starting and before the PR
   lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
   search-by-purpose — search by purpose and by mechanism before concluding nothing exists
+When starting work, or packaging a change for review, in a repository several members work in:
+  working-in-parallel — claim first; flag who the diff touches; warn your own member first
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When writing a deliverable an outside reader will see:

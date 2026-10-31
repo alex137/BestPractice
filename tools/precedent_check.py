@@ -13752,6 +13752,37 @@ def _upstream_bug_stops_here(ctx):
                             'that is itself upstream')
     return upstream_edits.findings(ROOT)
 
+@check('exported-files-received', 'tree',
+       'a test or check a declared source ships that this repository never '
+       'received, because no practice in force here claims it -- recorded by '
+       'the sync in MANIFEST.json under "not_received"',
+       'whether the file should reach this repository: the fix is at the '
+       'source (a checked_by, or a `practice: SLUG` line in the test\'s '
+       'header), never here. Files the sync was never told about, and a '
+       'repository with no MANIFEST.json, are not judged',
+       practice_backed=False,
+       selects_on=('MANIFEST.json',))
+def _exported_files_received(ctx):
+    # 2026-10-31 (Morgan, strength: decided): a consuming repository's push
+    # check printed "no practice in force here claims these, not vendored"
+    # for two of a shared set's tests, and passed. Every file a source is
+    # meant to copy in is checked as copied in; the sync records what it
+    # left behind (precedent_materialize.NOT_RECEIVED_KEY) and this fails on it.
+    path = ROOT / 'MANIFEST.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('no MANIFEST.json here: nothing was synced from a source')
+    left = data.get('not_received') or []
+    return [Finding('MANIFEST.json',
+                    f'{item}: shipped by its source, never received here -- no '
+                    f'practice in force here claims it. Fix it at the source: '
+                    f'name it in the practice\'s checked_by, or add a '
+                    f'`practice: SLUG` line to its header naming the practice '
+                    f'it tests; then sync again')
+            for item in left if isinstance(item, str)]
+
+
 @check('open-items-outside-todo', 'tree',
        'an open item (todo-<date>-*.md) or gotcha (gotcha-<date>-*.md) '
        'filed anywhere but the repository\'s root todo/ or gotchas/, where '

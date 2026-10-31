@@ -51,6 +51,34 @@ decision the branch builds on, or moved a figure or design it relies on.
 Record the fork point before merging; afterwards the merge base is the trunk
 itself. The reply reports the outcome in one line.
 
+**In a repository on the Precedent loader, the runbook is this** (it was
+the AGENTS.md template's "Merging a thread branch" section until
+2026-10-31, and is kept here word for word in substance):
+
+0. **Capture gate -- before the merge, in the thread that did the work**
+   ([capture-gate](capture-gate.md)): fold now any document update,
+   registry entry or decision record the work implied, and run the
+   repository's parking-lot grep. **0b. Export gate**
+   ([practice-export-loop](practice-export-loop.md)): a *generic*
+   improvement goes into the vendored universal copy and upstream with
+   `python3 tools/checkin.py push <upstream-clone> --why "<what went
+   wrong>"`, then `python3 tools/precedent_sync_views.py --repo .` picks it
+   back up once it lands.
+1. Fetch and merge the default branch locally.
+2. Resolve by the per-file-class rules above. **Renumbering is
+   repo-wide:** when sections are renumbered, grep every doc --
+   instructions, map, glossary, open items, not just the content file
+   itself -- for the old numbers and update them in the same commit
+   (observed 2026-08: a reorganization updated an index row but left two
+   stale section references standing in the instructions file). **The
+   generated `<!-- BEGIN GENERATED: precedent-loader -->` block is never
+   hand-merged**: re-run `python3 tools/precedent_sync_views.py --repo .`,
+   never hand-resolve its own conflict markers.
+3. Run the audits -- **all must pass before the merge commits**: the
+   repository's own audit commands and `python3
+   tools/precedent_sync_views.py --repo . --check`.
+4. Commit the merge, push, land per the repository's convention.
+
 ## Why
 The expensive part of an ad-hoc merge is not the time it takes. It is that **conflict resolution is judgment exercised under pressure, on exactly the files that matter most** — shared registries, indexes, logs — and that is where an entry quietly gets dropped rather than where anyone expects to make a mistake.
 
@@ -76,7 +104,16 @@ already landed, and that the session adding a rule sweep existing work once
 ([rule-level-by-reach](rule-level-by-reach.md)) rather than every merge
 sweeping everything.
 
+**2026-10-31: the template's runbook section came here.** A reduction pass
+in a consuming repository found the AGENTS.md template's "Merging a thread
+branch" section copied word for word into every repository, about 530
+tokens each, while this practice already loaded at the merge gate. Morgan
+approved moving template sections that practices carry into the practices
+(strength: decided). The lines this practice lacked -- the loader-specific
+steps, the repo-wide renumbering rule and the generated block -- moved into
+Detail above; the template keeps a one-line pointer.
+
 ## Install
-Runbook section in
-[templates/AGENTS.md.template](https://github.com/alex137/BestPractice/blob/staging/templates/AGENTS.md.template); adapt the file
-classes to your repo.
+Nothing to write: the `merge` gate prints this practice. A repository with
+file classes of its own adds them in a local add-on practice (`adds_to:
+merge-runbook`).

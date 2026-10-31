@@ -570,6 +570,17 @@ def _claimed_in_source(source_path):
     return names
 
 
+# EVERYTHING A SOURCE EXPORTS IS RECEIVED, OR SAYS WHY NOT (2026-10-31).
+# What _plan_checks left behind because no practice in force here claims it
+# -- a test or check a source ships that this repository therefore never
+# runs -- is recorded in MANIFEST.json under this key, and precedent_check's
+# exported-files-received check fails while it is non-empty. Morgan,
+# 2026-10-31 (strength: decided): every file a source or template is meant
+# to copy in is checked as actually copied in. Filled by each _plan_checks.
+NOT_RECEIVED_KEY = 'not_received'
+_NOT_RECEIVED = []
+
+
 def _plan_checks(sources, res=None):
     """Read every source's per-check tools/checks/check_*.py and
     tools/checks/tests/test_*.sh INTO MEMORY, refusing a same-name
@@ -694,6 +705,25 @@ def _plan_checks(sources, res=None):
         owner_of[key] = source_name
         plan.append((rel_label, src_file.name, source_name, src_file.read_bytes()))
 
+    def cited_here(f, source_name):
+        """True when test `f` names, in a `practice: SLUG` line of its own
+        header (practice: code-cites-practice), a practice in force here from
+        its own source. A test of a data file or of a tool the set does not
+        own has no check_*.py to be named after, so before 2026-10-31 nothing
+        could claim it: a consuming repository's sync dropped two of the
+        ladder set's tests that way, with one line in a passing check's
+        output to say so."""
+        try:
+            head = '\n'.join(f.read_text(encoding='utf-8', errors='replace')
+                             .splitlines()[:40])
+        except OSError:
+            return False
+        for slug in re.findall(r'practice:\s*([a-z0-9][a-z0-9-]*)', head):
+            pr_ = (res or {}).get('practices', {}).get(slug)
+            if pr_ is not None and pr_.get('source') == source_name:
+                return True
+        return False
+
     def held_back(name, source_path):
         """True when a practice file in the script's OWN source names it in
         `checked_by` -- a rule that source keeps out of force here on
@@ -763,7 +793,8 @@ def _plan_checks(sources, res=None):
                         undeclared.append(f'{s["name"]} ({f})')
                 elif not f.name.startswith('test_'):
                     skipped.append(f'tools/checks/tests/{f.name} ({s["name"]})')
-                elif claimed_names is not None and f.name not in claimed_names:
+                elif claimed_names is not None and f.name not in claimed_names \
+                        and not cited_here(f, s['name']):
                     if not held_back(f.name, s['path']):
                         orphaned.append(f'tools/checks/tests/{f.name} ({s["name"]})')
                 elif claimed_names is not None and unclaimed_here(f.name, s['name']):
@@ -783,9 +814,14 @@ def _plan_checks(sources, res=None):
     if skipped:
         print(f"precedent_materialize: not a per-check file, not vendored: "
               + ', '.join(skipped), file=sys.stderr)
+    _NOT_RECEIVED[:] = sorted(orphaned)
     if orphaned:
         print(f"precedent_materialize: no practice in force here claims these, "
-              f"not vendored: " + ', '.join(orphaned), file=sys.stderr)
+              f"not vendored: " + ', '.join(orphaned) + " -- recorded in "
+              f"MANIFEST.json as \"{NOT_RECEIVED_KEY}\", which the "
+              f"exported-files-received check fails on: claim each at its "
+              f"source (checked_by, or a `practice: SLUG` line in its header)",
+              file=sys.stderr)
     checks_shadowed = [x for x in shadowed if '/tests/' not in x[0]]
     if checks_shadowed:
         print("precedent_materialize: " + '; '.join(
@@ -2256,6 +2292,8 @@ def _build_manifest(sources, written, checks_written, rstats,
     if declined_ships:
         manifest[DECLINED_SHIPS_KEY] = sorted(declined_ships,
                                               key=lambda d: d['path'])
+    if _NOT_RECEIVED:
+        manifest[NOT_RECEIVED_KEY] = list(_NOT_RECEIVED)
     return manifest
 
 

@@ -10,6 +10,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 
 | Term | Defined in |
 |---|---|
+| Add project members | [administrator-requests](practices/administrator-requests.md) |
 | allowance pool | [github-api-budget](practices/github-api-budget.md) |
 | always-loaded surface | [session-load-budget](practices/session-load-budget.md) |
 | API budget | [github-api-budget](practices/github-api-budget.md) |
@@ -63,6 +64,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | repo: | [session-tags](practices/session-tags.md) |
 | result cache | [shared-result-cache](practices/shared-result-cache.md) |
 | retired vocabulary | [migration-scrubs-vocabulary](practices/migration-scrubs-vocabulary.md) |
+| review sensitivities | [working-in-parallel](practices/working-in-parallel.md) |
 | role: | [session-tags](practices/session-tags.md) |
 | Root fixes | [root-issues](practices/root-issues.md) |
 | Root issues | [root-issues](practices/root-issues.md) |
@@ -84,6 +86,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | wants: | [session-tags](practices/session-tags.md) |
 | Weak yes | [weak-yes](practices/weak-yes.md) |
 | What's new | [whats-new](practices/whats-new.md) |
+| What's waiting for me? | [administrator-requests](practices/administrator-requests.md) |
 
 ## Engine vocabulary
 
