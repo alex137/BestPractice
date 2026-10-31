@@ -17,11 +17,12 @@
   ],
   "verdicts": {
     "check_precedent_check_fires": {
-      "verdict": "cheapen",
-      "why": "The test behind every enforced practice (129 planted cases, one per registered check, plus the untested-claim assertion), so it stays; the brief-it lead is a deliberate fixture (a deduplicated stub, needed by universal-dedup-lands-in-universal and practice-change-propagates), and the team lead is a planted file's wording. How: Each case runs a second 'clean' pipeline (a fresh copy of the whole tree plus a precedent_check.py --only SLUG interpreter) on the same unplanted tree the background baseline already checks. Run the baseline once with --full-sweep (bare it may run only a rotation slice) and read each slug's clean verdict from its output, keeping the per-case clean run only for the 33 cases with setup= and the 12 with extra=/env_extra=, whose clean tree or arguments differ. That drops about 85 of roughly 300 tree copies and interpreter starts: an estimate of a quarter to a third of its 416 s, not measured. Separately, the stale comment above practice-change-propagates still says go-merge while the code plants brief-it.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "The test behind every enforced practice (129 planted cases, one per registered check, each with its clean control, plus the untested-claim assertion); the brief-it lead is a deliberate fixture and the team lead a planted file's wording. Cheapened 2026-10-31: when every case runs, the baseline is a --full-sweep and the 85 or so cases with no setup=, extra= or env_extra= read their clean verdict from it instead of copying the tree and starting an interpreter each; a slug the sweep does not show clean, or output it cannot attribute, is re-checked on its own copy as before. Proved with a check broken to fire on a clean tree (caught by its control and the baseline) and one broken never to fire (caught by its planted case). Back to back on a quiet machine: 329.4 s before, 327.3 s after -- the CPU saved (446.9 to 384.0 s with other work on the cores) does not shorten the wall time, because the main thread runs about 44 extra --only checks and 50 tree copies one after another and reads many cases back right after starting them. Making those run side by side is the next real saving, and a larger edit than this pass.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 416.2,
+      "seconds": 314.6,
       "leads": [
         "names practice brief-it (deduplicated)",
         "names the word 'team (as a level)' (retired 2026-09-18)"
@@ -680,12 +681,12 @@
       "leads": []
     },
     "check_gate_channel": {
-      "verdict": "cheapen",
-      "why": "Pins the closed gate vocabulary and that push/reply are really wired into hooks and settings -- a session silently loading nothing is the failure -- but it runs the reply gate about six times (loop, Stop hook twice, full, brief) at ~10 s each (measured 2026-10-31: reply 10.0 s, reply --brief 10.1 s, push 1.7 s). How: Reuse the loop's `reply` and `push` outputs for r_full and r_gate instead of running both again (saves one reply run, ~10 s, and one push run). In the tool: one reply gate parses practice files 8,899 times (cProfile 2026-10-31: split_practices._read_practice_file, 4.9 s of 14 s, called from precedent_show._additions 43 times); memoizing _read_practice_file by (path, mtime) would take ~5 s off every reply-gate run -- here, in the hook every person's prompt pays for, and in the other reply-gate tests. Together roughly 40 s of 95.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins the closed gate vocabulary and that push/reply are really wired into hooks and settings -- a session silently loading nothing is the failure. Cheapened 2026-10-31: each gate runs once and all start together, the Stop-hook pair runs beside them, and the --brief and SessionStart cases read the loop's own reply and push results instead of running them again. Still fails on a --brief that prints full Rules and on a renamed unknown-gate refusal. Back to back: 80.7 s before, 30.2 s after. Not done: memoizing split_practices._read_practice_file in the tool (an engine change outside this test).",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 95.3,
-      "leads": []
+      "seconds": 30.4
     },
     "check_very_deep_check_convergent_drift": {
       "verdict": "cheapen",
@@ -765,12 +766,12 @@
       "importance": "medium"
     },
     "check_compaction_offer_owed_printed_at_turn_start": {
-      "verdict": "cheapen",
-      "why": "Pins that the turn-start gate says when the compact offer is owed (the session that ran to ~783,000 tokens without one); worth keeping, but each of its four cases runs the whole reply-gate.sh hook, ~10 s apiece, to read one line. How: Keep one end-to-end hook run (the 'owed' transcript, which also proves the payload plumbing and the exit 0) and call the gate's compaction function in-process for the short, said and no-transcript cases; or apply the precedent_gate memoization named under check_gate_channel. Roughly 25 of 39 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins that the turn-start gate says when the compact offer is owed (the session that ran to ~783,000 tokens without one). Cheapened 2026-10-31 without dropping any end-to-end run: the four whole reply-gate.sh hooks run side by side, each handed its payload as it starts, the tools linked into the fixture once beforehand; all four still prove the exit 0. Still fails on a renamed OWED line and on a hook that exits non-zero. Back to back: 34.6 s before, 10.3 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 39.1,
-      "leads": []
+      "seconds": 9.7
     },
     "check_update_vendors_redecided_decline_sticks": {
       "verdict": "keep",
@@ -869,12 +870,12 @@
       "leads": []
     },
     "check_archive_gate_keeps_inner_workings_from_non_owners": {
-      "verdict": "cheapen",
-      "why": "Pins Morgan's 2026-10-12 rule that inner workings (container files, setup warnings, refusal names, Update Vendors' report) reach code owners only; worth keeping, but it calls the whole _print_hard_requirements(ROOT) twice, ~8-10 s each (cProfile 2026-10-31: 8.2 s, mostly _note_from_tool subprocesses and repeated practice parsing), to read one section. How: It already stubs _container_report and _is_code_owner; also stub pg._note_from_tool and the unlanded-branch scan (precedent_reply_check._own_branches, 3.2 s) with lambdas for both calls, since the asserted text comes from the container and code-owner parts. Saves ~15 of 21 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins Morgan's 2026-10-12 rule that inner workings (container files, setup warnings, refusal names, Update Vendors' report) reach code owners only. Cheapened 2026-10-31: both _print_hard_requirements calls also stub pg._note_from_tool and precedent_reply_check._own_branches, which wrote none of the asserted text (a diff of the two outputs differed only in the ladder note and this session's branch list); the case no longer depends on which branches the session running it has pushed. Still fails when the non-owner wording is changed and when an owner is given the non-owner line. Back to back: 11.3 s before, 1.1 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 20.7,
-      "leads": []
+      "seconds": 1.1
     },
     "check_move_tool_names_sets_truly_and_keeps_approvals_current": {
       "verdict": "keep",
@@ -967,12 +968,12 @@
       "importance": "high"
     },
     "check_tools_answer_help_without_writing": {
-      "verdict": "cheapen",
-      "why": "`--help` must answer, exit 0 and write nothing on every tool (2026-09-06 sweep found tools that ran their whole audit on --help); worth keeping, but it runs ~150 tool processes one after another. How: Run the --help subprocesses concurrently (a ThreadPoolExecutor of os.cpu_count() workers over the same temp copy; the before/after snapshot still catches any write), and copy only tools/ plus the files the tools read at import instead of all 1,731 tracked files. About 4x less wall time on 4 cores: ~12 of 16 s.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "`--help` must answer, exit 0 and write nothing on every tool (2026-09-06: resplit_sections.py rewrote 46 tracked practice files on --help). Cheapened 2026-10-31: the --help interpreters run side by side (os.cpu_count() threads) over the same copy; the snapshot after them all still catches a write. The copy stays the whole tracked tree: copying only tools/ would hide a tool that rewrites a file it cannot find, which is this check's reason to exist. Still fails on a planted write to README.md and a planted non-zero exit. Back to back: 14.9 s before, 9.1 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 16.4,
-      "leads": []
+      "seconds": 8.9
     },
     "check_legacy_bootstrap_shim_is_replaced": {
       "verdict": "keep",
