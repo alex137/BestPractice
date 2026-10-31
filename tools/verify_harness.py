@@ -26437,9 +26437,19 @@ def check_precedent_check_fires():
                 encoding='utf-8')
         case('environment-gotchas', _plant_eg)
 
-        # session-bootstrap -- setup named in prose, no hook to run it
-        case('session-bootstrap',
-             lambda repo: shutil.rmtree(repo / '.claude' / 'hooks'))
+        # session-bootstrap -- setup named in prose, no hook to run it. Both
+        # halves are planted (practice: fixture-owns-its-state): until
+        # 2026-10-31 the case leaned on AGENTS.md happening to say
+        # `pip install cmarkgfm`, and a rewording that dropped the phrase
+        # left the check skipping the plant instead of failing it.
+        def _plant_sb(repo):
+            shutil.rmtree(repo / '.claude' / 'hooks')
+            agents = repo / 'AGENTS.md'
+            agents.write_text(agents.read_text(encoding='utf-8')
+                              + '\nBefore working, run `pip install '
+                                'planted-package` in this repository.\n',
+                              encoding='utf-8')
+        case('session-bootstrap', _plant_sb)
 
         # session-load-budget -- the instructions file over its declared
         # ceiling. Planted by moving the CEILING rather than by growing the
@@ -33314,6 +33324,119 @@ def check_installer_vendors_the_catalogue_companions():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_install_ships_universal_reply_requirements():
+    """A fresh install declares universal's reply requirements: its
+    reply_check.json travels beside the catalogue (CATALOGUE_COMPANIONS, on
+    install and on Update Vendors), and the todo-is-a-handoff check, which
+    reads the same gap-names-its-reason rule, finds it there.
+
+    Found 2026-10-30 by the very deep check: the classic process/upstream/
+    layout shipped the file, the installer and Update Vendors never did, so
+    an installed repository declared no reply requirements and that check
+    always skipped. Shipped 2026-10-31 (Morgan, "do your recommendations for
+    all", strength: assented), after each requirement was judged universal
+    or one person's convention.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    companion case fails, the installed copy declares nothing from
+    universal, and the open-item check skips instead of finding the gap.
+    The CONTROL cases plant the copy without the file and assert both go
+    quiet, so the loud cases are about the file and nothing else.
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+        import precedent_reply_check as prc
+    finally:
+        sys.path.pop(0)
+    upstream = json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-reply-ship-'))
+    no_person = str(tmp / 'no-user-config.json')
+
+    def universal_ids(proj):
+        old = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = no_person
+        try:
+            reqs, _notes = prc.declared_requirements(str(proj))
+        finally:
+            if old is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = old
+        return [r.get('id') or r.get('practice') for r in reqs
+                if r.get('_source') == 'universal/precedent']
+
+    def install(where, ship):
+        proj = tmp / where
+        proj.mkdir()
+        pi._vendor_catalogue(proj)
+        if not ship:
+            (proj / pi.UNIVERSAL_PATH / 'reply_check.json').unlink(missing_ok=True)
+        shutil.copytree(ROOT / 'tools', proj / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
+        # The materialized practices/ an install carries at its root, as
+        # a consumer's does; one file is all the check needs to be in force.
+        (proj / 'practices').mkdir()
+        shutil.copy2(ROOT / 'practices' / 'todo-is-a-handoff.md',
+                     proj / 'practices' / 'todo-is-a-handoff.md')
+        (proj / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': pi.UNIVERSAL_PATH}]}),
+            encoding='utf-8')
+        g = lambda *a: subprocess.run(['git', '-C', str(proj), *a],
+                                      capture_output=True, text=True,
+                                      env=_fixture_git_env())
+        g('init', '-q', '-b', 'main')
+        (proj / 'todo').mkdir()
+        item = proj / 'todo' / 'todo-2026-10-31-x.md'
+        item.write_text('---\nstatus: open\n---\n## What\nA line.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        item.write_text(item.read_text(encoding='utf-8')
+                        + 'The engine half is not built.\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'a gap with no reason')
+        p = subprocess.run([sys.executable, 'tools/precedent_check.py', '--only',
+                            'todo-is-a-handoff', '--range', 'HEAD~1..HEAD'],
+                           cwd=str(proj), capture_output=True, text=True,
+                           env={**os.environ, 'PRECEDENT_USER_CONFIG': no_person},
+                           timeout=120)
+        return proj, p.stdout + p.stderr
+
+    try:
+        cases.append(('install and Update Vendors both carry reply_check.json '
+                      'beside the catalogue',
+                      'reply_check.json' in pu.CATALOGUE_COMPANIONS
+                      and getattr(pi, 'CATALOGUE_COMPANIONS', None) == pu.CATALOGUE_COMPANIONS,
+                      f'{getattr(pi, "CATALOGUE_COMPANIONS", None)} vs {pu.CATALOGUE_COMPANIONS}'))
+        proj, out = install('shipped', True)
+        copied = proj / pi.UNIVERSAL_PATH / 'reply_check.json'
+        cases.append(("the installed copy is universal's file, byte for byte",
+                      copied.is_file() and copied.read_bytes()
+                      == (ROOT / 'reply_check.json').read_bytes(), str(copied)))
+        got = universal_ids(proj)
+        cases.append(("a fresh install declares every one of universal's reply "
+                      "requirements, gap-names-its-reason among them",
+                      len(got) == len(upstream) and 'gap-names-its-reason' in got,
+                      f'{len(got)} of {len(upstream)}: {got}'))
+        cases.append(('the open-item check finds an unexplained gap in the install',
+                      '1 violated' in out and 'names nothing blocking it' in out,
+                      out[-600:]))
+        proj, out = install('not-shipped', False)
+        got = universal_ids(proj)
+        cases.append(('CONTROL: a copy without the file declares nothing from '
+                      'universal', got == [], str(got)))
+        cases.append(('CONTROL: and the open-item check says it could not read '
+                      'the rule, rather than passing',
+                      'no gap-names-its-reason rule is declared here' in out
+                      and '0 violated' in out, out[-600:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_a_person_with_no_individual_set_can_be_a_code_owner():
     """A person with no individual set is known by the administrator the
     installer was told (--admin), or by the GitHub account the session's
@@ -33533,6 +33656,18 @@ def check_code_owners_only_practices_reach_only_code_owners():
         cases.append(('CONTROL: an old engine branch with a claim its data- copy '
                       'lacks is not listed', 'precedent-promote-lock' not in listed,
                       listed))
+        # The receipts' old name stays off even once its data- copy holds
+        # all of it: an older engine still wrote it on 2026-10-28
+        # (precedent_data_branches.KEPT_OLD_NAMES; Morgan, 2026-10-31,
+        # strength: assented).
+        g('checkout', '-q', 'main')
+        g('push', '-q', 'origin', 'HEAD:refs/heads/precedent-check-receipts')
+        g('push', '-q', 'origin', 'HEAD:refs/heads/data-check-receipts')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('the receipts\' old name is not listed though its data- '
+                      'copy holds it', 'precedent-check-receipts' not in listed
+                      and 'data-check-receipts' not in listed, listed))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad_cases = [(n, d) for n, ok, d in cases if not ok]
@@ -40813,6 +40948,135 @@ def check_changed_files_asks_a_new_check_for_its_test():
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
           '; '.join(failed) + ('' if not failed else f' -- {out[-500:]} / {out2[-300:]}'))
+
+
+def check_changed_files_fetches_a_base_a_single_branch_clone_lacks():
+    """The per-file step of a push to staging fetches origin/staging when
+    the clone has no such ref, and refuses -- never passes -- when the base
+    still names no commit.
+
+    2026-10-31, a consumer's very deep check: its clone fetched main alone,
+    so origin/staging did not exist there, the diff against it failed and
+    read as empty, and the step said "0 changed file(s) checked, 0
+    problem(s)" over a commit that changed 26 files, Python among them. The
+    fixture is that clone: an origin with main and staging, cloned with
+    --single-branch, and a branch changing a Python file that does not
+    compile."""
+    import contextlib, io, tempfile
+    name = ('the changed-files check fetches a base a single-branch clone '
+            'lacks, and refuses one that names no commit')
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), '-c',
+                               'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+    spec = importlib.util.spec_from_file_location(
+        'ppc_single_branch', ROOT / 'tools' / 'precedent_push_check.py')
+    ppc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppc)
+
+    def run(repo, since):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = ppc.changed_files_check(repo, since)
+        return rc, buf.getvalue()
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        seed, origin, clone = td / 'seed', td / 'origin.git', td / 'clone'
+        seed.mkdir()
+        git(seed, 'init', '-q', '-b', 'main')
+        (seed / 'README.md').write_text('fixture\n', encoding='utf-8')
+        git(seed, 'add', '-A'); git(seed, 'commit', '-qm', 'base')
+        git(seed, 'branch', 'staging')
+        subprocess.run(['git', 'clone', '-q', '--bare', str(seed), str(origin)],
+                       capture_output=True, env=env)
+        subprocess.run(['git', 'clone', '-q', '--single-branch', '-b', 'main',
+                        str(origin), str(clone)], capture_output=True, env=env)
+        had_ref = git(clone, 'rev-parse', '--verify', '-q',
+                      'origin/staging').returncode == 0
+        git(clone, 'switch', '-q', '-c', 'work')
+        (clone / 'tools').mkdir()
+        (clone / 'tools' / 'broken.py').write_text('def (:\n', encoding='utf-8')
+        git(clone, 'add', '-A'); git(clone, 'commit', '-qm', 'a broken file')
+        rc, out = run(clone, 'origin/staging')
+        rc2, out2 = run(clone, 'origin/no-such-branch')
+    cases = [
+        ('the fixture is the trap: the clone starts with no origin/staging',
+         not had_ref),
+        ('the missing base is fetched and the broken file is found',
+         rc == 1 and 'tools/broken.py: does not compile' in out),
+        ('...never the empty pass', '0 changed file(s) checked' not in out),
+        ('a base that still names no commit is refused, and says it is not a '
+         'pass', rc2 == 1 and 'names no commit here' in out2
+         and 'this is not a pass' in out2),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else f' -- {out[-400:]} / {out2[-300:]}'))
+
+
+def check_very_deep_check_record_trips_no_check_in_a_consumer():
+    """The very deep check's run record, written into a consumer's spec/,
+    neither breaks filename-separator nor turns document-status-header from
+    a skip into a violation there.
+
+    2026-10-31, a consumer's very deep check: its spec/ named files with
+    hyphens and stamped none of them. The run wrote spec/VERY_DEEP_CHECK.md
+    (underscores, with lifecycle frontmatter), and the same run's CHECK
+    COVERAGE then reported two violations that only that file caused. The
+    controls are the repository's own choices, which still fire: an
+    underscore name it picked, and a document it stamped itself."""
+    import tempfile as _tf, shutil as _sh
+    name = 'the very deep check\'s run record trips no check in a consumer'
+    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-vdcrecord-'))
+    stamp = ('---\ntitle: "{t}"\nkind: record\nstatus: live\nopened: 2026-10-31\n'
+             'closed: null\nsuperseded_by: null\nsupersedes: []\naudience: session\n'
+             'summary: "x"\n---\n# {t}\n\nText.\n')
+
+    def run(slug):
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', slug], cwd=str(fx),
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(fx), '--project-name', 'Fixture'],
+                       capture_output=True, text=True)
+        (fx / 'spec').mkdir(exist_ok=True)
+        for n in ('call-notes.md', 'connected-systems.md'):
+            (fx / 'spec' / n).write_text(f'# {n}\n\nNo header.\n', encoding='utf-8')
+        (fx / 'spec' / 'VERY_DEEP_CHECK.md').write_text(
+            stamp.format(t='Very deep check -- run record'), encoding='utf-8')
+        rc_sep, out_sep = run('filename-separator')
+        rc_doc, out_doc = run('document-status-header')
+        (fx / 'spec' / 'OWN_NOTES.md').write_text('# Own\n\nText.\n',
+                                                  encoding='utf-8')
+        rc_sep2, out_sep2 = run('filename-separator')
+        (fx / 'spec' / 'OWN_NOTES.md').unlink()
+        (fx / 'spec' / 'own-plan.md').write_text(stamp.format(t='Own plan'),
+                                                 encoding='utf-8')
+        rc_doc2, out_doc2 = run('document-status-header')
+    finally:
+        _sh.rmtree(fx, ignore_errors=True)
+    cases = [
+        ('filename-separator does not count the run record as the repository\'s '
+         '"_" choice', rc_sep == 0 and 'VIOLATION' not in out_sep),
+        ('document-status-header still skips a repository that stamped nothing '
+         'of its own', rc_doc == 0 and 'none stamped' in out_doc),
+        ('control: an underscore name the repository chose still breaks its '
+         'hyphenated spec/', rc_sep2 == 1 and 'OWN_NOTES.md' in out_sep2),
+        ('control: once the repository stamps a document of its own, its '
+         'unstamped ones are found', rc_doc2 == 1
+         and 'spec/call-notes.md' in out_doc2),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                               f' -- {out_sep[-400:]} / {out_doc[-400:]} / '
+                               f'{out_sep2[-300:]} / {out_doc2[-300:]}'))
 
 
 def check_changed_files_compares_quoted_counts_when_a_practice_changes():
@@ -52567,6 +52831,134 @@ def check_bootstrap_writes_what_real_sets_converged_on():
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'a new practice set starts with what real sets converged on '
           f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
+def check_bootstrap_does_what_a_first_update_vendors_adds():
+    """A newly bootstrapped set already has what its first Update Vendors
+    used to add: baseline approvals for every session-load budget in force,
+    the person's one session-load total with their own approval, and the
+    branch tiers said -- through the same functions that run calls
+    (seed_baseline_approvals, record_person_total, ensure_tiers).
+
+    2026-10-30, very deep check, CONVERGENT DRIFT: both shared sets carried
+    those lines and the generator wrote none (Morgan, 2026-10-31, strength:
+    assented). Controls: an individual set with no approval for its total
+    gives no total; off the ladder nothing about tiers is written or said;
+    and with seed_baseline_approvals neutered the registry has no approvals,
+    so the first case is the fix's and not the fixture's."""
+    import contextlib, io, tempfile
+    import build_views as bv
+    import precedent_bootstrap_source as pbs
+    import precedent_update as pu
+    tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+
+        def individual(name, approval):
+            d = w / name
+            d.mkdir()
+            man = {'level': 'individual', 'name': 'precedent-individual',
+                   'session_load_tokens': 9000}
+            if approval:
+                man['session_load_approval'] = {'strength': 'decided',
+                                                'approved_by': 'Fixture, 2026-10-28: "yes, 9k"'}
+            (d / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+            cfg = w / f'{name}.json'
+            cfg.write_text(json.dumps({'individual': {
+                'name': 'precedent-individual', 'path': str(d)}}), encoding='utf-8')
+            return cfg
+
+        def env_for(cfg, ladder):
+            env = dict(os.environ, HOME=str(w / 'home'), PRECEDENT_USER_CONFIG=str(cfg))
+            for k in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS'):
+                env.pop(k, None)
+            env['PRECEDENT_ASSUME_LADDER' if ladder else 'PRECEDENT_NO_LADDERS'] = '1'
+            return env
+
+        def boot(dest, cfg, ladder):
+            r = subprocess.run([sys.executable, tool, '--level', 'shared', '--name',
+                                'precedent-shared-zzfirstupdate', '--dest', str(dest),
+                                '--approver', 'Fixture Person:fixture',
+                                '--off-main', 'true'],
+                               env=env_for(cfg, ladder), capture_output=True, text=True)
+            reg = dest / 'tools' / 'session_load_budgets.json'
+            data = json.loads(reg.read_text(encoding='utf-8')) if reg.is_file() else {}
+            pj = dest / 'precedent.json'
+            return r, data, (json.loads(pj.read_text(encoding='utf-8'))
+                             if pj.is_file() else {})
+
+        with_total = individual('ind-approved', True)
+        r, data, pj = boot(w / 'set', with_total, ladder=True)
+        cases.append(('the bootstrap succeeds', r.returncode == 0,
+                      (r.stdout + r.stderr)[-300:]))
+        ap = data.get('approved_budgets') or {}
+        in_force = bv.effective_budgets(w / 'set', registry=w / 'set' / 'tools'
+                                        / 'session_load_budgets.json')
+        unapproved = sorted(k for k, v in in_force.items() if isinstance(v, int)
+                            and not (isinstance((ap.get(k) or {}).get('max'), int)
+                                     and v <= ap[k]['max']))
+        cases.append(('THE DISCRIMINATING CASE: every budget in force has an '
+                      'approval at or above it from the first commit',
+                      bool(ap) and not unapproved, f'unapproved: {unapproved}'))
+        cases.append(('each per-part approval is the baseline, said to come from '
+                      'the bootstrap', all(e.get('strength') == 'baseline'
+                                           and 'at bootstrap' in e.get('approved_by', '')
+                                           for k, e in ap.items()
+                                           if k != 'session_load_tokens'), str(ap)[:300]))
+        tot = ap.get('session_load_tokens') or {}
+        cases.append(("the person's one total is copied with their own approval",
+                      data.get('session_load_tokens') == 9000 and tot.get('max') == 9000
+                      and tot.get('strength') == 'decided'
+                      and 'Fixture, 2026-10-28' in tot.get('approved_by', '')
+                      and 'set generator' in tot.get('approved_by', ''), str(tot)))
+        cases.append(('on the ladder, the set lands on staging and the command '
+                      'that makes staging on origin is said',
+                      pj.get('landing_branch') == 'staging'
+                      and '--ensure-tiers --apply' in r.stdout, r.stdout[-300:]))
+
+        r, data, _ = boot(w / 'set-noappr', individual('ind-bare', False), ladder=True)
+        cases.append(('CONTROL: a total with no approval beside it is not copied',
+                      r.returncode == 0 and 'session_load_tokens' not in data
+                      and 'session_load_tokens' not in (data.get('approved_budgets') or {}),
+                      str(data)[:300]))
+
+        r, data, pj = boot(w / 'set-off', with_total, ladder=False)
+        cases.append(('CONTROL: off the ladder no landing branch is written and '
+                      'no tier is said', r.returncode == 0
+                      and 'landing_branch' not in pj and 'ensure-tiers' not in r.stdout,
+                      r.stdout[-300:]))
+
+        saved_env = {k: os.environ.get(k) for k in
+                     ('HOME', 'PRECEDENT_USER_CONFIG', 'PRECEDENT_NO_LADDERS',
+                      'PRECEDENT_ASSUME_LADDER')}
+        saved_seed = pu.seed_baseline_approvals
+        try:
+            os.environ.update(env_for(with_total, ladder=False))
+            os.environ.pop('PRECEDENT_ASSUME_LADDER', None)
+            pu.seed_baseline_approvals = lambda *a, **k: False
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                pbs.bootstrap('shared', 'precedent-shared-zzneutered', w / 'set-neutered',
+                              approvers=[{'name': 'Fixture Person', 'github': 'fixture'}],
+                              off_main=True)
+            data = json.loads((w / 'set-neutered' / 'tools' / 'session_load_budgets.json')
+                              .read_text(encoding='utf-8'))
+            cases.append(('NEGATIVE CONTROL: with seed_baseline_approvals neutered '
+                          'only the person\'s total is approved, every per-part '
+                          'budget is not', set(data.get('approved_budgets') or {})
+                          == {'session_load_tokens'}, str(data.get('approved_budgets'))[:300]))
+        finally:
+            pu.seed_baseline_approvals = saved_seed
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a new practice set starts with what its first Update Vendors '
+          f'added ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
@@ -66759,8 +67151,22 @@ def check_data_branches_are_named_for_the_ladder():
                           write == 'data-check-receipts' and new_tip == old_tip
                           and g(o, 'rev-parse', 'precedent-check-receipts')
                           .stdout.strip() == old_tip
-                          and any('left for you to delete' in m for m in said),
+                          and any('made from precedent-check-receipts' in m for m in said),
                           f'{write} {new_tip[:8]} {old_tip[:8]} {said}'))
+            # 2026-10-30 very deep check (Morgan, 2026-10-31, assented): an
+            # older engine still wrote the receipts' old name on 2026-10-28,
+            # so its copy keeps it and offers no delete link.
+            cases.append(('the receipts\' old name is kept, never offered for deletion',
+                          any('no deletion list offers it' in m for m in said)
+                          and not any('left for you to delete' in m for m in said),
+                          str(said)))
+            o2, w2 = fresh('ladder-lock', with_old=False)
+            g(w2, 'push', '-q', 'origin', 'main:refs/heads/precedent-promote-lock')
+            said2 = []
+            pdb.name_for_write(w2, pdb.LOCK, ladder=True, say=said2.append)
+            cases.append(('CONTROL: the lock\'s old name, which no older engine '
+                          'needs kept, is still handed over to delete',
+                          any('left for you to delete' in m for m in said2), str(said2)))
             cases.append(('once moved, everyone there follows, on the ladder or not',
                           pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
                           == pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
@@ -94625,6 +95031,8 @@ def main():
           *check_a_person_with_no_individual_set_can_be_a_code_owner())
     check("the universal catalogue's close_detect.json travels with it on install and update",
           *check_installer_vendors_the_catalogue_companions())
+    check("a fresh install declares universal's reply requirements",
+          *check_install_ships_universal_reply_requirements())
     check('the installer asks origin for the base branch before taking the current one',
           *check_installer_base_branch_asks_origin_before_the_current_branch())
     check('the installer defaults visibility to public when it cannot be read, and says why',
@@ -94792,6 +95200,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_writes_what_real_sets_converged_on()
+    check_bootstrap_does_what_a_first_update_vendors_adds()
     check_session_hooks_run_for_a_session_opened_above_the_repos()
     check_freshness_quiet_says_when_a_source_is_unverified()
     check_catalogue_hook_runs_the_freshness_notice()
@@ -95201,6 +95610,8 @@ def main():
     check_shipped_hooks_pass_rename_links_without_the_mirror()
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
+    check_changed_files_fetches_a_base_a_single_branch_clone_lacks()
+    check_very_deep_check_record_trips_no_check_in_a_consumer()
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()
     check_for_change_runs_the_tests_a_change_reaches()

@@ -7492,7 +7492,18 @@ def _document_status_header(ctx):
     if not any((ROOT / d).is_dir() for d in dl.SCAN_DIRS):
         raise NotApplicable('this repo has no spec/ or record/ tree to stamp')
     findings, unstamped, stamped = dl.scan(root=ROOT)
-    if not stamped and unstamped:
+    # A stamped file whose name the engine fixes (the very deep check's run
+    # record) was written by a tool, not stamped by this repository, so it
+    # is not the repository adopting the header. 2026-10-31: written into a
+    # consumer that had stamped nothing, it alone turned this skip into a
+    # violation on every one of that repository's own documents.
+    engine_stamped = sum(
+        1 for d in dl.SCAN_DIRS if (ROOT / d).is_dir()
+        for p in (ROOT / d).rglob('*.md')
+        if p.name in _engine_fixed_filenames()
+        and dl.parse_frontmatter(p.read_text(encoding='utf-8',
+                                             errors='replace'))[0] is not None)
+    if stamped - engine_stamped <= 0 and unstamped:
         # NOTHING stamped is a repo that has not started the backfill, not a
         # repo doing it wrong -- the same distinction tracked-practice-files
         # had to learn. The MIXED state is what this check is for.
@@ -13169,10 +13180,16 @@ def _gap_names_its_reason(ctx):
     triggers it" and "Not built." into an open item's progress notes with
     nothing blocking either; Morgan asked why a todo and not a fix, and then
     how to stop it happening again (practice: todo-is-a-handoff)."""
+    # The rule is read as the reply gate reads it, from every source this
+    # repository declares (precedent_reply_check.declared_requirements):
+    # universal's declaration sits at the repository root only in
+    # BestPractice, and in an installed repository beside the vendored
+    # catalogue (precedent/universal/reply_check.json), where reading the
+    # root alone made this check skip on every install (2026-10-31).
     try:
         import precedent_reply_check as _rc
-        rule = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
-            encoding='utf-8')) if r.get('id') == 'gap-names-its-reason']
+        rule = [r for r in _rc.declared_requirements(ROOT)[0]
+                if r.get('id') == 'gap-names-its-reason']
     except (ImportError, OSError, ValueError, AttributeError):
         raise NotApplicable('reply_check.json or the reply check engine could '
                             'not be read here')

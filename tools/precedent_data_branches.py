@@ -32,9 +32,12 @@ HOW A NAME IS CHOSEN, for one repository, in this order:
      branch is there, the first write copies it: `data-<what>` is pushed at
      the old branch's tip, history and all, and the old branch is left
      exactly where it was (practice: never-delete-a-remote-branch). That is
-     the rename of the existing ones Morgan asked about. Nothing reads the
-     old branch after that, so the copy says so with the link that deletes
-     it, and the branch-cleanup page lists it (2026-10-13).
+     the rename of the existing ones Morgan asked about. Nothing on this
+     engine reads the old branch after that, so the copy says so with the
+     link that deletes it, and the branch-cleanup page lists it once the
+     data- copy holds all of it (2026-10-13) -- except an old name in
+     KEPT_OLD_NAMES below, which a window on an older engine still writes:
+     today precedent-check-receipts, which no deletion list offers.
   3. anything else: the old name. A repository without the ladder never
      gains a `data-` branch from here.
 
@@ -71,6 +74,30 @@ LEGACY = {
 }
 RECEIPTS = 'check-receipts'
 LOCK = 'promote-lock'
+
+# Old names no deletion list offers yet, each with why: the copy's message
+# says it is kept instead of handing over a delete link, and the
+# branch-cleanup page leaves it off (precedent_stale_branches'
+# _moved_data_branches). Remove an entry once no repository runs an engine
+# older than 2026-10-11, when the data- names arrived.
+#
+# check-receipts (2026-10-30 very deep check; Morgan, 2026-10-31,
+# strength: assented): a window on an older engine pushed two receipts to
+# precedent-check-receipts in BestPractice on 2026-10-28, after
+# data-check-receipts had taken over. That engine reads and writes only the
+# old name, so deleting the branch throws its receipts away and it pushes
+# the branch straight back. The lock needs no entry: the claim here counts a
+# fresh hold on its old name as busy.
+KEPT_OLD_NAMES = {
+    RECEIPTS: 'a window on an older engine still writes receipts to it '
+              '(seen 2026-10-28)',
+}
+
+
+def old_name_deletable(what):
+    """True when `what`'s old name may be offered for deletion once its
+    data- copy holds it; False for an old name in KEPT_OLD_NAMES."""
+    return what not in KEPT_OLD_NAMES
 
 
 def new_name(what):
@@ -169,7 +196,11 @@ def name_for_write(root, what, ladder=None, tip=remote_tip, say=None):
     ok, err = copy_branch(root, old, old_tip, new)
     _CACHE.pop((str(pathlib.Path(root).resolve()), what), None)
     if ok:
-        if say:
+        if say and not old_name_deletable(what):
+            say(f'{new} made from {old} (at {old_tip[:12]}). This engine reads '
+                f'only {new} now; {old} is kept, and no deletion list offers '
+                f'it: {KEPT_OLD_NAMES[what]}.')
+        elif say:
             url = _delete_link(root, old)
             say(f'{new} made from {old} (at {old_tip[:12]}). Nothing reads '
                 f'{old} now -- {new} holds its whole history -- so it can be '

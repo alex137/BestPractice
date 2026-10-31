@@ -8023,7 +8023,8 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
 # one a 20-section row whose averages and quiet-section verdicts were about
 # a temporary directory. The cross-run read is a comparison, so a foreign
 # row does not merely add noise: it moves every number in it.
-LEDGER_RELPATH = pathlib.Path('record') / 'very-deep-check-ledger.json'
+LEDGER_NAME = 'very-deep-check-ledger.json'
+LEDGER_RELPATH = pathlib.Path('record') / LEDGER_NAME
 
 
 def ledger_path_for(repo_root=None):
@@ -8717,7 +8718,12 @@ def emit_merged_stale_checkout(repo_root=None):
         scan, redact=_leak_matched_branch_names(repo_root or ROOT, names))
 
 
-SPEC_DOC_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK.md'
+# The run record's name is the engine's, so it is a *_NAME constant: that is
+# how filename-separator and document-status-header tell it from a name the
+# repository chose (2026-10-31: written into a consumer whose spec/ used
+# hyphens and stamped nothing, it alone turned both checks red there).
+SPEC_DOC_NAME = 'VERY_DEEP_CHECK.md'
+SPEC_DOC_RELPATH = pathlib.Path('spec') / SPEC_DOC_NAME
 
 # Named rather than singular since 2026-09-23, when 'practice-catalogue'
 # joined 'merged-stale-checkout' as a second block this same document
@@ -8960,7 +8966,8 @@ def _update_spec_doc_block(repo_root, name, markdown):
 # happened with this very deep check."
 WARNINGS_EMBED = 'warnings'
 TOKEN_BUDGETS_EMBED = 'token-budgets'
-LATEST_RUN_RELPATH = pathlib.Path('spec') / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+LATEST_RUN_NAME = 'VERY_DEEP_CHECK_LATEST_RUN.md'
+LATEST_RUN_RELPATH = pathlib.Path('spec') / LATEST_RUN_NAME
 
 
 def _warnings_doc_path(repo_root):

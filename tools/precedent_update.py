@@ -514,7 +514,7 @@ def record_copy_in_budget(repo, today=None):
             'recorded with it')
 
 
-def record_person_total(repo, today=None):
+def record_person_total(repo, today=None, occasion='Update Vendors'):
     """-> a sentence for the report when it wrote the person's session-load
     total into this repository's registry, else None.
 
@@ -569,7 +569,7 @@ def record_person_total(repo, today=None):
     approved['session_load_tokens'] = {
         'max': total, 'strength': appr['strength'],
         'approved_by': (f"{appr['approved_by']} -- the person's one total, "
-                        f"copied from their individual set by Update Vendors "
+                        f"copied from their individual set by {occasion} "
                         f"on {day}")}
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     said = (f'session_load_tokens set to {total:,} from the person\'s individual '
@@ -682,12 +682,13 @@ def ensure_session_load_registry(repo):
     if path.exists():
         return None
     import precedent_bootstrap_source as _pbs
+    # Writes the baseline approvals too (seed_baseline_approvals), as it
+    # does for a newly bootstrapped set: one writer for a new registry.
     _pbs._write_session_load_budget(repo, occasion='Update Vendors')
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
-    seed_baseline_approvals(repo, data, path)
     out = {}
     for rel, e in (data.get('surfaces') or {}).items():
         m = re.match(r'(\d+) tokens', e.get('_note', ''))
@@ -3226,8 +3227,16 @@ CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 # install (very deep check, 2026-10-17). It is universal's rule, so it goes
 # where universal's practices go -- what stays home is a team's or a
 # person's own declaration (precedent_vendor_engine's note on the detector).
+# reply_check.json is the same case for the reply gate: universal's
+# declaration for its own the-boildown, fence-block-for-paste, prompt-please
+# and the rest, read at <universal source>/reply_check.json. The classic
+# process/upstream/ mirror carried it; this layout never did, so a new
+# install declared no reply requirements and checks that read them, such as
+# todo-is-a-handoff's, skipped there (very deep check, 2026-10-30; shipped
+# 2026-10-31 after the requirements were judged against one person's
+# conventions, Morgan, strength: assented).
 CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
-                        'close_detect.json')
+                        'close_detect.json', 'reply_check.json')
 
 
 def _blob_id(data):
