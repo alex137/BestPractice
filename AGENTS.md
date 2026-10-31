@@ -16,9 +16,12 @@ afterwards, and the session fixes it then (Alex, 2026-10-08:
 "Didn't we decide that we would merge and get notified of problems
 instead?"). A
 general "PR and merge it" authorization, with no branch named, means the
-landing branch. Check the base branch explicitly before acting -- do not
-assume one because it is the repository's configured default branch, not
-even when `main` and `staging` point at the same commit.
+landing branch, and a merge is not done until a fetch confirms the pushed
+content is actually there
+([verify-postcondition](practices/verify-postcondition.md)). Check the base
+branch explicitly before acting -- do not assume one because it is the
+repository's configured default branch, not even when `main` and `staging`
+point at the same commit.
 
 **Precedent commands.** A session recognizes each by what the message is
 asking for, not by a keyword, and confirms a hard-to-reverse read out loud
@@ -32,7 +35,7 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   dated, named body line together, and never raise it again; kept to the
   literal word.
 - **"Three Things"** ([three-things](practices/three-things.md)) — the three
-  things he needs to know now, a bolded phrase and two sentences each,
+  things the person needs to know now, a bolded phrase and two sentences each,
   nothing else.
 - **"Simple please"** ([plain-words](practices/plain-words.md)) — say it the
   way you would out loud, for the rest of the conversation, same substance.
@@ -41,8 +44,8 @@ in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
   to your own proposal is `assented`
   ([decision-strength](practices/decision-strength.md)).
 - **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
-  paste-ready block for a new session, opened with a tool only when he asks
-  for that in his own words; no merge authorization unless he gave one for
+  paste-ready block for a new session, opened with a tool only when the person
+  asks for that in their own words; no merge authorization unless they gave one for
   this handoff.
 - **"Root issues"** ([root-issues](practices/root-issues.md))
   — every bug, warning, fix or band-aid from this session that also belongs
@@ -63,13 +66,6 @@ The three dispositions an open item can carry are
 [open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
 session through `precedent_paths.py` on any todo file and through the `reply`
 gate.
-
-**An authorization to merge, in whatever words it arrives, means the
-landing branch** per the paragraph above, and is not done until a fetch
-confirms the pushed content is actually there
-([verify-postcondition](practices/verify-postcondition.md)). How a merge
-authorization's absence was settled (2026-09-07 to 2026-09-16) is in
-[todo/todo-2026-09-07-push-without-the-keyword.md](todo/todo-2026-09-07-push-without-the-keyword.md).
 
 **Session setup.** The private sources normally arrive by the
 SessionStart hook when the environment carries `PRECEDENT_GIT_TOKEN` and
@@ -380,8 +376,6 @@ place — nothing is ever deleted, and nothing moves.
   daily at 07:17 UTC (`cron: '17 7 * * *'`, Alex, 2026-10-12: "yes on daily
   run"); its header says why. Nothing else here runs on a clock. A commit
   that adds, changes, pauses or removes a schedule updates this line.
-- **Work lands on your landing branch** (the opening paragraph;
-  `python3 tools/precedent_branches.py --landing`).
 - **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
   §4). Reviewing one, you are the **second scrub line**: the contributing
   repo's blocklist caught its known private vocabulary; you catch what it
@@ -396,16 +390,16 @@ place — nothing is ever deleted, and nothing moves.
   migration is refused by the deep check** (`precedent_check.py --only
   todo-gotcha-stale-reference`). File the item under `todo/` instead
   ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
-- **Before committing:** `python3 tools/doc_lint.py` on markdown you
-  touched (`pip install cmarkgfm` — the session-start hook does this);
-  after touching the deck engine, rebuild the sample both ways:
+- **After touching the deck engine**, rebuild the sample both ways:
   `python3 deck/build_deck.py deck/sample` and `--send`.
 - **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
   **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
-  before every commit; **deep check** is `python3 tools/precedent_push_check.py`,
+  before every commit (it needs `cmarkgfm`, which the session-start hook
+  installs); **deep check** is `python3 tools/precedent_push_check.py`,
   before push or merge, **always run bare**: it checks at the tier a push
   to your landing branch gets -- seconds, for `staging` and for `main`
-  alike; the full suite runs at `--run-tests` and after a push into `main`.
+  alike; the full suite runs at `python3 tools/precedent_branches.py --run-tests`
+  and after a push into `main`.
   What matters is `0 failed` and `0 violated`.
   **A pass pushes to origin:** a small receipt (file hashes, no content)
   on the receipt branch, so other checkouts skip those files;
@@ -414,13 +408,6 @@ place — nothing is ever deleted, and nothing moves.
   [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
 
 ## Conventions (every session, every reply)
-
-The loader carries three more in full — `doc-references-are-links` through
-`precedent_paths.py` on any Markdown file, `volatile-rules-carry-dates` in
-the occasion index above, and
-`reply-links-files` through the `reply` gate
-([tools/precedent_gate.py](tools/precedent_gate.py)) since it was demoted out
-of the resident block on 2026-09-21 — so they are not repeated here.
 
 - **Outward-facing documents use the reader's words**
   ([readers-vocabulary](practices/readers-vocabulary.md)), checked in a
