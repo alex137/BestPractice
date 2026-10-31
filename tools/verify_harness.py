@@ -47103,9 +47103,18 @@ def check_main_test_repo_setting():
             cases.append((f'github_ci_main_test {value!r} leaves the file byte-identical '
                           f'to the template', pve.render_ci_workflow(other, raw) == raw))
 
+        # Parsed once per text: the table below asks starts() about the same
+        # two workflow texts some 5,000 times, and parsing them every time
+        # was nearly all of this check's 48 s (2026-10-31). Nothing writes
+        # to what it returns.
+        parsed = {}
+
         def wf(text):
-            doc = _yaml.safe_load(text)
-            return doc.get('on', doc.get(True)) or {}, doc['jobs']['light-check']['if']
+            if text not in parsed:
+                doc = _yaml.safe_load(text)
+                parsed[text] = (doc.get('on', doc.get(True)) or {},
+                                doc['jobs']['light-check']['if'])
+            return parsed[text]
 
         def starts(text, event, branch, private, head_ref=''):
             on, expr = wf(text)
@@ -48093,16 +48102,19 @@ def check_repo_may_declare_its_own_fallback_zone():
 
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-tz-rung-'))
     try:
+        # Only what the check reads: precedent.json, the catalogue and the
+        # engine, and not this harness, whose parse was most of each run.
+        # The check lists untracked files too, so a git init is enough and
+        # nothing is committed. The whole checkout, added and committed,
+        # took 29-61 s; this takes about 4 (2026-10-31).
         repo = tmp / 'repo'
-        shutil.copytree(ROOT, repo, symlinks=True,
-                        ignore=shutil.ignore_patterns('.git', '__pycache__',
-                                                      '*.pyc', 'prompts'))
+        repo.mkdir()
+        shutil.copy2(ROOT / 'precedent.json', repo / 'precedent.json')
+        shutil.copytree(ROOT / 'practices', repo / 'practices', symlinks=True)
+        shutil.copytree(ROOT / 'tools', repo / 'tools', symlinks=True,
+                        ignore=shutil.ignore_patterns('__pycache__', '*.pyc',
+                                                      'prompts', 'verify_harness.py'))
         subprocess.run(['git', '-C', str(repo), 'init', '-q'], check=True)
-        subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True,
-                       capture_output=True)
-        subprocess.run(['git', '-C', str(repo), '-c', 'user.email=h@example.com',
-                        '-c', 'user.name=harness', 'commit', '-qm', 'baseline'],
-                       check=True, capture_output=True)
 
         def run():
             env = dict(os.environ)
@@ -90035,8 +90047,22 @@ def check_no_tool_defines_a_function_twice():
     import collections
     import tempfile
 
+    # The AST decides, and a line scan decides which files it has to read
+    # (2026-10-31: parsing all of tools/*.py was 5-14 s, nearly all of it
+    # verify_harness.py; the scan reads them all in a tenth of a second).
+    # A top-level def or class always starts at column 0, so the scan sees
+    # every name tree.body holds, as often or more often (more when a
+    # string carries a column-0 `def`, as two files' fixtures do): a file
+    # where the scan sees no name twice cannot have one the AST sees twice.
+    # Measured the same day, the scan's names equalled the AST's in 141 of
+    # the 143 files and were a superset in the other two.
+    scan = re.compile(r'^(?:async[ \t]+)?(?:def|class)[ \t]+(\w+)', re.M)
+
     def twice(path):
-        tree = ast.parse(path.read_text(encoding='utf-8'))
+        text = path.read_text(encoding='utf-8')
+        if all(v < 2 for v in collections.Counter(scan.findall(text)).values()):
+            return []
+        tree = ast.parse(text)
         names = collections.Counter(
             n.name for n in tree.body
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)))
@@ -90055,10 +90081,18 @@ def check_no_tool_defines_a_function_twice():
         planted.write_text('def a():\n    pass\n\n\ndef a():\n    pass\n',
                            encoding='utf-8')
         control = twice(planted) == ['a']
+        # A second `def a` at column 0 inside a string is no definition:
+        # the scan flags the file and the AST clears it.
+        quoted = pathlib.Path(td) / 'quoted.py'
+        quoted.write_text('def a():\n    pass\n\n\nTEXT = """\ndef a():\n'
+                          '    pass\n"""\n', encoding='utf-8')
+        control_quoted = twice(quoted) == []
     check('no engine tool defines the same top-level name twice (a planted '
           'file that does is caught)',
-          not found and control,
-          f'defined twice: {found}' if found else 'the planted file was not caught')
+          not found and control and control_quoted,
+          f'defined twice: {found}' if found else
+          'the planted file was not caught' if not control else
+          'a `def` inside a string was counted as a definition')
 
 
 def check_unmerged_branch_verdicts():
@@ -91291,6 +91325,70 @@ def check_public_tree_bakes_in_no_owner_account():
           '; '.join(offenders[:5]) if offenders else '')
 
 
+def _vdc_drift_copy_set(src, src_name, dest, name):
+    """Copy a set the generator wrote at `src` under the name `src_name` to
+    `dest`, as the generator would have written it there under `name`.
+
+    The generator writes its own destination path ({{DEST_PATH}}) and the
+    set's name into its files, and nothing else differs between two runs:
+    measured 2026-10-31, `diff -r` of two runs into different directories,
+    and of two team sets with different names, differed only in those two
+    strings and in __pycache__, which the drift check skips and this copy
+    leaves out. So the copy is byte for byte what a fresh run writes, at
+    about a hundredth of its cost (practice: slow-steps-report-and-cache).
+    A `src` the generator never wrote is not copied, so `dest` stays absent,
+    exactly as after a run that failed."""
+    src, dest = pathlib.Path(src), pathlib.Path(dest)
+    if not src.is_dir():
+        return
+    shutil.copytree(src, dest, symlinks=True,
+                    ignore=shutil.ignore_patterns('__pycache__'))
+    swaps = [(str(src).encode(), str(dest).encode())]
+    if name != src_name:
+        swaps.append((src_name.encode(), name.encode()))
+    for p in dest.rglob('*'):
+        if p.is_symlink() or not p.is_file():
+            continue
+        data = new = p.read_bytes()
+        for a, b in swaps:
+            new = new.replace(a, b)
+        if new != data:
+            p.write_bytes(new)
+
+
+class _VdcDriftGeneratorMemo:
+    """While open, very_deep_check's own call to the generator
+    (bootstrap_source.bootstrap, run once per set by _bootstrap_drift_one)
+    generates once per distinct input and hands every later call a copy
+    (_vdc_drift_copy_set). The inputs are its arguments but the name, which
+    the copy substitutes, and PRECEDENT_SEED_OFF_MAIN, so a call made
+    without the harness's off-main allowance still runs the generator for
+    real. Restores the real generator on close, whatever happened."""
+
+    def __init__(self, vdc, where):
+        self.bs, self.where, self.made = vdc.bootstrap_source, pathlib.Path(where), {}
+
+    def __enter__(self):
+        self.real = real = self.bs.bootstrap
+
+        def memo(level, name, dest, **kw):
+            key = (level, json.dumps(kw, sort_keys=True, default=str),
+                   os.environ.get('PRECEDENT_SEED_OFF_MAIN'))
+            if key not in self.made:
+                src = self.where / f'reference-{len(self.made)}'
+                real(level, name, src, **kw)
+                self.made[key] = (src, name)
+            src, src_name = self.made[key]
+            _vdc_drift_copy_set(src, src_name, dest, name)
+        self.bs.bootstrap = memo
+        return self
+
+    def __exit__(self, *exc):
+        if getattr(self, 'real', None) is not None:
+            self.bs.bootstrap = self.real
+        return False
+
+
 def check_very_deep_check_bootstrap_drift():
     """very_deep_check's BOOTSTRAP DRIFT section compares what the generator
     writes TODAY against a set that already exists (practice:
@@ -91338,15 +91436,28 @@ def check_very_deep_check_bootstrap_drift():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-drift-harness-'))
     cases = []
 
+    # Each case still gets a set of its own; the generator runs once, and
+    # each case gets a copy of what it wrote (_vdc_drift_copy_set), as
+    # does each reference set the drift check generates
+    # (_VdcDriftGeneratorMemo). Twenty generator runs became three:
+    # 96 s to about 15 s (2026-10-31).
+    pristine = tmp / '_pristine'
+
     def fresh(tag):
         dest = tmp / tag
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'individual', '--name', 'precedent-individual',
-                        '--dest', str(dest)], capture_output=True, text=True)
+        if not pristine.exists():
+            subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--level', 'individual', '--name', 'precedent-individual',
+                            '--dest', str(pristine)], capture_output=True, text=True)
+        _vdc_drift_copy_set(pristine, 'precedent-individual', dest,
+                            'precedent-individual')
         return dest, [{'level': 'individual', 'name': 'precedent-individual',
                        'path': str(dest)}]
 
+    memo = _VdcDriftGeneratorMemo(vdc, tmp / '_references')
+    memo.where.mkdir()
     try:
+        memo.__enter__()
         dest, src = fresh('clean')
         out = vdc._bootstrap_drift(src)
         cases.append(('a set the generator just wrote reports no drift at all',
@@ -91477,6 +91588,7 @@ def check_very_deep_check_bootstrap_drift():
                       not any(m.startswith('FINDING') and 'precedent-source.json' in m
                               for m in out), repr(out)))
     finally:
+        memo.__exit__(None, None, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -91535,18 +91647,30 @@ def check_very_deep_check_convergent_drift():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-converge-harness-'))
     cases = []
 
+    # Four sets of their own, one generator run: each is a copy of the
+    # first with its name and path substituted (_vdc_drift_copy_set), and
+    # the drift check's reference sets are too (_VdcDriftGeneratorMemo).
+    # Twelve generator runs became two: 84 s to about 8 s (2026-10-31).
+    pristine = tmp / '_pristine'
+
     def fresh(tag):
         dest = tmp / tag
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'team', '--name', 'precedent-team-' + tag,
-                        '--dest', str(dest), '--approver', 'Fixture:fixture'],
-                       capture_output=True, text=True)
+        if not pristine.exists():
+            subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                            '--level', 'team', '--name', 'precedent-team-pristine',
+                            '--dest', str(pristine), '--approver', 'Fixture:fixture'],
+                           capture_output=True, text=True)
+        _vdc_drift_copy_set(pristine, 'precedent-team-pristine', dest,
+                            'precedent-team-' + tag)
         subprocess.run(['git', 'init', '-q', str(dest)], capture_output=True)
         subprocess.run(['git', '-C', str(dest), 'add', '-A'], capture_output=True)
         return dest, {'level': 'team', 'name': 'precedent-team-' + tag,
                       'path': str(dest)}
 
+    memo = _VdcDriftGeneratorMemo(vdc, tmp / '_references')
+    memo.where.mkdir(parents=True)
     try:
+        memo.__enter__()
         a_dir, a = fresh('alpha')
         b_dir, b = fresh('beta')
 
@@ -91605,6 +91729,7 @@ def check_very_deep_check_convergent_drift():
                       'reports only as a note',
                       bool(findings) and 'README.md' in findings[0],
                       repr(findings)))
+        converged = collect     # alpha and beta, read again by the ledger cases
 
         # Untracked is container state, never drift. The file itself has to
         # be untracked, not merely the edit: an earlier version of this case
@@ -91635,8 +91760,9 @@ def check_very_deep_check_convergent_drift():
             (d / 'very-deep-check-decisions.json').write_text(
                 json.dumps({'entries': entries}), encoding='utf-8')
 
-        collect = {}
-        vdc._bootstrap_drift([a, b], collect=collect)
+        # alpha and beta have not changed since they converged above, so
+        # the collect from that run is what a second run would give.
+        collect = converged
 
         out = vdc._convergent_drift(collect, sources=[a, b])
         cases.append(('no ledger present -> ordinary FINDING, unchanged '
@@ -91711,6 +91837,7 @@ def check_very_deep_check_convergent_drift():
                                   for m in out),
                       repr(out)))
     finally:
+        memo.__exit__(None, None, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -93198,9 +93325,15 @@ def check_unlanded_work_is_reported_before_the_passes():
         # individual source, so the fixture tests the fixture.
         env = dict(os.environ,
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+        # The sections that reach the network are skipped: this reads the
+        # UNLANDED WORK block and where the checklist starts, neither of
+        # which they print, and the CI FLEET AUDIT that --skip-liveness
+        # skips was 181 of a run's 182 s (measured 2026-10-31). The branch
+        # scan, which prints UNLANDED WORK, stays on.
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work), '--checklist'],
+             '--repo', str(work), '--checklist',
+             '--skip-liveness', '--skip-visibility', '--skip-endgame-merge'],
             capture_output=True, text=True, cwd=str(work), env=env)
         out = r.stdout
 
@@ -93215,8 +93348,17 @@ def check_unlanded_work_is_reported_before_the_passes():
         else:
             results.append(('it is printed BEFORE the checklist the session '
                             'works from -- the whole point', False))
+        # Named IN THE BLOCK, not merely somewhere above the checklist: the
+        # LIVE SESSIONS section a few lines below lists every recently
+        # pushed branch, so the wider slice passed even with the block's
+        # branch list deleted (found 2026-10-31 by breaking it on purpose,
+        # as check_shallow_clone_never_fabricates_unlanded_work already
+        # found for itself).
+        block = out.split('UNLANDED WORK', 1)[-1] if has_block else ''
+        for end in ('\nLIVE SESSIONS', '\nREPOSITORY VISIBILITY', 'Pass 1 —'):
+            block = block.split(end, 1)[0]
         results.append(('the branch carrying unlanded work is named',
-                        'carries-work' in out.split('Pass 1 —')[0]))
+                        'carries-work' in block))
 
         failed = [n for n, ok in results if not ok]
         # SAY WHAT THE TOOL ACTUALLY DID when this fails.
@@ -93604,9 +93746,27 @@ def check_shallow_clone_never_fabricates_unlanded_work():
         _git(up, 'merge', '-q', '--no-ff', 'fully-landed', '-m', 'merge it')
         # Deeper than the tool's routine --depth=50, so the merge base is
         # genuinely out of reach of a shallow clone. See the docstring.
+        # Seventy commits, each adding f{i}.txt, written by one fast-import
+        # rather than 140 git add/commit calls, which each paid the commit
+        # hooks: 13 s to well under one (2026-10-31).
+        stamp = int(time.time())
+        stream = []
         for i in range(70):
-            (up / f'f{i}.txt').write_text(f'later {i}\n')
-            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', f'later {i}')
+            msg, body = f'later {i}\n', f'later {i}\n'
+            stream += ['commit refs/heads/main',
+                       f'committer Harness <harness@example.com> {stamp + i} +0000',
+                       f'data {len(msg)}', msg.rstrip('\n')]
+            if i == 0:
+                stream.append('from refs/heads/main^0')
+            stream += [f'M 100644 inline f{i}.txt', f'data {len(body)}',
+                       body.rstrip('\n')]
+        r = subprocess.run(['git', '-C', str(up), 'fast-import', '--quiet'],
+                           input='\n'.join(stream) + '\n', text=True,
+                           capture_output=True)
+        if r.returncode != 0:
+            raise FixtureSetupError(f'git fast-import (in {up}) exited '
+                                    f'{r.returncode}: {r.stderr.strip()[-300:]}')
+        _git(up, 'reset', '-q', '--hard', 'main')
 
     def _consumer(work, tmp):
         _git(work, 'config', 'user.email', 'harness@example.com')
@@ -93622,9 +93782,13 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     def _run(work, tmp):
         env = dict(os.environ,
                    PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
+        # Network-bound sections skipped, as in
+        # check_unlanded_work_is_reported_before_the_passes: the branch scan
+        # is the code under test, and it stays on.
         r = subprocess.run(
             [sys.executable, str(ROOT / 'tools' / 'very_deep_check.py'),
-             '--repo', str(work), '--checklist'],
+             '--repo', str(work), '--checklist',
+             '--skip-liveness', '--skip-visibility', '--skip-endgame-merge'],
             capture_output=True, text=True, cwd=str(work), env=env)
         # THE UNLANDED WORK BLOCK ONLY, not everything printed before the
         # checklist. This used to slice at 'Pass 1 --' and assert that a
@@ -93646,13 +93810,37 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     results = []
     diag = []
 
+    # The history is built once and each case copies it: both cases start
+    # from the same seeded repository, and neither writes to the original.
+    seeded = pathlib.Path(tempfile.mkdtemp(prefix='precedent-shallow-seed-'))
+    try:
+        (seeded / 'up').mkdir(); _seed(seeded / 'up')
+        _shallow_cases(seeded / 'up', _consumer, _run, results, diag)
+    finally:
+        shutil.rmtree(seeded, ignore_errors=True)
+
+    failed = [n for n, ok in results if not ok]
+    detail = ''
+    if failed:
+        detail = f"{'; '.join(failed)} [{'; '.join(diag)}]"
+    check(f'a shallow clone never fabricates a count of unlanded work, and '
+          f'says so when it cannot tell ({len(results)} stated cases)',
+          not failed, detail)
+
+
+def _shallow_cases(seeded, _consumer, _run, results, diag):
+    """check_shallow_clone_never_fabricates_unlanded_work's two cases,
+    each on its own copy of the `seeded` history."""
+    import shutil, tempfile
+    _git = fixture_git
+
     # CASE 1 -- the real incident: shallow clone, origin still reachable.
     # The tool must deepen and give the CORRECT answer (nothing unlanded),
     # never a fabricated count.
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         up, work = tmp / 'up', tmp / 'work'
-        up.mkdir(); _seed(up)
+        shutil.copytree(seeded, up, symlinks=True)
         subprocess.run(['git', 'clone', '-q', '--depth', '1',
                         f'file://{up}', str(work)], capture_output=True)
         shallow = _git(work, 'rev-parse',
@@ -93686,7 +93874,7 @@ def check_shallow_clone_never_fabricates_unlanded_work():
     with tempfile.TemporaryDirectory() as tmp:
         tmp = pathlib.Path(tmp)
         deep, mid, work = tmp / 'deep', tmp / 'mid', tmp / 'work'
-        deep.mkdir(); _seed(deep)
+        shutil.copytree(seeded, deep, symlinks=True)
         subprocess.run(['git', 'clone', '-q', '--bare', '--depth', '1',
                         f'file://{deep}', str(mid)], capture_output=True)
         _git(mid, 'fetch', '-q', '--depth=1', 'origin',
@@ -93716,14 +93904,6 @@ def check_shallow_clone_never_fabricates_unlanded_work():
         results.append(('case 2: the all-clear is NOT printed alongside an '
                         'unmeasurable branch',
                         'No branch carries unlanded work' not in head))
-
-    failed = [n for n, ok in results if not ok]
-    detail = ''
-    if failed:
-        detail = f"{'; '.join(failed)} [{'; '.join(diag)}]"
-    check(f'a shallow clone never fabricates a count of unlanded work, and '
-          f'says so when it cannot tell ({len(results)} stated cases)',
-          not failed, detail)
 
 
 def check_a_renamed_engine_file_never_survives_a_reseed():

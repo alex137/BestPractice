@@ -648,19 +648,21 @@
       "importance": "medium"
     },
     "check_shallow_clone_never_fabricates_unlanded_work": {
-      "verdict": "cheapen",
-      "why": "Guards the unlanded-work scan against a shallow clone inventing commit counts (the 2026-09-08 incident), in the environment every fresh session starts in; but almost all of its 405 s is two full very_deep_check.py --checklist runs paying for the network-bound liveness, visibility and endgame-merge sections the test never looks at. How: Add --skip-liveness --skip-visibility --skip-endgame-merge to both very_deep_check.py calls (the branch scan and UNLANDED WORK block stay on). Measured 2026-10-31 by injecting those flags: all 10 cases pass, each run 0.7-1.0 s, whole test 23 s instead of 405 s. The rest is the 70-commit history built twice: build it once and copytree it for case 2, or write the 70 commits with one git fast-import / commit-tree loop instead of 210 git add/commit calls, to get it under ~5 s. Saves ~400 s. Where the time goes, measured 2026-10-31 on this fixture: a full run took 182 s, 181 s of it the CI FLEET AUDIT section, which --skip-liveness skips; with the three flags the same run took 0.7 s.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Guards the unlanded-work scan against a shallow clone inventing commit counts or printing a false all-clear (the 2026-09-08 incident), in the environment every fresh session starts in. Cheapened 2026-10-31: both very_deep_check.py runs pass --skip-liveness --skip-visibility --skip-endgame-merge (the branch scan and UNLANDED WORK block stay on), and the seeded history is built once, its 70 later commits in one git fast-import instead of 140 hook-paying git calls, and copied for each case. Same 10 cases; reverting the None-is-unknown fix still fails case 2. 405 s recorded (246 s measured before the change) to 2.4 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 405.1,
+      "seconds": 2.4,
       "leads": []
     },
     "check_unlanded_work_is_reported_before_the_passes": {
-      "verdict": "cheapen",
-      "why": "Pins that unlanded branches print BEFORE the checklist (the 2026-09-07 incident of re-finding finished work), still the very deep check's first defence; its 200 s is one full very_deep_check.py run whose network-bound sections it never reads. How: Pass --skip-liveness --skip-visibility --skip-endgame-merge to its one very_deep_check.py --checklist call, as check_very_deep_check_records_its_components already does; UNLANDED WORK is gated only by --skip-branch-scan. Measured 2026-10-31 with the flags injected: 4/4 cases pass, test takes 1.4 s. Saves ~199 s. Where the time goes, measured 2026-10-31 on this fixture: a full run took 182 s, 181 s of it the CI FLEET AUDIT section, which --skip-liveness skips; with the three flags the same run took 0.7 s.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Pins that unlanded branches print BEFORE the checklist (the 2026-09-07 incident of re-finding finished work). Cheapened 2026-10-31: its very_deep_check.py --checklist run passes --skip-liveness --skip-visibility --skip-endgame-merge; the branch scan stays on. Breaking it on purpose showed the 'branch is named' case passed with the block's branch list deleted, because LIVE SESSIONS below also names every pushed branch; that case now reads only the UNLANDED WORK block, and fails when the list is deleted. 200 s recorded (110 s measured before) to 1.5 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 200.3,
+      "seconds": 1.5,
       "leads": []
     },
     "check_update_vendors_leaves_the_copy_its_record_names": {
@@ -672,11 +674,12 @@
       "leads": []
     },
     "check_very_deep_check_bootstrap_drift": {
-      "verdict": "cheapen",
-      "why": "Keeps the BOOTSTRAP DRIFT section honest (asserted messages, the one-row collapse) and is already change-scoped, but each of its ~11 _bootstrap_drift calls regenerates the reference set with bootstrap_source.bootstrap(), on top of 9 fresh precedent_bootstrap_source.py runs: ~20 generator runs for one test. How: Bootstrap once into a pristine directory and copytree it for each of the 9 cases instead of running the generator 9 times; and memoize the reference set _bootstrap_drift_one generates per (level, name, approvers, engine tree) within the process -- or in the test, wrap bootstrap_source.bootstrap with a copy-from-cache -- so the 11 drift calls generate once. ~20 generator runs to ~2: saves roughly 80 of its 96 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Keeps the BOOTSTRAP DRIFT section honest: asserted messages, the one-row collapse, and the remedy direction (a hand-edit is never sent to refresh over itself). Cheapened 2026-10-31: the generator runs once for the nine case sets and once per distinct input for the drift check's own reference sets (_VdcDriftGeneratorMemo); every other set is a copy with its path and name substituted (_vdc_drift_copy_set), shown byte-identical to a fresh run. The off-main case still runs the generator for real. Same 11 cases; a changed hand-edit message fails it. 96 s recorded (66 s measured before) to 16 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 96.1,
+      "seconds": 15.8,
       "leads": []
     },
     "check_gate_channel": {
@@ -688,11 +691,12 @@
       "leads": []
     },
     "check_very_deep_check_convergent_drift": {
-      "verdict": "cheapen",
-      "why": "Pins the two-set threshold, the unknown direction and the decision ledger for CONVERGENT DRIFT; change-scoped already, but each _bootstrap_drift([a, b]) call regenerates both reference sets, ~12 generator runs plus 4 fresh sets. How: Call vdc._bootstrap_drift([a, b], collect) once per state, not again before the ledger cases (the four ledger cases reuse one collect already, the extra call before them is redundant), and memoize the generated reference per (level, name) as for check_very_deep_check_bootstrap_drift; gamma/delta can be copytrees of alpha/beta with the name in precedent-source.json changed. Roughly 60 of 84 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins the two-set threshold, the unknown direction and the decision ledger for CONVERGENT DRIFT. Cheapened 2026-10-31: one generator run for the four team sets (copies with name and path substituted) and one for the reference sets (_VdcDriftGeneratorMemo), and the ledger cases reuse the alpha/beta collect from the run just before them rather than generating again. Same 14 cases; a threshold of one fails it. 84 s recorded (52 s measured before) to 8 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 83.5,
+      "seconds": 8.2,
       "leads": []
     },
     "check_changed_files_only_judges_the_change": {
@@ -713,11 +717,12 @@
       "leads": []
     },
     "check_repo_may_declare_its_own_fallback_zone": {
-      "verdict": "cheapen",
-      "why": "Pins that a repo's own fallback_timezone overrides the engine's while drift between the engine's two holders (tools/precedent_time.py, tools/commit-identity.sh) is still reported; worth keeping, but it copies the whole 41 MB checkout, git-adds ~1,700 files and runs a whole-tree AST scan twice (the check takes 7 s on ROOT alone, 4 s of that parsing tools/verify_harness.py). How: Copy only what the run needs -- precedent.json, practices/, tools/ without verify_harness.py and __pycache__ -- and skip the git add/commit of the full tree (git init plus one small commit is enough). Both runs then parse a few hundred small files instead of the harness itself. Roughly 40 of 61 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Pins that a repo's own fallback_timezone overrides the engine's while drift between the engine's two holders is still reported. Cheapened 2026-10-31: the fixture copies only precedent.json, practices/ and tools/ without verify_harness.py, and git-inits without adding or committing (the check lists untracked files too), instead of copying, adding and committing the whole checkout. Both cases unchanged; putting precedent.json back into the equality set (the 2026-09-14 bug) fails the override case. 61 s recorded (29 s measured before) to 3.8 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 60.9,
+      "seconds": 3.8,
       "leads": []
     },
     "check_kept_agents_md_divergence_is_recorded": {
@@ -739,11 +744,12 @@
       "importance": "medium"
     },
     "check_main_test_repo_setting": {
-      "verdict": "cheapen",
-      "why": "Pins Morgan's 'no change tested twice' and the repository's github_ci_main_test override across 1,080 combinations -- a billing safeguard, high value -- but nearly all of its 49 s is yaml.safe_load of the same two workflow texts, called inside starts() four to five times per combination (~5,000 parses). How: Parse RAW and REN once each (memoize wf() by text, or precompute the two (on, expr) pairs) so starts() only does dict lookups and _gh_if; the 1,080-row table then runs in about a second. Saves ~45 s.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Pins Morgan's 'no change tested twice' and the repository's github_ci_main_test override across 1,080 combinations, a billing safeguard. Cheapened 2026-10-31: the two workflow texts are parsed once each instead of on every starts() call (some 5,000 yaml parses). Same 19 cases and table; main_test_due forced to True fails it. 49 s recorded (48 s measured before) to 1.7 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 48.9,
+      "seconds": 1.7,
       "leads": []
     },
     "check_update_vendors_reruns_pinned_to_its_first_commit": {
@@ -1047,11 +1053,12 @@
       "importance": "medium"
     },
     "check_no_tool_defines_a_function_twice": {
-      "verdict": "cheapen",
-      "why": "New today (2026-10-31, the second `_stamp` in very_deep_check.py that silently replaced the first); worth keeping, but it ast.parses every tools/*.py on every run, tools/verify_harness.py alone taking ~4 s to parse. How: A top-level def or class always starts at column 0, so collect names with a line scan (re.findall(r'^(?:async\\s+)?(?:def|class)\\s+(\\w+)', text, re.M)) and fall back to ast.parse only for a file the scan flags, to rule out a match inside a string; or parse only tools/*.py the change touches (_changed_touches) on a scoped run. Saves ~12 of 14 s.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "New 2026-10-31 (the second _stamp in very_deep_check.py that silently replaced the first). Cheapened the same day: a column-0 line scan picks the files to parse and ast.parse decides, so tools/verify_harness.py is no longer parsed. The scan sees every name tree.body holds (measured: equal in 141 of 143 files, a superset in two), so it cannot miss a duplicate the AST would find; a new control shows a duplicate inside a string is cleared by the AST. A planted duplicate in tools/precedent_time.py fails it. 14 s recorded (5.4 s measured before) to 0.1 s.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 14.2,
+      "seconds": 0.1,
       "leads": []
     },
     "check_vendor_engine_refreshes_bootstrap_sh": {
