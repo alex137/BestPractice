@@ -58373,7 +58373,7 @@ def check_retired_template_sections_migrate_into_practices():
                       (text[:600], failure_detail(out, 800))))
         cases.append(('the review-sensitivities list with a real entry stays',
                       '### Review sensitivities (accumulated)' in after and 'Dana:' in after,
-                      after[-800:]))
+                      failure_detail(after, 800)))
         unreached = []
         for slug in sorted(set(pve.RETIRED_AGENTS_MD_SECTIONS.values())):
             fm = (ROOT / 'practices' / f'{slug}.md').read_text(encoding='utf-8')
@@ -58458,7 +58458,7 @@ def check_template_text_edit_trips_the_commit_check():
                            env={**env, 'CLAUDE_PROJECT_DIR': str(repo)}, cwd=str(repo))
         cases.append(('...and through the real commit hook: deny, with both answers',
                       '"deny"' in r.stdout and 'it belongs upstream' in r.stdout
-                      and 'true only here' in r.stdout, (r.stdout[-500:], r.stderr[-300:])))
+                      and 'true only here' in r.stdout, (failure_detail(r.stdout, 500), failure_detail(r.stderr, 300))))
         got = staged(**{'AGENTS.md': agents.replace('Ours to word.', 'Ours, reworded.')})
         cases.append(('CONTROL: editing the repository\'s own section passes', got == [], got))
         m2 = dict(manifest, agents_md_sections_sha256={
