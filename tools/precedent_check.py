@@ -7492,7 +7492,18 @@ def _document_status_header(ctx):
     if not any((ROOT / d).is_dir() for d in dl.SCAN_DIRS):
         raise NotApplicable('this repo has no spec/ or record/ tree to stamp')
     findings, unstamped, stamped = dl.scan(root=ROOT)
-    if not stamped and unstamped:
+    # A stamped file whose name the engine fixes (the very deep check's run
+    # record) was written by a tool, not stamped by this repository, so it
+    # is not the repository adopting the header. 2026-10-31: written into a
+    # consumer that had stamped nothing, it alone turned this skip into a
+    # violation on every one of that repository's own documents.
+    engine_stamped = sum(
+        1 for d in dl.SCAN_DIRS if (ROOT / d).is_dir()
+        for p in (ROOT / d).rglob('*.md')
+        if p.name in _engine_fixed_filenames()
+        and dl.parse_frontmatter(p.read_text(encoding='utf-8',
+                                             errors='replace'))[0] is not None)
+    if stamped - engine_stamped <= 0 and unstamped:
         # NOTHING stamped is a repo that has not started the backfill, not a
         # repo doing it wrong -- the same distinction tracked-practice-files
         # had to learn. The MIXED state is what this check is for.
