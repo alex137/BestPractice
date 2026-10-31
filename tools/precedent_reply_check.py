@@ -145,6 +145,10 @@ on 2026-09-14 (*"I think we should move the next steps at the end to be
 universal"*), so it is now declared in THIS repository's own
 reply_check.json and does bind every adopter -- deliberately, and said out
 loud in the pull request that moved it rather than left to be discovered.
+It reaches an adopter beside the universal catalogue
+(precedent_update.CATALOGUE_COMPANIONS), at <universal source>/reply_check.json,
+since 2026-10-31; before then only the retired process/upstream/ layout
+carried it, and a newer install declared no reply requirements at all.
 
 That changes which source declares one requirement. It changes nothing
 about the mechanism: this file still has no requirement of its own, reads

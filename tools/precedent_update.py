@@ -3226,8 +3226,16 @@ CATALOGUE_SYNC_NAME = 'CATALOGUE_SYNC.json'
 # install (very deep check, 2026-10-17). It is universal's rule, so it goes
 # where universal's practices go -- what stays home is a team's or a
 # person's own declaration (precedent_vendor_engine's note on the detector).
+# reply_check.json is the same case for the reply gate: universal's
+# declaration for its own the-boildown, fence-block-for-paste, prompt-please
+# and the rest, read at <universal source>/reply_check.json. The classic
+# process/upstream/ mirror carried it; this layout never did, so a new
+# install declared no reply requirements and checks that read them, such as
+# todo-is-a-handoff's, skipped there (very deep check, 2026-10-30; shipped
+# 2026-10-31 after the requirements were judged against one person's
+# conventions, Morgan, strength: assented).
 CATALOGUE_COMPANIONS = ('precedent-source.json', 'record/WITHDRAWN_FROM_UNIVERSAL.md',
-                        'close_detect.json')
+                        'close_detect.json', 'reply_check.json')
 
 
 def _blob_id(data):

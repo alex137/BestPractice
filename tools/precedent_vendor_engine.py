@@ -704,13 +704,17 @@ ENGINE_FILES = [
     # hook guards on the file existing, so a consuming repo would have gone
     # on skipping it silently and forever.
     #
-    # What travels is the MECHANISM only. A source's close_detect.json is
-    # authored at that source's root and is never vendored, exactly like
-    # reply_check.json: it declares one person's or one team's closing
+    # What travels in tools/ is the MECHANISM only. A team's or a person's
+    # close_detect.json and reply_check.json are authored at that source's
+    # root and never vendored here: each declares that source's own
     # convention, and an engine that shipped somebody's phrases would bind
-    # every adopter to them (practice: rule-level-by-reach). So a vendored
-    # repo receives a detector that detects nothing until a source declares
-    # what it should fire on -- which is the honest default, not a gap.
+    # every adopter to them (practice: rule-level-by-reach). Universal's own
+    # two declarations are the exception, and they travel beside its
+    # catalogue rather than in tools/ (precedent_update.CATALOGUE_COMPANIONS:
+    # close_detect.json since 2026-10-17, reply_check.json since
+    # 2026-10-31), because they bind every adopter by the practices they
+    # enforce. A source that declares nothing still detects nothing -- the
+    # honest default, not a gap.
     'precedent_close_detect.py',
     # ...and the detector it imports for the one signal that needs no
     # declaration: a person saying "from now on, always ...". The import is
