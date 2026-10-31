@@ -3,16 +3,16 @@ slug:              todo-2026-10-30-vendor-update-leftovers-in-the-ladder-and-ind
 kind:              manual
 domain:            engine
 severity:          medium
-status:            open
+status:            done
 disposition:       null
 remind_on:         null
-blocked_on:        "a Produce of BestPractice staging into main, then Update Vendors in the ladder and individual sets: both sets run their vendored engine copy, which only takes BestPractice main"
+blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-30
-closed:            null
+closed:            2026-10-30
 ---
 ## What
 
@@ -31,12 +31,13 @@ in the ladder and individual sets, which the session could not push to.
   says what `BRANCH` is (same pull request).
 - [x] **Ladder set:** `test_landing_authority_reply_check.sh` reads
   `$PRECEDENT_SOURCE_DIR_PRECEDENT` first (same pull request).
-- [ ] **Ladder set, once its engine copy carries `source_dir_env`:** retire
-  that test's git-common-dir fallback; its comment says RETIRE.
-- [ ] **Individual set, once its engine copy carries the narrower
-  speculation-is-marked:** undo the band-aid rewording in its
-  vendored-shared-sets plan ("after an exploratory session" back to "after
-  a brainstorm"). Undoing it earlier turns that set's own check red.
+- [x] **Ladder set:** the reply test's git-common-dir fallback is retired,
+  after Update Vendors brought engine d21c1f11e875
+  ([PR #152](https://github.com/themorgan/precedent-shared-ladder/pull/152));
+  the full suite passed without it in a /tmp worktree.
+- [x] **Individual set:** the band-aid rewording in its vendored-shared-sets
+  plan is undone, after Update Vendors brought the same engine; its
+  speculation-is-marked passes on the original words (2026-10-30).
 - [x] **"MAIN'S TEST" warning:** the cause now leads the line instead of
   sitting in brackets at the end, where a relay dropped it (2026-10-30). The
   cause of the 2026-10-30 warning itself was never recorded; the next one
