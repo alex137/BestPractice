@@ -33533,6 +33533,18 @@ def check_code_owners_only_practices_reach_only_code_owners():
         cases.append(('CONTROL: an old engine branch with a claim its data- copy '
                       'lacks is not listed', 'precedent-promote-lock' not in listed,
                       listed))
+        # The receipts' old name stays off even once its data- copy holds
+        # all of it: an older engine still wrote it on 2026-10-28
+        # (precedent_data_branches.KEPT_OLD_NAMES; Morgan, 2026-10-31,
+        # strength: assented).
+        g('checkout', '-q', 'main')
+        g('push', '-q', 'origin', 'HEAD:refs/heads/precedent-check-receipts')
+        g('push', '-q', 'origin', 'HEAD:refs/heads/data-check-receipts')
+        g('fetch', '-q', 'origin')
+        listed = [b_ for b_, _d in (sb.stale_in(work) or [])]
+        cases.append(('the receipts\' old name is not listed though its data- '
+                      'copy holds it', 'precedent-check-receipts' not in listed
+                      and 'data-check-receipts' not in listed, listed))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad_cases = [(n, d) for n, ok, d in cases if not ok]
@@ -66887,8 +66899,22 @@ def check_data_branches_are_named_for_the_ladder():
                           write == 'data-check-receipts' and new_tip == old_tip
                           and g(o, 'rev-parse', 'precedent-check-receipts')
                           .stdout.strip() == old_tip
-                          and any('left for you to delete' in m for m in said),
+                          and any('made from precedent-check-receipts' in m for m in said),
                           f'{write} {new_tip[:8]} {old_tip[:8]} {said}'))
+            # 2026-10-30 very deep check (Morgan, 2026-10-31, assented): an
+            # older engine still wrote the receipts' old name on 2026-10-28,
+            # so its copy keeps it and offers no delete link.
+            cases.append(('the receipts\' old name is kept, never offered for deletion',
+                          any('no deletion list offers it' in m for m in said)
+                          and not any('left for you to delete' in m for m in said),
+                          str(said)))
+            o2, w2 = fresh('ladder-lock', with_old=False)
+            g(w2, 'push', '-q', 'origin', 'main:refs/heads/precedent-promote-lock')
+            said2 = []
+            pdb.name_for_write(w2, pdb.LOCK, ladder=True, say=said2.append)
+            cases.append(('CONTROL: the lock\'s old name, which no older engine '
+                          'needs kept, is still handed over to delete',
+                          any('left for you to delete' in m for m in said2), str(said2)))
             cases.append(('once moved, everyone there follows, on the ladder or not',
                           pdb.name(w, pdb.RECEIPTS, ladder=False)[0]
                           == pdb.name_for_write(w, pdb.RECEIPTS, ladder=False)
