@@ -61051,8 +61051,11 @@ def check_answer_first_gate_holds_a_change_until_the_question_is_answered():
                       rc == 2))
         rc, _ = run([asked], tool_input={'command': 'grep -rn push tools/'})
         cases.append(('reading is never held', rc == 0))
+        # A path outside /tmp whatever ROOT is: a checkout under /tmp (a
+        # worktree a landing's background run makes, 2026-10-31) made
+        # ROOT/README.md read as scratch, and this case failed there only.
         rc, _ = run([asked], tool='Edit',
-                    tool_input={'file_path': str(ROOT / 'README.md')})
+                    tool_input={'file_path': '/srv/precedent-fixture/README.md'})
         cases.append(('an edit to the work is held', rc == 2))
         rc, _ = run([asked], tool='Edit',
                     tool_input={'file_path': '/tmp/scratch/notes.md'})
