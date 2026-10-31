@@ -2,7 +2,6 @@
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds. green_full_run is when the last green --all --record-times run finished.",
  "measured": "2026-10-31, 4 cores, --as-ci",
  "default_seconds": 0.23,
- "green_full_run": "2026-10-31T15:31:25-03:00",
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.4,
   "check_a_changed_glob_needs_its_reason_looked_at": 0.9,
@@ -427,6 +426,7 @@
   "check_no_cross_practice_duplication": 0.1,
   "check_no_duplication_refuses_a_sets_copy_of_a_universal_rule": 2.3,
   "check_no_engine_tool_hardcodes_a_mirror_path": 0.1,
+  "check_no_fixture_points_git_config_at_dev_null": 0.3,
   "check_no_invented_content": 0.0,
   "check_no_lost_content": 0.0,
   "check_no_tool_defines_a_function_twice": 0.3,
@@ -898,5 +898,6 @@
   "check_worktree_resolves_sources_beside_its_main_checkout": 0.4,
   "check_worktree_snapshot_needs_no_git_identity": 0.2,
   "check_writing_checks_leave_a_declared_record_as_filed": 0.0
- }
+ },
+ "green_full_run": "2026-10-31T15:31:25-03:00"
 }

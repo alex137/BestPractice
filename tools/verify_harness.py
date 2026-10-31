@@ -224,6 +224,35 @@ os.environ['PRECEDENT_CLONE_NOTES'] = str(
     pathlib.Path(_tempfile_for_env.mkdtemp(prefix='harness-clone-notes-'))
     / 'clone-failures.json')
 
+# NEVER /dev/null AS GIT'S GLOBAL CONFIG (2026-10-31, the second time;
+# gotcha-2026-10-10-git-config-global-with-dev-null-replaces-dev-null).
+# `git config --global` writes by renaming a lock file over its target, so
+# with GIT_CONFIG_GLOBAL=/dev/null it replaces the container's null device
+# with an ordinary file, and every later `2>/dev/null` and every fixture
+# reading it fails. On 2026-10-31 a helper of the very deep check ran one
+# test with GIT_CONFIG_GLOBAL=/dev/null set from outside; the test set its
+# own HOME but kept the inherited variable, and its `git config --global`
+# took the device. So: an inherited GIT_CONFIG_GLOBAL that is not a regular
+# file is swapped here for an empty one, and every fixture asks
+# empty_gitconfig() for a fresh empty file of its own -- never os.devnull,
+# which check_no_fixture_points_git_config_at_dev_null refuses.
+_EMPTY_GITCONFIG_DIR = pathlib.Path(_tempfile_for_env.mkdtemp(prefix='harness-gitconfig-'))
+_empty_gitconfig_n = [0]
+
+
+def empty_gitconfig():
+    """-> the path of a new, empty file for GIT_CONFIG_GLOBAL: reads as no
+    global config, as /dev/null does, and a write lands in this file alone."""
+    _empty_gitconfig_n[0] += 1
+    path = _EMPTY_GITCONFIG_DIR / f'gitconfig-{_empty_gitconfig_n[0]}'
+    path.write_text('', encoding='utf-8')
+    return str(path)
+
+
+_inherited = os.environ.get('GIT_CONFIG_GLOBAL')
+if _inherited and not os.path.isfile(_inherited):
+    os.environ['GIT_CONFIG_GLOBAL'] = empty_gitconfig()
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PRACTICES_DIR = ROOT / 'practices'
 AGENTS_MD = ROOT / 'AGENTS.md'
@@ -3426,7 +3455,7 @@ def check_worktree_snapshot_needs_no_git_identity():
                         'user.email=t@t', 'commit', '-qm', 'base'], env=env)
         (repo / 'b.txt').write_text('new\n', encoding='utf-8')
         os.environ.update(HOME=str(tmp / 'empty-home'), GIT_CONFIG_NOSYSTEM='1',
-                          GIT_CONFIG_GLOBAL=os.devnull)
+                          GIT_CONFIG_GLOBAL=empty_gitconfig())
         for k in ('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME',
                   'GIT_COMMITTER_EMAIL', 'EMAIL'):
             os.environ.pop(k, None)
@@ -3832,7 +3861,7 @@ def check_loader_block_with_an_absent_individual_set():
                                      '<!-- END GENERATED -->\n', encoding='utf-8')
         base = {k: v for k, v in os.environ.items()
                 if k not in ('PRECEDENT_GIT_TOKEN', 'CLAUDE_CODE_REMOTE')}
-        base.update(GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='t',
+        base.update(GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_AUTHOR_NAME='t',
                     GIT_AUTHOR_EMAIL='t@t', GIT_COMMITTER_NAME='t',
                     GIT_COMMITTER_EMAIL='t@t')
         with_set = dict(base, PRECEDENT_USER_CONFIG=str(cfg))
@@ -6656,7 +6685,7 @@ def check_commit_rebuild_runs_outside_the_hook_git_env():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='regen-hook-env-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-               GIT_CONFIG_GLOBAL=os.devnull)
+               GIT_CONFIG_GLOBAL=empty_gitconfig())
     for k in ('GIT_DIR', 'GIT_INDEX_FILE', 'GIT_WORK_TREE', 'GIT_PREFIX',
               'GIT_COMMON_DIR'):
         env.pop(k, None)
@@ -10643,7 +10672,7 @@ def check_session_trailer_check_ships_with_the_engine():
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-trailer-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
     env.pop('PRECEDENT_CHECK_RANGE', None)
 
@@ -12565,7 +12594,7 @@ def check_update_hands_the_engine_refresh_the_followed_tip():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-tip-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -18120,7 +18149,7 @@ def check_decline_while_a_condition_holds():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-decline-while-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     git = lambda *a: subprocess.run(['git', '-C', str(repo), *a], env=env,
                                     capture_output=True, text=True)
     sha = lambda b: hashlib.sha256(b).hexdigest()
@@ -18589,7 +18618,7 @@ def check_update_vendors_takes_only_a_main_that_passed():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-update-green-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -19116,7 +19145,7 @@ def check_main_test_pass_leaves_a_git_marker():
     try:
         env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                    GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-                   GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+                   GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
         def git(*args):
             return subprocess.run(['git', *args], env=env, capture_output=True, text=True)
@@ -21794,7 +21823,7 @@ def check_update_vendors_migrates_hand_written_views():
         hand_map = '# Repository map\n\n## Known consumers\n\nOne.\n'
         (d / 'MAP.md').write_text(hand_map, encoding='utf-8')
         (d / 'GLOSSARY.md').write_text('# Our Names\n\n| A | B |\n|---|---|\n', encoding='utf-8')
-        env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_AUTHOR_NAME='F',
+        env = dict(os.environ, GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_AUTHOR_NAME='F',
                    GIT_AUTHOR_EMAIL='f@example.com', GIT_COMMITTER_NAME='F',
                    GIT_COMMITTER_EMAIL='f@example.com')
         # The loader block as a sync leaves it, as in any real repository.
@@ -21876,7 +21905,7 @@ def check_update_vendors_updates_a_section_0_catalogue():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-section0-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def repo_with(sources, stale=True):
@@ -22029,7 +22058,7 @@ def check_update_vendors_reports_what_it_says_it_lists():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-report-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
     try:
         repo = tmp / 'r'
@@ -22167,7 +22196,7 @@ def check_update_vendors_second_consumer_findings():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-consumer-update-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(repo, *a):
@@ -22270,7 +22299,7 @@ def check_update_vendors_second_consumer_findings():
 def _section0_fixture_env():
     return dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                 GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-                GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+                GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                 PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
 
@@ -22935,7 +22964,7 @@ def check_engine_fetch_reaches_main_in_a_single_branch_clone():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-single-branch-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(*a):
         return subprocess.run(['git', *a], env=env, capture_output=True,
@@ -22992,7 +23021,7 @@ def check_update_vendors_leaves_mentions_of_a_deleted_file():
     mentions = getattr(pu, 'retired_mentions', None)
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-mentions-'))
-    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     try:
         wf = '.github/workflows/bestpractice-docs.yml'
         (tmp / 'docs').mkdir()
@@ -23038,7 +23067,7 @@ def check_run_all_warns_when_checks_are_uncommitted():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-run-all-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
     cases = []
     try:
@@ -23240,7 +23269,7 @@ def check_leak_gate_sees_main_clone_siblings_from_a_worktree():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-leak-worktree-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='f@example.com',
-               HOME=str(tmp), GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               HOME=str(tmp), GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(cwd, *a):
         subprocess.run(['git', *a], cwd=str(cwd), env=env, check=True,
@@ -45638,6 +45667,42 @@ def check_global_backstop_runs_person_fixer():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_no_fixture_points_git_config_at_dev_null():
+    """No tool or test points GIT_CONFIG_GLOBAL (or GIT_CONFIG_SYSTEM) at
+    /dev/null: one `git config --global` under it replaces the container's
+    null device with an ordinary file (2026-10-10, and again 2026-10-31 in
+    the very deep check's session). Fixtures use empty_gitconfig(), a fresh
+    empty file each. Also: an inherited GIT_CONFIG_GLOBAL that is not a
+    regular file is swapped for an empty one when the harness starts.
+
+    Negative control: the scan fires on a planted line of each form."""
+    name = 'no tool or fixture points git\'s global config at /dev/null'
+    pat = re.compile(r'GIT_CONFIG_(?:GLOBAL|SYSTEM)\W{0,6}(?:=|:)\s*'
+                     r'(?:os\.devnull|[\'"]?/dev/null)')
+    hits = []
+    for path in sorted((ROOT / 'tools').rglob('*')):
+        if path.suffix not in ('.py', '.sh') or not path.is_file():
+            continue
+        for i, line in enumerate(path.read_text(encoding='utf-8', errors='replace')
+                                 .splitlines(), 1):
+            if line.lstrip().startswith('#') or 'pat = re.compile' in line:
+                continue
+            if pat.search(line) and 'planted' not in line:
+                hits.append(f'{path.relative_to(ROOT)}:{i}')
+    dn, var = 'os.' + 'devnull', 'GIT_CONFIG_' + 'GLOBAL'   # split, so this
+    planted = [f"env = dict(os.environ, {var}={dn})",        # scan skips them
+               f"os.environ['{var}'] = {dn}",
+               f"{var}=/dev/null git config --global x y",
+               f"'GIT_CONFIG_' 'SYSTEM': {dn}".replace("' '", '')]
+    fires = all(pat.search(p) for p in planted)
+    inherited = os.environ.get('GIT_CONFIG_GLOBAL')
+    swapped = not inherited or os.path.isfile(inherited)
+    check(name, not hits and fires and swapped,
+          '; '.join(hits[:10]) if hits else
+          ('the scan misses a planted form' if not fires else
+           f'GIT_CONFIG_GLOBAL is {inherited}, not a regular file'))
+
+
 def check_branch_tiers():
     """The branch tiers (spec/BRANCH_TIERS_PLAN.md, Morgan, 2026-09-25,
     since narrowed): every push gets the basic check unless the person's
@@ -50963,7 +51028,7 @@ def check_session_deepen_stays_narrow():
     env0 = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1',
                 GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
                 GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com',
-                GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_NOSYSTEM='1')
+                GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     env0.pop('PRECEDENT_FRESHNESS_ALSO', None)
 
     def git(cwd, *args):
@@ -52912,6 +52977,10 @@ def check_identity_reaches_a_repo_that_did_not_exist_yet():
         home.mkdir()
         env = dict(os.environ)
         env['HOME'] = str(home)
+        # Its `git config --global` must land in this HOME: an inherited
+        # GIT_CONFIG_GLOBAL would send it elsewhere -- on 2026-10-31, to
+        # /dev/null, which it replaced.
+        env.pop('GIT_CONFIG_GLOBAL', None)
         env['PRECEDENT_USER_CONFIG'] = '/nonexistent/precedent-config.json'
         env.pop('PRECEDENT_ALLOW_ANY_AUTHOR', None)
         env.pop('PRECEDENT_COMMIT_EMAIL', None)
@@ -69281,7 +69350,7 @@ def check_links_to_renamed_practice_forward():
 def _fixture_git_env():
     return dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                 GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-                GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+                GIT_CONFIG_GLOBAL=empty_gitconfig(), PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
 
 def check_data_branches_are_named_for_the_ladder():
@@ -70599,7 +70668,7 @@ def check_update_decommission_fits_the_vendored_sync():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-decommission-sync-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
     gone = 'retired-set-takes-only-its-retirement'
     committed = [('a-rule', 'precedent'), (gone, 'precedent'),
@@ -73875,7 +73944,7 @@ def check_dedup_onto_same_slug_withdraws_nothing():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='dedup-same-slug-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), PRECEDENT_ALLOW_ANY_AUTHOR='1')
     fm = '---\nslug: {s}\nstatus: {st}\nin_force_at: {to}\n---\n## Rule\nR.\n'
     try:
         g = lambda *a: subprocess.run(['git', '-C', str(tmp), *a], env=env,
@@ -75591,7 +75660,7 @@ def check_clone_lock_makes_parallel_updates_wait():
     psb = importlib.import_module('precedent_source_bootstrap')
     lock = importlib.import_module('precedent_clone_lock')
     cases = []
-    env = {**os.environ, 'GIT_CONFIG_GLOBAL': os.devnull,
+    env = {**os.environ, 'GIT_CONFIG_GLOBAL': empty_gitconfig(),
            'GIT_CONFIG_NOSYSTEM': '1'}
 
     def git(*a, cwd=None):
@@ -82691,7 +82760,7 @@ def check_update_vendors_rehearsal_findings():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-rehearsal-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -83912,7 +83981,7 @@ def check_update_vendors_reports_dropped_template_wording():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-wording-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -84248,7 +84317,7 @@ def check_update_takes_an_untouched_install_copy():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-untouched-copy-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -84394,7 +84463,7 @@ def check_refresh_replaces_a_past_individual_hook_rendering():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-individual-hook-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(cwd, *args):
         return subprocess.run(['git', '-C', str(cwd), *args], env=env,
@@ -84615,7 +84684,7 @@ def check_dependents_warning_skips_a_wholly_generated_view():
     name = 'the dependents warning skips a wholly generated view'
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-generated-dependents-'))
-    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     gone = 'tools/retired_words.py'
     try:
         def put(rel, text):
@@ -84668,7 +84737,7 @@ def check_retired_mentions_skip_what_the_repo_receives():
     import contextlib, io, tempfile
     pu, pve, _pr = _update_tools()
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-received-mentions-'))
-    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     gone = 'tools/precedent_retire_path.py'
     cases = []
     try:
@@ -84798,7 +84867,7 @@ def check_update_says_once_that_commands_moved_to_an_undeclared_set():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-moved-commands-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
     cases = []
     saved = pu.SOURCE
     try:
@@ -85096,7 +85165,7 @@ def check_update_noise_template_lines_and_a_secret_never_had():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-update-noise-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(cwd, *args):
         return subprocess.run(['git', '-C', str(cwd), *args], env=env,
@@ -85171,7 +85240,7 @@ def check_update_vendors_dropped_wording_reads_placeholders_filled():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-filled-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -85371,7 +85440,7 @@ def check_kept_pin_moves_across_a_comment_only_template_change():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-kept-comment-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -85470,7 +85539,7 @@ def check_update_vendors_dropped_wording_reads_a_views_source():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-dropped-source-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1',
                PRECEDENT_ALLOW_ANY_AUTHOR='1')
 
     def git(cwd, *args):
@@ -88034,7 +88103,7 @@ def check_update_vendors_onegplanning_findings():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-oneg-findings-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(repo, *a):
         return subprocess.run(['git', '-C', str(repo), *a], env=env,
@@ -88513,7 +88582,7 @@ def check_views_follow_the_header_stamp_and_consumer_check_skips_absent_views():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-stamp-views-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(repo, *a):
         return subprocess.run(['git', '-C', str(repo), *a], env=env,
@@ -88644,7 +88713,7 @@ def check_declared_exports_consumer_snags():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-exports-snags-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(repo, *a):
         return subprocess.run(['git', '-C', str(repo), *a], env=env,
@@ -88822,7 +88891,7 @@ def check_installed_templates_follow_their_source():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-installs-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), GIT_CONFIG_NOSYSTEM='1')
 
     def git(repo, *a):
         return subprocess.run(['git', '-C', str(repo), *a], env=env,
@@ -89529,7 +89598,7 @@ def check_ladder_test_session_and_the_two_ladder_checks():
                                        'path': str(owner)}]}
         _genv = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                      GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-                     GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+                     GIT_CONFIG_GLOBAL=empty_gitconfig(), PRECEDENT_ALLOW_ANY_AUTHOR='1')
         for d, man, cfg in (
                 (plain, {'level': 'shared', 'provides': []}, declares_owner),
                 (ladder, {'level': 'shared', 'provides': ['ladder']}, None),
@@ -91513,8 +91582,8 @@ def check_endgame_merge_finds_the_silent_drop():
             saved = {k: os.environ.get(k)
                      for k in ('GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM')}
             if not identity:
-                os.environ['GIT_CONFIG_GLOBAL'] = os.devnull
-                os.environ['GIT_CONFIG_SYSTEM'] = os.devnull
+                os.environ['GIT_CONFIG_GLOBAL'] = empty_gitconfig()
+                os.environ['GIT_CONFIG_SYSTEM'] = empty_gitconfig()
             try:
                 return vdc.endgame_merge(work, target='beta', base='main',
                                          **kw) or {}
@@ -94157,7 +94226,7 @@ def check_consumer_rehearsal_smaller_faults():
     saved_root = pc.ROOT
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), PRECEDENT_ALLOW_ANY_AUTHOR='1')
     try:
         repo = tmp / 'consumer'
         repo.mkdir()
@@ -94213,7 +94282,7 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='sync-map-links-'))
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@x',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@x',
-               GIT_CONFIG_GLOBAL=os.devnull, PRECEDENT_ALLOW_ANY_AUTHOR='1',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(), PRECEDENT_ALLOW_ANY_AUTHOR='1',
                PRECEDENT_USER_CONFIG=str(tmp / 'no-such-config.json'))
     for k in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS'):
         env.pop(k, None)
@@ -97684,6 +97753,7 @@ def main():
     check_thread_renders_never_touch_the_shared_ledger()
     check_changed_files_only_judges_the_change()
     check_branch_tiers()
+    check_no_fixture_points_git_config_at_dev_null()
     check_merge_check_gate()
     check_refresh_sources_lists_a_linked_tree_once()
     check_history_checks_never_ride_a_reused_pass()
