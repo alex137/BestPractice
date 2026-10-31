@@ -514,7 +514,7 @@ def record_copy_in_budget(repo, today=None):
             'recorded with it')
 
 
-def record_person_total(repo, today=None):
+def record_person_total(repo, today=None, occasion='Update Vendors'):
     """-> a sentence for the report when it wrote the person's session-load
     total into this repository's registry, else None.
 
@@ -569,7 +569,7 @@ def record_person_total(repo, today=None):
     approved['session_load_tokens'] = {
         'max': total, 'strength': appr['strength'],
         'approved_by': (f"{appr['approved_by']} -- the person's one total, "
-                        f"copied from their individual set by Update Vendors "
+                        f"copied from their individual set by {occasion} "
                         f"on {day}")}
     path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
     said = (f'session_load_tokens set to {total:,} from the person\'s individual '
@@ -682,12 +682,13 @@ def ensure_session_load_registry(repo):
     if path.exists():
         return None
     import precedent_bootstrap_source as _pbs
+    # Writes the baseline approvals too (seed_baseline_approvals), as it
+    # does for a newly bootstrapped set: one writer for a new registry.
     _pbs._write_session_load_budget(repo, occasion='Update Vendors')
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return None
-    seed_baseline_approvals(repo, data, path)
     out = {}
     for rel, e in (data.get('surfaces') or {}).items():
         m = re.match(r'(\d+) tokens', e.get('_note', ''))
