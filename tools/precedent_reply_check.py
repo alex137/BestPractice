@@ -2094,6 +2094,38 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                         + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
+            # ANY HOLD NAMES ITS BLOCKER (Morgan, 2026-10-31, strength:
+            # decided: "you shouldn't tell me 'not to archive' if the only
+            # that remains to do is to 'produce' something not urgent"). The
+            # case above caught a hold with nothing for him to do; a hold
+            # beside a go-ahead that could wait went through, because Your
+            # next steps was not empty. So every "Don't archive" carries a
+            # What's blocking line naming one of the closed list's five
+            # blockers (`blockers`, each a regex); a next step any session
+            # can start later is not one. practice: the-boildown
+            blockers = hold.get('blockers') or {}
+            if blockers and not nothing:
+                lines = [b for b in (section_bullets(text, heading) or [])
+                         if re.search(hold['line'], _strip_markdown_emphasis(b), re.I)]
+                # The action the person owes (blocker 3) is said once, in
+                # the Your next steps bullet that asks for it (item 2 never
+                # repeats the person's items), so both are read.
+                plain = ' '.join(_strip_markdown_emphasis(b) for b in lines + steps)
+                if not any(re.search(rx, plain, re.I) for rx in blockers.values()):
+                    out.append({'kind': 'hold_without_blocker', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] this reply says "
+                        f"\"{hold['if_says']}\" and "
+                        + ('has no line opening "What\'s blocking" naming a'
+                           if not lines else 'its What\'s blocking line names no')
+                        + f" blocker from the closed list: {'; '.join(blockers)}. "
+                        f"A go-ahead for a next step any session can start later "
+                        f"(a Produce, an Update Vendors, a rollout) is not one -- "
+                        f"name the blocker on that line, or say \"You can archive "
+                        f"this session\""
+                        + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
         # require_paired_with: when the reply contains X, it must also
         # contain Y. The mirror of require_no_contradiction -- that one
         # forbids a pairing, this one compels it.
@@ -2945,6 +2977,10 @@ def main():
                             f'that says nothing for the person needs a '
                             f'What\'s blocking line with: '
                             + ', '.join(_hold.get('must_also_match') or {}))
+            if _hold.get('if_says') and _hold.get('blockers'):
+                bits.append(f'"{_hold["if_says"]}" in any reply needs a What\'s '
+                            f'blocking line naming one of: '
+                            + '; '.join(_hold['blockers']))
             _ask = r.get('require_ask_states_its_question') or {}
             if _ask.get('heading') and _ask.get('item'):
                 bits.append(f"a bullet under /{_ask['heading']}/i's "
