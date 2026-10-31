@@ -28,30 +28,18 @@ A tool whose bill grows quietly is how a shared allowance gets spent by
 something nobody was watching.
 
 **Read the allowance off the `X-RateLimit-*` headers of a call you were
-making anyway — never from `/rate_limit`.** Measured 2026-09-14 from inside
-a session: the endpoint reported a pristine window (`0 of 15000`, reset
-always an hour out) while the headers on an ordinary call, seconds later on
-the same credential, reported `74` spent. A check built on the endpoint is
-green on the day the account runs out, which is the one day it exists for.
+making anyway — never from `/rate_limit`**, which reported a pristine window
+while the headers showed real spend.
 
 **There is more than one pool, and which one a call spends is decided by
-which repository it names.** Same session, same credential variable,
-2026-09-14: a call about the public upstream repo was charged to a
-15,000/hour allowance, and calls about two private sources to two separate
-5,200/hour allowances with their own reset clocks. "How much is left" is a
-question about a repository, not about the account, and a single number
-answering it is the wrong number.
+which repository it names**, each with its own allowance and reset clock:
+"how much is left" is a question about a repository, not the account.
 
-**Nobody owns a pool alone.** Every session, hook and tool on the same
-credential draws on it, so the one that gets refused is rarely the one that
-spent it. **The lever is fewer simultaneous sessions and cheaper tools**, not
-a retry.
-
-**What to do instead of spending an allowance is
-[grep-before-search](grep-before-search.md)'s** — the clone on disk first, a
-repo-scoped `list_*` before a `search_*`, and fewer windows working at once.
-This practice measures and budgets the spend; that one is the habit that
-keeps it low, and the two are not repeated into each other.
+**Nobody owns a pool alone**: every session, hook and tool on the same
+credential draws on it. **The lever is fewer simultaneous sessions and
+cheaper tools**, not a retry, and the habit that keeps the spend low is
+[grep-before-search](grep-before-search.md)'s. The 2026-09-14 measurements
+are under Detail, *The allowance and its pools, in full*.
 
 **Report, never refuse.** A tool that stopped because somebody else's session
 had spent the pool would be the wrong remedy for the right finding.
@@ -88,6 +76,37 @@ is 20% remaining: on a 15,000/hour pool that is 3,000 calls of headroom, more
 than a day of this project's own measured tooling spend, and early enough
 that a person sees the finding before anyone sees a refusal. Move it with a
 reason written beside it.
+
+Each heading below that ends "in full" holds Rule paragraphs as they stood
+until 2026-10-31, moved here whole when the Rule was cut to what a session
+must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### The allowance and its pools, in full
+**Read the allowance off the `X-RateLimit-*` headers of a call you were
+making anyway — never from `/rate_limit`.** Measured 2026-09-14 from inside
+a session: the endpoint reported a pristine window (`0 of 15000`, reset
+always an hour out) while the headers on an ordinary call, seconds later on
+the same credential, reported `74` spent. A check built on the endpoint is
+green on the day the account runs out, which is the one day it exists for.
+
+**There is more than one pool, and which one a call spends is decided by
+which repository it names.** Same session, same credential variable,
+2026-09-14: a call about the public upstream repo was charged to a
+15,000/hour allowance, and calls about two private sources to two separate
+5,200/hour allowances with their own reset clocks. "How much is left" is a
+question about a repository, not about the account, and a single number
+answering it is the wrong number.
+
+**Nobody owns a pool alone.** Every session, hook and tool on the same
+credential draws on it, so the one that gets refused is rarely the one that
+spent it. **The lever is fewer simultaneous sessions and cheaper tools**, not
+a retry.
+
+**What to do instead of spending an allowance is
+[grep-before-search](grep-before-search.md)'s** — the clone on disk first, a
+repo-scoped `list_*` before a `search_*`, and fewer windows working at once.
+This practice measures and budgets the spend; that one is the habit that
+keeps it low, and the two are not repeated into each other.
 
 ## Install
 [tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py)
@@ -156,3 +175,15 @@ the next occurrence arrives with a number beside it.
 The same run found the small waste worth fixing while it was open: 45 API
 calls in one very-deep-check run with no cache behind them, and a
 repository-metadata answer re-asked whenever two trees name the same repo.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to
+Detail whole.** Reviewing the longest quarter of each repository's Rules
+that day, a session found this one at 330 words, carrying reasons,
+measurements or quotes beside what a session must do; it now holds 201 (both
+counted with `wc -w` over the Rule section). Morgan, after the four cuts of
+2026-10-30: *"maybe we add to very deep check to always review like the 25%
+of all the rules that are the longest in that repo and shorten them like you
+did?"*, then *"use your judgment, and act booked produce"* (strength:
+assented). Every Rule paragraph that changed moved word for word into
+Detail, under the headings ending "in full" that the Rule names; nothing was
+deleted ([reduction-pass](reduction-pass.md)).
