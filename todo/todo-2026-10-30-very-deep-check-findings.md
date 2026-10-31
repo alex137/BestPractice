@@ -134,3 +134,12 @@ visibility. Of the 13 real-owner names the audit could not check,
 so; the other twelve are not repositories on either account any more (retired
 set names, fixtures and placeholders), so naming them discloses nothing. No
 change to the tree.
+
+2026-10-31, after Booked: the landing's harness run failed two cases
+(`check_a_brought_sets_spoken_trigger_reaches_the_session_at_start`,
+`check_session_file_says_each_command_once`) only because the session had
+left the three set clones on their landing branches; with each clone back on
+`main` both pass on the same staging. The two tests read the real set clones
+rather than planting their own (practice: fixture-owns-its-state), so a clone
+on any other branch turns them red (needs: a session of its own -- out of
+scope for this run).
