@@ -179,16 +179,17 @@ violated on its merged branch.
 ## Warnings
 
 <!--vdc-embed:warnings: never hand-edit -- written by tools/very_deep_check.py's WARNINGS section; refresh with --refresh-warnings -->
-Measured 2026-10-30: **2069 warning(s), 1844 still open** (neither fixed nor excluded). For comparison, open at the previous run: 2019.
+<!--vdc-measured: 2026-10-31T15:47:25-03:00 -->
+Measured 2026-10-31: **2063 warning(s), 1313 still open** (neither fixed nor excluded). For comparison, open at the previous run: 1844.
 
 | Source | Kind | Warnings | Open | Excluded for good | Excluded until a date |
 |---|---|---|---|---|---|
-| doc_lint | unlinked file reference | 2019 | 1795 | 224 | 0 |
-| doc_lint | open item naming no blocker | 47 | 47 | 0 | 0 |
+| doc_lint | unlinked file reference | 2022 | 1272 | 750 | 0 |
+| doc_lint | open item naming no blocker | 39 | 39 | 0 | 0 |
 | doc_lint | process residue | 2 | 2 | 0 | 0 |
-| precedent_check | enforcement-lives-with-its-practice | 1 | 0 | 0 | 1 |
 
 **Exclusions decided this run: 0.**
+- Stale exclusion 4 (precedent_check / enforcement-lives-with-its-practice): matches nothing now; delete it.
 
 Exclusions live in [tools/warning_exclusions.json](../tools/warning_exclusions.json); [tools/warning_review.py](../tools/warning_review.py) lists every open group.
 <!--/vdc-embed:warnings-->
@@ -283,6 +284,7 @@ owed ones are listed with a one-line spec under the Notes of
 ## Checks by stage
 
 <!--vdc-embed:checks-by-stage: never hand-edit -- written by tools/very_deep_check.py's CHECKS BY STAGE section -->
+<!--vdc-measured: 2026-10-31T15:47:26-03:00 -->
 Read from each repository's own push check and branch tool by this run (`tools/very_deep_check.py`, CHECKS BY STAGE). Before a push to staging or main only the quick tier may run: the bare essentials and the leak gate (Morgan, 2026-10-16 and 2026-10-17).
 
 ### this checkout
@@ -290,7 +292,7 @@ Read from each repository's own push check and branch tool by this run (`tools/v
 | Stage | Before | After |
 |---|---|---|
 | Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
-| Produce, into main | none tier (`--full` on request: none; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: deep-check.yml (pull request into it), deep-check.yml (push), leak-gate.yml (push); else the full local suite on main |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: deep-check.yml (pull request into it), deep-check.yml (push), leak-gate.yml (push); else the full local suite on main |
 | Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
 
 The quick tier (6): `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
@@ -304,7 +306,7 @@ Clean: nothing but the quick tier runs before a push.
 | Stage | Before | After |
 |---|---|---|
 | Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
-| Produce, into main | none tier (`--full` on request: none; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
 | Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
 
 The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` 0 s, `ci_workflows` 0 s, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
@@ -318,7 +320,7 @@ Clean: nothing but the quick tier runs before a push.
 | Stage | Before | After |
 |---|---|---|
 | Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
-| Produce, into main | none tier (`--full` on request: none; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
 | Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
 
 The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` 0 s, `ci_workflows` 0 s, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
@@ -332,7 +334,7 @@ Clean: nothing but the quick tier runs before a push.
 | Stage | Before | After |
 |---|---|---|
 | Booked, onto staging | basic tier (a plain push: basic) | nothing automatic; GitHub: none |
-| Produce, into main | none tier (`--full` on request: none; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
+| Produce, into main | basic tier (`--full` on request: full; a plain push, or a pull request that is not a fast move's copy: basic) | GitHub: none; else the full local suite on main |
 | Debut, on staging | nothing | nothing (it is the full tier and moves nothing) |
 
 The quick tier (10): `build_views` 1 s, `leak_gate` 16 s, `leak_gate_commits` 4 s, `doc_lint` 1 s, `generated_files` 2 s, `rename_links` 0 s, `ci_workflows` 0 s, `commit_author` 0 s, `commit_dates` 0 s, `session_trailer` 0 s.
@@ -345,16 +347,17 @@ Clean: nothing but the quick tier runs before a push.
 ## Token budgets
 
 <!--vdc-embed:token-budgets: never hand-edit -- written by tools/very_deep_check.py's TOKEN BUDGETS section -->
-Measured 2026-10-30.
+<!--vdc-measured: 2026-10-31T15:47:51-03:00 -->
+Measured 2026-10-31.
 
 **Every budget is under its limit and approved, and every check fired on a planted overage.**
 
 | Repo | Budget | Measured | Limit | Used | Approved max | Status |
 |---|---|---:|---:|---:|---:|---|
-| BestPractice | session-load total | 8,140 | 10,000 | 81% | 10,000 | ok; AGENTS.md 5,768 + CLAUDE.md 55 + .precedent/SESSION_PRACTICES.md 2,317 |
-| a private individual set | session-load total | 5,868 | 10,000 | 59% | 10,000 | ok; AGENTS.md 1,160 + CLAUDE.md 92 + .precedent/SESSION_PRACTICES.md 4,616 |
-| precedent-shared-writing | session-load total | 6,059 | 10,000 | 61% | 10,000 | ok; AGENTS.md 1,102 + CLAUDE.md 111 + .precedent/SESSION_PRACTICES.md 4,846 |
-| precedent-shared-ladder | session-load total | 6,252 | 10,000 | 63% | 10,000 | ok; AGENTS.md 1,352 + CLAUDE.md 111 + .precedent/SESSION_PRACTICES.md 4,789 |
+| BestPractice | session-load total | 8,019 | 10,000 | 80% | 10,000 | ok; AGENTS.md 5,648 + CLAUDE.md 55 + .precedent/SESSION_PRACTICES.md 2,316 |
+| a private individual set | session-load total | 5,886 | 10,000 | 59% | 10,000 | ok; AGENTS.md 1,160 + CLAUDE.md 111 + .precedent/SESSION_PRACTICES.md 4,615 |
+| precedent-shared-writing | session-load total | 6,058 | 10,000 | 61% | 10,000 | ok; AGENTS.md 1,102 + CLAUDE.md 111 + .precedent/SESSION_PRACTICES.md 4,845 |
+| precedent-shared-ladder | session-load total | 6,250 | 10,000 | 62% | 10,000 | ok; AGENTS.md 1,350 + CLAUDE.md 111 + .precedent/SESSION_PRACTICES.md 4,789 |
 
 **Do the checks fire?** Each repo's own check, run on a throwaway copy with the budget planted under what it measures (each one clean first):
 
@@ -375,11 +378,12 @@ Rough tokens (words x 1.3). "near" is within the registry's `headroom_floor_pct`
 ## Set independence
 
 <!--vdc-embed:set-independence: never hand-edit -- written by tools/very_deep_check.py's SET INDEPENDENCE section -->
+<!--vdc-measured: 2026-10-31T15:47:35-03:00 -->
 Read by this run from `python3 tools/precedent_check.py --only enforcement-lives-with-its-practice` (`tools/very_deep_check.py`, SET INDEPENDENCE). A practice set's rules, checks and tests live in the set; BestPractice runs them and never names one set's rule in its code, its tests or a universal practice.
 
-**To fix in this pass: 1.**
+**To fix in this pass: 0.**
 
-- `tools/verify_harness.py`: names the set precedent-shared-ladder in a test: a set's practices are tested in the set, beside the check; an engine test uses a planted name
+None: every set keeps its own rules, checks and tests.
 
 **Held in the engine on purpose: 0** (the plan of record's part 3, [ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md](ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md), waiting on the person's go-ahead): none.
 <!--/vdc-embed:set-independence-->
@@ -387,94 +391,78 @@ Read by this run from `python3 tools/precedent_check.py --only enforcement-lives
 ## Test review
 
 <!--vdc-embed:test-review: never hand-edit -- written by tools/very_deep_check.py's TEST WORTH section; refresh with --refresh-tests -->
+<!--vdc-measured: 2026-10-31T15:47:43-03:00 -->
 Every test each repository owns, what it costs and whether it is still worth that (`tools/very_deep_check.py`, TEST WORTH; [test_review.py](../tools/test_review.py)). Verdicts live in each repository's `tools/test_verdicts.json`.
 
 ### this checkout
 
-870 test(s), 865 timed, 3660 s recorded in all. Judged: 0. Never judged: 870. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 58. Times measured 2026-10-09, 4 cores, --as-ci; tests added since by --record-new-times, each scaled to this basis.
+893 test(s), 889 timed, 2611 s recorded in all. Judged: 893. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 58. Times measured 2026-10-31, 4 cores, --as-ci.
 
 | Importance | Tests | Seconds |
 |---|---:|---:|
-| not judged yet | 870 | 3660 |
+| high | 189 | 1214 |
+| medium | 472 | 1263 |
+| low | 232 | 133 |
 
 The slowest, against their importance:
 
 | Test | Seconds | Verdict | Importance |
 |---|---:|---|---|
-| `check_precedent_check_fires` | 777.5 | not judged | - |
-| `check_update_vendors_leaves_the_copy_its_record_names` | 160.1 | not judged | - |
-| `check_unlanded_work_is_reported_before_the_passes` | 120.6 | not judged | - |
-| `check_send_carries_a_local_edit_upstream` | 102.3 | not judged | - |
-| `check_update_vendors_is_one_command` | 92.1 | not judged | - |
-| `check_kept_agents_md_divergence_is_recorded` | 82.8 | not judged | - |
-| `check_main_test_repo_setting` | 71.0 | not judged | - |
-| `check_update_vendors_reruns_pinned_to_its_first_commit` | 70.2 | not judged | - |
-| `check_changed_files_only_judges_the_change` | 65.0 | not judged | - |
-| `check_update_vendors_declined_catalogue_copy_is_upstreams` | 64.6 | not judged | - |
-| `check_update_vendors_survives_an_upstream_deletion` | 53.3 | not judged | - |
-| `check_update_vendors_resolves_local_edits` | 50.2 | not judged | - |
-| `check_update_vendors_resolves_hook_and_engine_path_edits` | 49.0 | not judged | - |
-| `check_update_vendors_redecided_decline_sticks` | 48.7 | not judged | - |
-| `check_update_rerun_after_failed_takes_its_own_output` | 48.5 | not judged | - |
-
-Carrying a lead and not yet judged (58):
-
-- `check_source_precedence`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_cross_source_resident_budget`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_doc_lint_fires`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_stale_freshness_also_says_delete_it`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_resident_rule_links_are_placed_for_the_block`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_source_names_detects_a_rename`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_update_vendors_retires_the_team_level_word`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_dropped_set_and_proxy_and_template_refs`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_dropped_set_prose_successors_and_families`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_session_practices_load_without_publishing`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_update_vendors_lets_an_override_through_the_view_sync`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_update_vendors_repoints_renamed_shared_sets`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_run_all_trusts_only_unchanged_shipped_tests`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_engine_written_leftovers_leave_by_content`: names tools/precedent_others_did.py (decommissioned)
-- `check_legacy_leftovers_retired_by_content`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_precedent_check_fires`: names practice brief-it (deduplicated); names the word 'team (as a level)' (retired 2026-09-18)
-- `check_retired_words_are_found_and_history_is_left`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_loader_block_advertises_only_live_channels`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_source_sets_can_learn_they_are_stale`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_materialize_bridges_loader`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_shipped_tests_name_their_owner_and_fail_at_home`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_materialize_carries_harness_adapters`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_practice_ships_its_files`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_show_flags_unreachable_materialized_source`: names the word 'team (as a level)' (retired 2026-09-18)
-- `check_sync_refuses_to_lose_a_recorded_practice`: names the word 'team (as a level)' (retired 2026-09-18)
-- and 33 more
+| `check_precedent_check_fires` | 395.5 | keep | high |
+| `check_update_vendors_leaves_the_copy_its_record_names` | 150.2 | keep | high |
+| `check_update_vendors_is_one_command` | 80.2 | keep | high |
+| `check_changed_files_only_judges_the_change` | 78.0 | keep | high |
+| `check_update_vendors_declined_catalogue_copy_is_upstreams` | 55.1 | keep | medium |
+| `check_migrate_views_keeps_every_word` | 54.4 | keep | medium |
+| `check_update_vendors_reruns_pinned_to_its_first_commit` | 51.8 | keep | medium |
+| `check_kept_agents_md_divergence_is_recorded` | 50.7 | keep | medium |
+| `check_update_vendors_survives_an_upstream_deletion` | 47.9 | keep | medium |
+| `check_merge_takes_the_vendor_update` | 43.7 | keep | medium |
+| `check_gate_channel` | 42.4 | keep | medium |
+| `check_update_vendors_resolves_hook_and_engine_path_edits` | 38.2 | keep | medium |
+| `check_update_vendors_resolves_local_edits` | 35.9 | keep | high |
+| `check_update_vendors_redecided_decline_sticks` | 33.8 | keep | medium |
+| `check_installer_produces_a_clean_install` | 28.0 | keep | high |
 
 ### precedent-individual
 
-3 test(s), 0 timed, 0 s recorded in all. Judged: 0. Never judged: 3. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 1.
+2 test(s), 0 timed, 0 s recorded in all. Judged: 2. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 0.
 
 | Importance | Tests | Seconds |
 |---|---:|---:|
-| not judged yet | 3 | 0 |
-
-Carrying a lead and not yet judged (1):
-
-- `tools/checks/tests/test_file_header.sh`: names the pre-staging tier below staging (retired 2026-10-14)
+| high | 1 | 0 |
+| medium | 1 | 0 |
 
 ### precedent-shared-writing
 
-7 test(s), 0 timed, 0 s recorded in all. Judged: 0. Never judged: 7. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 1.
+7 test(s), 0 timed, 0 s recorded in all. Judged: 7. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 1.
 
 | Importance | Tests | Seconds |
 |---|---:|---:|
-| not judged yet | 7 | 0 |
-
-Carrying a lead and not yet judged (1):
-
-- `tools/checks/tests/test_no_stale_counts.sh`: names the word 'team (as a level)' (retired 2026-09-18)
+| high | 2 | 0 |
+| medium | 2 | 0 |
+| low | 3 | 0 |
 
 ### precedent-shared-ladder
 
-9 test(s), 0 timed, 0 s recorded in all. Judged: 0. Never judged: 9. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 0.
+9 test(s), 0 timed, 0 s recorded in all. Judged: 9. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 0.
 
 | Importance | Tests | Seconds |
 |---|---:|---:|
-| not judged yet | 9 | 0 |
+| high | 4 | 0 |
+| medium | 4 | 0 |
+| low | 1 | 0 |
 <!--/vdc-embed:test-review-->
+
+## Long Rules
+
+<!--vdc-embed:long-rules: never hand-edit -- written by tools/very_deep_check.py's LONGEST RULES section -->
+<!--vdc-measured: 2026-10-31T15:47:51-03:00 -->
+Listed by this run (`tools/very_deep_check.py`, LONGEST RULES): the longest quarter of each repo's active Rules, by words in the `## Rule` section, longest first. The session's verdict on each, kept or cut with its word counts, goes below this list.
+
+- **precedent (universal, this checkout)**: 176 active, median 150 words; the longest 44: `the-boildown` 2,128, `vendor-update-runbook` 1,774, `very-deep-check` 1,341, `prompt-please` 903, `reduction-pass` 599, `upstream-fix` 523, `update-all-vendors` 403, `control-asserts-which-failure` 370, `ci-workflow-approved` 333, `archive-status-check` 322, `session-load-budget` 320, `root-issues` 317, `vendor-rollout-disclosed` 304, `small-calls` 288, `practice-carries-its-files` 287, `whats-new` 286, `rename-updates-links` 284, `curly-quotes` 283, `verdict-not-mechanism` 280, `change-updates-its-docs` 277, `fail-gracefully` 273, `source-sets-run-no-ci` 272, `constants-are-risk-inputs` 268, `reach-or-ask` 261, `source-naming` 257, `my-options` 254, `todo-reminder` 254, `seeded-prompt-names-its-origin` 250, `branch-delete-links` 248, `attach-never-clone-individual` 245, `practice-change-propagates` 242, `rule-level-by-reach` 238, `filename-separator` 236, `default-branch` 234, `practice-links-travel` 234, `inner-workings-for-code-owners` 233, `fence-block-for-paste` 232, `read-for-intent` 228, `scripts-assert-properties` 227, `attach-the-original` 226, `document-status-header` 226, `docs-track-models` 225, `base-branch-is-the-record` 224, `build-buy-decompose` 224.
+- **a private individual set**: 8 active, median 102 words; the longest 2, named in the console and the reply, never in this public file.
+- **a private practice set**: 3 active, median 155 words; the longest 1, named in the console and the reply, never in this public file.
+- **precedent-shared-writing (shared)**: 19 active, median 93 words; the longest 5: `dated-download-names` 401, `visual-style-guide` 368, `deliverables-carry-no-process` 286, `assorted-notes` 262, `rule-links` 204.
+- **precedent-shared-ladder (shared)**: 36 active, median 295.5 words; the longest 9: `promote` 864, `go-update` 804, `produce` 740, `actions-minutes-are-scarce` 574, `handoff-only-when-blocked` 543, `vendor-update-on-the-ladder` 542, `crons-are-a-last-resort` 522, `promote-only` 487, `write-it-up` 466.
+<!--/vdc-embed:long-rules-->

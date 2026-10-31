@@ -96,10 +96,10 @@
     },
     "check_leak_gate_refuses_a_fresh_container": {
       "verdict": "keep",
-      "why": "A repo declaring a private source must fail the leak gate when its blocklist cannot load; the incident pushed into a public repository. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES).",
+      "why": "A repo declaring a private source must fail the leak gate when its blocklist cannot load; the incident pushed into a public repository. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES). Re-judged 2026-10-31 after the green whole-suite run: 17.6 s there against 7.8 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 7.8,
+      "seconds": 17.6,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ],
@@ -163,10 +163,10 @@
     "check_move_withdrawal_from_universal_leaves_universal_green": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "Withdrawing a universal practice must leave universal's own checks green and tell consumers where the rule went; the team lead is fixture text. Cheapened 2026-10-31: the team set comes from _move_fixture_sets; same cases. 5.0 s before, 3.1 s after.",
+      "why": "Withdrawing a universal practice must leave universal's own checks green and tell consumers where the rule went; the team lead is fixture text. Cheapened 2026-10-31: the team set comes from _move_fixture_sets; same cases. 5.0 s before, 3.1 s after. Re-judged 2026-10-31 after the green whole-suite run: 7.3 s there against 3.1 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.1,
+      "seconds": 7.3,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -195,10 +195,10 @@
     },
     "check_show_flags_unreachable_materialized_source": {
       "verdict": "keep",
-      "why": "precedent_show/gate/paths say when a materialized practice's source is unreachable this session, rather than printing a stale rule as if live. The team lead is a docstring list of levels.",
+      "why": "precedent_show/gate/paths say when a materialized practice's source is unreachable this session, rather than printing a stale rule as if live. The team lead is a docstring list of levels. Re-judged 2026-10-31 after the green whole-suite run: 5.4 s there against 2.6 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 2.6,
+      "seconds": 5.4,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ],
@@ -305,10 +305,10 @@
     },
     "check_source_precedence": {
       "verdict": "keep",
-      "why": "The precedence order across four sources, written from the plan rather than the resolver, so a resolver bug shows; core and live. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias.",
+      "why": "The precedence order across four sources, written from the plan rather than the resolver, so a resolver bug shows; core and live. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias. Re-judged 2026-10-31 after the green whole-suite run: 2.9 s there against 1.1 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.1,
+      "seconds": 2.9,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ],
@@ -644,17 +644,6 @@
       ],
       "importance": "low"
     },
-    "tools/test_review.py": {
-      "verdict": "keep",
-      "why": "Not a test: this is the test-review tool itself, picked up by the inventory's 'named test_* anywhere' rule; its pre-staging mention is the docstring's history. Never retire it; the inventory should exclude it.",
-      "date": "2026-10-31",
-      "by": "agent",
-      "seconds": null,
-      "leads": [
-        "names the pre-staging tier below staging (retired 2026-10-14)"
-      ],
-      "importance": "medium"
-    },
     "check_shallow_clone_never_fabricates_unlanded_work": {
       "verdict": "keep",
       "importance": "high",
@@ -702,11 +691,13 @@
     "check_very_deep_check_convergent_drift": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "Pins the two-set threshold, the unknown direction and the decision ledger for CONVERGENT DRIFT. Cheapened 2026-10-31: one generator run for the four team sets (copies with name and path substituted) and one for the reference sets (_VdcDriftGeneratorMemo), and the ledger cases reuse the alpha/beta collect from the run just before them rather than generating again. Same 14 cases; a threshold of one fails it. 84 s recorded (52 s measured before) to 8 s.",
+      "why": "Pins the two-set threshold, the unknown direction and the decision ledger for CONVERGENT DRIFT. Cheapened 2026-10-31: one generator run for the four team sets (copies with name and path substituted) and one for the reference sets (_VdcDriftGeneratorMemo), and the ledger cases reuse the alpha/beta collect from the run just before them rather than generating again. Same 14 cases; a threshold of one fails it. 84 s recorded (52 s measured before) to 8 s. Re-judged 2026-10-31: the new lead is the retired 'team' level in fixture text the test plants, not something it relies on; verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 8.2,
-      "leads": []
+      "seconds": 0.1,
+      "leads": [
+        "names the word 'team (as a level)' (retired 2026-09-18)"
+      ]
     },
     "check_changed_files_only_judges_the_change": {
       "verdict": "keep",
@@ -729,10 +720,10 @@
     "check_repo_may_declare_its_own_fallback_zone": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "Pins that a repo's own fallback_timezone overrides the engine's while drift between the engine's two holders is still reported. Cheapened 2026-10-31: the fixture copies only precedent.json, practices/ and tools/ without verify_harness.py, and git-inits without adding or committing (the check lists untracked files too), instead of copying, adding and committing the whole checkout. Both cases unchanged; putting precedent.json back into the equality set (the 2026-09-14 bug) fails the override case. 61 s recorded (29 s measured before) to 3.8 s.",
+      "why": "Pins that a repo's own fallback_timezone overrides the engine's while drift between the engine's two holders is still reported. Cheapened 2026-10-31: the fixture copies only precedent.json, practices/ and tools/ without verify_harness.py, and git-inits without adding or committing (the check lists untracked files too), instead of copying, adding and committing the whole checkout. Both cases unchanged; putting precedent.json back into the equality set (the 2026-09-14 bug) fails the override case. 61 s recorded (29 s measured before) to 3.8 s. Re-judged 2026-10-31 after the green whole-suite run: 8.8 s there against 3.8 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 3.8,
+      "seconds": 8.8,
       "leads": []
     },
     "check_kept_agents_md_divergence_is_recorded": {
@@ -890,10 +881,11 @@
     "check_archive_gate_keeps_inner_workings_from_non_owners": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "Pins Morgan's 2026-10-12 rule that inner workings (container files, setup warnings, refusal names, Update Vendors' report) reach code owners only. Cheapened 2026-10-31: both _print_hard_requirements calls also stub pg._note_from_tool and precedent_reply_check._own_branches, which wrote none of the asserted text (a diff of the two outputs differed only in the ladder note and this session's branch list); the case no longer depends on which branches the session running it has pushed. Still fails when the non-owner wording is changed and when an owner is given the non-owner line. Back to back: 11.3 s before, 1.1 s after.",
+      "why": "Pins Morgan's 2026-10-12 rule that inner workings (container files, setup warnings, refusal names, Update Vendors' report) reach code owners only. Cheapened 2026-10-31: both _print_hard_requirements calls also stub pg._note_from_tool and precedent_reply_check._own_branches, which wrote none of the asserted text (a diff of the two outputs differed only in the ladder note and this session's branch list); the case no longer depends on which branches the session running it has pushed. Still fails when the non-owner wording is changed and when an owner is given the non-owner line. Back to back: 11.3 s before, 1.1 s after. Re-judged 2026-10-31 after the green whole-suite run: 3.5 s there against 1.1 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.1
+      "seconds": 3.5,
+      "leads": []
     },
     "check_move_tool_names_sets_truly_and_keeps_approvals_current": {
       "verdict": "keep",
@@ -1149,10 +1141,10 @@
     "check_refresh_removes_dropped_engine_files": {
       "verdict": "keep",
       "importance": "high",
-      "why": "A file dropped from the engine set must leave every consumer, while a repo's own tools/ file and a hand-edited copy are kept (practice: decommission-deletes-files). Cheapened 2026-10-31: the three consumers seed through _seed_fixture_engine under a fixture HOME and user config (which the cache can key), so the second and third copy the first's files; same nine cases, and a changed removal message still fails it. 10.7 s before, 8.3 s cold and 6.3 s warm after: the three refreshes are the rest.",
+      "why": "A file dropped from the engine set must leave every consumer, while a repo's own tools/ file and a hand-edited copy are kept (practice: decommission-deletes-files). Cheapened 2026-10-31: the three consumers seed through _seed_fixture_engine under a fixture HOME and user config (which the cache can key), so the second and third copy the first's files; same nine cases, and a changed removal message still fails it. 10.7 s before, 8.3 s cold and 6.3 s warm after: the three refreshes are the rest. Re-judged 2026-10-31 after the green whole-suite run: 14.2 s there against 6.3 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 6.3,
+      "seconds": 14.2,
       "leads": []
     },
     "check_default_blocklist_runs_the_vocabulary_layer": {
@@ -1212,10 +1204,10 @@
     "check_consumer_engine_carries_what_its_checks_import": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "An installed consumer must actually run document-status-header and speculation-is-marked rather than report SKIPPED for a missing module (2026-10-05). Cheapened 2026-10-31: the fresh install is the shared one (_fresh_install_fixture through _fixture_tree_cache: built once per checkout state and day under an isolated HOME, copied with its own path written back), so it now installs as GitHub's runner does, with no user config or individual set; same cases. 9.6 s before, 7.5 s cold (it built the install) and 0.9 s warm after.",
+      "why": "An installed consumer must actually run document-status-header and speculation-is-marked rather than report SKIPPED for a missing module (2026-10-05). Cheapened 2026-10-31: the fresh install is the shared one (_fresh_install_fixture through _fixture_tree_cache: built once per checkout state and day under an isolated HOME, copied with its own path written back), so it now installs as GitHub's runner does, with no user config or individual set; same cases. 9.6 s before, 7.5 s cold (it built the install) and 0.9 s warm after. Re-judged 2026-10-31 after the green whole-suite run: 11.7 s there against 0.9 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 0.9,
+      "seconds": 11.7,
       "leads": []
     },
     "check_harness_drops_inherited_git_repository_variables": {
@@ -1436,10 +1428,10 @@
     },
     "check_map_reads_each_tools_own_summary": {
       "verdict": "keep",
-      "why": "MAP.md's engine table comes from each tool's own docstring, never a hand table (generated files are never hand-edited); a stale map row is the miss.",
+      "why": "MAP.md's engine table comes from each tool's own docstring, never a hand table (generated files are never hand-edited); a stale map row is the miss. Re-judged 2026-10-31 after the green whole-suite run: 11.8 s there against 5.4 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 5.4,
+      "seconds": 11.8,
       "leads": [],
       "importance": "low"
     },
@@ -1680,10 +1672,10 @@
     "check_rename_links_spares_a_commit_pinned_permalink": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "A false refusal of a correctly cited deleted file blocks a deletion. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 3.3 s before, 3.1 s cold and 1.3 s warm after.",
+      "why": "A false refusal of a correctly cited deleted file blocks a deletion. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 3.3 s before, 3.1 s cold and 1.3 s warm after. Re-judged 2026-10-31 after the green whole-suite run: 3.2 s there against 1.3 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.3,
+      "seconds": 3.2,
       "leads": []
     },
     "check_rename_links_spares_a_longer_path_and_manifest_notes": {
@@ -1779,10 +1771,10 @@
     "check_shipped_hooks_pass_rename_links_without_the_mirror": {
       "verdict": "keep",
       "importance": "medium",
-      "why": "Shipped hooks failing rename-updates-links made every consumer Update Vendors rewrite and re-refuse them. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 2.9 s before, 3.1 s cold and 1.4 s warm after.",
+      "why": "Shipped hooks failing rename-updates-links made every consumer Update Vendors rewrite and re-refuse them. Cheapened 2026-10-31: the backdrop engine is seeded through the harness seed cache under a scratch HOME (_seed_consumer_engine_isolated); same cases. 2.9 s before, 3.1 s cold and 1.4 s warm after. Re-judged 2026-10-31 after the green whole-suite run: 3.0 s there against 1.4 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.4,
+      "seconds": 3.0,
       "leads": []
     },
     "check_loader_block_with_an_absent_individual_set": {
@@ -2111,10 +2103,10 @@
     },
     "check_landers_wait_their_turn_for_the_lock": {
       "verdict": "keep",
-      "why": "The queue lander never took Promote's lock and could never win against a busy landing branch; both landers now wait on it.",
+      "why": "The queue lander never took Promote's lock and could never win against a busy landing branch; both landers now wait on it. Re-judged 2026-10-31 after the green whole-suite run: 4.0 s there against 1.9 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.9,
+      "seconds": 4.0,
       "leads": [],
       "importance": "high"
     },
@@ -2390,10 +2382,10 @@
     },
     "check_freshness_guard_lets_a_read_through_on_a_stale_branch": {
       "verdict": "keep",
-      "why": "A read-only review session was refused its first command and could only proceed by switching the guard off for good (2026-10-28).",
+      "why": "A read-only review session was refused its first command and could only proceed by switching the guard off for good (2026-10-28). Re-judged 2026-10-31 after the green whole-suite run: 3.2 s there against 1.5 s measured alone, the gap being four shards sharing four cores (or, for the first user of a shared fixture cache, building it); verdict unchanged.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 1.5,
+      "seconds": 3.2,
       "leads": [],
       "importance": "high"
     },
@@ -8165,6 +8157,15 @@
       "seconds": null,
       "leads": [],
       "importance": "low"
+    },
+    "check_test_review_times_script_tests": {
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Added 2026-10-31 with the mechanism it tests: without it a practice set's script tests carry no time, and the rule that re-judges a keep whose time more than doubled can never fire for them.",
+      "date": "2026-10-31",
+      "by": "agent",
+      "seconds": 0.4,
+      "leads": []
     }
   }
 }
