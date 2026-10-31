@@ -1158,7 +1158,8 @@ def _github_slug(repo_dir):
 NEVER_DELETE_BRANCHES = frozenset({
     'main', 'master', 'staging', 'precedent-beta-v01',
     'precedent-promote-lock', 'precedent-check-receipts',
-    'data-promote-lock', 'data-check-receipts'})
+    'data-promote-lock', 'data-check-receipts',
+    'coord', 'result-cache', 'data-leases', 'data-result-cache'})
 
 # Branches that hold machinery, never work: Promote's lock (claims and
 # releases) and the push check's receipts (precedent_push_check.RECEIPT_BRANCH,
@@ -1167,8 +1168,16 @@ NEVER_DELETE_BRANCHES = frozenset({
 # print for the receipts branch in every repo, could never resolve it.
 # Both names of each since 2026-10-11 (precedent_data_branches.py): data-
 # on the ladder, the old name elsewhere.
+# The board libraries' branches too (2026-10-31, pass 4 of a very deep
+# check): `coord` holds the lease board, the landing queue and the
+# maintainer heartbeat (lease_board.py, land_queue.py,
+# precedent_heartbeat.py), `result-cache` the shared result cache, and a
+# ladder host may name them `data-leases` and `data-result-cache`. `coord`
+# was missing here, so every run listed it as unmerged work with "deepen
+# and re-check", which no depth could ever settle.
 INFRA_BRANCHES = ('precedent-promote-lock', 'precedent-check-receipts',
-                  'data-promote-lock', 'data-check-receipts')
+                  'data-promote-lock', 'data-check-receipts',
+                  'coord', 'result-cache', 'data-leases', 'data-result-cache')
 
 
 _NEVER_DELETABLE_CACHE = {}
@@ -5765,11 +5774,24 @@ def _unmerged_row(repo_dir, name, ref, target_ref, target, stale_days=None):
     if row['unique'] is None:
         # Never guess here. A fabricated verdict is worse than none: this is
         # the branch someone might delete on it.
-        row['verdict'] = (f'UNKNOWN -- no merge base between {target} and this '
-                          f'branch resolves in this clone, so the patch '
-                          f'comparison cannot run and its result would be '
-                          f'fiction. Deepen with `git fetch --depth=5000 '
-                          f'origin` and re-check before acting')
+        # On a full clone no depth will ever find a merge base: the branch
+        # shares no history with the target (an orphan), so "deepen" sent
+        # a run after something it could not get (2026-10-31, pass 4).
+        _rc, _sh, _ = _run_git(repo_dir, 'rev-parse',
+                               '--is-shallow-repository')
+        if _rc == 0 and _sh.strip() == 'false':
+            row['verdict'] = (f'UNKNOWN -- this branch shares no history with '
+                              f'{target} (an orphan branch, and this clone is '
+                              f'not shallow, so deepening will not help). Read '
+                              f'its log to say what it holds before giving it '
+                              f'a verdict')
+        else:
+            row['verdict'] = (f'UNKNOWN -- no merge base between {target} and '
+                              f'this branch resolves in this clone, so the '
+                              f'patch comparison cannot run and its result '
+                              f'would be fiction. Deepen with `git fetch '
+                              f'--depth=5000 origin` and re-check before '
+                              f'acting')
     elif row['unique'] == 0:
         row['verdict'] = (f'ALREADY LANDED as patches -- every commit has an '
                           f'equivalent on {target} (rebased or squash-merged '

@@ -88430,6 +88430,74 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
               '; '.join(failed) + f' -- listed {listed}')
 
 
+def check_very_deep_check_skips_the_board_branches():
+    """`coord` holds the lease board, the landing queue and the maintainer
+    heartbeat; `result-cache` the shared result cache. Both are orphan
+    histories that hold machinery, never work. Before 2026-10-31 the branch
+    sweep listed `coord` as unmerged with "deepen and re-check", which no
+    depth can settle, and the review page had no rule keeping it off.
+
+    Discriminating cases: the board branches are in no list and get no
+    delete link, while an ordinary orphan branch in the same fixture IS
+    listed (an empty sweep would pass the first case), and on this full
+    clone its verdict says the branch shares no history rather than
+    telling the reader to deepen (practice: very-deep-check)."""
+    import tempfile
+    import very_deep_check as vdc
+    import precedent_review_page as rp
+
+    _git = fixture_git
+    board = ['coord', 'result-cache']
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        for b in board + ['claude/stray-orphan']:
+            _git(up, 'checkout', '-q', '--orphan', b)
+            _git(up, 'rm', '-rq', '--cached', '.')
+            (up / 'base.txt').unlink()
+            (up / 'leases').mkdir(exist_ok=True)
+            (up / 'leases' / 'x.json').write_text(f'{{"b": "{b}"}}\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', f'{b} record')
+            _git(up, 'checkout', '-q', '-f', 'main')
+            _git(up, 'clean', '-qfd')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        scan = vdc.scan_branches(work, 'main') or {}
+        rows = {r['name']: r for k in ('merged', 'merged_elsewhere', 'unmerged')
+                for r in scan.get(k) or []}
+        _git(work, 'config', 'remote.origin.url',
+             'https://github.com/example/fixture.git')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        links = {b: vdc._branch_url(work, b) for b in board}
+        page = [name for name, _d in rp.landed_branches(work)]
+        stray = (rows.get('claude/stray-orphan') or {}).get('verdict') or ''
+        results = [
+            ('no board branch appears in any list of the sweep',
+             not [b for b in board if b in rows]),
+            ('no delete link is minted for a board branch',
+             all(links[b] is None for b in board)),
+            ('the review page offers no board branch',
+             not [b for b in board if b in page]),
+            ('an ordinary orphan branch in the same fixture IS listed',
+             'claude/stray-orphan' in rows),
+            ('...and on a full clone its verdict says it shares no history, '
+             'not "deepen"',
+             'shares no history' in stray and 'Deepen' not in stray),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check skips the board branches '
+              f'({len(results)} stated cases)', not failed,
+              '; '.join(failed) + f' -- listed {sorted(rows)}; stray: {stray}')
+
+
 def check_upstream_review_only_for_a_code_owner_on_the_ladder():
     """A set's step_review (precedent_resolve.load_set_tool, 2026-10-17):
     the engine finds the tool a set names in its precedent-source.json, and
@@ -93677,6 +93745,7 @@ def main():
     check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
+    check_very_deep_check_skips_the_board_branches()
     check_very_deep_check_walks_every_tier_pair()
     check_upstream_review_only_for_a_code_owner_on_the_ladder()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
