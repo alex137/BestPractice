@@ -441,9 +441,9 @@ Two constraints from the plan's phase-3 row governed every decision:
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
 | Practices with `## Rule` over 150 words | 16 | 20 | **7** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
-| Words in `## Detail` | — | — | **6,718** |
+| Words in `## Detail` | — | — | **7,659** |
 
-Twenty-seven of the fifty-two practices carry a Detail. The resident block — the
+Twenty-nine of the fifty-two practices carry a Detail. The resident block — the
 text every session pays for, whatever it is doing — **halved**, which is the
 closest this catalogue has come to the plan's "nine tenths" claim and still
 short of it.
@@ -486,6 +486,10 @@ the same day. It moved to 26 on 2026-10-15, when
 `generated-artifact-provenance` gained a Detail saying a build code leaves
 out the commit-time header stamp and that a currency check is routed by
 every input the code hashes; the word count is the script's, 6,718.
+It moved to 29 on 2026-10-31, when `permutation-frontier-column` and
+`verify-decomposition` each gained a Detail holding their Rule's paragraphs
+in full, moved there whole when the long-Rule review cut both Rules; the
+word count, taken over the same 52 practices that day, is 7,659.
 (The table cell and the
 sentence above it were carried forward from the 2026-09-10 value at the
 2026-09-11 move and are corrected here.) Only the two figures

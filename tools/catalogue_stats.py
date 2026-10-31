@@ -159,10 +159,14 @@ ANCHORS = [
     # 2026-10-15, when generated-artifact-provenance gained a Detail on what
     # a build code hashes and what routes a currency check. Then 26->27 on
     # 2026-10-16, when merge-runbook gained a Detail carrying the catch-up
-    # review of what landed on the trunk since the branch forked.
+    # review of what landed on the trunk since the branch forked. Then
+    # 27->29 on 2026-10-31, when permutation-frontier-column and
+    # verify-decomposition each gained a Detail holding their Rule's
+    # paragraphs in full, moved there whole when the long-Rule review cut
+    # both Rules.
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
-     27, 27, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+     29, 29, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
      7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as

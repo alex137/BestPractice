@@ -29,28 +29,19 @@ latter, who that is. This is never left to be inferred from a file path in a
 diff, a tool's stdout, or a generic "I've added a practice" with no level or
 location named.
 
-**Say WHY that level, in one clause, and decide it rather than asking.**
-[layered-practice-packs](layered-practice-packs.md) already gives the test —
-*would this hold in an unrelated repo?* → universal; *only in another repo
-running the same kind of program?* → shared; *only for one person?* →
-individual; *only here?* → repo-local — and the session applies it and
-proceeds. **Do not stop to ask which level.** The person reviews the choice
-before the merge, which is the right moment for it: they can see the actual
-text by then, and a wrong level is one file move away
-([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)), not a rewrite.
+**Say WHY that level, in one clause, and decide it rather than asking**, by
+[layered-practice-packs](layered-practice-packs.md)'s test: *would this
+hold in an unrelated repo?* → universal; *only in another repo running the
+same kind of program?* → shared; *only for one person?* → individual; *only
+here?* → repo-local. **Do not stop to ask which level**: the person reviews
+the choice before the merge, and a wrong level is one file move away
+([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)).
 
-**A level stated without its reason cannot be disagreed with**, which is the
-whole point of stating it. *"Universal, because nothing in it is specific to
-this project"* can be argued with; *"landed in universal"* can only be
-accepted. Morgan, 2026-09-08, describing what he wanted from this: *"you
-should make a guess (based on the type of content, and the user's permission
-levels), and TELL THE SESSION USER, and then do it."*
-
-**Permissions are part of the guess, not an obstacle to it.** A practice
-that belongs in a shared set the session cannot reach still gets named as
-belonging there, with the reason it landed somewhere else instead — that is
-a disclosure, not a failure. Recording it at the wrong level silently is the
-failure.
+**A practice that belongs in a shared set the session cannot reach is still
+named as belonging there**, with the reason it landed somewhere else.
+Recording it at the wrong level silently is the failure. Why the reason
+matters, and Morgan's words, are under Detail, *Deciding and stating the
+level, in full*.
 
 ## Detail
 `precedent_land.py` and `precedent_candidate.py` both print an explicit
@@ -74,6 +65,34 @@ The three shapes this actually takes:
   pull request (PR) merged into this repository's landing branch, gated
   by that branch's own checks rather than a second reviewer. Say so
   explicitly rather than letting "landed" read as "done."
+
+Each heading below that ends "in full" holds Rule paragraphs as they stood
+until 2026-10-31, moved here whole when the Rule was cut to what a session
+must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### Deciding and stating the level, in full
+**Say WHY that level, in one clause, and decide it rather than asking.**
+[layered-practice-packs](layered-practice-packs.md) already gives the test —
+*would this hold in an unrelated repo?* → universal; *only in another repo
+running the same kind of program?* → shared; *only for one person?* →
+individual; *only here?* → repo-local — and the session applies it and
+proceeds. **Do not stop to ask which level.** The person reviews the choice
+before the merge, which is the right moment for it: they can see the actual
+text by then, and a wrong level is one file move away
+([spec/MOVING_PRACTICES.md](https://github.com/alex137/BestPractice/blob/staging/spec/MOVING_PRACTICES.md)), not a rewrite.
+
+**A level stated without its reason cannot be disagreed with**, which is the
+whole point of stating it. *"Universal, because nothing in it is specific to
+this project"* can be argued with; *"landed in universal"* can only be
+accepted. Morgan, 2026-09-08, describing what he wanted from this: *"you
+should make a guess (based on the type of content, and the user's permission
+levels), and TELL THE SESSION USER, and then do it."*
+
+**Permissions are part of the guess, not an obstacle to it.** A practice
+that belongs in a shared set the session cannot reach still gets named as
+belonging there, with the reason it landed somewhere else instead — that is
+a disclosure, not a failure. Recording it at the wrong level silently is the
+failure.
 
 ## Why
 Asked directly whether this was happening — "do you clearly tell the human,
@@ -101,6 +120,18 @@ unconditionally printed) rather than trusting a session's own judgment to
 remember, since a rule about what a *reply* contains cannot be verified by
 scanning a repo's tree — only by the tool that generates the sentence in
 the first place, every time it runs.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to
+Detail whole.** Reviewing the longest quarter of each repository's Rules
+that day, a session found this one at 328 words, carrying reasons,
+measurements or quotes beside what a session must do; it now holds 224 (both
+counted with `wc -w` over the Rule section). Morgan, after the four cuts of
+2026-10-30: *"maybe we add to very deep check to always review like the 25%
+of all the rules that are the longest in that repo and shorten them like you
+did?"*, then *"use your judgment, and act booked produce"* (strength:
+assented). Every Rule paragraph that changed moved word for word into
+Detail, under the headings ending "in full" that the Rule names; nothing was
+deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 `tools/precedent_land.py` and `tools/precedent_candidate.py` print the
