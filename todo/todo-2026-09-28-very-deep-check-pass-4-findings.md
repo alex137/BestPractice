@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan: whether very-deep-check's Rule moves its incidents to Story, and whether a very deep check or Update Vendors takes a lease"
+waiting_on:        "Morgan: whether a very deep check or Update Vendors takes a lease"
 noted:             2026-09-28
 closed:            null
 ---
@@ -54,3 +54,9 @@ the full catalogue judgment completed, all the same day.
 2026-10-31, very deep check of 2026-10-30, pass 4 (still live): very-deep-check's
 Rule section measured 3,724 words today, so the trim it asks for has not
 happened; the lease question is still unanswered.
+2026-10-31, call 11 of the 2026-10-30 very deep check (Morgan, strength:
+assented): very-deep-check's Rule cut from 3,724 to 1,305 words (`wc -w`
+over the section), every paragraph moved whole into Detail or Story, on
+branch `2026-10-31-themorgan-split-very-deep-check-rule-hv5gd-25fwt`
+(BestPractice). That half closes when it lands; the lease question is
+still unanswered.
