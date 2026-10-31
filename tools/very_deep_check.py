@@ -247,6 +247,7 @@ import collections, contextlib, datetime, fnmatch, io, json, os, pathlib, re, sh
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
+from precedent_repo_id import find_repo, repo_key, same_repo  # practice: upstream-fix
 import precedent_resolve as pr
 
 # Compared only through pr.declared_level, so `team` reads as `shared` and
@@ -7386,7 +7387,7 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
                 m = re.match(r'#\s*visibility-audit:\s*allow\s+(\S+/\S+)\s*--\s*(.+)$',
                              line)
                 if m:
-                    allowed[m.group(1).lower()] = m.group(2).strip()
+                    allowed[repo_key(m.group(1))] = m.group(2).strip()
         except OSError as e:
             notes.append(f'blocklist at {blocklist_path} could not be read ({e}) '
                          '-- the allow lines were NOT read, so a deliberately '
@@ -7462,7 +7463,7 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
             continue
         checked += 1        # only now is the visibility actually KNOWN
         _canon = str(data.get('full_name') or '')
-        if _canon and _canon.lower() != f'{owner}/{name}'.lower():
+        if _canon and not same_repo(_canon, f'{owner}/{name}'):
             RENAMED[(owner, name)] = _canon
             if data.get('private'):
                 PRIVATE_RENAMED.add(_canon)
@@ -7472,7 +7473,7 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
                 f'API answers {_canon} -- it has been RENAMED. The run '
                 f'rewrites the current references (see RENAME FIX).')
         if data.get('private'):
-            why = allowed.get(f'{owner}/{name}'.lower())
+            why = allowed.get(repo_key(f'{owner}/{name}'))
             if why:
                 notes.append(f'{owner}/{name} is private and named here on '
                              f'purpose: {why}')
@@ -7524,7 +7525,7 @@ def repo_visibility_audit(repo_dir, blocklist_path=None, out=None,
             if err or not isinstance(data, dict) or 'full_name' not in data:
                 continue
             _canon = str(data.get('full_name') or '')
-            if _canon.lower() != f'{owner}/{name}'.lower():
+            if not same_repo(_canon, f'{owner}/{name}'):
                 RENAMED[(owner, name)] = _canon
                 if data.get('private'):
                     PRIVATE_RENAMED.add(_canon)
@@ -7960,7 +7961,7 @@ def instruction_file_repo_refs_audit(repo_root, sources=(), missing=(),
             continue
         checked += 1
         canonical = str(data.get('full_name') or '')
-        if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+        if canonical and not same_repo(canonical, f'{owner}/{name}'):
             RENAMED[(owner, name)] = canonical
             findings.append(
                 f'{owner}/{name} is named in {seen} and the API answers '
@@ -8097,7 +8098,7 @@ def repos_in_force_audit(repo_root, sources=(), missing=(), base_url=None,
                 f'{label} ({owner}/{name}) is DISABLED by GitHub. Same shape '
                 f'as archived: it reads and does not accept work.')
         canonical = str(data.get('full_name') or '')
-        if canonical and canonical.lower() != f'{owner}/{name}'.lower():
+        if canonical and not same_repo(canonical, f'{owner}/{name}'):
             RENAMED[(owner, name)] = canonical
             findings.append(
                 f'{label} is declared or cloned as {owner}/{name} and the '
@@ -11442,13 +11443,13 @@ def _main(box):
         for _name, _p in _orph_targets:
             if pathlib.Path(_p).is_dir():
                 _s = _github_slug(_p)
-                if _s and _s not in _fa_repos:
+                if _s and not find_repo(_s, _fa_repos):
                     _fa_repos.append(_s)
         try:
             sys.path.insert(0, str(_fa_here))
             import ci_fleet_audit as _cfa
             for _s in _cfa.discover(_fa_here.parent):
-                if _s.lower() not in {x.lower() for x in _fa_repos}:
+                if not find_repo(_s, _fa_repos):
                     _fa_repos.append(_s)
         except Exception:                                      # noqa: BLE001
             pass

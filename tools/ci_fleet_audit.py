@@ -516,11 +516,9 @@ def _origin_slug(repo_dir):
                              text=True, timeout=10).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         return None
-    if 'github.com' not in url:
-        return None
-    tail = url.removesuffix('.git').split('github.com', 1)[1].lstrip(':/')
-    parts = [x for x in tail.split('/') if x]
-    return f'{parts[0]}/{parts[1]}' if len(parts) >= 2 else None
+    from precedent_repo_id import parse
+    rid = parse(url)
+    return rid.full if rid and rid.owner and rid.host == 'github.com' else None
 
 
 def discover(root=None):
@@ -538,7 +536,14 @@ def discover(root=None):
                 dirs.append(pathlib.Path(v).expanduser())
     except (OSError, ValueError, AttributeError):
         pass
-    slugs = {s for s in (_origin_slug(d) for d in dirs) if s}
+    # One entry per repository, whatever spelling each clone's origin has
+    # (practice: upstream-fix; precedent_repo_id).
+    from precedent_repo_id import repo_key
+    by_key = {}
+    for s in (_origin_slug(d) for d in dirs):
+        if s:
+            by_key.setdefault(repo_key(s), s)
+    slugs = set(by_key.values())
     # A clone of a DELETED set can still sit beside this checkout (a session
     # attached it before it was deleted). Its workflows run nowhere, and
     # asking GitHub about it spent a refused call per question on 2026-10-11.

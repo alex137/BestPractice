@@ -2377,9 +2377,18 @@ def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
         # process/upstream instead of this set's copy, and without repo the
         # freshness line could not tell when the set's origin moved.
         up['vendored_at'] = UPSTREAM.relative_to(ROOT).as_posix()
+        # GitHub's spelling on record, never the clone's: add_repo hands out
+        # lowercase clone URLs, and copying the origin in put a second
+        # spelling of a declared source into every copy's manifest
+        # (2026-10-31). The declaration in precedent.json wins, and a
+        # recorded spelling of the same repository is corrected to it.
+        from precedent_repo_id import declared_spelling, same_repo
         rc, url = _git_rc(clone, 'remote', 'get-url', 'origin')
         if rc == 0 and url.strip():
-            up.setdefault('repo', url.strip())
+            spelled = declared_spelling(url.strip(), root=ROOT)
+            if not up.get('repo') or (same_repo(up['repo'], spelled)
+                                      and up['repo'] != spelled):  # repo-name-compare: ok -- the spelling itself is the question
+                up['repo'] = spelled
     old = up.get('commit')
     manifest['upstream']['commit'] = head
     # record() has just verified the vendored tree is byte-identical to what

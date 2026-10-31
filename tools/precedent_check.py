@@ -167,6 +167,15 @@ import split_practices as sp
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 import generated_blocks  # noqa: E402
+try:                                     # practice: upstream-fix
+    from precedent_repo_id import same_repo  # noqa: E402
+except ImportError:
+    # This file is also copied on its own, into a fixture or a repository
+    # with no engine beside it; there, folded text is the same test.
+    def same_repo(a, b):
+        def norm(x):
+            return str(x or '').strip().rstrip('/').removesuffix('.git').lower()  # repo-name-compare: ok -- fallback when the helper is absent
+        return bool(norm(a)) and norm(a) == norm(b)
 
 
 # Which trees this repo MIRRORS from somewhere else, and therefore may not
@@ -2556,14 +2565,14 @@ def _practice_links_travel(ctx):
                 # it is locally resolvable, which it is in every repo that
                 # declares one) is checked too -- see _universal_source_root's
                 # own docstring for the real case this missed.
-                if slug is not None and url_repo.lower() == slug.lower():
+                if slug is not None and same_repo(url_repo, slug):
                     check_root, subject, u_branch = ROOT, 'this repository', branch
                 else:
                     uroot = _universal_source_root()
                     u_slug = _origin_slug(uroot) if uroot else None
                     if uroot is None or u_slug is None:
                         continue                # cannot tell universal apart
-                    if url_repo.lower() != u_slug.lower():
+                    if not same_repo(url_repo, u_slug):
                         # A practice file in ANOTHER set, linked by URL -- the
                         # Rule's "never", which this branch used to wave
                         # through as somebody else's repository. That is how a
@@ -6278,6 +6287,82 @@ def _new_hook_joins_the_registry(ctx):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return found
+
+@check('repo-name-compare-via-helper', 'tree',
+       'no Python file in tools/ compares, looks up or case-folds a '
+       'repository name, URL or origin by itself -- with ==, !=, in, or '
+       '.lower() -- instead of through tools/precedent_repo_id.py, where '
+       'capitalization never decides whether two names are one repository',
+       'a variable whose name does not say it holds a repository (`u`, '
+       '`url`, `a`): the check reads names, not values. A comparison it '
+       'flags wrongly takes `# repo-name-compare: ok -- <why>` on its line.',
+       practice_backed=False, selects_on=('tools/*.py',))
+def _repo_name_compare_via_helper(ctx):
+    """Morgan, 2026-10-31 (strength: decided): "in any way the repo names
+    are used, the capitalization should never matter". Four earlier fixes
+    each mended one tool's letter-for-letter comparison (a56ef8cb,
+    561a37f0, a78d30dc, 8e938154), and the next tool brought the shape
+    back: the freshness check's `origin == repo_url` read a lowercase
+    add_repo clone of a capitalized source as NOT VERIFIED. This check is
+    what stops the next one (practice: upstream-fix; practice:
+    judgment-check-or-tool)."""
+    import precedent_repo_id as rid
+    out = []
+    for f in _tools_py(ROOT / 'tools'):
+        if f.name in ('precedent_repo_id.py', 'verify_harness.py') \
+                or f.name.startswith('test_'):
+            continue
+        for line, src in rid.raw_comparisons(f):
+            out.append(Finding(
+                f'tools/{f.name}:{line}',
+                f'compares or case-folds a repository name by itself: {src}. '
+                f'Use precedent_repo_id.same_repo / repo_key / find_repo, so '
+                f'two spellings of one repository are one repository'))
+    return out
+
+
+@check('declared-repo-spelling', 'tree',
+       'every copy manifest (process/manifest_<name>.json) records its '
+       'source\'s repository in the spelling precedent.json declares for '
+       'it, not a second spelling of the same repository',
+       'whether the declaration itself is GitHub\'s spelling: no network is '
+       'asked. A declaration typed wrong is fixed in precedent.json, and '
+       'flows out from there.',
+       practice_backed=False,
+       selects_on=('precedent.json', 'process/manifest_*.json'))
+def _declared_repo_spelling(ctx):
+    """Morgan, 2026-10-31 (strength: decided): wherever a repository is
+    named internally, use "the same capitalization as is used in the
+    official name of the repo". checkin.py record used to copy a clone's
+    origin into the manifest, and add_repo hands out lowercase clone URLs,
+    so a consumer's manifests spelled two declared sources in lowercase
+    while precedent.json spelled them as GitHub does. Update Vendors now
+    writes the declared spelling back on its next run; this check says so
+    until it has (practice: upstream-fix)."""
+    import precedent_repo_id as rid
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('this repo has no readable precedent.json')
+    out = []
+    for e in cfg.get('sources') or [] if isinstance(cfg, dict) else []:
+        if not isinstance(e, dict) or not e.get('repo') or not e.get('name'):
+            continue
+        mp = ROOT / 'process' / f'manifest_{e["name"]}.json'
+        try:
+            rec = (json.loads(mp.read_text(encoding='utf-8')).get('upstream')
+                   or {}).get('repo')
+        except (OSError, ValueError, AttributeError):
+            continue
+        want = str(e['repo']).strip()
+        if rec and rid.same_repo(rec, want) and rec != want:
+            out.append(Finding(
+                f'process/manifest_{e["name"]}.json',
+                f'records {rec}, and precedent.json declares the same '
+                f'repository as {want}. Update Vendors writes the declared '
+                f'spelling back on its next run'))
+    return out
+
 
 @check('no-hardcoded-git-identity', 'tree',
        'a tracked .claude/settings.json never names a person\'s '
@@ -11880,7 +11965,7 @@ def _practice_file_shape(ctx):
                                            f'practice in this catalogue'))
         for m in _GITHUB_REPO_RE.finditer(f.read_text(encoding='utf-8', errors='ignore')):
             owner_repo = f'{m.group(1)}/{m.group(2)}'
-            if owner_repo.lower() != _UPSTREAM_OWNER_REPO.lower():
+            if not same_repo(owner_repo, _UPSTREAM_OWNER_REPO):
                 out.append(Finding(rel(f), f'links {owner_repo}, a repository a '
                                            f'reader of a shipped practice has no '
                                            f'reason to be able to open -- name it '
