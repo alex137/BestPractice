@@ -25,12 +25,52 @@ approved_by: "Morgan, 2026-09-25 (\"we need to absolutely put a hard stop to thi
 on its own judgment**: no new workflow, job or trigger, nothing that makes
 one run more often or longer. **That is what this rule guards: billed
 minutes.** A change that adds no CI work -- a broken path, a dead fallback,
+a stale message -- is ordinary maintenance: make it. **Where this rule
+seems to stand in the way of what is plainly right, ask the person, with
+your recommendation; never leave a workflow broken because of it.**
+
+**Every `.github/workflows/*.yml` file in a repo that vendors Precedent is
+the engine's own untouched copy, or carries the person's approval in
+`precedent.json`'s `github_ci_approved`, pinned to the file's content by
+sha256, with their words quoted** (the shape is under "The approval record",
+in Detail). Any edit changes the hash and fails the check until the person
+approves the new content. To ask, show them the file and say when it will
+run, then record what they said, in their words. **Never write an approval
+they did not give.** A workflow the engine owns is fixed in its template,
+with no approval.
+
+**In a consuming repo or a practice set, Update Vendors settles a leftover
+workflow without asking**: it writes the engine's own from the template and
+removes any other without the person's approval, but leaves alone, and
+flags loudly, one that runs something the local push check does not. So a
+finding there means run Update Vendors, not ask ("Leftovers at Update
+Vendors"). **Ask only about one whose removal would stop something
+running**: say what it does and what would stop, recommend, and ask keep or
+delete; a keep is recorded as their approval.
+
+**The check judges growth everywhere, this repo's own templates included**,
+on every push: a change that makes a workflow or a workflow template run
+more is refused until the person's words are pinned to its content.
+Re-baselining with `record-ci` is an approval too, and needs the same
+words.
+
+## Detail
+Everything under the headings below from "Billed minutes, and when to ask" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Billed minutes, and when to ask
+
+**A session never adds a GitHub Actions workflow, or adds CI work to one,
+on its own judgment**: no new workflow, job or trigger, nothing that makes
+one run more often or longer. **That is what this rule guards: billed
+minutes.** A change that adds no CI work -- a broken path, a dead fallback,
 a stale message, in a workflow or in a template one is written from -- is
 ordinary maintenance: make it, the way you would fix any other file.
 **Where this rule seems to stand in the way of what is plainly right, ask
 the person, with your recommendation; never leave a workflow broken because
 of it** (Morgan, 2026-09-30: "We clearly shouldn't have broken workflows
 because I once said to not edit a file! Ask!").
+
+### The approval record
 
 Every `.github/workflows/*.yml` file in a repo that
 vendors Precedent is either the engine's own untouched copy, or carries the
@@ -55,6 +95,8 @@ its template, and the next refresh carries the fix. To get approval, show the pe
 when it will run: every run bills at least a minute in a private repository.
 Then record what they said, in their words. **Never write an approval they
 did not give.** If they do not want the file, delete it.
+
+### Leftovers at Update Vendors
 
 **In a consuming repo or a practice set, Update Vendors settles a leftover
 without asking** (a consumer since 2026-09-27, a practice set since
@@ -81,6 +123,8 @@ doubt"*): the session says in plain words what the file does and what would
 stop, recommends, and asks keep or delete. A keep is recorded as their
 approval, which is what keeps a workflow they actually want.
 
+### Where the check runs, and growth
+
 **This check runs on every push** (the push gate's basic tier, seconds), in
 every full check, and at every Update Vendors and migration. **It also
 judges growth everywhere, this repo's own templates included:** a change
@@ -92,6 +136,8 @@ written from a shipped template is tracked in `ENGINE_MANIFEST.json`, which
 is what the check reads for it, so it needs no approval entry.
 Re-baselining an edited engine workflow with `record-ci` is an approval
 too, and needs the same words.
+
+### An approved workflow, run locally
 
 An approved workflow of the repository's own is also run locally, as far
 as it can be (2026-10-10): the push check runs each of its steps that is a
@@ -152,6 +198,17 @@ light check, and a consumer's refresh replaces a hand-made copy and removes
 an unapproved workflow on its own.
 
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: the push check refuses an unapproved workflow, and `workflow-write-gate.sh` refuses a write through the GitHub tools. Its path and push gate still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 801 words; it now holds what a session may not add, the approval
+record, what Update Vendors settles and what the check refuses, in 333
+words (both counted with `wc -w` over the section). Every paragraph it held
+moved word for word into Detail, under the headings the Rule names; nothing
+was deleted. Morgan, 2026-10-31 (strength: assented), after the 2026-10-30
+very deep check cut four Rules: *"maybe we add to very deep check to always
+review like the 25% of all the rules that are the longest in that repo and
+shorten them like you did?"*, then *"use your judgment, and act booked
+produce"*.
 
 ## Install
 Enforced by `_ci_workflow_approved` in
