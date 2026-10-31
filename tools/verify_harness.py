@@ -9543,6 +9543,113 @@ def check_legacy_status_migration():
           f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_very_deep_check_lists_the_longest_rules():
+    """very_deep_check.py's LONGEST RULES section: the longest quarter of a
+    repo's active Rules (n/4 rounded half up, at least one), longest first,
+    by words in the `## Rule` section alone; a retired practice is not
+    counted however long its Rule, and a long Detail does not make a Rule
+    long. In a public repo a private set's slugs stay out of the write-up's
+    `## Long Rules` block, which a second write replaces; and the account
+    check refuses a run from 2026-11-01 on whose account has no such block.
+
+    Added 2026-10-31 with the section (practice: very-deep-check, Pass 3;
+    Morgan, strength: assented: "maybe we add to very deep check to always
+    review like the 25% of all the rules that are the longest in that repo
+    and shorten them like you did?"). The repositories are temporary ones
+    the test builds (practice: fixture-owns-its-state); each case asserts
+    the tool's own words (practice: control-asserts-which-failure)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import precedent_check as pc
+
+    def practice(d, slug, rule_words, status='active', detail_words=0):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        body = ('---\nslug:        ' + slug + '\nstatus:      ' + status
+                + '\n---\n## Rule\n' + ' '.join(['must'] * rule_words) + '\n'
+                + ('\n## Detail\n' + ' '.join(['how'] * detail_words) + '\n'
+                   if detail_words else ''))
+        (d / 'practices' / f'{slug}.md').write_text(body, encoding='utf-8')
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-long-rules-'))
+    try:
+        repo, priv = tmp / 'repo', tmp / 'private-set'
+        # Seven active: the quarter is (7 + 2) // 4 = 2. The retired one and
+        # the long-Detail one are the controls.
+        for slug, n in (('fx-a', 40), ('fx-b', 300), ('fx-c', 120),
+                        ('fx-d', 300), ('fx-e', 10), ('fx-f', 75)):
+            practice(repo, slug, n)
+        practice(repo, 'fx-retired', 5000, status='retired')
+        practice(repo, 'fx-long-detail', 20, detail_words=5000)
+        r = vdc.longest_rules(repo / 'practices')
+        cases.append(('the longest quarter, longest first, ties by slug',
+                      r['listed'] == [('fx-b', 300), ('fx-d', 300)], repr(r)))
+        cases.append(('a retired practice is not counted and a long Detail '
+                      'is not a long Rule',
+                      r['active'] == 7 and r['median'] == 75, repr(r)))
+        practice(priv, 'fx-private-one', 30)
+        (priv / 'precedent-source.json').write_text(
+            json.dumps({'name': 'fx-private', 'level': 'individual',
+                        'visibility': 'private'}), encoding='utf-8')
+        cases.append(('a set of one lists its one Rule',
+                      vdc.longest_rules(priv / 'practices')['listed']
+                      == [('fx-private-one', 30)], ''))
+        (repo / 'spec').mkdir()
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public'}), encoding='utf-8')
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        sources = [{'name': 'precedent', 'level': 'universal', 'path': str(repo)},
+                   {'name': 'fx-private', 'level': 'individual', 'path': str(priv)}]
+        for _ in range(2):
+            out = io.StringIO()
+            listed = vdc.longest_rules_section(sources, repo, out=out)
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the console names every listed slug and says what the '
+                      'session does with it',
+                      listed == 3 and 'fx-private-one' in out.getvalue()
+                      and 'never cut\n  to a quota' in out.getvalue(),
+                      out.getvalue()[-600:]))
+        cases.append(('the write-up gets one ## Long Rules block, replaced on '
+                      'the second write, a private set named in general terms',
+                      body.count('## Long Rules') == 1
+                      and '`fx-b` 300, `fx-d` 300' in body
+                      and 'fx-private' not in body
+                      and 'a private individual set' in body, body))
+        # The account check, through the real function with its ROOT on the
+        # fixture: a run from 2026-11-01 on owes the block.
+        (repo / 'record').mkdir()
+        (repo / 'record' / 'very-deep-check-ledger.json').write_text(json.dumps(
+            {'runs': [{'date': '2026-11-01', 'run_id': 'fx', 'passes': [
+                {'pass': str(n), 'status': 'done'} for n in (1, 2, 3, 4)]}]}),
+            encoding='utf-8')
+        whole = ('---\nopened: 2026-11-01\n---\n# Run\n\n## Checks by stage\n\n'
+                 'x\n\n## Test review\n\nx\n')
+        saved = pc.ROOT
+        try:
+            pc.ROOT = repo
+            doc.write_text(whole, encoding='utf-8')
+            missing = ' | '.join(str(getattr(f, 'detail', f))
+                                 for f in pc._very_deep_check_write_up(None))
+            doc.write_text(whole + '\n## Long Rules\n\nx\n', encoding='utf-8')
+            present = pc._very_deep_check_write_up(None)
+        finally:
+            pc.ROOT = saved
+        cases.append(('the account check refuses a 2026-11-01 run with no '
+                      '## Long Rules, and passes one with it',
+                      'no `## Long Rules` section' in missing and not present,
+                      missing + ' || ' + repr(present)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s LONGEST RULES lists the longest quarter of '
+          f'active Rules ({len(cases)} stated cases: order, controls, a set of '
+          f'one, console, write-up block, account check)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_default_blocklist_runs_the_vocabulary_layer():
     """The vocabulary layer runs on every invocation, against a real list.
 
@@ -94747,6 +94854,7 @@ def main():
     check_very_deep_check_warnings_are_judged_not_just_counted()
     check_very_deep_check_test_worth_judges_what_changed()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
+    check_very_deep_check_lists_the_longest_rules()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()

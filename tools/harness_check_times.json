@@ -841,6 +841,7 @@
   "check_very_deep_check_fixes_a_renamed_repository": 0.3,
   "check_very_deep_check_honours_not_binding_for_other_sources_checks": 0.0,
   "check_very_deep_check_lists_checks_by_stage": 1.1,
+  "check_very_deep_check_lists_the_longest_rules": 0.1,
   "check_very_deep_check_never_offers_a_tier_branch_for_deletion": 0.9,
   "check_very_deep_check_reads_a_worktree_and_runs_the_suite_last": 0.2,
   "check_very_deep_check_reads_live_and_names_landing_work": 0.9,

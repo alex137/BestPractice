@@ -7654,6 +7654,13 @@ _VDC_STAGES_DATE = '2026-10-17'
 # refused for a section nobody owed it.
 _VDC_TESTS_HEADING = re.compile(r'^## Test review\s*$', re.M)
 _VDC_TESTS_DATE = '2026-10-18'
+# From 2026-11-01 it also carries the long Rules the run reviewed (Morgan,
+# 2026-10-31, strength: assented: "maybe we add to very deep check to always
+# review like the 25% of all the rules that are the longest in that repo and
+# shorten them like you did?"), listed by the LONGEST RULES section, each
+# with the session's verdict. The day after the rule, as for the test review.
+_VDC_LONG_RULES_HEADING = re.compile(r'^## Long Rules\s*$', re.M)
+_VDC_LONG_RULES_DATE = '2026-11-01'
 
 
 @check('very-deep-check', 'tree',
@@ -7662,8 +7669,9 @@ _VDC_TESTS_DATE = '2026-10-18'
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
        "left for the person to ask for -- and, for a run from 2026-10-17 on, "
-       "it carries a `## Checks by stage` section, and from 2026-10-18 on a "
-       "`## Test review` section",
+       "it carries a `## Checks by stage` section, from 2026-10-18 on a "
+       "`## Test review` section, and from 2026-11-01 on a `## Long Rules` "
+       "section",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -7718,6 +7726,14 @@ def _very_deep_check_write_up(ctx):
             f'python3 tools/very_deep_check.py --refresh-tests, or restore '
             f'the block if the rewrite dropped it '
             f'(practices/very-deep-check.md, Pass 2 question 27)'))]
+    if date >= _VDC_LONG_RULES_DATE and not _VDC_LONG_RULES_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Long Rules` section -- the longest quarter '
+            f'of each repo\'s active Rules, each with the session\'s verdict, '
+            f'kept or cut. Its LONGEST RULES section writes the list; re-run '
+            f'python3 tools/very_deep_check.py, or restore the block if the '
+            f'rewrite dropped it (practices/very-deep-check.md, Pass 3)'))]
     return []
 
 

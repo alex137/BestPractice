@@ -4072,16 +4072,10 @@ def token_budgets_section(targets, repo_root, fire=True, out=None):
             continue
         if pathlib.Path(path).resolve() == pathlib.Path(repo_root).resolve():
             label = pathlib.Path(path).resolve().name
-        try:
-            man = json.loads((pathlib.Path(path) / 'precedent-source.json')
-                             .read_text(encoding='utf-8'))
-        except (OSError, ValueError):
-            man = {}
-        if isinstance(man, dict) and man.get('visibility') != 'public' \
-                and pathlib.Path(path).resolve() != pathlib.Path(repo_root).resolve():
-            private[man.get('name') or label] = (
-                f"a private {man.get('level') or 'practice'} set")
-            private[label] = private[man.get('name') or label]
+        _general, _name = _private_source_label(path, repo_root)
+        if _general:
+            private[_name or label] = _general
+            private[label] = _general
         # build_views narrates every deduplicated practice it skips; that is
         # its own business, not this table's.
         with contextlib.redirect_stderr(io.StringIO()):
@@ -4776,6 +4770,126 @@ def _resident_practices(repo_dir):
                 fm.setdefault('slug', f.stem)
                 out[fm['slug']] = fm
     return [out[s] for s in sorted(out)]
+
+
+# LONGEST RULES (practice: very-deep-check, Pass 3; Morgan, 2026-10-31,
+# strength: assented). The 2026-10-30 run cut four Rules by hand, the
+# longest of them from 9,301 words to 1,773, and nothing had ever pointed at
+# them: a Rule grows a sentence at a time, each one right on its day. So
+# every run lists the longest quarter of each repo's active Rules for the
+# session to read whole. It lists and does not judge: in a small set the
+# longest quarter can already be tight, and cutting to a quota would delete
+# what still bites.
+LONG_RULES_EMBED = 'long-rules'
+
+
+def longest_rules(practices_dir):
+    """-> {'active': n, 'median': words, 'listed': [(slug, words), ...]} for
+    one `practices/` directory, or None when it holds no practice in force.
+
+    `listed` is the longest quarter -- n/4 rounded half up, at least one --
+    longest first, ties by slug so an unchanged catalogue prints the same
+    list run to run. Words are the `## Rule` section split on whitespace,
+    from the one practice parser (split_practices, through
+    build_views.load_practices, which keeps only `status: active`), the same
+    count catalogue_stats.py's "Rules still over 150 words" uses."""
+    rows = []
+    for fm, sections, f in bv.load_practices(pathlib.Path(practices_dir),
+                                             announce=False):
+        slug = bv._json_str(fm.get('slug', '')) or f.stem
+        rows.append((slug, len(sections.get('rule', '').split())))
+    if not rows:
+        return None
+    rows.sort(key=lambda r: (-r[1], r[0]))
+    words = sorted(w for _s, w in rows)
+    mid = len(words) // 2
+    median = (words[mid] if len(words) % 2
+              else (words[mid - 1] + words[mid]) / 2)
+    return {'active': len(rows), 'median': median,
+            'listed': rows[:max(1, (len(rows) + 2) // 4)]}
+
+
+def _private_source_label(path, repo_root):
+    """-> (general terms, manifest name): the words a private source is
+    named in, in a tracked file of a public repo ('a private individual
+    set'), or None when the source declares itself public or is this
+    checkout (practice: private-repo-scrub); and the name its
+    precedent-source.json gives, or None. Shared by TOKEN BUDGETS and
+    LONGEST RULES, so the two write-up blocks scrub the same sources."""
+    try:
+        man = json.loads((pathlib.Path(path) / 'precedent-source.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        man = {}
+    man = man if isinstance(man, dict) else {}
+    if (man.get('visibility') == 'public' or pathlib.Path(path).resolve()
+            == pathlib.Path(repo_root).resolve()):
+        return None, man.get('name')
+    return f"a private {man.get('level') or 'practice'} set", man.get('name')
+
+
+def longest_rules_section(sources, repo_root, out=None, write=True):
+    """Print LONGEST RULES for every source in force (`enumerate_scope()`'s
+    `data['sources']`, which already carries this checkout as the universal
+    or repo-local source), and write its block into the run's write-up.
+    -> the number of Rules listed, every repo together."""
+    out = out or sys.stdout
+    root = pathlib.Path(repo_root).resolve()
+    seen, listed, md = set(), 0, []
+    public = bv.repo_is_public(repo_root)
+    for s in sources:
+        path = s.get('path')
+        if not path:
+            continue
+        pdir = pathlib.Path(path) / 'practices'
+        key = pdir.resolve()
+        if key in seen or not pdir.is_dir():
+            continue
+        seen.add(key)
+        label = f"{s.get('name')} ({s.get('level')}"
+        label += ', this checkout)' if pathlib.Path(path).resolve() == root else ')'
+        try:
+            r = longest_rules(pdir)
+        except Exception as exc:                            # noqa: BLE001
+            print(f"  {label}: NOT READ ({type(exc).__name__}: {exc})", file=out)
+            md.append(f"- **{label}**: not read ({type(exc).__name__}).")
+            continue
+        if r is None:
+            continue
+        listed += len(r['listed'])
+        head = (f"{r['active']} active, median {r['median']:g} words; "
+                f"the longest {len(r['listed'])}")
+        print(f"  {label}: {head}:", file=out)
+        for slug, words in r['listed']:
+            print(f"    {words:6,d}  {slug}", file=out)
+        print(file=out)
+        private = public and _private_source_label(path, repo_root)[0]
+        if private:
+            md.append(f"- **{private}**: {head}, named in the console and the "
+                      f"reply, never in this public file.")
+        else:
+            md.append(f"- **{label}**: {head}: " + ', '.join(
+                f"`{slug}` {words:,}" for slug, words in r['listed']) + '.')
+    if not md:
+        print("  none -- no source in force has a practices/ directory.", file=out)
+    print("  For each one listed: read the Rule whole. Keep it if every "
+          "sentence is\n  something a session must do or must not do; "
+          "otherwise move the rest, word\n  for word, into Detail or Story "
+          "(reduction-pass) -- never delete, never cut\n  to a quota. Record "
+          "each verdict, kept or cut with its word counts, under\n  the "
+          "run's `## Long Rules` block.", file=out)
+    if write:
+        md = (['Listed by this run (`tools/very_deep_check.py`, LONGEST RULES): '
+               'the longest quarter of each repo\'s active Rules, by words in '
+               'the `## Rule` section, longest first. The session\'s verdict '
+               'on each, kept or cut with its word counts, goes below this '
+               'list.', ''] + (md or ['None: no source in force has a '
+                                     'practices/ directory.']))
+        written = _write_run_block(repo_root, LONG_RULES_EMBED, 'Long Rules',
+                                   'LONGEST RULES', '\n'.join(md))
+        if written:
+            print(f"\n  List written into {written}.", file=out)
+    return listed
 
 
 def _doc_currency(repo_dir):
@@ -11512,6 +11626,13 @@ def _main(box):
     print()
     if led:
         led.end(items=len(_resp))
+        led.start('LONGEST RULES', kind='read')
+
+    print("LONGEST RULES -- the longest quarter of every repo's active Rules\n")
+    _lr_n = longest_rules_section(data['sources'], repo_root)
+    print()
+    if led:
+        led.end(items=_lr_n)
         led.start('RULES WE SHIP SOMEWHERE ELSE', kind='read')
 
     print("RULES WE SHIP SOMEWHERE ELSE -- inert here, binding there\n")

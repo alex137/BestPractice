@@ -145,7 +145,7 @@ saying so, rather than being silently dropped.
    [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
    for this run -- scope, a short version, each pass with what it found
    and fixed and in which commit, the warnings judged, the checks by stage, set independence, the test review,
-   the token budgets with their numbers, what the person decided, and what
+   the token budgets with their numbers, the long Rules with a verdict each, what the person decided, and what
    is left and where it went -- with `opened:` the run's date. Collapse the
    previous run to one row in the run record, commit both, and link the
    account in the reply. A run is not done until it is there; a push is
@@ -1614,6 +1614,24 @@ first so this pass spends its attention on what they cannot see.
   enumerates and does not judge, and no `checked_by` will: the cap already
   tests the only property a script can see, and whether an occasion is
   *every session, always* is a reading of how work here actually goes.
+- **The longest Rules, every run, in every repo.** The "LONGEST RULES"
+  section of
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)
+  lists the longest quarter of each repo's active Rules, longest first, with
+  each one's word count and the repo's median. **Read every Rule it lists,
+  whole.** Keep one whose every sentence is something a session must do or
+  must not do, and say so with its word count. Otherwise the Rule keeps what
+  a session must do, in order, and the rest moves word for word into Detail
+  under a heading the Rule names, or into Story if it is only history
+  ([reduction-pass](reduction-pass.md)). **Never delete, and never cut to a
+  quota:** in a small set the longest quarter can already be tight, and a
+  kept Rule is a fine verdict. Record each verdict, kept or cut with its word
+  counts before and after, under the account's `## Long Rules` list, which
+  the section writes; a private set's Rules are named there in general terms
+  only. *(Morgan, 2026-10-31, strength: assented, after the 2026-10-30 run cut
+  four Rules by hand, the longest from 9,301 words to 1,773: "maybe we add to
+  very deep check to always review like the 25% of all the rules that are the
+  longest in that repo and shorten them like you did?")*
 - **Whether each practice's SOURCE is still right.** A different axis from
   the bullet above — not resident-versus-on-demand within one catalogue, but
   *which* catalogue a practice's slug lives in at all, across every source in
@@ -2454,7 +2472,7 @@ pass is recorded, the session rewrites the checked repo's own
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
 question 24), the checks by stage (question 25), set independence
-(question 26), the test review (question 27), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+(question 26), the test review (question 27), the token budgets with their numbers, the long Rules with a verdict each (Pass 3, from runs on 2026-11-01 on), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -3100,6 +3118,7 @@ it landed and still unreviewed.
 - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
 - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 27 and the TEST WORTH section: every run judges every test it lists -- keep with its importance, cheapen, or retire -- and does what it decides in the same pass, and the account carries a `## Test review` section from runs on 2026-10-18 on: "review all TESTS to see if all tests are relevant and important. Do they test something still used and needed? Was what it tests deprecated?" and "does the amount of time it takes worth it for its level of importance? Write all this in the result doc you create." Prompted by tests for the retired tier below staging that outlived it. The same day, also Morgan (strength: decided): the test review judges on that day's times, recorded by the run's whole-suite pass, after a stale list made the planted-case test look nearly three times slower than it was. Its first reading listed 772 tests in this checkout, about an hour of recorded time, none judged yet; one test still named that tier (the migration that moves a repository off it), and 51 named the retired "team" level.
 - **Restructured 2026-10-31, Morgan (strength: assented)**, so the Rule holds only what a session must do when asked -- scope, refusals, order, and what every run produces -- with every paragraph it held moved whole into Detail's "The Rule's points in full" and one dated quote into the Story: "do your recommendations for all", on the 2026-10-30 very deep check's call 11
+- **Extended 2026-10-31, Morgan (strength: assented)**, with Pass 3's long-Rules read and the LONGEST RULES section: every run lists the longest quarter of each repo's active Rules, and the session reads each one whole and keeps it, or moves what a session need not do into Detail or Story, never deleting and never cutting to a quota; the account carries a `## Long Rules` section from runs on 2026-11-01 on. After the 2026-10-30 run cut vendor-update-runbook from 9,301 words to 1,773, the-boildown from 7,690 to 2,128, very-deep-check from 3,724 to 1,305 and prompt-please from 2,714 to 903: "maybe we add to very deep check to always review like the 25% of all the rules that are the longest in that repo and shorten them like you did?", then "use your judgment, and act booked produce".
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope
