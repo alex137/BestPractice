@@ -276,6 +276,32 @@
     "leak-blocklist.txt is the leak gate's. Renaming either would break the",
     "thing that reads it, to make a folder listing tidier."
   ],
+  "no_stale_counts_exempt": [
+    {
+      "path": "decisions",
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+    },
+    {
+      "path": "evals",
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+    },
+    {
+      "path": "gotchas",
+      "reason": "each trap's Story says what a session saw on its day; its counts are measurements, never a claim about today's catalogue"
+    },
+    {
+      "path": "record",
+      "reason": "a dated record: every count here is what a run, plan or decision measured on its day, never a claim about today's catalogue"
+    },
+    {
+      "path": "spec",
+      "reason": "plans, briefs and run records; every count found here on 2026-10-30 was a dated measurement, never a claim about today's catalogue"
+    },
+    {
+      "path": "todo",
+      "reason": "an open item records what its finding measured when it was filed; the check already skips a closed one"
+    }
+  ],
   "filename_separator_exempt": [
     {
       "path": "templates",
