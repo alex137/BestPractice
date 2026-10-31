@@ -38241,12 +38241,14 @@ def check_close_detection_fires_only_when_all_conditions_hold():
             path = tmp / name
             lines = []
             for kind, payload in turns:
-                if kind in ('user', 'summary'):
+                if kind in ('user', 'summary', 'notification'):
                     rec = {'type': 'user', 'timestamp': '2026-09-14T12:00:00Z',
                            'message': {'role': 'user',
                                        'content': [{'type': 'text', 'text': payload}]}}
                     if kind == 'summary':
                         rec['isCompactSummary'] = True
+                    if kind == 'notification':
+                        rec['origin'] = {'kind': 'task-notification'}
                 elif kind == 'tool':
                     rec = {'type': 'assistant', 'timestamp': '2026-09-14T12:00:00Z',
                            'message': {'content': [
@@ -38388,6 +38390,20 @@ def check_close_detection_fires_only_when_all_conditions_hold():
         pasted = [('user', 'Thoughts on this?\n<pasted_content id="p1">\n'
                    + rule + '\n</pasted_content id="p1">'),
                   ('tool', MERGED), ('assistant', CLOSE)]
+        # A helper's report comes back as a task notification under the
+        # person's role (2026-10-31: about twenty signals across three turns
+        # of one session, every one a helper's sentence).
+        report = ('<task-notification>\n<task-id>a1</task-id>\n<status>completed'
+                  '</status>\n<result>' + rule + ' Each one still fails when its '
+                  'check is broken so it never fires.</result>\n</task-notification>')
+        r7g = run(transcript('helper-report.jsonl', [('notification', report),
+                                                     ('tool', MERGED), ('assistant', CLOSE)]))
+        cases.append(("a helper's report is not mistaken for something the "
+                      'person said', r7g.returncode == 0, r7g.stderr[:200]))
+        r7h = run(transcript('helper-report-text.jsonl', [('user', report),
+                                                          ('tool', MERGED), ('assistant', CLOSE)]))
+        cases.append(('...nor is one with no origin mark, by its envelope',
+                      r7h.returncode == 0, r7h.stderr[:200]))
         r7e = run(transcript('pasted.jsonl', pasted))
         cases.append(('nor is text pasted in a <pasted_content> block',
                       r7e.returncode == 0, r7e.stderr[:200]))
