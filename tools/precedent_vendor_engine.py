@@ -670,6 +670,10 @@ ENGINE_FILES = [
     # (precedent-paths.sh) runs its --guard, and the sync asks it which
     # edits are answered.
     'upstream_edits.py',
+    # One answer to "is this the same repository?" (2026-10-31):
+    # precedent_check's declared-repo-spelling and repo-name checks import
+    # it in every kind of repository, so a consumer without it errored.
+    'precedent_repo_id.py',
     # Its second list, "Our language" (2026-09-29,
     # spec/FIVE_STAGES_AND_OUR_LANGUAGE_PLAN.md step 2): the word list and the
     # loader precedent_vocabulary.py imports to read it. They travel with it
