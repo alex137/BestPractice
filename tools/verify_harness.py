@@ -1559,60 +1559,13 @@ def _seed_consumer_engine(dest_tools, extra=(), only=None):
     return copied
 
 
-def check_leak_gate():
-    """The real gate is tools/leak_gate.py, run as a subprocess. It replaces a
-    stand-in that hardcoded a list of private terms -- including a personal
-    email address -- INSIDE this public repo, which is the anti-pattern the
-    gate exists to prevent: a blocklist of secret words, committed to a public
-    repo, publishes the words it guards. Found by pointing the new gate at the
-    tree and reading what it said. Fixed forward, not by rewriting published
-    history (practice 31, no-rewrite-for-warnings).
-
-    The vocabulary layer is reported as not-yet-applicable when no private
-    blocklist is configured -- which is the honest state before phase 3 -- and
-    the structural layer is a real pass or fail either way.
-
-    --structural-only, by name, for the same reason continuous integration
-    passes it: this harness runs with no private blocklist, and since
-    2026-09-08 the gate REFUSES rather than reporting PARTIAL when
-    precedent.json declares a private source. That refusal is correct for a
-    person about to push and wrong for a bare caller, so a bare caller says
-    which half it is asking for. Without the flag this check went red on a
-    clean tree -- the fix belonged in the caller, not in weakening the gate.
-    """
-    result = subprocess.run([sys.executable, str(ROOT / 'tools' / 'leak_gate.py'),
-                             '--structural-only'],
-                            capture_output=True, text=True)
-    out = (result.stdout + result.stderr).strip()
-    if result.returncode != 0:
-        check('leak gate (tools/leak_gate.py)', False,
-              out.splitlines()[0] if out else 'leak_gate.py failed with no output')
-        for line in out.splitlines():
-            if line.startswith('LEAK:'):
-                print(f"  {line}")
-    elif 'leak gate PARTIAL' in out:
-        check('leak gate, structural layer (no private-source paths, emails, home '
-              'directories, or non-universal practice sources)', True)
-        not_applicable('leak gate, vocabulary layer',
-                       f'no private-term blocklist is configured ({"PRECEDENT_LEAK_BLOCKLIST"} '
-                       f'is unset), and none can live in this public repo -- see '
-                       f'tools/leak_gate.py --explain and '
-                       f'templates/leak-blocklist.txt.template. This is the permanent '
-                       f'state in CI, which has no access to a private list; on a '
-                       f'person\'s own machine it means the layer is not switched on '
-                       f'yet. Reported rather than passed over, because a clean '
-                       f'structural scan is not evidence that no private word is '
-                       f'present. `leak gate fires` below tests the layer either way')
-    else:
-        check('leak gate (structural and vocabulary layers)', True)
-
-
 def check_leak_gate_fires():
     """The gate's own behaviour, as stated cases against a throwaway repo.
 
     WHY THIS EXISTS, AND WHY IT IS NOT A SECOND COPY OF THE GATE'S LOGIC.
-    check_leak_gate() above runs the gate on this tree and reports what it
-    says. That is a check on the TREE, not on the GATE -- it passes just as
+    Running the gate on this tree (the pre-push hook, the push check and the
+    leak-gate workflow all do; a harness check that did the same was retired
+    2026-10-31) is a check on the TREE, not on the GATE -- it passes just as
     happily when the gate has stopped looking. Three real misses were found
     exactly there, each of which printed a confident "leak gate OK" on a push
     that would have published a private term:
@@ -95759,7 +95712,6 @@ def main():
     check_corruption_drop_is_a_duplicate(original_practices)
     check_no_cross_practice_duplication(files, original_practices)
     check_citation_integrity(files)
-    check_leak_gate()
     check_leak_gate_fires()
     check_practice_audit_fires()
     check_practice_audit_loader()

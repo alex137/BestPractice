@@ -1246,14 +1246,6 @@
       "leads": [],
       "importance": "medium"
     },
-    "check_leak_gate": {
-      "verdict": "retire",
-      "why": "It runs tools/leak_gate.py --structural-only on this tree and reports the result -- a check on the tree, not the gate. The same tree is already scanned by the full gate (both layers) at every push: the global pre-push hook tools/commit-identity.sh writes runs leak_gate.py over each commit a push carries, precedent_push_check.py's upstream tier (the step that runs this harness) runs it again, and .github/workflows/leak-gate.yml runs the structural half server-side on every push to main. The gate's own behaviour is check_leak_gate_fires', and --structural-only's is check_structural_only_actually_drops_the_private_half's. Covered by: pre-push leak_gate.py (tools/commit-identity.sh), precedent_push_check.py PUSH_CHECKS['upstream'] 'leak_gate', .github/workflows/leak-gate.yml (push to main); behaviour: check_leak_gate_fires, check_structural_only_actually_drops_the_private_half",
-      "date": "2026-10-31",
-      "by": "agent",
-      "seconds": 7.8,
-      "leads": []
-    },
     "check_fresh_install_reaches_its_code_owner_practices": {
       "verdict": "keep",
       "why": "A correct fresh install's full sweep reported drift-notice once the session-start hook became a shim (2026-10-31 install rehearsal); its install arguments (--visibility private --admin) differ from the shared one, so it keeps its own.",
