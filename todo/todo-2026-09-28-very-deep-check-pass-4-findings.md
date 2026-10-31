@@ -51,3 +51,6 @@ the full catalogue judgment completed, all the same day.
 ## Notes
 
 2026-10-17, very deep check pass 4 (still live, narrowed): done since: claude/graduate-synonym's two synonyms are in force ("Graduate" in the ladder's promote, "Spec it out" in write-it-up) and the branch is gone; deep-check.yml now has 2 jobs; doc-link-text was folded into rule-links; blank-blocklist and new-rule-placement no longer exist in any source. Left: very-deep-check's Rule is still about 3,700 words, and the lease question is unanswered.
+2026-10-31, very deep check of 2026-10-30, pass 4 (still live): very-deep-check's
+Rule section measured 3,724 words today, so the trim it asks for has not
+happened; the lease question is still unanswered.
