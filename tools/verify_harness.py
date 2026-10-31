@@ -74653,6 +74653,70 @@ def check_engine_check_refuses_from_another_repo():
           not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
 
 
+def check_repo_names_compare_without_case():
+    """Two spellings of one GitHub repository are one repository everywhere
+    the engine compares them, and a raw comparison cannot come back
+    (tools/precedent_repo_id.py; Morgan, 2026-10-31, decided: "the same
+    repo with different capitalization should be treated equally").
+
+    THE COST IT PAID FOR (2026-10-31). add_repo answers a capitalized
+    owner/SomeSet in lowercase; a session followed it and the person was
+    asked to approve one repository twice. The freshness check's
+    `origin == repo_url` then read the lowercase clone of the declared
+    capitalized source as NOT VERIFIED.
+
+    Cases, both directions: the forms seen in the wild (https, .git, ssh,
+    the local git proxy, a bare owner/repo) are one repository however they
+    are capitalized; a different owner, and a case-sensitive host, are not;
+    the declared spelling is what is written back; and the scanner the
+    engine check runs flags the freshness check's old comparison (the
+    negative control: the code before the fix) and passes the code now."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_repo_id as rid
+    cases = []
+    same = [('https://github.com/owner/SomeSet', 'https://github.com/owner/someset.git'),
+            ('git' + '@github.com:owner/SomeSet.git', 'owner/someset'),
+            ('http://local_proxy@127.0.0.1:41799/git/owner/someset',
+             'https://github.com/owner/SomeSet/'),
+            ('SomeSet', 'https://github.com/owner/someset')]
+    for a, b in same:
+        cases.append((f'{a} and {b} are one repository', rid.same_repo(a, b),
+                      f'{rid.repo_key(a)} vs {rid.repo_key(b)}'))
+    for a, b in [('https://github.com/a/x', 'https://github.com/b/x'),
+                 ('https://git.example.org/a/Repo', 'https://git.example.org/a/repo'),
+                 ('', ''), ('/home/user/x', 'x')]:
+        cases.append((f'{a!r} and {b!r} are not one repository',
+                      not rid.same_repo(a, b), 'same_repo said True'))
+    wrote = rid.declared_spelling('https://github.com/owner/someset',
+                                  declared=['https://github.com/owner/SomeSet'])
+    cases.append(('the declared spelling is written back, never the origin',
+                  wrote == 'https://github.com/owner/SomeSet', repr(wrote)))
+    with tempfile.TemporaryDirectory() as d:
+        before = pathlib.Path(d) / 'before.py'
+        before.write_text(
+            'def upstream_tip(repo_url, clone):\n'
+            '    rc, origin = 0, git(clone)\n'
+            '    if rc == 0 and origin and origin == repo_url:\n'
+            '        return 1\n', encoding='utf-8')
+        hits = rid.raw_comparisons(before)
+        cases.append(("the scanner flags the freshness check's old `origin == "
+                      "repo_url` (negative control)",
+                      [l for l, _ in hits] == [3], repr(hits)))
+        okd = pathlib.Path(d) / 'ok.py'
+        okd.write_text('x = origin == repo_url  # repo-name-compare: ok -- a test\n',
+                       encoding='utf-8')
+        cases.append(('a line marked ok with a why is let through',
+                      rid.raw_comparisons(okd) == [], repr(rid.raw_comparisons(okd))))
+    now = rid.raw_comparisons(ROOT / 'tools' / 'precedent_engine_freshness.py')
+    cases.append(('the freshness check now compares through the helper',
+                  now == [], repr(now)))
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'repository names compare without regard to case '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d_}" for n, d_ in bad))
+
+
 def check_engine_tools_say_which_repo_they_read():
     """An engine tool run from inside ANOTHER repo says so, loudly, and names
     the repo it measured in every output mode (precedent_which_repo.py).
@@ -97308,6 +97372,7 @@ def main():
     check_settled_marker_scan_is_scoped_and_follows_the_split()
     check_load_ceiling_blocks_only_the_change_that_grew_it()
     check_session_load_reports_a_file_over_its_own_declared_ceiling()
+    check_repo_names_compare_without_case()
     check_engine_tools_say_which_repo_they_read()
     check_check_summary_names_the_repo_it_checked()
     check_engine_check_refuses_from_another_repo()

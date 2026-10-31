@@ -90,7 +90,9 @@ def _bash_dir(command, cwd):
 
 def _clone_named(root, owner, repo):
     """-> the clone under `root` of github.com/<owner>/<repo>, or None."""
-    want = f'{owner}/{repo}'.lower()
+    sys.path.insert(0, str(HERE))
+    from precedent_repo_id import same_repo
+    want = f'{owner}/{repo}'
     try:
         children = sorted(root.iterdir())
     except OSError:
@@ -101,8 +103,7 @@ def _clone_named(root, owner, repo):
                                  capture_output=True, text=True, timeout=20).stdout
         except (OSError, subprocess.SubprocessError):
             continue
-        url = url.strip().lower().removesuffix('.git')
-        if url.endswith('/' + want) and (child / '.claude' / 'settings.json').is_file():
+        if same_repo(url, want) and (child / '.claude' / 'settings.json').is_file():
             return child
     return None
 

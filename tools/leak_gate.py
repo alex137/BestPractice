@@ -722,6 +722,16 @@ def repo_policy_errors(path):
     return out
 
 
+def _ref_key(ref):
+    """-> the one comparison key for an owner/name: every allowed map is
+    keyed by it and every lookup asks by it, so a spelling's case never
+    decides whether a repository is allowed (practice: upstream-fix;
+    tools/precedent_repo_id.py)."""
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from precedent_repo_id import repo_key
+    return repo_key(ref) or str(ref).strip().lower()
+
+
 def parse_repo_policy(path):
     """-> (private_owners, allowed_refs) from a blocklist file's comments."""
     owners, allowed = {}, {}
@@ -737,7 +747,7 @@ def parse_repo_policy(path):
             continue
         m = ALLOW_REF_RE.match(line)
         if m:
-            allowed[m.group(1).lower()] = m.group(2).strip()
+            allowed[_ref_key(m.group(1))] = m.group(2).strip()
     return owners, allowed
 
 
@@ -749,7 +759,7 @@ def with_own_repo(policy, root):
     own = _remote_ref(root)
     if not own:
         return policy
-    return owners, {**allowed, f'{own[0]}/{own[1]}'.lower(): 'this repository itself'}
+    return owners, {**allowed, _ref_key(f'{own[0]}/{own[1]}'): 'this repository itself'}
 
 
 def own_repo_private(policy, root):
@@ -850,7 +860,7 @@ def auto_private_name_patterns(refs, owners, allowed):
     for owner, name in sorted(refs):
         if owner.lower() not in owners:
             continue
-        if f'{owner}/{name}'.lower() in allowed:
+        if _ref_key(f'{owner}/{name}') in allowed:
             continue
         out.append((re.compile(r'\b' + re.escape(name) + r'\b', re.I), name))
     return out
@@ -871,7 +881,7 @@ def repo_ref_hits(text, owners, allowed):
     out = []
     for m in pat.finditer(text):
         ref = f'{m.group(1)}/{m.group(2)}'
-        if ref.lower() in allowed:
+        if _ref_key(ref) in allowed:
             continue
         out.append((text.count('\n', 0, m.start()) + 1, ref))
     return out
@@ -1052,11 +1062,11 @@ def unlisted_private_clones(root, bl_path, owners, allowed):
     private-by-default owner, with no `allow` line, that PRIVATE_REPOS_NAME
     does not list yet: covered in this session because they are here, and
     in no other session until they are written down."""
-    listed = {f'{o}/{n}'.lower() for o, n in listed_private_refs(bl_path)}
+    listed = {_ref_key(f'{o}/{n}') for o, n in listed_private_refs(bl_path)}
     return sorted(f'{o}/{n}' for o, n in local_clone_refs(root)
                   if o.lower() in (owners or {})
-                  and f'{o}/{n}'.lower() not in (allowed or {})
-                  and f'{o}/{n}'.lower() not in listed)
+                  and _ref_key(f'{o}/{n}') not in (allowed or {})
+                  and _ref_key(f'{o}/{n}') not in listed)
 
 
 def uncovered_repo_stems(refs, owners, allowed, patterns):
@@ -1071,7 +1081,7 @@ def uncovered_repo_stems(refs, owners, allowed, patterns):
     for owner, name in sorted(refs):
         if owner.lower() not in owners:
             continue
-        if f'{owner}/{name}'.lower() in allowed:
+        if _ref_key(f'{owner}/{name}') in allowed:
             continue
         if any(p.search(name) for p in patterns):
             continue
