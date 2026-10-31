@@ -9518,7 +9518,7 @@ def warnings_section(repo_root, precedent_check_output=None, refresh=False,
     groups, collected, notes = wr.collect(
         repo_root, precedent_check_output=precedent_check_output)
     entries, problems = wr.load_registry(repo_root)
-    result = wr.review(groups, entries, collected)
+    result = wr.review(groups, entries, collected, root=repo_root)
     history = _warnings_open_history(repo_root)
     start = None
     if refresh and history and history[-1][0] == result['today']:

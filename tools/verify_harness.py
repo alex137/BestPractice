@@ -9065,6 +9065,30 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
         unread = wr.review(groups, entries, [], today='2026-10-11')
         cases.append(('a source that was not read proves no exclusion stale', not unread['stale'],
                       repr(unread['stale'])))
+        # status_in (2026-10-30): only the files whose own frontmatter says
+        # they are finished; the live one beside them stays open.
+        (tmp / 'gotchas').mkdir()
+        (tmp / 'gotchas' / 'gotcha-old.md').write_text('---\nstatus:   retired\n---\nx\n',
+                                                       encoding='utf-8')
+        (tmp / 'gotchas' / 'gotcha-live.md').write_text('---\nstatus:   live\n---\nx\n',
+                                                        encoding='utf-8')
+        ent = [{'source': 'doc_lint', 'kind': 'unlinked file reference',
+                'path': 'gotchas/gotcha-*.md', 'status_in': ['retired'], 'term': 'permanent',
+                'why': 'history', 'decided': '2026-10-30', 'by': 'agent', '_index': 1}]
+        gs = [{'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': f'gotchas/{n}',
+               'text': '', 'count': 1} for n in ('gotcha-old.md', 'gotcha-live.md')]
+        st = {r['path']: r['status'] for r in
+              wr.review(gs, ent, ['doc_lint'], today='2026-10-30', root=tmp)['rows']}
+        cases.append(('a status_in exclusion takes the retired file and leaves the live one '
+                      'beside it open',
+                      st == {'gotchas/gotcha-old.md': 'excluded, permanent',
+                             'gotchas/gotcha-live.md': 'open'}, repr(st)))
+        reg = json.loads((tmp / 'tools' / 'warning_exclusions.json').read_text(encoding='utf-8'))
+        reg['exclusions'].append({k: v for k, v in ent[0].items() if k != '_index'})
+        (tmp / 'tools' / 'warning_exclusions.json').write_text(json.dumps(reg), encoding='utf-8')
+        cases.append(('status_in is a known registry key',
+                      not any('unknown key' in p for p in wr.load_registry(tmp)[1]),
+                      repr(wr.load_registry(tmp)[1])))
         text = wr.render_text(result, problems, [], previous=9)
         cases.append(('the text names the open count against the previous run',
                       'Open at the previous run: 9; now: 6.' in text, text))
