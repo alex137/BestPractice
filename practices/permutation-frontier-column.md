@@ -21,6 +21,36 @@ source_rule_unlabeled: true
 ---
 ## Rule
 A configuration study whose table is the cross-product of its input axes
+has more rows than anyone will scan, and most are dominated: another row is
+at least as good on every output the reader ranks by. Three rules (Detail,
+*The three rules in full*):
+
+1. **When the outputs to rank on are ambiguous, ask the owner before
+   building** which ones the best-of selection ranks on: a frontier on axes
+   the author guessed answers the author's question. When the document's
+   framing makes them obvious (a cost study ranks on cost), proceed and
+   name them.
+2. **One full table, with a Frontier column — never a pruned table beside an
+   appendix.** Every row appears once; the column marks whether the row is
+   Pareto-non-dominated on the stated outputs, named beside the table with
+   the count "N of M". A — row is beaten or matched on every stated axis by
+   some ✓ row: the model computes and can assert the marking, never an
+   editorial choice.
+3. **The render opens on frontier rows and toggles to all of them**, through
+   the axis pull-down of
+   [tabular-shared-renderer](tabular-shared-renderer.md#frontier-axis-pulldown)'s
+   item 8: the reader picks the output columns and the render recomputes
+   the marks. The printed column stays the model's computation on the
+   stated default axes; a reader's pick is a view, never written back into
+   the source.
+
+## Detail
+Each heading below that ends "in full" holds Rule paragraphs as they stood
+until 2026-10-31, moved here whole when the Rule was cut to what a session
+must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### The three rules in full
+A configuration study whose table is the cross-product of its input axes
 (engine × layout × variant × objective, load × price × altitude, …) produces
 more rows than any reader will scan, and most of them are dominated — some
 other row is at least as good on every output the reader ranks by. Three
@@ -54,8 +84,6 @@ rules:
    reader's custom pick is a view, recomputed from the displayed
    values, never silently written back into the source.
 
-## Detail
-
 ## Why
 **Why this is a rule and not taste.** The full matrix invites the reader to
 do the dominance analysis in their head, badly; the frontier column does it
@@ -86,6 +114,18 @@ kill, in row-selection form rather than in the values themselves.
 The rule to ask about the optimization outputs before building follows from
 the same place: which outputs the reader ranks by is the reader's choice,
 and guessing it wrong makes a correct frontier answer the wrong question.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to
+Detail whole.** Reviewing the longest quarter of each repository's Rules
+that day, a session found this one at 356 words, carrying reasons,
+measurements or quotes beside what a session must do; it now holds 220 (both
+counted with `wc -w` over the Rule section). Morgan, after the four cuts of
+2026-10-30: *"maybe we add to very deep check to always review like the 25%
+of all the rules that are the longest in that repo and shorten them like you
+did?"*, then *"use your judgment, and act booked produce"* (strength:
+assented). Every Rule paragraph that changed moved word for word into
+Detail, under the headings ending "in full" that the Rule names; nothing was
+deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 **Related.** [tabular-shared-renderer](tabular-shared-renderer.md) (sortable render) carries the toggle and the
