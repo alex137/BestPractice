@@ -44,84 +44,36 @@ strength:    decided
 source_practice_number: null
 ---
 ## Rule
-When the person says **"My options"**, answer as if they had asked this:
-
-> Explain the options more clearly, in somewhat less technical wording, the
-> positives and negatives of each, and which you recommend and why.
-
-Four things, all four required:
+When the person says **"My options"**, answer as if they had asked: *"Explain
+the options more clearly, in somewhat less technical wording, the positives
+and negatives of each, and which you recommend and why."* Four things, all
+four required (in full under "The question and the four things in full",
+in Detail):
 
 - **Every option that is actually available**, including the ones you had
-  already dismissed. An option you leave out is a decision you took on their
-  behalf without saying so.
-- **One short block each**, in plainer words than the reply would otherwise
-  use — a notch down from the register in force, not a rewrite of what you
-  know.
-- **The cost said as flatly as the benefit.** An option whose downside you
-  cannot name has not been thought about, and saying so is a better answer
-  than inventing one.
-- **A named recommendation, with the reason.** Not a leaning, not a "it
-  depends on your priorities" — the one you would pick, and the thing that
-  makes it the pick.
+  already dismissed.
+- **One short block each**, a notch plainer than the register in force.
+- **The cost said as flatly as the benefit.**
+- **A named recommendation, with the reason.** Not a leaning: the one you
+  would pick.
 
-**When an option would itself change something this repo ships to other
-repos** -- a practice file, a template, a hook, a vendored engine file, the
-same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md) already
-names -- that option's cost has to account for the upstream template or
-mechanism actually governing it, not just the symptom in front of you, and
-say whether the change needs a clean rollout through an updated template
-and [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
-the repos vendoring this one, when that's relevant. An option that patches
-around the template instead of the template itself has an unstated cost:
-it does not survive the next `Update Vendors` run.
+**An option that would change what this repo ships to other repos** counts
+the upstream template or mechanism behind it in its cost, and says whether
+it needs a rollout through [vendor-update-runbook](vendor-update-runbook.md)
+to reach them. **It governs that one answer**, not the rest of the
+conversation ([plain-words](plain-words.md) is the standing change).
 
-**It governs that one answer**, not the rest of the conversation. That is
-what separates it from [plain-words](plain-words.md), which is a standing
-change of register.
-
-**The same four things answer a different question when what's on the table
-is a current issue rather than an ordinary decision** -- "my options here",
-"show me options", or anything else that plainly asks for this shape about
-handing an issue off to a session that was not in this conversation. The
-options themselves become **the ways to prevent or resolve it**, held to the
-same discipline -- every real one, plain words, the cost of each stated
-flatly, a named pick -- rather than one flat recommendation with nothing to
-compare it against.
-
-**Three more things are owed in that case, because the reader is a session
-with none of this conversation:**
-- **This session's own id and title, with a link, and that a session wrote
-  it rather than a person** -- the header
-  [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
-  already requires of any prompt one session hands to another, carried here
-  for the same reason: whoever reads this needs to know where the claims
-  came from.
-- **Which repository has to be the primary seed root** -- the one the
-  receiving session needs opened or rooted in before any of the options are
-  actionable.
-- **Which other repositories, if any, need to be attached alongside it.**
-  Say "none" when that is the honest answer -- never leave the reader to
-  guess whether it was considered.
-
-**Render it as a fence block** -- an actual fenced markdown block (triple
-backticks), never a paragraph that merely reads as paste-ready -- per
-[fence-block-for-paste](fence-block-for-paste.md), which owns this
-requirement and applies it to every reply, not only this one. Called out by
-name here to keep it distinct from the other things this practice calls a
-"block" (an option's own short paragraph, above): the paste-ready text is
-specifically a **fence block**, and where the handoff carries more than one
-distinct thing to paste, each gets its own. Producing
-it does not, by itself, authorize anything in the repository or
-repositories it names -- that is not committing, pushing, or merging
-anything, whatever the receiving session goes on to do there.
-
-**Say it plainly too, outside the block.** The block is written for the new
-session to read; the person asking still needs, in this reply, one ordinary
-sentence that is not fenced and not buried inside it: *"Open a new session,
-root it in \<repository\>, attaching \<repositories, or 'none'\>."* Before
-the block or after it, either is fine -- what matters is that the person
-does not have to open and parse the paste target just to learn what to do
-with it.
+**When what's on the table is a current issue to hand to a session that was
+not in this conversation**, the options are the ways to prevent or resolve
+it, under the same four, plus three more: this session's id, title and
+link, and that a session wrote it
+([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)); the
+repository to root the new session in; and any others to attach, or
+"none". **Render it as a fence block**
+([fence-block-for-paste](fence-block-for-paste.md)), which authorizes
+nothing in the repositories it names, and **say outside it, in one plain
+sentence**: *"Open a new session, root it in \<repository\>, attaching
+\<repositories, or 'none'\>."*
 
 ## Detail
 **The recommendation is the part that gets dropped, and it is the part they
@@ -172,6 +124,97 @@ choice, plainly, with its cost, so the person can weigh them even if they
 end up taking the pick anyway. `Prompt Please` is for *after* that point: a
 recommendation already exists, and what's wanted is the clean handoff text
 to act on it, not another comparison.
+
+Everything under the headings below from "The question and the four things in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The question and the four things in full
+
+When the person says **"My options"**, answer as if they had asked this:
+
+> Explain the options more clearly, in somewhat less technical wording, the
+> positives and negatives of each, and which you recommend and why.
+
+Four things, all four required:
+
+- **Every option that is actually available**, including the ones you had
+  already dismissed. An option you leave out is a decision you took on their
+  behalf without saying so.
+- **One short block each**, in plainer words than the reply would otherwise
+  use — a notch down from the register in force, not a rewrite of what you
+  know.
+- **The cost said as flatly as the benefit.** An option whose downside you
+  cannot name has not been thought about, and saying so is a better answer
+  than inventing one.
+- **A named recommendation, with the reason.** Not a leaning, not a "it
+  depends on your priorities" — the one you would pick, and the thing that
+  makes it the pick.
+
+### An option that changes what ships
+
+**When an option would itself change something this repo ships to other
+repos** -- a practice file, a template, a hook, a vendored engine file, the
+same scope [vendor-rollout-disclosed](vendor-rollout-disclosed.md) already
+names -- that option's cost has to account for the upstream template or
+mechanism actually governing it, not just the symptom in front of you, and
+say whether the change needs a clean rollout through an updated template
+and [vendor-update-runbook](vendor-update-runbook.md)'s mechanism to reach
+the repos vendoring this one, when that's relevant. An option that patches
+around the template instead of the template itself has an unstated cost:
+it does not survive the next `Update Vendors` run.
+
+### One answer, not a register
+
+**It governs that one answer**, not the rest of the conversation. That is
+what separates it from [plain-words](plain-words.md), which is a standing
+change of register.
+
+### A current issue handed off
+
+**The same four things answer a different question when what's on the table
+is a current issue rather than an ordinary decision** -- "my options here",
+"show me options", or anything else that plainly asks for this shape about
+handing an issue off to a session that was not in this conversation. The
+options themselves become **the ways to prevent or resolve it**, held to the
+same discipline -- every real one, plain words, the cost of each stated
+flatly, a named pick -- rather than one flat recommendation with nothing to
+compare it against.
+
+**Three more things are owed in that case, because the reader is a session
+with none of this conversation:**
+- **This session's own id and title, with a link, and that a session wrote
+  it rather than a person** -- the header
+  [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+  already requires of any prompt one session hands to another, carried here
+  for the same reason: whoever reads this needs to know where the claims
+  came from.
+- **Which repository has to be the primary seed root** -- the one the
+  receiving session needs opened or rooted in before any of the options are
+  actionable.
+- **Which other repositories, if any, need to be attached alongside it.**
+  Say "none" when that is the honest answer -- never leave the reader to
+  guess whether it was considered.
+
+### The fence block and the plain sentence
+
+**Render it as a fence block** -- an actual fenced markdown block (triple
+backticks), never a paragraph that merely reads as paste-ready -- per
+[fence-block-for-paste](fence-block-for-paste.md), which owns this
+requirement and applies it to every reply, not only this one. Called out by
+name here to keep it distinct from the other things this practice calls a
+"block" (an option's own short paragraph, above): the paste-ready text is
+specifically a **fence block**, and where the handoff carries more than one
+distinct thing to paste, each gets its own. Producing
+it does not, by itself, authorize anything in the repository or
+repositories it names -- that is not committing, pushing, or merging
+anything, whatever the receiving session goes on to do there.
+
+**Say it plainly too, outside the block.** The block is written for the new
+session to read; the person asking still needs, in this reply, one ordinary
+sentence that is not fenced and not buried inside it: *"Open a new session,
+root it in \<repository\>, attaching \<repositories, or 'none'\>."* Before
+the block or after it, either is fine -- what matters is that the person
+does not have to open and parse the paste target just to learn what to do
+with it.
 
 ## Why
 The four demands are one request that had to be retyped every time, and a
@@ -259,6 +302,8 @@ binding every reply rather than just this command's occasion -- full
 incident in that file's own Story. This file now points there, and names
 the mechanism as a **fence block** on Morgan's own instruction, so it
 reads distinctly from an option's own "block" above. Strength: decided.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 722 words; it now holds the question, the four things and what a handoff adds, in 254 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter

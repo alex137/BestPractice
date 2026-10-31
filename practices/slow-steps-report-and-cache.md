@@ -19,43 +19,32 @@ approved_by: "Alex, 2026-09-08 — merged on main as catalogue entry 55, a check
 source_practice_number: null
 ---
 ## Rule
-Three mechanics, one motive — a long wait must never be blind, never
-started without being priced, and never repeated for nothing:
+**A long wait is never blind, never unpriced, and never repeated for
+nothing** ("The three mechanics in full"):
 
-- **The cost before the start.** A tool whose run can take minutes prints,
-  before its first slow step, what it is about to do and what that cost
-  last time: how many units it will run, how long they took when last
-  recorded, and the slowest of them. So it records each unit's duration
-  where its next run can read it (a gate ledger's fact is the natural
-  place). The session reads that line before waiting on the run, and a run
-  priced past a few minutes is proposed, not waited on
-  (answer-first-ask-before-long-work). Alex, 2026-10-08, decided: "should
-  we have a practice of doing a quick underwriting of how long a task
-  should take and reconsidering it before investing that time if it is
-  long?", after a drift gate run without a target spent many minutes
-  re-solving every block whose facts were stale.
-
-- **Progress with an estimate.** Any step expected to run for more than about
-  a minute prints, on its error stream, a periodic line with items done,
-  elapsed time, and an estimated time remaining computed from the rate so far
-  — every N items, or on a timer — and a chained gate script echoes each
-  step's elapsed seconds into its log so the next person can quote expected
-  durations instead of rediscovering them. Record those durations where the
-  run instructions live, dated.
-- **Memoize the expensive pure function to disk.** When several gates (a
-  self-check, a drift gate that spawns one subprocess per generated block, an
-  audit) each re-derive the same expensive table, cache the solved result
-  under a gitignored directory, keyed by **a hash of the code the solve can
-  reach** — the syntax trees of the functions and constants it can run,
-  followed from its entry points across the repository's modules
-  (`tools/reach_key.py`), widening to a whole module wherever the reach
-  cannot be followed — never a timestamp, never the calling process's
-  import set (a caller-dependent key produces one entry per caller and
-  never hits). Load the cache lazily at **every** entry point, not
-  only the first one written, and keep an environment switch that forces a
-  fresh solve: the cache is an accelerator, never a dependency.
+- **Price it before the start.** A tool whose run can take minutes prints,
+  before its first slow step, how many units it will run, how long they
+  took when last recorded and the slowest of them, so it records each
+  unit's duration where its next run can read it (a gate ledger's fact).
+  Read that line before waiting; propose a run priced past a few minutes
+  rather than wait on it
+  ([answer-first-ask-before-long-work](answer-first-ask-before-long-work.md)).
+- **Report progress.** A step expected to run more than about a minute
+  prints on its error stream items done, elapsed time and an estimated time
+  remaining, and a chained gate script logs each step's elapsed seconds.
+  Record those durations, dated, where the run instructions live.
+- **Cache an expensive pure solve to disk** when several gates re-derive
+  it: under a gitignored directory, keyed by a hash of the code the solve
+  can reach
+  ([`tools/reach_key.py`](https://github.com/alex137/BestPractice/blob/staging/tools/reach_key.py)), never a timestamp or the caller's
+  import set. Load it lazily at **every** entry point, and keep an
+  environment switch that forces a fresh solve: the cache is an
+  accelerator, never a dependency.
 
 ## Detail
+Everything under the headings below from "The three mechanics in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### Profiling, memo keys and fallbacks
 **Profile before declaring the remainder "the next lever."** A two-minute
 profile removed the whole remainder twice in the originating case.
 
@@ -107,6 +96,43 @@ edit then re-solves. Ship the fallback with a census — scan every real
 key and list where the fallback fired — and treat each firing as a gap
 to close. The goal is zero firings in practice.
 
+### The three mechanics in full
+Three mechanics, one motive — a long wait must never be blind, never
+started without being priced, and never repeated for nothing:
+
+- **The cost before the start.** A tool whose run can take minutes prints,
+  before its first slow step, what it is about to do and what that cost
+  last time: how many units it will run, how long they took when last
+  recorded, and the slowest of them. So it records each unit's duration
+  where its next run can read it (a gate ledger's fact is the natural
+  place). The session reads that line before waiting on the run, and a run
+  priced past a few minutes is proposed, not waited on
+  (answer-first-ask-before-long-work). Alex, 2026-10-08, decided: "should
+  we have a practice of doing a quick underwriting of how long a task
+  should take and reconsidering it before investing that time if it is
+  long?", after a drift gate run without a target spent many minutes
+  re-solving every block whose facts were stale.
+
+- **Progress with an estimate.** Any step expected to run for more than about
+  a minute prints, on its error stream, a periodic line with items done,
+  elapsed time, and an estimated time remaining computed from the rate so far
+  — every N items, or on a timer — and a chained gate script echoes each
+  step's elapsed seconds into its log so the next person can quote expected
+  durations instead of rediscovering them. Record those durations where the
+  run instructions live, dated.
+- **Memoize the expensive pure function to disk.** When several gates (a
+  self-check, a drift gate that spawns one subprocess per generated block, an
+  audit) each re-derive the same expensive table, cache the solved result
+  under a gitignored directory, keyed by **a hash of the code the solve can
+  reach** — the syntax trees of the functions and constants it can run,
+  followed from its entry points across the repository's modules
+  (`tools/reach_key.py`), widening to a whole module wherever the reach
+  cannot be followed — never a timestamp, never the calling process's
+  import set (a caller-dependent key produces one entry per caller and
+  never hits). Load the cache lazily at **every** entry point, not
+  only the first one written, and keep an environment switch that forces a
+  fresh solve: the cache is an accelerator, never a dependency.
+
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its
 siblings (halving both), or trusted from memory. And a wait with nothing on
@@ -143,6 +169,8 @@ measurement showed the rebuild exact in any order and after any other
 work, and the solve's own figure dependent on what its worker had sized
 before — the old memo's last digits had depended on how the pool
 scheduled the variants.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 379 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three mechanics, each as what to do, in 199 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 Memoize the solve under a source-content key with a bypass switch; add a

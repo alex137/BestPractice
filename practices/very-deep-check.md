@@ -145,12 +145,16 @@ saying so, rather than being silently dropped.
    [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
    for this run -- scope, a short version, each pass with what it found
    and fixed and in which commit, the warnings judged, the checks by stage, set independence, the test review,
-   the token budgets with their numbers, what the person decided, and what
+   the token budgets with their numbers, the long Rules with a verdict each, what the person decided, and what
    is left and where it went -- with `opened:` the run's date. Collapse the
    previous run to one row in the run record, commit both, and link the
    account in the reply. A run is not done until it is there; a push is
    refused while it still describes an earlier run ("The run's full
    account").
+
+**Nor is a run done while a required item is skipped without the person's
+words**: `--record-pass` and `precedent_check.py --only very-deep-check`
+refuse it ("Running the check with helpers").
 
 **After work that invites drift** (a batch of practices added or
 reordered, a practice that changed shape, an install into a new repo, a
@@ -199,7 +203,15 @@ cannot tell a drift this run introduced from one that was there before. So:
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
-   `0 violated` is the starting line, not the finish.
+   `0 violated` is the starting line, not the finish. **Repeat the run until
+   it is green, before any pass**: fixing the failing case is not the same
+   as a green run, and only a green
+   `verify_harness.py --all --record-times --because 'very deep check, step 2'`
+   records the day's times question 27 judges by and stamps
+   `green_full_run` in
+   [tools/harness_check_times.json](https://github.com/alex137/BestPractice/blob/staging/tools/harness_check_times.json).
+   From a run dated 2026-11-01 on, `--record-pass` refuses a pass until
+   that stamp is later than the run's start.
 
    **`verify_harness.py --all` here, not the bare command every other gate
    runs.** The push gate runs a 10% rotation of the planted cases per
@@ -251,9 +263,16 @@ cannot tell a drift this run introduced from one that was there before. So:
    question still leaves time to work around it. Asked at the end it is not
    a question, it is a postponement. One sentence: name what it is for
    (updating its vendored tree to current and running its own gates), and
-   carry on with everything else while it is outstanding.
+   carry on with everything else while it is outstanding. Pass 1 is
+   recorded with the answer: `consumer=<path>` for the consumer it checked,
+   or `consumer_declined='<their words>'`; from 2026-11-01, `--record-pass
+   1=...` refuses without one, unless the run is in a consumer.
 7. **Then the passes, 1 through 4**, each ending with the suite from step 2
-   re-run — the fixes a pass makes break links of their own. Whenever a
+   re-run — the fixes a pass makes break links of their own. The
+   coordinating session runs it, green, between one pass's fixes and the
+   next pass's recording: from 2026-11-01, `--record-pass N=done` or
+   `partial` refuses unless a green whole-suite run finished after the pass
+   recorded before it. Whenever a
    pass turns up a gap, check it against step 4's inventory **before**
    writing it up: if a branch already fixes it, the finding is "this is
    written and unlanded", which is a different problem with a different
@@ -263,10 +282,32 @@ cannot tell a drift this run introduced from one that was there before. So:
    puts the expensive half's outcome and cost beside the tool's own
    sections; the cross-run read printed at the end of every run is then
    about the whole check rather than about its cheap half. Answer whatever
-   it names as quiet — keep, cheapen, or retire — in the same run, in
-   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md). A
-   section left on that list across runs with no answer written down is the
-   drift this step exists to stop.
+   it names as quiet — keep, cheapen, or retire — and every section it
+   could not measure, in the same run, under `### Quiet sections, answered`
+   in
+   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
+   or the account, naming this run's date. A section left on that list
+   across runs with no answer written down is the drift this step exists to
+   stop, and an answer copied from the run before is the same drift: from
+   2026-11-01 the account check refuses one that does not name this run's
+   date and every section the ledger names for it. A pass recorded
+   `partial` or `not run` says what it skipped and who agreed:
+   `skipped='<what>'` and `agreed='<the person's words>'`, refused without
+   either; the status is `done`, `partial` or `not run`, nothing else.
+9. **Last, refresh the account's blocks and check it.**
+   `python3 tools/very_deep_check.py --refresh-blocks` rewrites every block
+   the run writes into its account, stamped, after the run's last fix; then
+   `python3 tools/precedent_check.py --only very-deep-check` must pass
+   before the run is reported. From 2026-11-01 it refuses an account whose
+   warnings, checks-by-stage, set-independence or test-review block predates
+   the run's last commit to `tools/` or `practices/`, whose `## Pass 2`
+   leaves out a question number (each one listed: answered, partly or not
+   attempted), whose `## Test review` still shows tests to judge or times
+   from before the run, whose `## Incidents` lacks a verdict line for an
+   incident INCIDENT COVERAGE listed, or whose run left
+   [record/automated_actions.md](https://github.com/alex137/BestPractice/blob/staging/record/automated_actions.md)
+   neither rewritten nor `Confirmed unchanged on <date>.` A section skipped with the person's agreement carries a line
+   opening `Skipped with the person's words:` that quotes them.
 
 The same rule holds inside a pass: where a mechanical check covers part of a
 bullet, run it first and read only what it cannot see.
@@ -1614,6 +1655,24 @@ first so this pass spends its attention on what they cannot see.
   enumerates and does not judge, and no `checked_by` will: the cap already
   tests the only property a script can see, and whether an occasion is
   *every session, always* is a reading of how work here actually goes.
+- **The longest Rules, every run, in every repo.** The "LONGEST RULES"
+  section of
+  [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)
+  lists the longest quarter of each repo's active Rules, longest first, with
+  each one's word count and the repo's median. **Read every Rule it lists,
+  whole.** Keep one whose every sentence is something a session must do or
+  must not do, and say so with its word count. Otherwise the Rule keeps what
+  a session must do, in order, and the rest moves word for word into Detail
+  under a heading the Rule names, or into Story if it is only history
+  ([reduction-pass](reduction-pass.md)). **Never delete, and never cut to a
+  quota:** in a small set the longest quarter can already be tight, and a
+  kept Rule is a fine verdict. Record each verdict, kept or cut with its word
+  counts before and after, under the account's `## Long Rules` list, which
+  the section writes; a private set's Rules are named there in general terms
+  only. *(Morgan, 2026-10-31, strength: assented, after the 2026-10-30 run cut
+  four Rules by hand, the longest from 9,301 words to 1,773: "maybe we add to
+  very deep check to always review like the 25% of all the rules that are the
+  longest in that repo and shorten them like you did?")*
 - **Whether each practice's SOURCE is still right.** A different axis from
   the bullet above — not resident-versus-on-demand within one catalogue, but
   *which* catalogue a practice's slug lives in at all, across every source in
@@ -2446,6 +2505,29 @@ where it went. A later session resumes at the next unfinished pass rather
 than starting over, and a pass is never quietly skipped — a pass deliberately
 not run is recorded as not run, with the reason.
 
+#### Running the check with helpers
+**The coordinating session owns every whole-suite run** — step 2, the
+re-run after each pass, and the timing question 27 judges by — and runs
+them itself, between waves of helpers; a helper never runs `--all`, so a
+helper that owns a question needing it reports back, and **a helper's
+"blocked" is the coordinator's to clear before anything is recorded**:
+run what it was blocked on, then answer the question or record it with
+the person's words. **Anything a helper returns for the account** —
+verdict tables, ready-to-paste sections — **is committed into the account
+before any scratch file is cleared**; on 2026-10-30, 62 incident verdicts
+and four ready sections were lost with one. Branch verdict reasons go into
+the committed run record, not only the private review page, with a
+private set named only in general terms in a public repo.
+
+**What the account check refuses**, from a run dated 2026-11-01 on, is
+listed under step 9 of the order of operations; `--record-pass` refuses a
+pass without a green whole-suite run since the run started (and, for
+`done` or `partial`, since the pass before), a `partial` or `not run`
+without `skipped=` and `agreed=`, and pass 1 without a consumer entry. A
+narrowed run is agreed before it starts ("Saying the scope out loud"); the
+person's words then go in the record, quoted, where the skipped item
+would be.
+
 #### The run's full account
 **Every run ends with its full account, written unasked.** When the last
 pass is recorded, the session rewrites the checked repo's own
@@ -2454,7 +2536,7 @@ pass is recorded, the session rewrites the checked repo's own
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
 question 24), the checks by stage (question 25), set independence
-(question 26), the test review (question 27), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+(question 26), the test review (question 27), the token budgets with their numbers, the long Rules with a verdict each (Pass 3, from runs on 2026-11-01 on), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -2985,6 +3067,30 @@ assented), on the 2026-10-30 very deep check's call 11: *"do your
 recommendations for all"*, after asking *"maybe we should do a cleanup of
 the long rules?"*
 
+**2026-10-31: the guards on a run's own record.** The 2026-10-30 run
+recorded every pass `partial` through `--record-pass`, with no list of what
+was skipped and no words from Morgan agreeing. Its step-2 suite failed one
+case; the case was fixed and the suite never re-run green, so question 27
+had no fresh times and was written up "Not judged this run". It handed its
+passes to helpers told never to run `--all`; the one owning question 27
+reported blocked, and the coordinator recorded that instead of clearing it.
+A helper's 62 incident verdicts and four ready-to-paste sections were
+written to a scratch file that was deleted before they reached the account.
+Nobody read the component ledger: the quiet-sections answer was the
+2026-10-17 run's, copied. No pass was followed by a re-run of the suite, the
+account's generated blocks still showed bugs fixed hours before, no consumer
+was asked for, and Pass 2's questions were summarised as ranges. An audit
+of the run against every instruction found that the account check looked
+only at the account's date and headings, and that the ledger took any
+status typed. Morgan asked *"why didnt this run do it? How do we make sure
+future runs do it?"*, then *"Update the very deep instructions so to fix
+this in the future"* (strength: decided). Each gap is now refused, for runs
+dated 2026-11-01 on: `--record-pass` by a green whole-suite run, by
+`skipped=` and `agreed=` and by a consumer entry; the account check by
+question 27, question 20, the quiet and unmeasured sections, the Pass 2
+question list, the schedules inventory and the blocks' stamps. Steps 2, 6,
+7, 8 and 9 above and "Running the check with helpers" say so.
+
 
 ### Approval history
 
@@ -3090,16 +3196,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-01, Morgan (strength: decided)**, so Pass 3 measures every always-loaded surface against its target as well as its ceiling, and over target runs a reduction pass with its practice-by-practice review of the occasion index and resident block -- "this reduction pass is great; if it's not part of Very Deep Check, it absolutely should be." -- after the first such review found about 1,040 tokens of room that the menu's lossless moves could not. The SESSION LOAD section prints an OVER TARGET finding for it.
 - **Rewritten 2026-10-02, Morgan (strength: decided)**, so the branch sweep and its tiers are described without the ladder's words, which now belong to a set a person brings (spec/LADDER_OPT_IN_PLAN.md). That set carried a full copy, same slug, until 2026-10-06; since then it adds to this practice in one of its own and repeats none of it ([no-duplication](no-duplication.md)), so a change here is made here only.
 
-- **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him.
-- **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print.
-- **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change.
-- **Extended 2026-10-11, Morgan (strength: decided)**, with Pass 2's question 24 and the WARNINGS section: every warning the routine checks print is collected and judged, fixed or excluded permanent or temporary with a reason, by the session, which asks only when in doubt -- "I like reviewing warnings to see if we can get rid of them or explicitly exclude them and so on to over time eliminate warnings", then, on the plan put to him, "the decision to make there is from you, the agent", and "this warning information should be printed in the ... doc that details what happened with this very deep check." CHECK COVERAGE prints each repo's advisory count, which it had read and dropped.
-- **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth.
-- **Extended 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 25 and the CHECKS BY STAGE section: every run lists what runs before and after Booked, Produce and the Debut, flags any check before a push beyond the bare essentials and the leak gate, fixes it, and writes it into the account: "Please add to very deep check, an explicit check for that", "It should list this ... in the result, the detailed doc you create after every very deep check", and "flag it and fix it if before the pushes it has any checks other than the minimum essential urgent check and the leak gate check." Its first reading found a consumer's own workflow checks running before every push, outside the closed quick tier; they moved to the full tier in the same change.
-- **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
-- **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
-- **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 27 and the TEST WORTH section: every run judges every test it lists -- keep with its importance, cheapen, or retire -- and does what it decides in the same pass, and the account carries a `## Test review` section from runs on 2026-10-18 on: "review all TESTS to see if all tests are relevant and important. Do they test something still used and needed? Was what it tests deprecated?" and "does the amount of time it takes worth it for its level of importance? Write all this in the result doc you create." Prompted by tests for the retired tier below staging that outlived it. The same day, also Morgan (strength: decided): the test review judges on that day's times, recorded by the run's whole-suite pass, after a stale list made the planted-case test look nearly three times slower than it was. Its first reading listed 772 tests in this checkout, about an hour of recorded time, none judged yet; one test still named that tier (the migration that moves a repository off it), and 51 named the retired "team" level.
-- **Restructured 2026-10-31, Morgan (strength: assented)**, so the Rule holds only what a session must do when asked -- scope, refusals, order, and what every run produces -- with every paragraph it held moved whole into Detail's "The Rule's points in full" and one dated quote into the Story: "do your recommendations for all", on the 2026-10-30 very deep check's call 11
+- **Extended 2026-10-06, Morgan (strength: decided)**, with the RETIRED SETS section: a declared set that says it is retired, or that GitHub reports archived, is reported with the command that drops it, and Update Vendors drops it on its own -- only when no active rule would be lost, and never on "Not Found". He chose that option ("C") from three put to him. - **Extended 2026-10-06, Morgan (strength: decided)**, so the review page is always published as an Artifact and never handed over as an HTML file, after a run sent it as an attached file: "That HTML doc - give me that info as an artifact - and update very deep check so that in the future, that is always an artifact, not a HTML file." Both tools that write or announce the page now say so in what they print. - **Extended 2026-10-11, Morgan (strength: decided)**, so the check runs whole in a consumer or a practice set, and hands its upstream findings upstream: "in the vendored in repo ... it should test all the unique code and also the best practice code that is vendored in", and "for every problem it finds, before it fixes it, it should ask itself, is this an upstream problem or not", the upstream ones compiled into one Prompt Please kept in the run record and given in the session, followed by "do you want me to implement band-aids until it's fixed upstream?". The tool's UPSTREAM section came with it. The first run in a consumer, the same day, found three sections that broke outside BestPractice (BOOTSTRAP DRIFT, GENERATED FILES, CONTRIBUTOR BOUNDARY), all fixed upstream in the same change. - **Extended 2026-10-11, Morgan (strength: decided)**, with Pass 2's question 24 and the WARNINGS section: every warning the routine checks print is collected and judged, fixed or excluded permanent or temporary with a reason, by the session, which asks only when in doubt -- "I like reviewing warnings to see if we can get rid of them or explicitly exclude them and so on to over time eliminate warnings", then, on the plan put to him, "the decision to make there is from you, the agent", and "this warning information should be printed in the ... doc that details what happened with this very deep check." CHECK COVERAGE prints each repo's advisory count, which it had read and dropped. - **Extended again 2026-10-11, Morgan (strength: decided)**, so the run's full account in [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md) is mandatory, and checked: "when I ran very deep check last night, it did not create the document that it always does detailing what happened. Until I asked it to. Let's update very deep check to make that document mandatory." Its check refuses a push once all four passes are recorded and the account is still an earlier run's; `--record-pass` says the account is owed when it records the fourth. - **Extended 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 25 and the CHECKS BY STAGE section: every run lists what runs before and after Booked, Produce and the Debut, flags any check before a push beyond the bare essentials and the leak gate, fixes it, and writes it into the account: "Please add to very deep check, an explicit check for that", "It should list this ... in the result, the detailed doc you create after every very deep check", and "flag it and fix it if before the pushes it has any checks other than the minimum essential urgent check and the leak gate check." Its first reading found a consumer's own workflow checks running before every push, outside the closed quick tier; they moved to the full tier in the same change. - **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614. - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones. - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 27 and the TEST WORTH section: every run judges every test it lists -- keep with its importance, cheapen, or retire -- and does what it decides in the same pass, and the account carries a `## Test review` section from runs on 2026-10-18 on: "review all TESTS to see if all tests are relevant and important. Do they test something still used and needed? Was what it tests deprecated?" and "does the amount of time it takes worth it for its level of importance? Write all this in the result doc you create." Prompted by tests for the retired tier below staging that outlived it. The same day, also Morgan (strength: decided): the test review judges on that day's times, recorded by the run's whole-suite pass, after a stale list made the planted-case test look nearly three times slower than it was. Its first reading listed 772 tests in this checkout, about an hour of recorded time, none judged yet; one test still named that tier (the migration that moves a repository off it), and 51 named the retired "team" level. - **Restructured 2026-10-31, Morgan (strength: assented)**, so the Rule holds only what a session must do when asked -- scope, refusals, order, and what every run produces -- with every paragraph it held moved whole into Detail's "The Rule's points in full" and one dated quote into the Story: "do your recommendations for all", on the 2026-10-30 very deep check's call 11 - **Extended 2026-10-31, Morgan (strength: assented)**, with Pass 3's long-Rules read and the LONGEST RULES section: every run lists the longest quarter of each repo's active Rules, and the session reads each one whole and keeps it, or moves what a session need not do into Detail or Story, never deleting and never cutting to a quota; the account carries a `## Long Rules` section from runs on 2026-11-01 on. After the 2026-10-30 run cut vendor-update-runbook from 9,301 words to 1,773, the-boildown from 7,690 to 2,128, very-deep-check from 3,724 to 1,305 and prompt-please from 2,714 to 903: "maybe we add to very deep check to always review like the 25% of all the rules that are the longest in that repo and shorten them like you did?", then "use your judgment, and act booked produce".
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

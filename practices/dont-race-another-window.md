@@ -20,13 +20,9 @@ approved_by: "landed via PR #721 -- moved 2026-09-28 from the shared set precede
 strength: decided
 ---
 ## Rule
-If the person asks for something that another of their windows is already working on, **tell them, and don't do it.** Recommend they go back and continue in the window that has it. Morgan, 2026-09-11, giving the wording himself:
+If the person asks for something that another of their windows is already working on, **tell them, and don't do it.** Recommend they go back and continue in the window that has it.
 
-```text
-Here's something else you can do: if I ask you to do something that is being worked on in another window, you can tell me, 'Let's not do this, and instead you should continue in the other window'
-```
-
-**"Another window of theirs" includes the ones they never opened.** This was written for tabs opened by hand, and that is no longer the only way they appear: a session spawns a session, which spawns another, and by 2026-09-13 four sessions were live against one repository with only a parent-session chain connecting them to anything the person did. A window the person did not open is still theirs and still collides, so it counts here. **And the window you are about to CREATE counts too**: check for a collision before spawning or handing off to a new session, because a duplicate nobody has started yet is the one collision that is free to avoid.
+**"Another window of theirs" includes the ones they never opened**: a session another session spawned is still theirs and still collides. **And the window you are about to CREATE counts too**: check for a collision before spawning or handing off to a new session. Morgan's own wording, and how spawned sessions came into it, are under Detail, *The rule in Morgan's words, in full*.
 
 **Noticing is not complying.** Flagging the collision in a sentence and then doing the work anyway is the failure this rule names, not a careful version of it. The deliverable is the decline.
 
@@ -43,6 +39,17 @@ If they say go ahead anyway, go ahead. They may have abandoned the other window,
 
 **It is a close cousin of not handing off work a session can do itself**, and the two are worth keeping apart because their mechanisms are opposite. That one is about *not deferring work you can do*; this one is about *not duplicating work already in flight*. A session that learned only the first lesson races; a session that learned only the second punts. Both were raised in the same conversation, unprompted, on the same afternoon, which is a reasonable measure of how much routing between his own windows was costing him.
 
+Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+
+### The rule in Morgan's words, in full
+If the person asks for something that another of their windows is already working on, **tell them, and don't do it.** Recommend they go back and continue in the window that has it. Morgan, 2026-09-11, giving the wording himself:
+
+```text
+Here's something else you can do: if I ask you to do something that is being worked on in another window, you can tell me, 'Let's not do this, and instead you should continue in the other window'
+```
+
+**"Another window of theirs" includes the ones they never opened.** This was written for tabs opened by hand, and that is no longer the only way they appear: a session spawns a session, which spawns another, and by 2026-09-13 four sessions were live against one repository with only a parent-session chain connecting them to anything the person did. A window the person did not open is still theirs and still collides, so it counts here. **And the window you are about to CREATE counts too**: check for a collision before spawning or handing off to a new session, because a duplicate nobody has started yet is the one collision that is free to avoid.
+
 ## Why
 Because the person is the only one who can see the collision, and the one who asked — which means they have already forgotten, or they would not have asked. A session that says "this is being worked on in your other window, go finish it there" is doing the one thing they cannot do for themselves from inside this tab. A session that says it and then works anyway has given them the sentence without the benefit.
 
@@ -54,6 +61,8 @@ He raised it as a general capability rather than a complaint about that turn —
 The shape is not new to this work: parallel sessions have collided before on the same file and the same fix, in Precedent's own repositories, producing duplicate edits in different places and at least one pull request closed as a competing implementation of something that had already landed. Those earlier cases are Morgan's account of them, recorded here as such; no pull request history consulted when the rule was written corroborates the count.
 
 **Where it has lived.** Landed first in Morgan's individual set, which flagged it from the start as a candidate for the universal catalogue: it names nothing personal except the pronoun, and "don't duplicate work another session is already doing" holds for anyone running more than one window. Moved on 2026-09-23 to the shared set for repository maintenance, during a review of where each practice belonged. **Moved here on 2026-09-28**, on Morgan's reading of it: *"From the name it sounds like a fundamental rule, so it should be in precedent universal. Repo-maintenance is just for things to help maintain the practices etc."* The rule text was carried over, rewritten from Morgan's first person to "the person", and the cross-link to `lease-in-flight-work` added.
+
+**2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 292 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 196 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
 ## Install
 No mechanical check, and this one is further from checkable than most. The subject is not a property of the tree, a commit, or a diff — it is the relationship between a turn in this conversation and a turn in a different one, which no process running in a repository can observe. There is no artifact: the correct outcome of this rule is a reply and *no* commit, which is indistinguishable on disk from having done nothing at all. Where the work is leasable, [lease-in-flight-work](lease-in-flight-work.md)'s board is the mechanical guard, and it covers only the work somebody wired a call site for.

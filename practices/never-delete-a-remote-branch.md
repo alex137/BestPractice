@@ -28,61 +28,32 @@ approved_by: "Morgan, 2026-09-21 (strength: decided) -- asked for in his own
 strength:    decided
 ---
 ## Rule
-**Do not try to delete a branch on the remote. Not once, not as a retry, and
-not by a different route after the first one failed.** A session running in
-Claude Code on the web cannot remove a remote ref — this is settled
-(measured 2026-09-14) and not worth one more token of anybody's budget.
+**Never try to delete a branch on the remote: not once, not as a retry,
+not by another route** ("What is forbidden, by name"). A session in Claude
+Code on the web cannot remove a remote ref (measured 2026-09-14). That rules
+out `git push origin --delete` (or `:<branch>`), the GitHub Model Context
+Protocol (MCP) server (it has no delete tool), the REST or GraphQL API by
+hand, an Actions workflow written, edited or dispatched to do it, a subagent
+or spawned session, and a scratch branch pushed to test whether it works
+now. Deleting a **local**
+branch is fine, and so is a person clicking GitHub's **Delete branch**
+button.
 
-**Every one of these is forbidden**, listed by name so nobody rediscovers them
-one at a time:
+**The branch cleanup workflow and its page's buttons are a person's to
+click** ("The cleanup workflow and its buttons"). A session never starts
+`precedent-branch-cleanup.yml`, never offers to, never calls the connector
+tool the all-public button calls, and never publishes a page that calls it
+on load.
 
-- `git push origin --delete <branch>`, and its older spelling
-  `git push origin :<branch>`
-- the GitHub Model Context Protocol (MCP) server — it ships `create_branch`
-  and **no delete counterpart at all**, so there is nothing to call
-- the REST or GraphQL API by hand — `curl`, a fetch tool, a throwaway script
-- a GitHub Actions workflow written, edited or dispatched to do it -- the
-  engine's own `precedent-branch-cleanup.yml` included: a session never
-  starts it (below)
-- handing it to a subagent, a spawned session or a workflow — they carry the
-  same credential and get the same refusal
-- pushing a scratch branch "to check whether deleting works now"
-
-**Two things stay perfectly fine.** Deleting a **local** branch in the
-session's own clone (`git branch -d`, `git branch -D`) touches no remote and
-is ordinary housekeeping. And GitHub's own **Delete branch** button, clicked
-by a person, works normally — that is the whole point of the link the next
-paragraph requires.
-
-**One workflow may delete branches, and only a person starts it.** The
-engine ships `.github/workflows/precedent-branch-cleanup.yml`, whose only
-trigger is a person clicking Run workflow on GitHub, reached from the
-delete-all button on the branch cleanup page. It deletes only branches
-already in `main`, never `main`, the landing branch, the engine's own branches, a
-`data-` branch or an open pull request's source. **A session
-never starts it, by any route, and never offers to;** the tool behind it
-refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
-both [private] and public, NEVER run the cleanup automatically. In both
-cases, [put] the buttons on the branch cleanup page" (strength: decided;
-[the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
-**The page's all-public button is the same click, made once for every
-public repository:** the page asks GitHub, through the person's own GitHub
-connector, to run each one's workflow, and only that click calls it
-([the follow-up](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_ALL_REPOS_PLAN.md)).
-A session never clicks it, never calls that connector tool itself, and
-never publishes a page that calls it on load.
-
-**What to do instead, every time: hand over the one-click link and move on.**
-[branch-delete-links](branch-delete-links.md) has the exact form. Say it once,
-flatly, as a recommendation — *"`claude/foo` is merged and safe to delete:
-\<link\>"* — and never as an apology, never as an offer to do it, and **never
-as something blocking.**
-
-**This is a capability limit of the environment, not a transient and not a
-permission this repository can grant.** If it ever changes it will change
-because a person says so, not because a session tested it again.
+**Instead, hand over the one-click link and move on**
+([branch-delete-links](branch-delete-links.md)): once, flatly, as a
+recommendation -- *"`claude/foo` is merged and safe to delete: \<link\>"*
+-- never as an apology, an offer, or something blocking ("The one-click
+link").
 
 ## Detail
+Everything under the headings below from "What is forbidden, by name" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+
 ### Why the failure reads like a network blip
 
 `git push origin --delete` fails like this — what the first line calls a
@@ -122,6 +93,63 @@ behind a branch that, by the very limit being tested, **cannot then be
 removed.** The session that first measured this did exactly that and added
 `claude/push-capability-probe` to a remote permanently. A probe for this
 capability is the one experiment whose failure case is worse than not knowing.
+
+### What is forbidden, by name
+**Do not try to delete a branch on the remote. Not once, not as a retry, and
+not by a different route after the first one failed.** A session running in
+Claude Code on the web cannot remove a remote ref — this is settled
+(measured 2026-09-14) and not worth one more token of anybody's budget.
+
+**Every one of these is forbidden**, listed by name so nobody rediscovers them
+one at a time:
+
+- `git push origin --delete <branch>`, and its older spelling
+  `git push origin :<branch>`
+- the GitHub Model Context Protocol (MCP) server — it ships `create_branch`
+  and **no delete counterpart at all**, so there is nothing to call
+- the REST or GraphQL API by hand — `curl`, a fetch tool, a throwaway script
+- a GitHub Actions workflow written, edited or dispatched to do it -- the
+  engine's own `precedent-branch-cleanup.yml` included: a session never
+  starts it (below)
+- handing it to a subagent, a spawned session or a workflow — they carry the
+  same credential and get the same refusal
+- pushing a scratch branch "to check whether deleting works now"
+
+**Two things stay perfectly fine.** Deleting a **local** branch in the
+session's own clone (`git branch -d`, `git branch -D`) touches no remote and
+is ordinary housekeeping. And GitHub's own **Delete branch** button, clicked
+by a person, works normally — that is the whole point of the link the next
+paragraph requires.
+
+### The cleanup workflow and its buttons
+**One workflow may delete branches, and only a person starts it.** The
+engine ships `.github/workflows/precedent-branch-cleanup.yml`, whose only
+trigger is a person clicking Run workflow on GitHub, reached from the
+delete-all button on the branch cleanup page. It deletes only branches
+already in `main`, never `main`, the landing branch, the engine's own branches, a
+`data-` branch or an open pull request's source. **A session
+never starts it, by any route, and never offers to;** the tool behind it
+refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
+both [private] and public, NEVER run the cleanup automatically. In both
+cases, [put] the buttons on the branch cleanup page" (strength: decided;
+[the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
+**The page's all-public button is the same click, made once for every
+public repository:** the page asks GitHub, through the person's own GitHub
+connector, to run each one's workflow, and only that click calls it
+([the follow-up](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_ALL_REPOS_PLAN.md)).
+A session never clicks it, never calls that connector tool itself, and
+never publishes a page that calls it on load.
+
+### The one-click link
+**What to do instead, every time: hand over the one-click link and move on.**
+[branch-delete-links](branch-delete-links.md) has the exact form. Say it once,
+flatly, as a recommendation — *"`claude/foo` is merged and safe to delete:
+\<link\>"* — and never as an apology, never as an offer to do it, and **never
+as something blocking.**
+
+**This is a capability limit of the environment, not a transient and not a
+permission this repository can grant.** If it ever changes it will change
+because a person says so, not because a session tested it again.
 
 ## Why
 **The cost is tokens, time and credibility, in that order.** A session that
@@ -163,6 +191,8 @@ prohibition on `git push --delete` would have been satisfied by a session that
 went straight to the API instead. That is why the routes are enumerated above
 rather than left to judgment: the failure mode being fixed is not one bad
 command, it is the search that follows it.
+
+**2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 490 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is forbidden, the cleanup workflow only a person starts, and the link to hand over instead, in 192 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 ## Install
 Nothing to install — this is a rule a session applies, routed by its line in

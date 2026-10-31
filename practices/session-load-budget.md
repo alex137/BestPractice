@@ -20,91 +20,39 @@ approved_by: "Morgan, 2026-09-11 (strength: decided) -- asked whether the very d
 ## Rule
 **Everything a session loads before it does any work carries a declared
 ceiling, and every ceiling lives in one registry** —
-[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json).
-That is the instructions file, anything it includes, the generated resident
-block, and the session-start file the private sources write. A surface that
-is loaded and not in the registry is the finding; so is one over its ceiling
-that the change being checked grew. Growth from a source that change did not
-touch is not its finding: the merge and push gates print it as "OVER by", and
-the person decides between a reduction pass and a new ceiling.
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json):
+the instructions file, anything it includes, the generated resident block
+and the session-start file. A loaded surface missing from the registry is a
+finding; so is one over its ceiling that the change being checked grew.
+Growth from a source the change did not touch is printed as "OVER by", for
+the person to decide ("The registry and its findings", in Detail).
 
-**Where a repository declares one total, that total is the only budget
-that refuses.** `session_load_tokens` in its registry holds the sum of what
-a session there loads -- the instructions file, CLAUDE.md and the
-session-start file -- and every part's number (the resident and occasion
-caps, a source's occasion share, each surface's ceiling, the brought and
-individual budgets) is measured and reported, never refused. Moving a rule
-between sets, copying a set in or fixing how a share is counted leaves the
-total where it was, so it asks nobody. The person declares the total once,
-in their individual set, and Update Vendors copies it with their words into
-each repository, so CI reads the same number; the merge and push gates
-print which part a branch grew. A repository with no total keeps the
-per-part budgets this rule describes. Morgan, 2026-10-28 (strength:
-decided): "Go, one number everywhere"
-([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
+**Where a repository declares one total, `session_load_tokens`, that total
+is the only budget that refuses**; every part is measured and reported. A
+repository with no total keeps the per-part budgets ("One declared total").
 
-**Measure every repo in force, not the one you are rooted in.** A session
-loads its own instructions file *and* whatever each attached team,
-individual and repo-local source contributes, and the cost is the sum. A
-per-repo cap that is green in each repo separately says nothing about what
-any session actually pays.
+**Measure every repo in force, not the one you are rooted in.** The cost is
+the sum of every attached source, and a cap on one part is not a cap on the
+whole.
 
-**A cap on one part is not a cap on the whole, and reading it as one is the
-failure this exists to prevent.** The resident block's cap governs the
-resident block. It governed about 4% of this repository's own
-session load while the rest went unmeasured for weeks.
+**Reduce by moving, never by deleting.** Ask of each part "would a session
+hit this today", never "how big is it". The moves and the report they owe
+are [reduction-pass](reduction-pass.md)'s.
 
-**Then reduce — and reduce by moving, never by deleting.** The question for
-each part is **"would a session hit this today"**, never "how big is it". What
-still bites stays, whatever it costs; what no longer bites moves to a linked
-archive **in full**, because the payload of a gotcha is the story of what
-failed ([environment-gotchas](environment-gotchas.md)). A trimming pass that
-chases the total deletes the entries that are working, and leaves a live
-section of unexplained rules behind.
+**Only the person raises a budget**: show the number before and after, ask,
+and record their own words in the registry's `approved_budgets`. A formula,
+fallback or newly summed source that makes a number bigger is a raise too.
+Never raise one to make a red check green, never before you are blocked,
+and when one blocks you, do a reduction pass first. The one exception is an
+offset, recorded as `"strength": "offset"` ("Raising a budget"). Say any
+budget change in the reply's Boildown.
 
-**The moves, in order, and the report they owe are
-[reduction-pass](reduction-pass.md)'s** — six of them, cheapest and
-provably lossless first, and it is what the person is asking for when they
-say **"Reduction pass"**. Not repeated here: one menu, in the practice that
-performs it.
-
-**A ceiling is a watermark, not an endorsement.** It is set at what the
-surface measured when it was last reviewed, so it ratchets down and never
-drifts up unnoticed. **Only the person raises one**: show them the number
-before and after, ask, and record their own words for that raise in the
-registry's `approved_budgets`. That covers every budget *in force*, so a
-formula, fallback or newly summed source that makes the number bigger is a
-raise even when no field changed. Never raise one to make a red check green,
-and say any change to a budget in that reply's Boildown.
-
-**Never raise a budget before you are blocked, either, and when one blocks
-you, do a [reduction pass](reduction-pass.md), not a raise** -- every token
-budget, in every source: a ceiling, a cap, a set's `occasion_share_tokens`, a
-person's `brought_sets_tokens`. Ask for a raise only after the pass, with its
-report, and only the person's own words for that raise allow it. **The one
-exception is an offset:** tokens a change frees elsewhere -- a supporting set
-removed, its share given to the set that replaces it -- may pay for a raise
-of up to what they freed, recorded as `"strength": "offset"` with
-`offset_from`, `freed` and `previous_max`, and said with both numbers.
-
-**A cap warns at the quick check and refuses at the full one.** Over a
-cap,
-[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
-still writes the block and prints a warning, and the quick check reports
-the cap checks as warnings, so a branch that gets only the quick check can
-land. **Tell the person it must be brought under before the full check
-will pass it:** the full check refuses it (`loader-within-caps`,
-`session-load-budget`, `session-file-allowances-fit`), exactly as before.
-Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the
-person it needs fixing, and for no change to the refusal. A raised budget
-still needs the person's own words, whichever check runs.
+**Over a cap, the quick check warns and the full check refuses.** Tell the
+person it must be brought under before the full check will pass it.
 
 **When the resident cap refuses a new practice, the person picks what comes
-out.** The refusal says to demote or retire a resident practice — that is a
-session's cue to **ask**, not to choose. List the resident practices with what each costs and what
-dropping it would let through, recommend one, and wait for an answer.
-Demoting a practice to `on-demand` to make room changes which rules fire in
-every session afterwards, decided by the session that wanted the room.
+out**: list the resident practices with what each costs, recommend one, and
+wait for an answer.
 
 ## Detail
 **What counts as an always-loaded surface.** Anything in a session's context
@@ -180,6 +128,110 @@ carried source's `occasion_share_tokens` plus its `resident_block_tokens`,
 plus the entry's `fixed_allowance`, to add up to at most the hard ceiling,
 and each source's own build refuses to grow past those numbers.
 
+Everything under the headings below from "The registry and its findings" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The registry and its findings
+
+**Everything a session loads before it does any work carries a declared
+ceiling, and every ceiling lives in one registry** —
+[tools/session_load_budgets.json](https://github.com/alex137/BestPractice/blob/staging/tools/session_load_budgets.json).
+That is the instructions file, anything it includes, the generated resident
+block, and the session-start file the private sources write. A surface that
+is loaded and not in the registry is the finding; so is one over its ceiling
+that the change being checked grew. Growth from a source that change did not
+touch is not its finding: the merge and push gates print it as "OVER by", and
+the person decides between a reduction pass and a new ceiling.
+
+### One declared total
+
+**Where a repository declares one total, that total is the only budget
+that refuses.** `session_load_tokens` in its registry holds the sum of what
+a session there loads -- the instructions file, CLAUDE.md and the
+session-start file -- and every part's number (the resident and occasion
+caps, a source's occasion share, each surface's ceiling, the brought and
+individual budgets) is measured and reported, never refused. Moving a rule
+between sets, copying a set in or fixing how a share is counted leaves the
+total where it was, so it asks nobody. The person declares the total once,
+in their individual set, and Update Vendors copies it with their words into
+each repository, so CI reads the same number; the merge and push gates
+print which part a branch grew. A repository with no total keeps the
+per-part budgets this rule describes. Morgan, 2026-10-28 (strength:
+decided): "Go, one number everywhere"
+([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
+
+### Every repo in force, and a cap on one part
+
+**Measure every repo in force, not the one you are rooted in.** A session
+loads its own instructions file *and* whatever each attached team,
+individual and repo-local source contributes, and the cost is the sum. A
+per-repo cap that is green in each repo separately says nothing about what
+any session actually pays.
+
+**A cap on one part is not a cap on the whole, and reading it as one is the
+failure this exists to prevent.** The resident block's cap governs the
+resident block. It governed about 4% of this repository's own
+session load while the rest went unmeasured for weeks.
+
+### Reducing by moving
+
+**Then reduce — and reduce by moving, never by deleting.** The question for
+each part is **"would a session hit this today"**, never "how big is it". What
+still bites stays, whatever it costs; what no longer bites moves to a linked
+archive **in full**, because the payload of a gotcha is the story of what
+failed ([environment-gotchas](environment-gotchas.md)). A trimming pass that
+chases the total deletes the entries that are working, and leaves a live
+section of unexplained rules behind.
+
+**The moves, in order, and the report they owe are
+[reduction-pass](reduction-pass.md)'s** — six of them, cheapest and
+provably lossless first, and it is what the person is asking for when they
+say **"Reduction pass"**. Not repeated here: one menu, in the practice that
+performs it.
+
+### Raising a budget
+
+**A ceiling is a watermark, not an endorsement.** It is set at what the
+surface measured when it was last reviewed, so it ratchets down and never
+drifts up unnoticed. **Only the person raises one**: show them the number
+before and after, ask, and record their own words for that raise in the
+registry's `approved_budgets`. That covers every budget *in force*, so a
+formula, fallback or newly summed source that makes the number bigger is a
+raise even when no field changed. Never raise one to make a red check green,
+and say any change to a budget in that reply's Boildown.
+
+**Never raise a budget before you are blocked, either, and when one blocks
+you, do a [reduction pass](reduction-pass.md), not a raise** -- every token
+budget, in every source: a ceiling, a cap, a set's `occasion_share_tokens`, a
+person's `brought_sets_tokens`. Ask for a raise only after the pass, with its
+report, and only the person's own words for that raise allow it. **The one
+exception is an offset:** tokens a change frees elsewhere -- a supporting set
+removed, its share given to the set that replaces it -- may pay for a raise
+of up to what they freed, recorded as `"strength": "offset"` with
+`offset_from`, `freed` and `previous_max`, and said with both numbers.
+
+### Warn at the quick check, refuse at the full one
+
+**A cap warns at the quick check and refuses at the full one.** Over a
+cap,
+[tools/build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py)
+still writes the block and prints a warning, and the quick check reports
+the cap checks as warnings, so a branch that gets only the quick check can
+land. **Tell the person it must be brought under before the full check
+will pass it:** the full check refuses it (`loader-within-caps`,
+`session-load-budget`, `session-file-allowances-fit`), exactly as before.
+Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the
+person it needs fixing, and for no change to the refusal. A raised budget
+still needs the person's own words, whichever check runs.
+
+### Who picks what comes out
+
+**When the resident cap refuses a new practice, the person picks what comes
+out.** The refusal says to demote or retire a resident practice — that is a
+session's cue to **ask**, not to choose. List the resident practices with what each costs and what
+dropping it would let through, recommend one, and wait for an answer.
+Demoting a practice to `on-demand` to make room changes which rules fire in
+every session afterwards, decided by the session that wanted the room.
+
 ## Why
 Nothing is wrong at any single commit. Every line in an always-loaded file
 was right to add on the day it was added, and it only goes wrong in
@@ -243,7 +295,6 @@ the review is the mechanism working; one raised instead of it is the failure
 the clause is about**, and the difference is only ever visible in what the
 `why` field says.
 
-
 **The ask-before-demoting clause was added later the same day**, also by
 Morgan, asking what happens when a new resident practice would break the
 2,000-token cap: *"do we check to see if it kills the 2000 token limit before
@@ -266,6 +317,8 @@ changes to remove tokens elsewhere so it evens out then that's fine (such as
 if we remove a supporting set repo then it's okay to allocate its tokens to
 the new repo etc)."* The budget went back to 700, the check now reads it,
 and an offset is recorded with what it freed. Strength: decided.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 878 words; it now holds the ceilings, the one total, who raises a budget and what a cap does at each check, in 320 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 The registry is

@@ -21,68 +21,34 @@ strength:    assented
 ## Rule
 **A practice file is published into every repository that adopts the
 catalogue, so a relative link in one only works if the target travels with
-it.** Four things do, the first three here: **another practice file in the same directory that is
-still in force**, cited the normal way as a markdown link to its own
-`<slug>.md`; **the vendored
-engine files under `../tools/`** that every consumer receives, from a
-universal source only; and **a
-source's own check scripts and their tests under `../tools/checks/`**, which
-materialization copies alongside the practices — the `check_*.py` scripts
-and the `test_*.sh` files under `tests/` — a practice citing the script that
-enforces it is the most common cross-reference a private set makes, and it is
-a correct one. **A file a practice here declares in `ships:` travels too**
-([practice-carries-its-files](practice-carries-its-files.md)): materialization
-delivers it to the same path in every consumer, so `../tools/<script>` to a
-shipped script is a correct relative link.
+it.** What travels, linked relatively (in full under "What travels", in
+Detail):
+
+- **another practice file in the same directory that is still in force**,
+  or a DEDUPLICATED one whose `in_force_at:` names its own slug;
+- **the vendored engine files under `../tools/`**, from a universal source
+  only;
+- **a source's own check scripts and their tests under `../tools/checks/`**;
+- **a file a practice here declares in `ships:`**.
 
 **A shared or individual set links an engine file by its absolute URL in
 BestPractice**, `https://github.com/alex137/BestPractice/blob/staging/tools/<file>`.
-Such a set is copied in to `process/<set>/` in the consumer, so `../tools/`
-resolves inside that copy, which carries `tools/checks/` and the files its
-practices name in `ships:`, `checked_by` or a hook's `run` -- never the
-engine. Those named files still travel and are linked relatively.
 
-**A sibling that is no longer in force does not travel either**, and this is
-the one shape that looks correct from inside the publishing repository. A
-practice whose `status:` is anything but `active` is dropped by the resolver
-before materialization, so the consumer receives the file doing the linking
-and never the file being linked. **Link the successor instead** — `in_force_at:`
-names it — or, where the rule was absorbed into the engine or is in force
-nowhere, drop the link and say in prose what it covered.
+**A sibling that is no longer in force does not travel: link the
+successor** -- `in_force_at:` names it -- or drop the link and say in prose
+what it covered ("A withdrawn sibling").
 
-**The one withdrawn sibling you may link is a DEDUPLICATED one whose
-`in_force_at:` names its own slug**, and this is the common case in a private
-set rather than an edge case. It means the copy *here* is redundant because
-another source carries that same slug and is active. The resolver walks
-sources lowest-precedence first, so the surviving copy lands at exactly the
-`practices/<slug>.md` the link already points at, and the link travels
-untouched. **Link it the normal way.**
-
-**Everything else in the publishing repository does not travel** — `spec/`,
-`templates/`, root documents, decisions, records, hooks. Link one of those
-relatively and the link is live where it was written and dead in every
-repository that receives it, which is the one place nobody checking it will
-look.
-
-**From a PUBLIC source, link it as an absolute URL** to the file in the
-publishing repository, on that repository's declared `base_branch`. The
-reader gets a live link wherever they are reading, and the writer gets to
-keep the reference. **From a PRIVATE source, drop the link markup and keep
-the backticked path** — an absolute URL would publish the private
-repository's name into every consumer that materializes the practice, which
-is a worse failure than a reference the reader has to go find. **Nothing downstream will
-repair that one, and nothing downstream should** — `_rewrite_links` refuses
-the private case on purpose, so the unlinked path is load-bearing rather than
-an oversight somebody should tidy up later.
+**Everything else does not travel** -- `spec/`, `templates/`, root
+documents, decisions, records, hooks. **From a PUBLIC source, link it as an
+absolute URL** on the publishing repository's declared `base_branch`.
+**From a PRIVATE source, drop the link markup and keep the backticked
+path**: a URL would publish the private repository's name into every
+consumer, and nothing downstream repairs it.
 
 **A practice that lives in ANOTHER set is never linked by URL, whatever
-this source's visibility** -- the public-source advice above is about files
-in the publishing repository, and another set is not one. Write its slug in
-backticks. The one exception is a universal practice, linked on the
-universal source's declared `base_branch`. This is the shape a practice
-moved between sets is left carrying: its sibling links now point at files
-that stayed behind, and the obvious repair, a URL to where they stayed,
-published a private set's name from a public one on 2026-09-23.
+this source's visibility**: write its slug in backticks. The one exception
+is a universal practice, linked on the universal source's declared
+`base_branch`.
 
 ## Detail
 **The public and private answers differ, and neither is the general case.**
@@ -132,6 +98,83 @@ that cannot be taken back."* **So a session that finds such a link must not
 make it absolute** — that is the disclosure, and it is the first thing
 anyone tries. Nothing downstream repairs it and nothing downstream should;
 the repair belongs in the publishing source, as a backticked path.
+
+Everything under the headings below from "What travels" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### What travels
+
+**A practice file is published into every repository that adopts the
+catalogue, so a relative link in one only works if the target travels with
+it.** Four things do, the first three here: **another practice file in the same directory that is
+still in force**, cited the normal way as a markdown link to its own
+`<slug>.md`; **the vendored
+engine files under `../tools/`** that every consumer receives, from a
+universal source only; and **a
+source's own check scripts and their tests under `../tools/checks/`**, which
+materialization copies alongside the practices — the `check_*.py` scripts
+and the `test_*.sh` files under `tests/` — a practice citing the script that
+enforces it is the most common cross-reference a private set makes, and it is
+a correct one. **A file a practice here declares in `ships:` travels too**
+([practice-carries-its-files](practice-carries-its-files.md)): materialization
+delivers it to the same path in every consumer, so `../tools/<script>` to a
+shipped script is a correct relative link.
+
+### Engine files from a shared or individual set
+
+**A shared or individual set links an engine file by its absolute URL in
+BestPractice**, `https://github.com/alex137/BestPractice/blob/staging/tools/<file>`.
+Such a set is copied in to `process/<set>/` in the consumer, so `../tools/`
+resolves inside that copy, which carries `tools/checks/` and the files its
+practices name in `ships:`, `checked_by` or a hook's `run` -- never the
+engine. Those named files still travel and are linked relatively.
+
+### A withdrawn sibling
+
+**A sibling that is no longer in force does not travel either**, and this is
+the one shape that looks correct from inside the publishing repository. A
+practice whose `status:` is anything but `active` is dropped by the resolver
+before materialization, so the consumer receives the file doing the linking
+and never the file being linked. **Link the successor instead** — `in_force_at:`
+names it — or, where the rule was absorbed into the engine or is in force
+nowhere, drop the link and say in prose what it covered.
+
+**The one withdrawn sibling you may link is a DEDUPLICATED one whose
+`in_force_at:` names its own slug**, and this is the common case in a private
+set rather than an edge case. It means the copy *here* is redundant because
+another source carries that same slug and is active. The resolver walks
+sources lowest-precedence first, so the surviving copy lands at exactly the
+`practices/<slug>.md` the link already points at, and the link travels
+untouched. **Link it the normal way.**
+
+### Everything else, from a public or a private source
+
+**Everything else in the publishing repository does not travel** — `spec/`,
+`templates/`, root documents, decisions, records, hooks. Link one of those
+relatively and the link is live where it was written and dead in every
+repository that receives it, which is the one place nobody checking it will
+look.
+
+**From a PUBLIC source, link it as an absolute URL** to the file in the
+publishing repository, on that repository's declared `base_branch`. The
+reader gets a live link wherever they are reading, and the writer gets to
+keep the reference. **From a PRIVATE source, drop the link markup and keep
+the backticked path** — an absolute URL would publish the private
+repository's name into every consumer that materializes the practice, which
+is a worse failure than a reference the reader has to go find. **Nothing downstream will
+repair that one, and nothing downstream should** — `_rewrite_links` refuses
+the private case on purpose, so the unlinked path is load-bearing rather than
+an oversight somebody should tidy up later.
+
+### A practice in another set
+
+**A practice that lives in ANOTHER set is never linked by URL, whatever
+this source's visibility** -- the public-source advice above is about files
+in the publishing repository, and another set is not one. Write its slug in
+backticks. The one exception is a universal practice, linked on the
+universal source's declared `base_branch`. This is the shape a practice
+moved between sets is left carrying: its sibling links now point at files
+that stayed behind, and the obvious repair, a URL to where they stayed,
+published a private set's name from a public one on 2026-09-23.
 
 ## Why
 The catalogue is written in one repository and read in all of them, and
@@ -300,6 +343,8 @@ hand; this check had counted each as travelling, because it judged a set as
 if it were the universal source. It now holds a shared or individual set to
 what its copy-in carries (`checkin._files_rules_name`) and prints the
 absolute URL as the repair.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 647 words; it now holds what travels, what does not and how to link each, in 234 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 ## Install
 [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) enforces it, as a

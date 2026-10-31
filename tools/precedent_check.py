@@ -7654,6 +7654,262 @@ _VDC_STAGES_DATE = '2026-10-17'
 # refused for a section nobody owed it.
 _VDC_TESTS_HEADING = re.compile(r'^## Test review\s*$', re.M)
 _VDC_TESTS_DATE = '2026-10-18'
+# From 2026-11-01 it also carries the long Rules the run reviewed (Morgan,
+# 2026-10-31, strength: assented: "maybe we add to very deep check to always
+# review like the 25% of all the rules that are the longest in that repo and
+# shorten them like you did?"), listed by the LONGEST RULES section, each
+# with the session's verdict. The day after the rule, as for the test review.
+_VDC_LONG_RULES_HEADING = re.compile(r'^## Long Rules\s*$', re.M)
+_VDC_LONG_RULES_DATE = '2026-11-01'
+# From 2026-11-01 the account is held to what the run did, not only to its
+# headings (Morgan, 2026-10-31, strength: decided: "why didnt this run do
+# it? How do we make sure future runs do it?" and "Update the very deep
+# instructions so to fix this in the future"). The 2026-10-30 run recorded
+# question 27 as "Not judged this run", lost 62 incident verdicts with a
+# scratch file, copied the quiet-sections answer from the run before, and
+# left blocks measured before its own fixes; each is refused here now.
+_VDC_GUARDS_DATE = '2026-11-01'
+_VDC_SKIP_LINE = re.compile(
+    r"^\W*Skipped with the person['\u2019]s words:\**\s*\S", re.M)
+_VDC_INCIDENTS_HEADING = re.compile(r'^## Incidents\s*$', re.M)
+_VDC_QUIET_HEADING = re.compile(r'^#{2,3} Quiet sections\b.*$', re.M)
+_VDC_PASS2_HEADING = re.compile(r'^## Pass 2\b.*$', re.M)
+_VDC_QUESTION_ROW = re.compile(
+    r'^\s*(?:[-*]|\|)\s*\**(?:Q(?:uestion)?\s*)?(\d+[a-z]?)\b\**[^\n]*?'
+    r'\b(answered|partly|not attempted)\b', re.M | re.I)
+_VDC_SCHEDULES = 'record/automated_actions.md'
+# The blocks that showed fixed bugs on 2026-10-30; each is stamped when the
+# tool measures it (very_deep_check.RUN_BLOCK_STAMP).
+_VDC_STAMPED_BLOCKS = ('warnings', 'checks-by-stage', 'set-independence',
+                       'test-review')
+_VDC_STAMP = re.compile(r'<!--vdc-measured:\s*(\S+)\s*-->')
+_VDC_STEP2 = ("python3 tools/verify_harness.py --all --record-times "
+              "--because 'very deep check, step 2'")
+
+
+def _vdc_section(text, heading):
+    """-> the text under the first line `heading` matches, to the next `## `
+    heading (a `### ` inside it stays in), or None."""
+    m = heading.search(text)
+    if not m:
+        return None
+    nxt = re.compile(r'^## ', re.M).search(text, m.end())
+    return text[m.end():nxt.start() if nxt else len(text)]
+
+
+def _vdc_when(value):
+    """-> an aware datetime from an ISO stamp or a bare date, else None."""
+    import datetime
+    try:
+        d = datetime.datetime.fromisoformat(str(value or '').strip())
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=datetime.timezone.utc)
+
+
+def _vdc_git_dates(*paths):
+    """-> [author date] of the commits here touching `paths`, newest first;
+    [] when git cannot say (not a repository, a shallow edge)."""
+    try:
+        out = subprocess.run(['git', '-C', str(ROOT), 'log', '--format=%aI',
+                              '-n', '400', '--', *paths],
+                             capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [d for d in (_vdc_when(l) for l in out.stdout.split()) if d]
+
+
+def _vdc_pass2_questions():
+    """-> the Pass 2 question numbers ('1', '8a', ...) the practice in force
+    here lists, or [] when its file cannot be found."""
+    cands = [ROOT / 'practices' / 'very-deep-check.md']
+    try:
+        import precedent_resolve as _pr
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+        cands += [ROOT / s['path'] / 'practices' / 'very-deep-check.md'
+                  for s in cfg.get('sources') or []
+                  if _pr.declared_level(s) == 'universal' and s.get('path')]
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    for f in cands:
+        if f.is_file():
+            text = f.read_text(encoding='utf-8', errors='ignore')
+            sec = _vdc_section(text, re.compile(r'^### Pass 2\b.*$', re.M)) or ''
+            sec = re.split(r'^### ', sec, maxsplit=1, flags=re.M)[0]
+            return re.findall(r'^(\d+[a-z]?)\. \*\*', sec, re.M)
+    return []
+
+
+def _vdc_account_holds(run, runs, text):
+    """-> [problem]: what the account of `run` (dated _VDC_GUARDS_DATE or
+    later) leaves undone, each with its remedy."""
+    date = str(run.get('date') or '')
+    where = f"the run of {run.get('run_id') or date}"
+    start = _vdc_when(run.get('run_id')) or _vdc_when(date)
+    rows = {c.get('name'): c for c in run.get('components') or []}
+    out = []
+
+    # Question 27: every test TEST WORTH listed carries a verdict, on times
+    # from this run -- or the person's words agreeing to skip it.
+    sec = _vdc_section(text, _VDC_TESTS_HEADING) or ''
+    if not _VDC_SKIP_LINE.search(sec):
+        why = []
+        for label, body in re.findall(r'^### ([^\n]+)\n(.*?)(?=^### |\Z)', sec,
+                                      re.M | re.S):
+            m = re.search(r'Never judged: (\d+)\. To judge again: (\d+)\. '
+                          r'Cheapen or retire owed: (\d+)\.', body)
+            if m and any(int(n) for n in m.groups()):
+                why.append(f'{label.strip()} still has {m.group(1)} never '
+                           f'judged, {m.group(2)} to judge again and '
+                           f'{m.group(3)} cheapen or retire owed')
+            if label.strip() == 'this checkout':
+                tm = re.search(r'Times measured ([^\n]*)', body)
+                timed = re.search(r'(\d+) timed', body)
+                dates = re.findall(r'\d{4}-\d{2}-\d{2}', tm.group(1)) if tm else []
+                if timed and int(timed.group(1)) and (not dates or max(dates) < date):
+                    why.append(f'this checkout\'s test times were measured '
+                               f'{max(dates) if dates else "on no recorded date"}, '
+                               f'before this run')
+        n_here = ((rows.get('TEST WORTH') or {}).get('to_judge') or {}).get(
+            'this checkout') or 0
+        if n_here:
+            try:
+                # Built a segment at a time: the verdicts are this repo's
+                # own file, never vendored, and the literal spelling is what
+                # vendored-engine-file-refs-resolve scans for.
+                verdicts = json.loads((ROOT / 'tools').joinpath('test_verdicts.json')
+                                      .read_text(encoding='utf-8')).get('verdicts') or {}
+            except (OSError, ValueError, AttributeError):
+                verdicts = {}
+            if not any(isinstance(v, dict) and str(v.get('date') or '') >= date
+                       for v in verdicts.values()):
+                why.append(f'TEST WORTH listed {n_here} test(s) here to judge '
+                           f'and tools/test_verdicts.json holds no verdict '
+                           f'dated {date} or later')
+        if not sec.strip():
+            why.append('the account has no `## Test review` section')
+        if why:
+            out.append(
+                f'{where}: question 27 is not done -- {"; ".join(why)}. Judge '
+                f'every test TEST WORTH listed (keep with its importance, '
+                f'cheapen, or retire) in tools/test_verdicts.json, re-time '
+                f'with `{_VDC_STEP2}` if the times predate the run, then '
+                f'`python3 tools/very_deep_check.py --refresh-tests`; or, if '
+                f'the person agreed to skip it, quote them in that section on '
+                f'a line opening `Skipped with the person\'s words:` '
+                f'(practices/very-deep-check.md, Pass 2 question 27)')
+
+    # Question 20: a verdict line for every incident INCIDENT COVERAGE listed.
+    ic = rows.get('INCIDENT COVERAGE') or {}
+    listed = ic.get('listed')
+    sec = _vdc_section(text, _VDC_INCIDENTS_HEADING)
+    if (listed or listed is None) and not (sec and _VDC_SKIP_LINE.search(sec)):
+        lines = (sec or '').splitlines()
+        bare = [s for s in (listed or [])
+                if not any(s in l and len(re.sub(r'[\W_]+', '',
+                                                 l.replace(s, ''))) >= 3
+                           for l in lines)]
+        if sec is None or bare:
+            out.append(
+                f'{where}: question 20 is not done -- '
+                + ('the account has no `## Incidents` section'
+                   if sec is None else
+                   f'{len(bare)} of the {len(listed)} incident(s) INCIDENT '
+                   f'COVERAGE listed have no verdict line: '
+                   f'{", ".join(bare[:6])}{" ..." if len(bare) > 6 else ""}')
+                + '. Write `## Incidents` with one line per incident, its '
+                f'slug and what now prevents a recurrence (a check with a '
+                f'planted case, a check with none yet, or nothing, '
+                f'deliberately, and why), or quote the person agreeing to skip '
+                f'it on a line opening `Skipped with the person\'s words:` '
+                f'(practices/very-deep-check.md, Pass 2 question 20)')
+
+    # The component ledger, read for this run: its quiet and unmeasured
+    # sections answered under a heading that names this run's date.
+    try:
+        import very_deep_check as vdc
+        upto = runs[:runs.index(run) + 1]
+        owed = ([q[0] for q in vdc.quiet_sections(upto)]
+                + vdc.unmeasured_sections(run))
+    except (ImportError, ValueError, AttributeError):
+        owed = []
+    sec = _vdc_section(text, _VDC_QUIET_HEADING)
+    if sec is None:
+        rec = ROOT / 'spec' / 'VERY_DEEP_CHECK.md'
+        if rec.is_file():
+            sec = _vdc_section(rec.read_text(encoding='utf-8', errors='ignore'),
+                               _VDC_QUIET_HEADING)
+    short = lambda n: n.split(' -- ')[0].strip()
+    missing = [short(n) for n in owed
+               if short(n).lower() not in (sec or '').lower()]
+    if sec is None or date not in sec or missing:
+        why = ('no `### Quiet sections, answered` heading in the account or '
+               'the run record' if sec is None else
+               f'it does not name this run\'s date, {date}' if date not in sec
+               else f'it does not answer {", ".join(missing)}')
+        out.append(
+            f'{where}: the component ledger was not read for this run -- '
+            f'{why}. Read the COMPONENT LEDGER the tool printed for this run '
+            f'and answer each section it names as quiet (keep, cheapen or '
+            f'retire, and why) and each it could not measure, under '
+            f'`### Quiet sections, answered`, naming {date}'
+            + (f'; this run owes: {", ".join(short(n) for n in owed)}'
+               if owed else '')
+            + ' (practices/very-deep-check.md, "The component ledger")')
+
+    # Pass 2's questions, every one with its answer.
+    want = _vdc_pass2_questions()
+    sec = _vdc_section(text, _VDC_PASS2_HEADING) or ''
+    have = {m.group(1).lower() for m in _VDC_QUESTION_ROW.finditer(sec)}
+    gap = [q for q in want if q.lower() not in have]
+    if gap:
+        out.append(
+            f'{where}: Pass 2 does not list every question -- missing '
+            f'{", ".join(gap)}. Under `## Pass 2`, one row or bullet per '
+            f'question, its number first, saying answered, partly or not '
+            f'attempted (practices/very-deep-check.md, Pass 2)')
+
+    # Pass 4's schedules inventory, rewritten or confirmed in this run.
+    sched = ROOT / _VDC_SCHEDULES
+    stext = sched.read_text(encoding='utf-8', errors='ignore') if sched.is_file() else ''
+    touched = _vdc_git_dates(_VDC_SCHEDULES)
+    confirmed = any(max(re.findall(r'\d{4}-\d{2}-\d{2}', l) or ['']) >= date
+                    for l in stext.splitlines() if 'unchanged' in l.lower())
+    if not (confirmed or (touched and start and touched[0] >= start)):
+        out.append(
+            f'{where}: {_VDC_SCHEDULES} was not '
+            + ('written' if not sched.is_file() else 'rewritten or confirmed')
+            + f' in this run. Pass 4 rewrites it, or, when nothing changed, '
+            f'adds a line saying so: `Confirmed unchanged on {date}.` '
+            f'(practices/very-deep-check.md, Pass 4)')
+
+    # The generated blocks, measured after the run's last fix.
+    recorded = [d for d in (_vdc_when(p.get('recorded'))
+                            for p in run.get('passes') or []) if d]
+    if start and recorded:
+        fixes = [d for d in _vdc_git_dates('tools', 'practices')
+                 if start <= d <= max(recorded)]
+        if fixes:
+            stale = []
+            for name in _VDC_STAMPED_BLOCKS:
+                m = re.search(r'<!--vdc-embed:' + re.escape(name) + r'\b[^>]*-->'
+                              r'(.*?)<!--/vdc-embed:' + re.escape(name) + '-->',
+                              text, re.S)
+                st = _VDC_STAMP.search(m.group(1)) if m else None
+                when = _vdc_when(st.group(1)) if st else None
+                if m and (when is None or when < fixes[0]):
+                    stale.append(f'{name} ({st.group(1) if st else "no stamp"})')
+            if stale:
+                out.append(
+                    f'{where}: the account\'s generated blocks predate the '
+                    f'run\'s last fix ({fixes[0].isoformat()}): '
+                    f'{", ".join(stale)}. Run `python3 tools/very_deep_check.py '
+                    f'--refresh-blocks` after the last fix and commit the '
+                    f'account (practices/very-deep-check.md, "The run\'s full '
+                    f'account")')
+    return out
 
 
 @check('very-deep-check', 'tree',
@@ -7662,8 +7918,16 @@ _VDC_TESTS_DATE = '2026-10-18'
        "spec/VERY_DEEP_CHECK_LATEST_RUN.md exists and its `opened:` date is "
        "that run's date or later -- the run's full account was written, not "
        "left for the person to ask for -- and, for a run from 2026-10-17 on, "
-       "it carries a `## Checks by stage` section, and from 2026-10-18 on a "
-       "`## Test review` section",
+       "it carries a `## Checks by stage` section, from 2026-10-18 on a "
+       "`## Test review` section, and from 2026-11-01 on a `## Long Rules` "
+       "section; and, from 2026-11-01, that the account shows the work done: "
+       "every test TEST WORTH listed judged on this run's times, a verdict "
+       "line per incident INCIDENT COVERAGE listed (or, for either, a line "
+       "quoting the person agreeing to skip it), the component ledger's "
+       "quiet and unmeasured sections answered under this run's date, every "
+       "Pass 2 question listed with its answer, record/automated_actions.md "
+       "rewritten or confirmed in the run, and the stamped blocks measured "
+       "after the run's last commit to tools/ or practices/",
        "whether the account is any GOOD: a file with the right date and "
        "nothing in it passes. It also cannot see a run whose passes were "
        "never recorded with --record-pass, which is the other half of the "
@@ -7718,6 +7982,17 @@ def _very_deep_check_write_up(ctx):
             f'python3 tools/very_deep_check.py --refresh-tests, or restore '
             f'the block if the rewrite dropped it '
             f'(practices/very-deep-check.md, Pass 2 question 27)'))]
+    if date >= _VDC_LONG_RULES_DATE and not _VDC_LONG_RULES_HEADING.search(
+            path.read_text(encoding='utf-8', errors='ignore')):
+        return [Finding(_VDC_WRITE_UP, (
+            f'{where} has no `## Long Rules` section -- the longest quarter '
+            f'of each repo\'s active Rules, each with the session\'s verdict, '
+            f'kept or cut. Its LONGEST RULES section writes the list; re-run '
+            f'python3 tools/very_deep_check.py, or restore the block if the '
+            f'rewrite dropped it (practices/very-deep-check.md, Pass 3)'))]
+    if date >= _VDC_GUARDS_DATE:
+        return [Finding(_VDC_WRITE_UP, msg) for msg in _vdc_account_holds(
+            run, runs, path.read_text(encoding='utf-8', errors='ignore'))]
     return []
 
 
