@@ -92781,6 +92781,25 @@ def check_template_freshness_reads_the_skeleton_correctly():
         results.append(('the file the skeleton really lacks is still named',
                         'ONLY_HERE.md' in joined))
 
+        # OPTIONAL CONTENT is not shape. Two sources that each declare a
+        # reply rule both carry reply_check.json; a missing one means "no
+        # requirement", so the skeleton correctly ships none. Control: a
+        # file both carry that IS shape-like is still a FINDING, so the
+        # silence above is the exemption and not a blind scan.
+        two = []
+        for name in ('one', 'two'):
+            s = pathlib.Path(tmp) / name
+            (s / 'practices').mkdir(parents=True)
+            (s / 'reply_check.json').write_text('[]')
+            (s / 'BOTH_HAVE.md').write_text('x')
+            two.append({'level': 'shared', 'name': name, 'path': str(s)})
+        out2 = ' | '.join(vdc._template_freshness(two))
+        results.append(('reply_check.json that two sets carry is not a '
+                        'template gap', 'reply_check.json' not in out2))
+        results.append(('a file two sets carry that the skeleton lacks is '
+                        'still a FINDING (control)',
+                        'FINDING' in out2 and 'BOTH_HAVE.md' in out2))
+
     # The gap that motivated all of this must actually be closed.
     results.append(('the individual skeleton now ships an identity file',
                     any(f.name.startswith('identity.json')

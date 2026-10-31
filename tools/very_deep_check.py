@@ -4881,6 +4881,13 @@ def _template_freshness(sources):
     NOT_SKELETON |= (set(bss.ALL_SESSION_HOOKS)
                      | {'settings.json', 'CLAUDE.md', 'precedent.json',
                         'precedent-source.json'})
+    # OPTIONAL CONTENT, keyed to the set's own practices. A missing
+    # reply_check.json means "this set declares no reply requirement"
+    # (precedent_reply_check.declared_requirements), so an empty one in the
+    # skeleton would say nothing a missing one does not. Two shared sets that
+    # each enforce a reply rule both carry one; the 2026-10-30 run reported
+    # that as a template gap (practice: very-deep-check).
+    NOT_SKELETON |= {'reply_check.json'}
     # WHICH DIRECTORIES COUNT. Root files plus the two directories bootstrap
     # itself writes into -- those are the set's SHAPE. `practices/` and
     # anything else is the set's own content, where a name every set happens
