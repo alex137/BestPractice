@@ -47,7 +47,7 @@ exist, not because anyone should take it — it was retired 2026-09-23:
   practice on disk and none in force, and its sessions said so. A project
   that already vendored BestPractice this way migrates, per
   [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md);
-  `practice_audit.py` fails until it does.
+  [`practice_audit.py`](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) fails until it does.
 
 What a classic install did, in short, so you can recognize one — each step
 is spelled out in full at the link:
@@ -133,7 +133,7 @@ here rather than leaving to be discovered at the link.
   [§2 step 6](../INSTALL.md#2-take-an-upstream-update) has the seed
   command and the rename trap that forces a manual reseed.
 - **`output_paths` in `precedent.json` is usually the key you want**, and
-  omitting it is not neutral: `title_case.py` falls back to reasoning from
+  omitting it is not neutral: [`title_case.py`](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) falls back to reasoning from
   *Precedent's* directory names, so your whole tree reads as published and
   `headline-capitalization` reports headings you never meant to rewrite.
   [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader).
@@ -248,7 +248,7 @@ git repository you own, and anything in it applies everywhere you declare
 it — write the rule once, get it in every project.
 
 **You do not need anything from upstream to start.** Since 2026-09-21
-`tools/precedent_bootstrap_source.py` ships with the engine into every
+[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py) ships with the engine into every
 project that installs Precedent, so the tool that creates a practice set is
 already sitting in your own `tools/` directory:
 
@@ -338,7 +338,7 @@ runs at each one:
    Issue body for `alex137/BestPractice`, labeled `precedent-candidate`,
    since nothing world-readable is ever committed to a `candidates/`
    directory here (see [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)).
-2. **Check and draft it.** `precedent_promote.py` runs the candidate against four
+2. **Check and draft it.** [`precedent_promote.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_promote.py) runs the candidate against four
    criteria — recurrence or real cost, reachability (a check, a narrow
    `applies_to`, or an occasion), non-duplication, and resident-budget fit
    — and drafts a practice file only if all four pass:
@@ -350,7 +350,7 @@ runs at each one:
    nothing to guess at.
 3. **Get the approval the level requires** — see the next section. This is
    the one human step nothing here skips.
-4. **Land it.** `precedent_land.py` re-runs the same four criteria (it
+4. **Land it.** [`precedent_land.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_land.py) re-runs the same four criteria (it
    never trusts a prior promotion), then writes the file and regenerates
    the repo's generated views:
    ```
@@ -474,7 +474,7 @@ refused). That is the person's call, not an AI Assistant's.
 Landing a *new* enforced practice carries a hard rule, not a suggestion:
 `precedent_land.py` refuses a `checked_by` claim with no registered,
 tested check behind it — a slug has to already be a key in
-`precedent_check.py`'s registry (universal) or have both a
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s registry (universal) or have both a
 `tools/checks/check_<name>.py` and a passing
 `tools/checks/tests/test_<name>.sh` (shared/individual) before it can land.
 
