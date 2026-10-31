@@ -173,3 +173,25 @@ scope for this run).
   silently when a single-branch clone lacks the base, and the very deep
   check's own run record tripping two checks in a consumer. Its update ends
   "left for you" until two private copied-in sets are attached.
+
+2026-10-31, live on `main` in all four repositories (BestPractice #1450, ladder
+#156, writing #214, individual #374); GitHub's test passed on BestPractice's
+`main`, and each set's full suite passed on its own. Still open, each asked of
+Morgan with the session's pick (needs: a decision -- Morgan's):
+
+- **The session-start deepen (call 4):** deepen only the current branch by
+  about 100, after measuring that the three history-reading tools still see
+  enough, and change `freshness-guard.sh` with it -- or keep the full fetch
+  and close this. Pick: measure first, in a session of its own.
+- **The writing set's hook here (call 9):** close as already right. Pick: yes.
+- **The consumer's update:** its branch stops at "left for you" until two
+  private copied-in sets are attached read-only. Pick: attach them next run,
+  then land it by Update Vendors.
+- **"Never leave work on a branch":** its reply check is still in the
+  individual set while its practice moved to the ladder set, so nobody else
+  bringing the ladder gets it. Pick: move it.
+- **The ladder's words in universal's finished-plan rule** (`plan_words`):
+  inert without the ladder's `stage_line`. Pick: move them to the ladder set.
+- **An assumption made on Morgan's behalf:** the ladder's file header is now
+  re-stamped with whoever edits the file, where before only one person's
+  headers were read. A one-line change reverts it.
