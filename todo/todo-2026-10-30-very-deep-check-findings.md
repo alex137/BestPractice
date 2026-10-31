@@ -125,3 +125,12 @@ What each answer became is noted at the end of this item.
 (the exemption was already in place). Calls 2, 5 and 6 are on the branch
 `2026-10-31-themorgan-vdc-approved-calls-hv5gd-i86bb`. The rest went to helpers
 of the same session; each one's outcome is added here when it lands.
+
+2026-10-31, call 12 (the visibility probe): answered without attaching
+anything. The account's own repository list carries each repository's
+visibility. Of the 13 real-owner names the audit could not check,
+`alex137/GitAround` is private and is named in
+[WHERE_THINGS_ARE.md](../WHERE_THINGS_ARE.md) on purpose, as a row that says
+so; the other twelve are not repositories on either account any more (retired
+set names, fixtures and placeholders), so naming them discloses nothing. No
+change to the tree.
