@@ -56335,14 +56335,24 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
     import contextlib, inspect, io
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_gate as pg
+    import precedent_reply_check as prc
     cases = []
-    saved = (pg._container_report, pg._is_code_owner)
+    saved = (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+             prc._own_branches)
     report = ('CONTAINER NOT SAFE TO LOSE -- 1 of 2 checkout(s) hold work that '
               'is only here:\n  scratch:abc -- 1 file(s) in a scratch folder')
 
     def gate(owner):
         pg._container_report = lambda: report
         pg._is_code_owner = lambda _root: owner
+        # Neither of these writes a word this test reads, and together they
+        # were about 6 of each call's 6.5 s (2026-10-31): a set's own note
+        # tool, run as a subprocess, and the scan of this session's real
+        # branches on origin for the Boildown's one-line form. Stubbed, the
+        # asserted text is the same and no longer depends on which branches
+        # the session running the harness happens to have pushed.
+        pg._note_from_tool = lambda _root, _spec: []
+        prc._own_branches = lambda root=None, siblings=True: []
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             pg._print_hard_requirements(ROOT)
@@ -56369,7 +56379,8 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
         cases.append(('...and no plain-words instruction',
                       "NOT one of this repository's code owners" not in out, ''))
     finally:
-        pg._container_report, pg._is_code_owner = saved
+        (pg._container_report, pg._is_code_owner, pg._note_from_tool,
+         prc._own_branches) = saved
     # 2026-10-12, Morgan: "Nothing technical should ever be said to a non
     # technical person." The other places that speak through a session.
     import precedent_session_check as psc
@@ -66903,11 +66914,24 @@ def check_tools_answer_help_without_writing():
                      if "__main__" not in t.read_text(encoding='utf-8')]
         tools = [t for t in tools if t not in libraries]
         bad_exit, silent, not_help = [], [], []
-        for tool in tools:
-            r = subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
-                                '--help'],
-                               cwd=str(tmp), capture_output=True, text=True,
-                               timeout=120)
+
+        # SIDE BY SIDE (2026-10-31): about 150 interpreters, one after
+        # another, were nearly all of this check's 16 s. They run in the
+        # same copy; the snapshot after all of them still catches any write,
+        # and the results are judged below in the tools' own order. The
+        # whole tracked tree is still copied: a tool whose --help fell
+        # through to a write needs the files it would rewrite to be there,
+        # or the copy would hide exactly what this check is for.
+        def _help(tool):
+            return subprocess.run([sys.executable, str(tmp / 'tools' / tool.name),
+                                   '--help'],
+                                  cwd=str(tmp), capture_output=True, text=True,
+                                  timeout=120)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(
+                max_workers=os.cpu_count() or 2) as _pool:
+            _answers = list(_pool.map(_help, tools))
+        for tool, r in zip(tools, _answers):
             if r.returncode != 0:
                 bad_exit.append(f'{tool.name} exited {r.returncode}')
             elif not r.stdout.strip():
