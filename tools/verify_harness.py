@@ -33951,11 +33951,25 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             return {'type': 'user', 'origin': {'kind': 'human'},
                     'message': {'role': 'user', 'content': t}}
 
-        def started(task_id, extra=''):
+        def started(task_id, extra='', output=None):
+            # The output file exists, as it does for a job running here; a
+            # job from a replaced container names one that does not.
+            if output is None:
+                output = tmp / f'{task_id}.output'
+                output.write_text('', encoding='utf-8')
             return {'type': 'user', 'message': {'role': 'user', 'content': [
                 {'type': 'tool_result', 'tool_use_id': 't-' + task_id,
                  'content': extra + 'Command running in background with ID: '
-                            f'{task_id}. Output is being written to: x'}]}}
+                            f'{task_id}. Output is being written to: {output}. '
+                            'You will be notified when it completes.'}]}}
+
+        def helper(agent_id):
+            return {'type': 'user', 'message': {'role': 'user', 'content': [
+                {'type': 'tool_result', 'tool_use_id': 'a-' + agent_id,
+                 'content': [{'type': 'text', 'text':
+                              'Async agent launched successfully. (internal)\n'
+                              f'agentId: {agent_id} (internal ID)\nThe agent '
+                              'is working in the background.'}]}]}}
 
         def notice(task_id, status=None, summary='', event=''):
             body = f'<task-id>{task_id}</task-id>'
@@ -34078,6 +34092,32 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
                       'the Boildown is still required',
                       r8.returncode == 2 and 'HEADING' in r8.stderr,
                       f'exit {r8.returncode}: {r8.stderr[:200]}'))
+
+        # 2026-10-31: a job started in a container since replaced (its
+        # output file is not on this machine) is not running; the gate held
+        # one such job "still running" for eight hours.
+        dead = [human('Debut all four'), said(''),
+                started('old', output=tmp / 'gone-container' / 'old.output'),
+                started('aaa'), said('Both running.\n\n## Boildown\n- x\n')]
+        r9 = run(transcript('dead-job.jsonl', dead + [
+            wake(notice('aaa', 'completed', done_ok)), said(report)]))
+        cases.append(('a job whose output file is gone (an earlier container) '
+                      'is not running: the last live job\'s report passes',
+                      r9.returncode == 0, f'exit {r9.returncode}: {r9.stderr[:300]}'))
+        helpers = [human('check it'), said(''), helper('agone'), helper('agtwo'),
+                   said('Two helpers on it.\n\n## Boildown\n- x\n')]
+        r10 = run(transcript('helpers.jsonl', helpers + [
+            wake(notice('agone', 'completed', 'Agent "one" finished')),
+            said('(Waiting on the second helper.)')]))
+        cases.append(('one helper of two done: one waiting line passes',
+                      r10.returncode == 0, f'exit {r10.returncode}: {r10.stderr[:300]}'))
+        r11 = run(transcript('helpers-report.jsonl', helpers + [
+            wake(notice('agone', 'completed', 'Agent "one" finished')),
+            said(report)]))
+        cases.append(('...and a full report while the other helper runs is '
+                      'refused, naming it',
+                      r11.returncode == 2 and 'agtwo' in r11.stderr,
+                      f'exit {r11.returncode}: {r11.stderr[:300]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
