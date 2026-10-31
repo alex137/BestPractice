@@ -63042,19 +63042,25 @@ def check_land_skips_a_push_the_pull_request_guard_would_refuse():
     Negative control, measured 2026-10-30: with _takes_pull_request
     returning [] the first case fails -- the hook records the push."""
     import tempfile
-    # The guard is the ladder set's file, shipped into a session's tools/
-    # (never tracked here): GitHub's test has no ladder set, and copying it
-    # from ROOT failed main's test there (2026-10-30, issue #1424).
-    guard = next((g for g in (ROOT / 'tools' / 'landing_pr_guard.py',
-                              ROOT.parent / 'precedent-shared-ladder' / 'tools'
-                              / 'landing_pr_guard.py')
-                  if g.is_file()), None)
-    if guard is None:
-        not_applicable('--land skips a push the pull-request guard would refuse',
-                       'the ladder set\'s landing_pr_guard.py is not here: the '
-                       'set is not attached and its file not shipped')
-        return
+    # A PLANTED GUARD, never a set's own file (2026-10-30 very deep check,
+    # SET INDEPENDENCE). The real guard is a practice set's, and this test
+    # read it from a sibling clone by the set's name: an engine test that
+    # depended on one set being attached, and skipped on GitHub where none
+    # is. What the engine owns is the contract _takes_pull_request calls --
+    # in_force(), changed(root, base, tip), risky(root, paths, rev) -- so the
+    # fixture plants a guard that keeps it and calls one file risky.
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-skip-'))
+    guard = tmp / 'landing_pr_guard.py'
+    guard.write_text(
+        'import subprocess\n'
+        'def in_force():\n    return True\n'
+        'def changed(root, base, tip):\n'
+        '    r = subprocess.run(["git", "-C", str(root), "diff", "--name-only",\n'
+        '                        f"{base}...{tip}"], capture_output=True, text=True)\n'
+        '    return None if r.returncode else [p for p in r.stdout.splitlines() if p]\n'
+        'def risky(root, paths, rev):\n'
+        '    return [p for p in paths if p == "tools/verify_harness.py"]\n',
+        encoding='utf-8')
     cases = []
     try:
         hooks = tmp / 'hooks'
