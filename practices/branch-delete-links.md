@@ -8,7 +8,7 @@ applies_to:  ["tools/very_deep_check.py", "record/stale_branches.md", "spec/VERY
 applies_to_why: "The distinguishing condition is that branch-sweep OUTPUT is being written -- the engine function that builds a delete link, the committed report it writes, or the document embedding the checkout's safe-to-delete list. All three are paths, so the glob identifies the practice rather than merely accompanying it. Deliberately NOT `**` and deliberately NOT practices/**. The globs alone were the whole routing until 2026-09-21, and that was the bug: they reach an audit and never reach an ordinary reply that names one branch, which is where nearly every branch mention actually happens. The `reply` gate was added for that case; the globs stay for the audit case. Decided: 2026-09-21, when the practice landed at universal; gate added the same day, Morgan."
 occasion:    "telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's"
 gates:       ["reply"]
-gates_why:   "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens, and it is the same moment the-boildown's item 6 is written."
+gates_why:   "A reply naming a branch as deletable has no file to match on. Morgan, 2026-09-21: the link has to arrive \"always always always\", and the miss was structural -- the path channel cannot see a sentence. The reply gate is the moment the naming happens."
 index_clause: "every branch named deletable is a filtered-page link naming what
   it merged into, never a blocker"
 index_required: false
@@ -98,7 +98,7 @@ front of somebody.
 deletable *because* its work landed somewhere, and the offer is unreadable
 without that: "both branches are merged and can go" asks the reader to take on
 trust that the work reached the branch they care about, which is the one thing
-they would actually want to check. Name it — `precedent-beta-v01`, `main` — and
+they would actually want to check. Name it — `main`, or whatever it is called — and
 never a role-word standing in for it ("the base branch", "the default branch").
 In a repository whose configured default and whose working branch are two
 different branches, the role-word and the name point at different places, and

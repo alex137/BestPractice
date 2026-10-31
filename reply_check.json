@@ -6,11 +6,11 @@
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "Done.\n\n## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n",
+        "reply": "Done.\n\n## Boildown\n- The work of this session is now on: staging.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n**Boildown**\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n",
+        "reply": "Done.\n\n**Boildown**\n- The work of this session is now on: staging.\n",
         "refused": true
       }
     ]
@@ -27,11 +27,11 @@
     "id": "boildown-first-bullet",
     "_examples": [
       {
-        "reply": "Done.\n\n## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n- Next: nothing.\n",
+        "reply": "Done.\n\n## Boildown\n- The work of this session is now on: staging.\n- Next: nothing.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## Boildown\n- Next: nothing.\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n",
+        "reply": "Done.\n\n## Boildown\n- Next: nothing.\n- The work of this session is now on: staging.\n",
         "refused": true
       }
     ]
@@ -198,22 +198,22 @@
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n- Don't archive this session.\n",
+        "reply": "## Boildown\n- The work of this session is now on: staging.\n- Don't archive this session.\n",
         "refused": true,
         "timeline": [
           [
             1000,
-            "Earlier work.\n\n## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n- Don't archive this session.\n"
+            "Earlier work.\n\n## Boildown\n- The work of this session is now on: staging.\n- Don't archive this session.\n"
           ]
         ]
       },
       {
-        "reply": "## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n- Now landed on staging too.\n- Don't archive this session.\n",
+        "reply": "## Boildown\n- The work of this session is now on: staging.\n- Now landed on staging too.\n- Don't archive this session.\n",
         "refused": false,
         "timeline": [
           [
             1000,
-            "Earlier work.\n\n## Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked).\n- Don't archive this session.\n"
+            "Earlier work.\n\n## Boildown\n- The work of this session is now on: staging.\n- Don't archive this session.\n"
           ]
         ]
       }
@@ -291,27 +291,27 @@
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** yes or no on syncing the book's voice pack from the voice repo. My pick is yes. It stays in the open item if you don't answer.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo\n- **Your next steps:** yes or no on syncing the book's voice pack from the voice repo. My pick is yes. It stays in the open item if you don't answer.\n- You can archive this session.\n",
         "refused": true
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** the voice pack question is the only one open, as before. It waits in [the open item](todo/x.md).\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo\n- **Your next steps:** the voice pack question is the only one open, as before. It waits in [the open item](todo/x.md).\n- You can archive this session.\n",
         "refused": true
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:**\n  - Paste the prompt below into a new session rooted in BestPractice.\n  - Answer the question above.\n- Process idea: none.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:**\n  - Paste the prompt below into a new session rooted in BestPractice.\n  - Answer the question above.\n- Process idea: none.\n",
         "refused": true
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo (you have finished step 5 of 5, Produce)\n- **Your next steps:** should the book's voice rules be refreshed from the newer copy in the voice repo? Yes means the next voice pass uses the new rules; no keeps the book on the copy it has now. My pick is yes, because the newer copy fixes the dialogue rules. If you say nothing it waits in [the open item](todo/x.md).\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `main` in the book repo\n- **Your next steps:** should the book's voice rules be refreshed from the newer copy in the voice repo? Yes means the next voice pass uses the new rules; no keeps the book on the copy it has now. My pick is yes, because the newer copy fixes the dialogue rules. If you say nothing it waits in [the open item](todo/x.md).\n- You can archive this session.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** Nothing for you to decide right now.\n- You can archive this session.\n",
         "refused": false
       }
     ]
@@ -323,36 +323,27 @@
       "heading": "boildown",
       "item": "^\\W*your next steps\\b",
       "plan_file_written": "(?:^|/)spec/[^/]+\\.md$|_PLAN\\.md$|(?:^|/)plans?/[^/]+\\.md$",
-      "stage_line": "\\bfinished step 1 of 5\\b[^)]{0,10}\\bConsider\\b",
       "plan_words": "\\b(?:plan it|brainstorm|write it up|spec it out|one-line plan|(?:the|this|my|a|our) plan(?! of record))\\b",
       "plan_line": "^\\W*Plan:",
       "ask": "\\bdo you want (?:me |us )?to act on (?:this|the|that|my) plan\\b",
       "tell": "\\bI(?:'|’)?m (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b|\\bI am (?:already |now )?(?:acting on|carrying out) (?:this|the|that|my) plan\\b"
     },
-    "why": "Morgan, 2026-10-30 (strength: decided), after reading a session's replies twice: \"you made a plan ... nowhere did you suggest that we could act on this plan ... if a session has just considered or made any sort of plan, then upon the completion of the plan, it needs to ask or tell me to see if I want to implement the plan.\" A plan of any size -- Consider, Brainstorm, Plan it, Write it up -- is finished in a reply that writes a plan file, that says Consider on its first Boildown line while making a plan, or that adds a **Plan:** line the last reply lacked. That reply asks \"Do you want to act on this plan?\" under Your next steps, where boildown-ask-states-its-question already wants what acting does and the session's pick; or, when the session is already carrying it out, says \"I'm acting on this plan\".",
+    "why": "Morgan, 2026-10-30 (strength: decided), after reading a session's replies twice: \"you made a plan ... nowhere did you suggest that we could act on this plan ... if a session has just considered or made any sort of plan, then upon the completion of the plan, it needs to ask or tell me to see if I want to implement the plan.\" A plan of any size is finished in a reply that writes a plan file, or that adds a **Plan:** line the last reply lacked; a set with stages may add a `stage_line` its first Boildown line matches while the reply makes a plan (2026-10-31: that trigger moved out of this file, which a person who does not bring that set reads). That reply asks \"Do you want to act on this plan?\" under Your next steps, where boildown-ask-states-its-question already wants what acting does and the session's pick; or, when the session is already carrying it out, says \"I'm acting on this plan\".",
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
-        "refused": true
-      },
-      {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** read the write-up.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice\n- **Your next steps:** read the write-up.\n- You can archive this session.\n",
         "refused": true,
         "written": [
           "/home/user/BestPractice/spec/NEW_THING_PLAN.md"
         ]
       },
       {
-        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Do you want to act on this plan? Yes means I build the three steps on a feature branch and land them on staging, about 40 minutes; no leaves it as a plan in this reply. My pick is yes, because the gap it closes keeps costing replies.\n- You can archive this session.\n",
+        "reply": "Here is the plan: three steps. 1. Add the check. 2. Add the tests. 3. Land it on staging.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet\n- **Your next steps:** Do you want to act on this plan? Yes means I build the three steps on a feature branch and land them on staging, about 40 minutes; no leaves it as a plan in this reply. My pick is yes, because the gap it closes keeps costing replies.\n- You can archive this session.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice (you have finished step 2 of 5, Act)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** **Plan:** [the plan](spec/X_PLAN.md), steps 2 and 3 left; I'm acting on this plan: step 2 is running in [the test session](https://claude.ai/code/session_x) and I start step 3 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
-        "refused": false
-      },
-      {
-        "reply": "The gate reads the transcript.\n\nDone.\n\n## The Boildown\n- The work of this session is now on: no branch yet (you have finished step 1 of 5, Consider)\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: `2026-10-30-x` in BestPractice\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** **Plan:** [the plan](spec/X_PLAN.md), steps 2 and 3 left; I'm acting on this plan: step 2 is running in [the test session](https://claude.ai/code/session_x) and I start step 3 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
         "refused": false
       }
     ]
@@ -376,23 +367,23 @@
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- **Plan:** [the plan](spec/X_PLAN.md), steps 3 and 4 left.\n- Sessions this one spawned: [step 3](https://claude.ai/code/session_x).\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** Nothing for you to decide right now.\n- **Plan:** [the plan](spec/X_PLAN.md), steps 3 and 4 left.\n- Sessions this one spawned: [step 3](https://claude.ai/code/session_x).\n- Don't archive this session.\n",
         "refused": true
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to decide right now.\n- **What's blocking:** the plan is still going.\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** Nothing for you to decide right now.\n- **What's blocking:** the plan is still going.\n- Don't archive this session.\n",
         "refused": true
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** step 3 of the plan is running in [the vendor session](https://claude.ai/code/session_x); I start step 4 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** step 3 of the plan is running in [the vendor session](https://claude.ai/code/session_x); I start step 4 when it reports back, about 06:10 Buenos Aires time.\n- Don't archive this session.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** merge [the pull request](https://github.com/o/r/pull/1); I land the rest once it is in.\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** merge [the pull request](https://github.com/o/r/pull/1); I land the rest once it is in.\n- Don't archive this session.\n",
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice (you have finished step 3 of 5, Booked)\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** the full test suite is running in the background; I report when it finishes, about 05:50 Buenos Aires time.\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** Nothing for you to do now.\n- **What's blocking:** the full test suite is running in the background; I report when it finishes, about 05:50 Buenos Aires time.\n- Don't archive this session.\n",
         "refused": false
       }
     ]

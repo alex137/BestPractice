@@ -4,7 +4,7 @@ kind:              analysis
 domain:            null
 severity:          null
 status:            open
-disposition:       wait
+disposition:       parked
 remind_on:         null
 blocked_on:        null
 batch:             null
@@ -23,6 +23,8 @@ closed:            null
    practice, a small companion app (pick repo → type task → open
    assistant with the bootstrap prompt) is the next step — noting that
    this is real app development, not documentation.
+
+**Disposition:** parked (2026-10-31, Morgan, 2026-10-31 (strength: assented): "do your recommendations for all", on the very deep check's pick to park it)
 
 ## How It Closes
 

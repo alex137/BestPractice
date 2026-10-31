@@ -1329,6 +1329,31 @@ def _changed_paths(root, since, kinds='AMR'):
     return [l for l in (out or '').splitlines() if l.strip()]
 
 
+def ensure_base(root, since):
+    """-> True when `since` names a commit here, fetching an `origin/<branch>`
+    base first when this clone has no such ref; False when it still does not.
+
+    WHY (2026-10-31, a consumer's very deep check). A clone made with one
+    branch has a fetch refspec for main alone, so `origin/staging` -- the
+    base a push to staging is measured from -- never exists in it, and
+    `git fetch origin staging` writes only FETCH_HEAD. The diff against the
+    missing ref failed, read as no output, and the per-file step reported
+    "0 changed file(s) checked, 0 problem(s)" on a commit that changed 26
+    files, Python among them. An explicit refspec fetches the one branch
+    without widening the clone."""
+    if not since:
+        return False
+    if git(root, 'rev-parse', '--verify', '-q', f'{since}^{{commit}}') is not None:
+        return True
+    if since.startswith('origin/') and len(since) > len('origin/'):
+        branch = since[len('origin/'):]
+        git(root, 'fetch', '-q', 'origin',
+            f'+refs/heads/{branch}:refs/remotes/origin/{branch}')
+        return git(root, 'rev-parse', '--verify', '-q',
+                   f'{since}^{{commit}}') is not None
+    return False
+
+
 def _is_engine_check(root, rel):
     """True for a check script the engine itself ships: BestPractice's own
     tools/checks/, or one a vendored engine's ENGINE_MANIFEST.json lists."""
@@ -1496,6 +1521,10 @@ def _new_tests_have_times(root, since, files, problems):
     diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--',
                'tools/verify_harness.py') or ''
     added = re.findall(r'^\+def (check_\w+)\(', diff, re.M)
+    # 2026-10-30: 7e5d9d26 deleted two tests and left their times, and the
+    # full suite's partition case failed on main until a very deep check
+    # found it -- a deletion is the other half of the same record.
+    removed = set(re.findall(r'^-def (check_\w+)\(', diff, re.M)) - set(added)
     try:
         known = json.loads((root / 'tools' / 'harness_check_times.json')
                            .read_text(encoding='utf-8')).get('seconds') or {}
@@ -1508,6 +1537,13 @@ def _new_tests_have_times(root, since, files, problems):
             f'recorded time ({", ".join(missing)}) -- run `python3 '
             f'tools/verify_harness.py --record-new-times` and commit '
             f'tools/harness_check_times.json with them')
+    stale = sorted(n for n in removed if n in known)
+    if stale:
+        problems.append(
+            f'tools/verify_harness.py deletes {len(stale)} test(s) whose '
+            f'recorded time is still kept ({", ".join(stale)}) -- run '
+            f'`python3 tools/verify_harness.py --record-new-times`, which '
+            f'drops them, and commit tools/harness_check_times.json')
 
 
 def _retired_engine_files_unanswered(root, since):
@@ -1618,6 +1654,18 @@ def changed_files_check(root, since):
     """-> 0 when every file the change touches is sound, 1 with each
     problem named. Reads nothing but the changed files, and the views a
     changed practice feeds."""
+    # A base that does not resolve is a scan that cannot run, never a clean
+    # one (ensure_base has the incident; practice: very-deep-check, "never
+    # pass silently on a scan that never ran").
+    if not ensure_base(root, since):
+        branch = since[len('origin/'):] if str(since).startswith('origin/') \
+            else '<branch>'
+        print(f'changed_files: the base `{since}` names no commit here, even '
+              f'after fetching it, so no changed file could be read -- this '
+              f'is not a pass. Fetch it (`git fetch origin '
+              f'+refs/heads/{branch}:refs/remotes/origin/{branch}`) or name '
+              f'the base with --changed-since REF, and run it again.')
+        return 1
     files = _changed_paths(root, since)
     problems = []
     for rel in files:
@@ -2500,6 +2548,11 @@ def main(argv):
     if note:
         print(note, file=sys.stderr)
     since = _changed_since(root, argv) if tier == BASIC else None
+    if since:
+        # Fetched once here, so every check reading PRECEDENT_CHANGED_SINCE
+        # gets a ref that resolves; changed_files_check refuses if it still
+        # does not.
+        ensure_base(root, since)
     # Where the push goes and what it changes, for the checks this runs: a
     # practice set's own check may judge a push by its destination -- the
     # ladder's go-update refuses a high-risk change landing with no pull

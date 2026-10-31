@@ -476,8 +476,39 @@ def unknown_landing(root, user_config=None):
     return None
 
 
+def ladder_unreadable(root, user_config=None):
+    """-> [(name, path)] of the sets declared or brought here that are not on
+    disk while nothing on disk provides the ladder, so whether it is in force
+    cannot be read; [] when it can, or with an engine older than the helper."""
+    try:
+        here = str(pathlib.Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import precedent_ladder
+        if precedent_ladder.pr.no_ladders():
+            return []
+        return list(precedent_ladder.ladder_unreadable(root, user_config))
+    except Exception:                                       # noqa: BLE001
+        return []
+
+
 def _landing_by_ladder(root, ladder, user_config=None):
     """landing_branch's rule once the ladder can be asked about."""
+    if not ladder and repo_has_tiers(root):
+        missing = ladder_unreadable(root, user_config)
+        if missing:
+            # A missing set reads exactly like one that does not provide the
+            # ladder, and "off the ladder" here means main -- the one answer
+            # that skips staging. Until the set arrives, land where a person
+            # on the ladder would: staging promotes nothing live, so the
+            # wrong guess costs a Produce, never an unreviewed main
+            # (2026-10-30 very deep check: --landing said main before the
+            # ladder set was cloned and staging after).
+            return staging_branch(root), (
+                'whether the ladder is in force for you cannot be read: '
+                + ', '.join(f'{n} (expected at {p})' for n, p in missing)
+                + ' is not on disk. Landing on staging, the repository\'s '
+                'tier, until it is; attach it and ask again')
     person, where = None, None
     for path in _identity_files(root, user_config):
         ident = _read_json(path)

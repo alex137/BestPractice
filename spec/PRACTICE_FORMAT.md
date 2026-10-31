@@ -625,7 +625,7 @@ it parses as a date:
 | Shape | Example | What happens |
 |---|---|---|
 | **A date** | `expires: "2027-03-01"` | Enforced. Once the date passes and the practice is still `active`, [tools/precedent_check.py](../tools/precedent_check.py) fails until somebody decides. |
-| **A condition** | `expires: "when precedent-beta-v01 is merged into main"` | Never auto-evaluated. [tools/very_deep_check.py](../tools/very_deep_check.py) lists it every run so a person judges whether it has happened. |
+| **A condition** | `expires: "when a ruleset on the repository restricts deleting main and staging"` | Never auto-evaluated. [tools/very_deep_check.py](../tools/very_deep_check.py) lists it every run so a person judges whether it has happened. |
 
 **An expiry never withdraws a rule on its own, and that is the whole design
 constraint.** A practice past its date stays `active` and stays binding —
@@ -644,7 +644,7 @@ conditions *are* individually checkable, and one of those can grow its own
 check later; the field does not pretend to be that check.
 
 **Writing a good condition:** name an observable event, not a feeling.
-*"when precedent-beta-v01 is merged into main"* is something anyone can go
+*"when a ruleset on the repository restricts deleting main and staging"* is something anyone can go
 and look at. *"when the migration settles down"* is not, and will still be
 sitting there in a year.
 
@@ -1103,12 +1103,12 @@ Each clause still has to make sense read under the shared line.
 
 ## `command:` — The Standing Phrases A Practice Defines
 
-**Optional, and empty for all but a dozen practices.** A practice that
+**Optional, and empty for all but seventeen practices in this catalogue (2026-10-31).** A practice that
 defines a standing command — a phrase a person types and every session is
 guaranteed to recognize — declares its own trigger phrases here:
 
 ```
-command:     {"Go merge": "Save the work, publish it, and tell you where it went."}
+command:     {"Drop it": "Mark the open question as parked and drop the subject. It won't be raised again unless you raise it."}
 ```
 
 An object mapping **each trigger phrase** to **the plain sentence a person

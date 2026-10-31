@@ -47,7 +47,7 @@ exist, not because anyone should take it — it was retired 2026-09-23:
   practice on disk and none in force, and its sessions said so. A project
   that already vendored BestPractice this way migrates, per
   [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md);
-  `practice_audit.py` fails until it does.
+  [`practice_audit.py`](https://github.com/alex137/BestPractice/blob/staging/tools/practice_audit.py) fails until it does.
 
 What a classic install did, in short, so you can recognize one — each step
 is spelled out in full at the link:
@@ -66,10 +66,13 @@ is spelled out in full at the link:
    plain documents) are the exception:
    both ship near-empty and **stay that way** — see "Optional, and
    deliberately left for later" below.
-3. **Ask the two questions only a person can answer** — which private
-   names and code words must never reach a public file (this becomes the
-   leak blocklist), and whether the team or the person already has a
-   practices repo to wire in.
+3. **Ask the five questions only a person can answer**, listed with their
+   defaults in
+   [spec/INSTALL_QUESTIONS.md](https://github.com/alex137/BestPractice/blob/staging/spec/INSTALL_QUESTIONS.md):
+   what the project is about; which private names and code words must
+   never reach a public file (this becomes the leak blocklist); whether the
+   team or the person already has a practices repo to wire in; which AI
+   assistant will work in the repo; and whether its GitHub workflows are on.
 4. **Write the manifest** ([INSTALL.md §5](../INSTALL.md#5-the-manifest-schema-processmanifestjson))
    and **run the audit** ([§6](../INSTALL.md#6-the-audit-toolspractice_auditpy)).
 5. **Commit on a branch and open a pull request.** Nothing is official
@@ -130,7 +133,7 @@ here rather than leaving to be discovered at the link.
   [§2 step 6](../INSTALL.md#2-take-an-upstream-update) has the seed
   command and the rename trap that forces a manual reseed.
 - **`output_paths` in `precedent.json` is usually the key you want**, and
-  omitting it is not neutral: `title_case.py` falls back to reasoning from
+  omitting it is not neutral: [`title_case.py`](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) falls back to reasoning from
   *Precedent's* directory names, so your whole tree reads as published and
   `headline-capitalization` reports headings you never meant to rewrite.
   [§0 step 2](../INSTALL.md#0-installing-directly-onto-the-precedent-loader).
@@ -245,7 +248,7 @@ git repository you own, and anything in it applies everywhere you declare
 it — write the rule once, get it in every project.
 
 **You do not need anything from upstream to start.** Since 2026-09-21
-`tools/precedent_bootstrap_source.py` ships with the engine into every
+[`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py) ships with the engine into every
 project that installs Precedent, so the tool that creates a practice set is
 already sitting in your own `tools/` directory:
 
@@ -262,16 +265,19 @@ tired of repeating is a good set. The catalogue you are reading grew that
 way, one practice at a time, each one written down the first time somebody
 got it wrong twice.
 
-Every level except repo-local is a genuinely separate git repository,
-resolved live into the project rather than copied in — a team or
-individual source is a sibling checkout your session needs read access
-to, not a folder inside the shared project. A project declares which
-sources apply to it in a `precedent.json` at its root:
+Every level except repo-local is a separate git repository. The universal
+library is copied into the project at `process/upstream/`, and Update
+Vendors refreshes it. A shared or individual source is normally resolved
+live: a sibling checkout your session needs read access to, not a folder
+inside the shared project. A shared set can be copied in instead, like the
+universal one, so it never has to arrive at session start
+([spec/VENDORED_SHARED_SETS.md](https://github.com/alex137/BestPractice/blob/staging/spec/VENDORED_SHARED_SETS.md)). A project
+declares which sources apply to it in a `precedent.json` at its root:
 
 ```json
 {
   "sources": [
-    {"level": "universal", "name": "precedent", "path": "process/upstream"},
+    {"level": "universal", "name": "precedent", "path": "precedent/universal"},
     {"level": "shared", "name": "<your shared-set repo>", "path": "../<your shared-set repo>"}
   ]
 }
@@ -332,7 +338,7 @@ runs at each one:
    Issue body for `alex137/BestPractice`, labeled `precedent-candidate`,
    since nothing world-readable is ever committed to a `candidates/`
    directory here (see [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md)).
-2. **Check and draft it.** `precedent_promote.py` runs the candidate against four
+2. **Check and draft it.** [`precedent_promote.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_promote.py) runs the candidate against four
    criteria — recurrence or real cost, reachability (a check, a narrow
    `applies_to`, or an occasion), non-duplication, and resident-budget fit
    — and drafts a practice file only if all four pass:
@@ -344,7 +350,7 @@ runs at each one:
    nothing to guess at.
 3. **Get the approval the level requires** — see the next section. This is
    the one human step nothing here skips.
-4. **Land it.** `precedent_land.py` re-runs the same four criteria (it
+4. **Land it.** [`precedent_land.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_land.py) re-runs the same four criteria (it
    never trusts a prior promotion), then writes the file and regenerates
    the repo's generated views:
    ```
@@ -468,7 +474,7 @@ refused). That is the person's call, not an AI Assistant's.
 Landing a *new* enforced practice carries a hard rule, not a suggestion:
 `precedent_land.py` refuses a `checked_by` claim with no registered,
 tested check behind it — a slug has to already be a key in
-`precedent_check.py`'s registry (universal) or have both a
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py)'s registry (universal) or have both a
 `tools/checks/check_<name>.py` and a passing
 `tools/checks/tests/test_<name>.sh` (shared/individual) before it can land.
 

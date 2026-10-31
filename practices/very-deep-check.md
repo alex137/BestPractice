@@ -21,342 +21,94 @@ added:       null
 approved_by: "Morgan F -- he revised, restructured, extended and bounded this practice repeatedly between 2026-09-05 and 2026-09-23. The practice itself first landed pending review, and one 2026-09-12 extension is still PENDING REVIEW, approved by nobody. Every change, its date, its strength and the words that authorized it: ## Story, 'Approval history'."
 ---
 ## Rule
-When a person explicitly asks for a "very deep check", run
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) and work the four
-passes in Detail, in that order. The tool enumerates the scope — this
-checkout's own top-level documents, plus the `practices/*.md` tree of every
-source in force, resolved exactly the way
-[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) resolves them for
-ordinary loading — and points at the passes (`--checklist` prints them in
-full); reading and judging that scope is
-the session's work, and is nearly the whole cost of this check. The check
-itself is never wired into a commit, push, or merge gate (only its finished
-run's account is, below) — the mechanical audits and
-[routing-audit](routing-audit.md) already cover what can be checked cheaply
-and often; this covers what can only be judged, and is deliberately rare
-because the judging is expensive.
+**When a person explicitly asks for a "very deep check", run
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)
+and work the four passes in Detail, in that order.** The tool proves every
+repo current, enumerates the scope and prints its sections; reading and
+judging that scope is the session's work, and nearly the whole cost. The
+check itself is never wired into a commit, push or merge gate; only its
+finished run's account is. This Rule is what to do; the Detail section
+holds the passes first, then each point below in full under the heading
+named here, and the Story the incidents.
 
-**Scope is every Precedent repo in the session, not this checkout alone** —
-this repo, each attached shared and individual source, and any consuming repo
-the engine is vendored into. A finding is as likely to be in the seam
-between two of them as inside any one, which is the reason they are read
-together rather than one at a time.
+**Say the scope out loud before running, not in the write-up after.** Either
+commit to the full four passes, or, if a smaller run is the right call (a
+time-box, a narrow follow-up on what changed since the last run), say so as
+the first line of the reply and let the person confirm or widen it. Running
+only the mechanical half and recording the rest as PARTIAL is a different
+check from the one asked for ("Saying the scope out loud").
 
-**Run in a repo that has an upstream -- a consumer, or a practice set --
-the check tests everything there, and asks of every finding, before fixing
-it, whether it belongs upstream.** Everything means that repo's own code,
-built and tested, *and* the vendored engine, run on that tree, because a
-vendored file can pass upstream and still break here. A repo has an upstream
-when something in it is vendored from another repository; BestPractice
-vendors nothing, so it has none and fixes everything where it is found. The
-findings that belong upstream are collected into one
-[prompt-please](prompt-please.md) block, written into that repo's run record
-under `## Upstream findings` and given in the reply. Then the person is asked
-whether to put band-aids in place here until the upstream fix lands, and
-the session does what they say. The tool's `UPSTREAM` section prints the
-upstream, the scope and the steps; Detail has the full procedure (Morgan,
-2026-10-11, strength: decided).
+**Scope is every Precedent repo in the session**: this checkout, each
+attached shared and individual source, and any consuming repo the engine is
+vendored into, read together, because a finding is as likely to sit in the
+seam between two of them as inside one ("What the tool enumerates, and why
+it is never a gate"; "Scope: every repo in the session").
 
-**Every repo in force is also probed for whether THIS session can land work
-in it, and every finding is grouped by the answer.** That is a different
-question from the liveness gate below, which asks whether the *repository*
-accepts work: a repo can be live, writable by its owner, and unreachable from
-this container. The probe is a real `git push --dry-run` to an unused ref —
-it changes nothing and the server answers before an object is written — so a
-`HANDOFF` verdict is a quotable refusal rather than an inference from the
-owner in the URL.
+**The tool refuses to read anything until three things hold.** Fix the
+cause and start again; never route around the refusal.
 
-**Every branch is read for a verdict, and only the current copy is checked
-and fixed.** This is the one check that reads every branch of every repo in
-force, and it reads them for two answers only: did the branch's work land,
-and should the branch go. Lints, checks and fixes (the FIX SWEEP included)
-run on each repo's current copy, never on a side branch. One read reaches
-further on purpose and reports without fixing: the CI fleet audit reads the
-workflow files on branches pushed in the last seven days, because GitHub
-runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
-decided).
+- **Every repo in force is current against its origin.** "Stale" and
+  "cannot prove it isn't" get the same refusal. `--freshen` fast-forwards a
+  clean tree that is merely behind; `--allow-stale` is only for a
+  deliberately offline run, where every finding is then provisional ("The
+  freshness gate").
+- **Every repo is still a repository work can land in**: not deleted,
+  renamed or archived, asked of GitHub with a credential. Unauthenticated,
+  *Not Found* proves nothing, and the run says it learned nothing ("Current
+  is not the same as alive").
+- **Every declared shared and individual source is present.** Attach or
+  clone the missing one and re-run; never re-run with
+  `--allow-missing-sources` to make the failure go away ("Every declared
+  source present").
 
-**A repo that needs a handoff stays in scope, deliberately.** Dropping it
-would lose every finding in the seam between it and a repo still in scope,
-which is the class this check exists for — a set's practice contradicting
-universal's is a finding about both. What the verdict changes is the
-*reporting*: a finding in a `LAND` repo ends in a commit from this session,
-and one in a `HANDOFF` repo ends in a paste-ready prompt for a new session
-([prompt-please](prompt-please.md)). Saying which is which before the reading
-starts is the point; discovering it at the moment of trying to fix something
-is the cost. `--landable-only` narrows scope for a deliberately cheap run and
-says out loud what it made unreachable.
-
-**The check reads its own GitHub API bill, and the account's, in its last
-section** ([github-api-budget](github-api-budget.md)). What the run spent,
-against a declared budget; what each allowance pool has left, read off the
-headers of the calls it already made rather than bought with another one; and
-plainly, as unmeasured rather than as clean, the allowances a session cannot
-see from inside a container — `search`, at 30 requests a minute shared across
-every window at once, and the secondary limit on creating content, which
-nothing anywhere reports. **It reports and never refuses.** The pool is shared
-by every session running, so a run that stopped because somebody else had
-spent it would be punishing the wrong session; the remedy is fewer
-simultaneous windows and cheaper tools, and neither is this tool's to apply.
-
-**It also reads the other bill, the one that has actually been hurting.**
-The `ACTIONS FLOOR` section counts, per workflow in every repo in force,
-**runs × jobs over the window** — the run count from one application
-programming interface (API) call with a `created` filter, the job count by
-reading the workflow file. GitHub bills a whole minute per **job**, so that
-product is the floor, and the floor was the entire cost in the case
-[spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
-item 15 measured: a 13-second job billed as a minute, 14 times a day, about
-420 minutes a month with nothing misconfigured. **That number was found once,
-by a session doing a one-off audit, and a number found once goes stale** —
-this is the standing version. **A floor, never an invoice**: real minutes are
-at least this, and whether they are billed at all depends on the repository
-being private. The lever it makes visible is the one both item 13 and item 15
-landed on independently — **job count per workflow**, because two workflows on
-one pull request is two whole minutes for however little work. Added
-2026-09-21 (Morgan, strength: decided) from
-[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
-item 7.
-
-**It ends with a review page for the person, published as an Artifact.**
-Every run writes one page with three lists: **every branch the person can
-delete**, in this checkout and every source, each with a link that opens
-GitHub's branch list filtered to it; **every active practice, by
-source**: universal first, then this repo's own, then the individual set,
-then each shared set, each with its own one-line `index_clause`; and
-**practices that may overlap** -- pairs whose wording reads alike, the same
-slug in two sources, two rules alike across sources, or two alike within
-one. A script finds the pairs and prints them in the run's MAY OVERLAP
-lines; **the session judges every pair** -- merge them, and into which
-source, or keep both and why -- and rewrites the page with `--verdicts`, so
-each verdict sits beside its pair. Wording alone also matches rules that do
-different jobs, which is why no pair is a finding until it is judged, and
-why a pair judged different stays on the page with its reason. The same
-section prints GENERATED FILES: tracked files a tool may write that
-[tools/generated_files.json](https://github.com/alex137/BestPractice/blob/staging/tools/generated_files.json)
-does not list, for the session to list or to say why each is not generated.
-[tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
-writes it under `.precedent/`, which git ignores, and the run's PRACTICE
-CATALOGUE section calls it. Add the unlanded branches you judged safe to
-delete, each with its reason, through `--recommend`. **Publish the page as
-an Artifact, every run** -- the harness's Artifact tool, which keeps it
-private to the person -- **never as an HTML file** attached to the reply or
-sent with a file tool, **and never commit it, push it, or link it from a
-repository**: it carries the private sets' practice text in full, which is
-the point of it. Read the whole page before publishing it, as with any file
-the session did not write. A harness with no Artifact tool says so in the
-reply and names the file's path; that is the only time the file itself is
-handed over. Nothing about the
-practice catalogue is written into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
-any more; the run's write-up links the page in the reply, not in a file.
-
-Morgan, 2026-09-28 (strength: decided): *"do NOT put the list
-of practices in the very deep check, and you can remove it now; BUT make an
-artifact (NOT linked to from the github page), that [1] lists all those
-branches I can delete, including a link I can click on for each and then
-[2] lists ALL active practices, by repo, starting with universal, then the
-individual, then the shared ones I have access to."* It replaced the
-committed catalogue (added 2026-09-23), which a public repo had to hold the
-private sets back from, so he never got the list he asked for.
-
-**Read `main`, write through the normal process.** The check judges the
-version people are actually running, which is `main`: in every repo in
-force, the run reads a working branch cut from `origin/main` (cut one if
-the harness checked out something else). It changes nothing there
-directly. Every fix is committed on that working branch and lands the
+**Read `main`, write through the normal process.** In every repo in force,
+read a working branch cut from `origin/main`, and change nothing there
+directly: every fix is committed on that working branch and lands the
 ordinary way, with the person's go-ahead, on the branch the person's work
-lands on. **Where that branch is not `main`, reading `main` alone would
-re-find what is already fixed and not live yet**, so the tool's
-`LIVE VERSUS LANDING` section names, per repo, the files the landing
-branch carries that are not live yet; before fixing a finding in one of
-them, check whether the landing branch already did. Morgan, 2026-09-28
-(strength: decided): *"it's better to do a deep check on the live version
-(main), but we don't want to edit it, to edit it we should use the normal
-process."* Until then a run read whatever the harness checked out, which
-was not the same branch in every repo the same afternoon.
+lands on. Before fixing a finding in a file the `LIVE VERSUS LANDING`
+section names, check whether the landing branch already fixed it ("Read
+`main`, write through the normal process").
 
-**Before anything is read, every repo in force must be provably current
-against its origin, and must still be a repository work can land in** — this checkout and every attached source.
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) fetches and compares
-each one as its first act and refuses to go further otherwise, because a
-very deep check's whole product is judgment about what the repos say: a stale tree does not degrade
-that judgment, it inverts it — work that landed last week reads as missing,
-and bugs fixed days ago read as open. "Stale" and "cannot prove it isn't"
-get the same verdict, since a confident wrong answer is the failure mode
-either way. Fix it and start again; `--freshen` will fast-forward a clean
-tree that is merely behind, and `--allow-stale` exists only for a
-deliberately offline run, where every finding is then provisional.
+**In a repo with an upstream** -- a consumer, or a practice set -- test
+everything there, its own code and the vendored engine run on that tree, and
+ask of every finding, before fixing it, whether it belongs upstream. Collect
+those into one [prompt-please](prompt-please.md) block under
+`## Upstream findings` in that repo's run record and in the reply, then ask
+the person whether to put band-aids in place until the upstream fix lands,
+and do what they say. BestPractice has no upstream and fixes everything
+where it is found ("The upstream question"; the procedure is under "Run in
+a repo with an upstream").
 
-**Current is not the same as alive**, and the second half is the one nothing
-else here can see. Every repo in force is opened **automatically** — the
-session-start hook clones each declared source, the freshness gate fetches
-it, the refresh tool pulls it — so a source that has been **deleted,
-renamed, or archived** is retried every session by machinery whose failures
-are deliberately quiet. The check asks GitHub about each one, a single
-call per repo: a deleted or access-revoked repository is re-cloned forever
-and its failure reads like a credential problem, a renamed one keeps
-resolving through a redirect that lasts only until somebody takes the old
-name, and an **archived** one is the worst of the three — it clones,
-fetches and reads exactly like a live repository and refuses every push, so
-a session can spend its whole run editing a source nothing it writes can
-ever land in. Ask with a credential or not at all: unauthenticated, a
-private repository and a deleted one both answer *Not Found*, so the run
-must say it learned nothing rather than report a repo as gone.
+**Group every finding by whether this session can land work in its repo**:
+one in a `LAND` repo ends in a commit from this session, one in a `HANDOFF`
+repo in a paste-ready [prompt-please](prompt-please.md). A `HANDOFF` repo
+stays in scope; `--landable-only` narrows deliberately and says what it
+made unreachable ("Can this session land work in each repo").
 
-**A declared set that is RETIRED is reported in its own section, RETIRED
-SETS**, for this checkout and every source in force: one that says so in
-its `precedent-source.json`, or that the liveness call above found
-archived. A set whose active rules are all in force elsewhere is a finding
-with its one remedy, `python3 tools/precedent_vendor_engine.py drop-retired
-.`, run in that repo on its working branch; one still holding a rule found
-nowhere else is a finding that names the rule, and stays declared. *Not
-Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
-*"have update vendors and very deep check see if any repos are declared to
-be included that no longer exist and remove them"*, choosing to drop on a
-set's own retirement or GitHub's archived flag, and never on *Not Found*.
+**Branches: read every branch for a verdict, fix only the current copy.**
+Every branch of every repo in force is read for two answers, did its work
+land and should it go; lints, checks and fixes run on each repo's current
+copy only ("Every branch read, only the current copy fixed"). **Never offer
+a long-lived branch for deletion** -- `main`, the declared base branch, any
+branch a person's work lands on, a tool's lock branch -- in any list the
+check prints or writes ("Long-lived branches are never offered for
+deletion"). **When the working branch is not the base branch, put the
+base's untaken commits to the person row by row, and implement none on your
+own** ("Reading the base branch").
 
-**Current is not the same as CARRIED either, and that is the half nothing
-else here could see.** The freshness gate proves a clone matches **its own
-origin**. A repo can be perfectly current with itself and be running an
-engine from three weeks ago, because a fix merged upstream reaches an
-installed repo only when somebody goes there and runs `Update Vendors` —
-and until 2026-09-21 nothing anywhere said which repos had not. **Measured
-2026-09-20: 18 of 22 repositories had never taken one.** That is also the
-structural reason this check had never once found a stale vendored tree:
-not a gap in its passes, a gap in what any pass could see, since every pass
-reads one repository against itself
-([todo-2026-09-21-nothing-checks-a-consumer-against-upstream](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md)).
-The `CARRY-THROUGH` section asks it per repo in force: what it vendored,
-where upstream is now, and how many engine files were added, changed or
-**removed** since — removals by name, because a removal arriving on the next
-refresh is the one that breaks something. **It reports and refreshes
-nothing**: taking an update is `Update Vendors`, run in that repo, and it is
-ordinary work authorized the ordinary way. **Scope is the repos this run
-already opens.** Added 2026-09-21 (Morgan, strength:
-decided) from
-[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
-item 3.
-
-**Every declared shared and individual source must actually be present before
-the check runs.** The ordinary loader tolerates a missing personal source and
-says so on stderr — the right call for routine loading, where one operator's
-absent individual set is expected. It is the wrong call here: a very deep
-check is explicitly asked for and scoped to the whole set of repos in force,
-so a silently dropped source defeats the reason it was asked.
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) fails loudly rather
-than degrading. On that
-failure, attach or clone the missing source (this harness's own
-repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
-with `--allow-missing-sources` to make the failure go away; that flag is for
-the rare case where proceeding without the source is the actual intent (a
-repo that deliberately has no shared set yet).
+**Some sections report and never act.** `RETIRED SETS` names a retired set
+and, where all its active rules are in force elsewhere, its one remedy,
+`drop-retired`; *Not Found* never counts as retired ("Retired sets").
+`CARRY-THROUGH` says what each repo vendored against where upstream is now;
+taking an update is `Update Vendors`, run in that repo ("Current is not the
+same as carried"). The GitHub API bill and the `ACTIONS FLOOR` report and
+never refuse ("The bills it reads").
 
 **The passes are ordered by what a miss costs, and that order governs fixing
 too.** A from-scratch install or a migration that strands an adopter is a
 roadblock; a heading capitalized two ways is not. Never let a pass-3 finding
 queue ahead of a pass-1 one because it is easier to fix, and never report a
 run as done with a pass-1 roadblock still open.
-
-**Defaulting to the cheap half is not a smaller version of this check — it
-is a different check, and the person asked for this one.** The mechanical
-half (running the tool, running `verify_harness.py`/`precedent_check.py`/
-`doc_lint.py`/`doc_sync.py`/`leak_gate.py`, reading what they print) finishes
-in minutes because it costs the session nothing to run scripts. Passes 1 and
-3, and the real half of pass 4 — rehearsing an install, reading the
-catalogue and the branches by eye, judging rather than printing — are where
-the 30-40 minutes a real run takes actually goes, and are the reason the
-phrase exists rather than "run the checks." A session that quietly runs only
-the mechanical half and records the rest as PARTIAL has followed the letter
-of "never quietly skip a pass" above while missing the whole point: the
-record being honest after the fact does not make the choice to narrow the
-check one the person agreed to. **Say the scope out loud before running, not
-in the write-up after** — either commit to the full four passes, or, if a
-smaller run is the right call (a time-box, a narrow follow-up on what
-changed since the last run), say so as the first line of the reply and let
-the person confirm or widen it, the same way a time-box any run has used
-before was always the person's own bound, stated up front, never the
-session's quiet default.
-
-**This is more than one session's work, and is meant to be split.** Keep the
-run's state in the checked repo's own `spec/VERY_DEEP_CHECK.md`
-([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md); the
-tool writes a starting one in a repo with an upstream that has none): which
-passes are done, what each turned up, what was fixed, what was deferred and
-where it went. A later session resumes at the next unfinished pass rather
-than starting over, and a pass is never quietly skipped — a pass deliberately
-not run is recorded as not run, with the reason.
-
-**Every run ends with its full account, written unasked.** When the last
-pass is recorded, the session rewrites the checked repo's own
-`spec/VERY_DEEP_CHECK_LATEST_RUN.md`
-([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
-for this run: scope, a short version, then each pass in order with what it
-found, what was fixed and in which commit, the warnings judged (Pass 2's
-question 24), the checks by stage (question 25), set independence
-(question 26), the test review (question 27), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
-previous run to one row in the run record above, commits both, and
-links the account in the reply that reports the run. A run is not done
-until the account is there, and the deep check enforces it
-(`precedent_check.py --only very-deep-check`): once all four passes
-are recorded in the ledger, a push is refused while the account still
-describes an earlier run. Morgan, 2026-10-11 (strength: decided), after
-that day's run left it out until he asked for it: *"Let's update very deep
-check to make that document mandatory."*
-
-**Every run records what each of its parts returned and what each cost, and
-reads them against the runs before it.** This check grew a section at a time,
-each one added because a real run wanted it, and until 2026-09-11 nothing had
-ever asked the reverse question: does any of them still earn its place?
-[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) appends every run to the
-checked repo's own
-[record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/staging/record/very-deep-check-ledger.json)
-— per section: what it found, what it printed, how long it took — and prints
-the cross-run read at the end of each run. **The tokens it reports are what a
-section PRINTED**, which is what it costs a session's context to read it, and
-never the model's spend on judging that material, which no tool here can see.
-The four passes are the expensive half and are the session's own measurement:
-record each one as you finish it with `--record-pass`, findings and cost
-included where you have them and left absent where you do not.
-
-**A section that has come back empty across every recorded run gets a
-decision, not a drift.** The run names those at the end, with three answers
-and none of them automatic: **keep** it and say why here, **cheapen** it
-(same check, less printed), or **retire** it — which means this practice's
-Detail loses the bullet and
-[decommission-deletes-files](decommission-deletes-files.md) applies to
-whatever it owned. **Quiet is not the same as useless**: a guard that never
-fires may be exactly why nothing is broken, and several of these sections
-were written after one expensive incident they exist to prevent. Quiet is
-also not the same as unmeasurable — a section that could not produce a count
-is reported separately and is never graded as clean.
-
-**A long-lived branch work lands on is never offered for deletion, by any
-list this check prints or writes** — `main`, the declared base branch, any
-branch a person's work lands on, and the lock branch a tool keeps, in every
-repo in force, merged or not. A branch that is routinely fast-forwarded to
-match another looks "merged" to an ancestor test; until 2026-09-28 the sweep
-protected only the declared base and the default branch, and would have
-handed such a branch over with a one-click delete link (Morgan, 2026-09-28,
-strength: decided). The guard sits in the one function that mints every
-delete link, and a filtered page that would also show a protected row says
-so on the row.
-
-**When the branch this repo works on is not its base branch, the run reads
-the base branch too — and reports it, never applies it.** Work pinned to a
-long-lived integration branch stops looking at the base, and the base does
-not stop moving: somebody fixes a bug there, or lands a document, and that
-change is invisible to every session on the branch until the two are far
-enough apart that reconciling them is its own project rather than a few
-commits. [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)
-lists every commit on the base with no patch-equivalent on the branch — date,
-subject, and the files it touched. **The session puts that list to the person
-and asks, row by row, what should come across; it implements nothing on its
-own** — not the whole list, and not the one row that looks obviously right.
-Taking a change is ordinary work, authorized the ordinary way, and a run that
-quietly merged the base would be doing the one thing pinning the work to a
-branch was meant to prevent. **Some rows are deliberately not-carried**, and
-the scan has no memory of that: a row declined last run is listed again next
-run, so the decision belongs in the run record rather than in the tool.
 
 Fix what a pass turns up in the same pass — most findings are small — then
 re-run the mechanical audits, since the fixes themselves break links.
@@ -365,6 +117,41 @@ Anything deliberately left alone gets its own item under
 ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md))
 saying so, rather than being silently dropped.
 
+**Every run produces four things, unasked:**
+
+1. **The review page, published as an Artifact.** Three lists: every
+   branch the person can delete, each with its link; every active practice,
+   by source, universal first; and the MAY OVERLAP pairs, **each judged by
+   the session** -- merge, and into which source, or keep both and why --
+   and written back with `--verdicts`. Add the unlanded branches you judged
+   safe to delete through `--recommend`. Read the whole page, then publish
+   it with the harness's Artifact tool; **never as an HTML file, and never
+   commit it, push it or link it from a repository**, because it carries
+   the private sets' practice text. A harness with no Artifact tool says so
+   and names the file's path ("The review page").
+2. **The run record**, the checked repo's
+   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md):
+   which passes are done, what each found, what was fixed and what was
+   deferred and where. A later session resumes at the next unfinished pass; a pass
+   not run is recorded as not run, with the reason ("Resuming across
+   sessions").
+3. **The ledger records**: record each pass as you finish it with
+   `--record-pass`, findings and cost where you have them; the tool appends
+   each section's results to
+   [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/staging/record/very-deep-check-ledger.json).
+   A section empty across every recorded run gets a decision -- keep,
+   cheapen or retire -- not a drift ("The component ledger").
+4. **The full account**: rewrite the checked repo's
+   [spec/VERY_DEEP_CHECK_LATEST_RUN.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md)
+   for this run -- scope, a short version, each pass with what it found
+   and fixed and in which commit, the warnings judged, the checks by stage, set independence, the test review,
+   the token budgets with their numbers, what the person decided, and what
+   is left and where it went -- with `opened:` the run's date. Collapse the
+   previous run to one row in the run record, commit both, and link the
+   account in the reply. A run is not done until it is there; a push is
+   refused while it still describes an earlier run ("The run's full
+   account").
+
 **After work that invites drift** (a batch of practices added or
 reordered, a practice that changed shape, an install into a new repo, a
 merge that resolved conflicts across several shared files), **propose one;
@@ -372,6 +159,9 @@ never start it unasked.** It is expensive, and AGENTS.md keeps it to the
 literal ask.
 
 ## Detail
+The four passes come first, in order. After Pass 4, under "The Rule's points
+in full", is everything the Rule says in short, under the headings it names.
+
 **This is not `full-practice-audit` under another name — the two ask
 different questions.** [full-practice-audit](full-practice-audit.md) asks,
 practice by practice, "is this specific practice's Rule satisfied?" — a
@@ -1701,8 +1491,9 @@ first so this pass spends its attention on what they cannot see.
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/staging/GLOSSARY.md) — **but a glossary entry is not the
   property; being findable is.** Every standing command is listed by
-  `python3 tools/precedent_vocabulary.py` and in AGENTS.md's command list,
-  and `check_park_it.py` fails if the "Drop it" paragraph goes missing — so
+  `python3 tools/precedent_vocabulary.py`, the most used ones again in
+  AGENTS.md's command list, and `check_park_it.py` fails if the "Drop it"
+  paragraph goes missing — so
   check where a keyword IS defined before calling it undefined. (An early
   "don't put it in the glossary", Morgan 2026-09-08, was later read
   narrowly; park-it's Story records why, and "Drop it" is in the glossary
@@ -2354,6 +2145,353 @@ Last because none of it strands an adopter, and none of it is cheap.
   carry the wrong side's content, which only the conflict set read by a
   person will catch.
 
+### The Rule's points in full
+Everything under the headings below was the Rule's own text until
+2026-10-31, moved here whole when the Rule was cut to what a session must do
+when asked for a very deep check (Story, 2026-10-31). The Rule names each
+heading where it needs it.
+
+#### What the tool enumerates, and why it is never a gate
+When a person explicitly asks for a "very deep check", run
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) and work the four
+passes in Detail, in that order. The tool enumerates the scope — this
+checkout's own top-level documents, plus the `practices/*.md` tree of every
+source in force, resolved exactly the way
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) resolves them for
+ordinary loading — and points at the passes (`--checklist` prints them in
+full); reading and judging that scope is
+the session's work, and is nearly the whole cost of this check. The check
+itself is never wired into a commit, push, or merge gate (only its finished
+run's account is, below) — the mechanical audits and
+[routing-audit](routing-audit.md) already cover what can be checked cheaply
+and often; this covers what can only be judged, and is deliberately rare
+because the judging is expensive.
+
+#### Saying the scope out loud
+**Defaulting to the cheap half is not a smaller version of this check — it
+is a different check, and the person asked for this one.** The mechanical
+half (running the tool, running `verify_harness.py`/`precedent_check.py`/
+`doc_lint.py`/`doc_sync.py`/`leak_gate.py`, reading what they print) finishes
+in minutes because it costs the session nothing to run scripts. Passes 1 and
+3, and the real half of pass 4 — rehearsing an install, reading the
+catalogue and the branches by eye, judging rather than printing — are where
+the 30-40 minutes a real run takes actually goes, and are the reason the
+phrase exists rather than "run the checks." A session that quietly runs only
+the mechanical half and records the rest as PARTIAL has followed the letter
+of "never quietly skip a pass" above while missing the whole point: the
+record being honest after the fact does not make the choice to narrow the
+check one the person agreed to. **Say the scope out loud before running, not
+in the write-up after** — either commit to the full four passes, or, if a
+smaller run is the right call (a time-box, a narrow follow-up on what
+changed since the last run), say so as the first line of the reply and let
+the person confirm or widen it, the same way a time-box any run has used
+before was always the person's own bound, stated up front, never the
+session's quiet default.
+
+#### Scope: every repo in the session
+**Scope is every Precedent repo in the session, not this checkout alone** —
+this repo, each attached shared and individual source, and any consuming repo
+the engine is vendored into. A finding is as likely to be in the seam
+between two of them as inside any one, which is the reason they are read
+together rather than one at a time.
+
+#### The freshness gate
+**Before anything is read, every repo in force must be provably current
+against its origin, and must still be a repository work can land in** — this checkout and every attached source.
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) fetches and compares
+each one as its first act and refuses to go further otherwise, because a
+very deep check's whole product is judgment about what the repos say: a stale tree does not degrade
+that judgment, it inverts it — work that landed last week reads as missing,
+and bugs fixed days ago read as open. "Stale" and "cannot prove it isn't"
+get the same verdict, since a confident wrong answer is the failure mode
+either way. Fix it and start again; `--freshen` will fast-forward a clean
+tree that is merely behind, and `--allow-stale` exists only for a
+deliberately offline run, where every finding is then provisional.
+
+#### Current is not the same as alive
+**Current is not the same as alive**, and the second half is the one nothing
+else here can see. Every repo in force is opened **automatically** — the
+session-start hook clones each declared source, the freshness gate fetches
+it, the refresh tool pulls it — so a source that has been **deleted,
+renamed, or archived** is retried every session by machinery whose failures
+are deliberately quiet. The check asks GitHub about each one, a single
+call per repo: a deleted or access-revoked repository is re-cloned forever
+and its failure reads like a credential problem, a renamed one keeps
+resolving through a redirect that lasts only until somebody takes the old
+name, and an **archived** one is the worst of the three — it clones,
+fetches and reads exactly like a live repository and refuses every push, so
+a session can spend its whole run editing a source nothing it writes can
+ever land in. Ask with a credential or not at all: unauthenticated, a
+private repository and a deleted one both answer *Not Found*, so the run
+must say it learned nothing rather than report a repo as gone.
+
+#### Every declared source present
+**Every declared shared and individual source must actually be present before
+the check runs.** The ordinary loader tolerates a missing personal source and
+says so on stderr — the right call for routine loading, where one operator's
+absent individual set is expected. It is the wrong call here: a very deep
+check is explicitly asked for and scoped to the whole set of repos in force,
+so a silently dropped source defeats the reason it was asked.
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) fails loudly rather
+than degrading. On that
+failure, attach or clone the missing source (this harness's own
+repo-attachment mechanism, or a plain `git clone`) and re-run — never re-run
+with `--allow-missing-sources` to make the failure go away; that flag is for
+the rare case where proceeding without the source is the actual intent (a
+repo that deliberately has no shared set yet).
+
+#### Read `main`, write through the normal process
+**Read `main`, write through the normal process.** The check judges the
+version people are actually running, which is `main`: in every repo in
+force, the run reads a working branch cut from `origin/main` (cut one if
+the harness checked out something else). It changes nothing there
+directly. Every fix is committed on that working branch and lands the
+ordinary way, with the person's go-ahead, on the branch the person's work
+lands on. **Where that branch is not `main`, reading `main` alone would
+re-find what is already fixed and not live yet**, so the tool's
+`LIVE VERSUS LANDING` section names, per repo, the files the landing
+branch carries that are not live yet; before fixing a finding in one of
+them, check whether the landing branch already did. Morgan, 2026-09-28
+(strength: decided): *"it's better to do a deep check on the live version
+(main), but we don't want to edit it, to edit it we should use the normal
+process."* Until then a run read whatever the harness checked out, which
+was not the same branch in every repo the same afternoon.
+
+#### The upstream question
+**Run in a repo that has an upstream -- a consumer, or a practice set --
+the check tests everything there, and asks of every finding, before fixing
+it, whether it belongs upstream.** Everything means that repo's own code,
+built and tested, *and* the vendored engine, run on that tree, because a
+vendored file can pass upstream and still break here. A repo has an upstream
+when something in it is vendored from another repository; BestPractice
+vendors nothing, so it has none and fixes everything where it is found. The
+findings that belong upstream are collected into one
+[prompt-please](prompt-please.md) block, written into that repo's run record
+under `## Upstream findings` and given in the reply. Then the person is asked
+whether to put band-aids in place here until the upstream fix lands, and
+the session does what they say. The tool's `UPSTREAM` section prints the
+upstream, the scope and the steps; Detail has the full procedure (Morgan,
+2026-10-11, strength: decided).
+
+#### Can this session land work in each repo
+**Every repo in force is also probed for whether THIS session can land work
+in it, and every finding is grouped by the answer.** That is a different
+question from the liveness gate below, which asks whether the *repository*
+accepts work: a repo can be live, writable by its owner, and unreachable from
+this container. The probe is a real `git push --dry-run` to an unused ref —
+it changes nothing and the server answers before an object is written — so a
+`HANDOFF` verdict is a quotable refusal rather than an inference from the
+owner in the URL.
+
+**A repo that needs a handoff stays in scope, deliberately.** Dropping it
+would lose every finding in the seam between it and a repo still in scope,
+which is the class this check exists for — a set's practice contradicting
+universal's is a finding about both. What the verdict changes is the
+*reporting*: a finding in a `LAND` repo ends in a commit from this session,
+and one in a `HANDOFF` repo ends in a paste-ready prompt for a new session
+([prompt-please](prompt-please.md)). Saying which is which before the reading
+starts is the point; discovering it at the moment of trying to fix something
+is the cost. `--landable-only` narrows scope for a deliberately cheap run and
+says out loud what it made unreachable.
+
+#### Every branch read, only the current copy fixed
+**Every branch is read for a verdict, and only the current copy is checked
+and fixed.** This is the one check that reads every branch of every repo in
+force, and it reads them for two answers only: did the branch's work land,
+and should the branch go. Lints, checks and fixes (the FIX SWEEP included)
+run on each repo's current copy, never on a side branch. One read reaches
+further on purpose and reports without fixing: the CI fleet audit reads the
+workflow files on branches pushed in the last seven days, because GitHub
+runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
+decided).
+
+#### Long-lived branches are never offered for deletion
+**A long-lived branch work lands on is never offered for deletion, by any
+list this check prints or writes** — `main`, the declared base branch, any
+branch a person's work lands on, and the lock branch a tool keeps, in every
+repo in force, merged or not. A branch that is routinely fast-forwarded to
+match another looks "merged" to an ancestor test; until 2026-09-28 the sweep
+protected only the declared base and the default branch, and would have
+handed such a branch over with a one-click delete link (Morgan, 2026-09-28,
+strength: decided). The guard sits in the one function that mints every
+delete link, and a filtered page that would also show a protected row says
+so on the row.
+
+#### Reading the base branch
+**When the branch this repo works on is not its base branch, the run reads
+the base branch too — and reports it, never applies it.** Work pinned to a
+long-lived integration branch stops looking at the base, and the base does
+not stop moving: somebody fixes a bug there, or lands a document, and that
+change is invisible to every session on the branch until the two are far
+enough apart that reconciling them is its own project rather than a few
+commits. [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)
+lists every commit on the base with no patch-equivalent on the branch — date,
+subject, and the files it touched. **The session puts that list to the person
+and asks, row by row, what should come across; it implements nothing on its
+own** — not the whole list, and not the one row that looks obviously right.
+Taking a change is ordinary work, authorized the ordinary way, and a run that
+quietly merged the base would be doing the one thing pinning the work to a
+branch was meant to prevent. **Some rows are deliberately not-carried**, and
+the scan has no memory of that: a row declined last run is listed again next
+run, so the decision belongs in the run record rather than in the tool.
+
+#### Retired sets
+**A declared set that is RETIRED is reported in its own section, RETIRED
+SETS**, for this checkout and every source in force: one that says so in
+its `precedent-source.json`, or that the liveness call above found
+archived. A set whose active rules are all in force elsewhere is a finding
+with its one remedy, `python3 tools/precedent_vendor_engine.py drop-retired
+.`, run in that repo on its working branch; one still holding a rule found
+nowhere else is a finding that names the rule, and stays declared. *Not
+Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
+*"have update vendors and very deep check see if any repos are declared to
+be included that no longer exist and remove them"*, choosing to drop on a
+set's own retirement or GitHub's archived flag, and never on *Not Found*.
+
+#### Current is not the same as carried
+**Current is not the same as CARRIED either, and that is the half nothing
+else here could see.** The freshness gate proves a clone matches **its own
+origin**. A repo can be perfectly current with itself and be running an
+engine from three weeks ago, because a fix merged upstream reaches an
+installed repo only when somebody goes there and runs `Update Vendors` —
+and until 2026-09-21 nothing anywhere said which repos had not. **Measured
+2026-09-20: 18 of 22 repositories had never taken one.** That is also the
+structural reason this check had never once found a stale vendored tree:
+not a gap in its passes, a gap in what any pass could see, since every pass
+reads one repository against itself
+([todo-2026-09-21-nothing-checks-a-consumer-against-upstream](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md)).
+The `CARRY-THROUGH` section asks it per repo in force: what it vendored,
+where upstream is now, and how many engine files were added, changed or
+**removed** since — removals by name, because a removal arriving on the next
+refresh is the one that breaks something. **It reports and refreshes
+nothing**: taking an update is `Update Vendors`, run in that repo, and it is
+ordinary work authorized the ordinary way. **Scope is the repos this run
+already opens.** Added 2026-09-21 (Morgan, strength:
+decided) from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+item 3.
+
+#### The bills it reads
+**The check reads its own GitHub API bill, and the account's, in its last
+section** ([github-api-budget](github-api-budget.md)). What the run spent,
+against a declared budget; what each allowance pool has left, read off the
+headers of the calls it already made rather than bought with another one; and
+plainly, as unmeasured rather than as clean, the allowances a session cannot
+see from inside a container — `search`, at 30 requests a minute shared across
+every window at once, and the secondary limit on creating content, which
+nothing anywhere reports. **It reports and never refuses.** The pool is shared
+by every session running, so a run that stopped because somebody else had
+spent it would be punishing the wrong session; the remedy is fewer
+simultaneous windows and cheaper tools, and neither is this tool's to apply.
+
+**It also reads the other bill, the one that has actually been hurting.**
+The `ACTIONS FLOOR` section counts, per workflow in every repo in force,
+**runs × jobs over the window** — the run count from one application
+programming interface (API) call with a `created` filter, the job count by
+reading the workflow file. GitHub bills a whole minute per **job**, so that
+product is the floor, and the floor was the entire cost in the case
+[spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
+item 15 measured: a 13-second job billed as a minute, 14 times a day, about
+420 minutes a month with nothing misconfigured. **That number was found once,
+by a session doing a one-off audit, and a number found once goes stale** —
+this is the standing version. **A floor, never an invoice**: real minutes are
+at least this, and whether they are billed at all depends on the repository
+being private. The lever it makes visible is the one both item 13 and item 15
+landed on independently — **job count per workflow**, because two workflows on
+one pull request is two whole minutes for however little work. Added
+2026-09-21 (Morgan, strength: decided) from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
+item 7.
+
+#### The review page
+**It ends with a review page for the person, published as an Artifact.**
+Every run writes one page with three lists: **every branch the person can
+delete**, in this checkout and every source, each with a link that opens
+GitHub's branch list filtered to it; **every active practice, by
+source**: universal first, then this repo's own, then the individual set,
+then each shared set, each with its own one-line `index_clause`; and
+**practices that may overlap** -- pairs whose wording reads alike, the same
+slug in two sources, two rules alike across sources, or two alike within
+one. A script finds the pairs and prints them in the run's MAY OVERLAP
+lines; **the session judges every pair** -- merge them, and into which
+source, or keep both and why -- and rewrites the page with `--verdicts`, so
+each verdict sits beside its pair. Wording alone also matches rules that do
+different jobs, which is why no pair is a finding until it is judged, and
+why a pair judged different stays on the page with its reason. The same
+section prints GENERATED FILES: tracked files a tool may write that
+[tools/generated_files.json](https://github.com/alex137/BestPractice/blob/staging/tools/generated_files.json)
+does not list, for the session to list or to say why each is not generated.
+[tools/precedent_review_page.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_review_page.py)
+writes it under `.precedent/`, which git ignores, and the run's PRACTICE
+CATALOGUE section calls it. Add the unlanded branches you judged safe to
+delete, each with its reason, through `--recommend`. **Publish the page as
+an Artifact, every run** -- the harness's Artifact tool, which keeps it
+private to the person -- **never as an HTML file** attached to the reply or
+sent with a file tool, **and never commit it, push it, or link it from a
+repository**: it carries the private sets' practice text in full, which is
+the point of it. Read the whole page before publishing it, as with any file
+the session did not write. A harness with no Artifact tool says so in the
+reply and names the file's path; that is the only time the file itself is
+handed over. Nothing about the
+practice catalogue is written into [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)
+any more; the run's write-up links the page in the reply, not in a file.
+
+#### Resuming across sessions
+**This is more than one session's work, and is meant to be split.** Keep the
+run's state in the checked repo's own `spec/VERY_DEEP_CHECK.md`
+([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md); the
+tool writes a starting one in a repo with an upstream that has none): which
+passes are done, what each turned up, what was fixed, what was deferred and
+where it went. A later session resumes at the next unfinished pass rather
+than starting over, and a pass is never quietly skipped — a pass deliberately
+not run is recorded as not run, with the reason.
+
+#### The run's full account
+**Every run ends with its full account, written unasked.** When the last
+pass is recorded, the session rewrites the checked repo's own
+`spec/VERY_DEEP_CHECK_LATEST_RUN.md`
+([BestPractice's](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_LATEST_RUN.md))
+for this run: scope, a short version, then each pass in order with what it
+found, what was fixed and in which commit, the warnings judged (Pass 2's
+question 24), the checks by stage (question 25), set independence
+(question 26), the test review (question 27), the token budgets with their numbers, what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+previous run to one row in the run record above, commits both, and
+links the account in the reply that reports the run. A run is not done
+until the account is there, and the deep check enforces it
+(`precedent_check.py --only very-deep-check`): once all four passes
+are recorded in the ledger, a push is refused while the account still
+describes an earlier run. Morgan, 2026-10-11 (strength: decided), after
+that day's run left it out until he asked for it: *"Let's update very deep
+check to make that document mandatory."*
+
+#### The component ledger
+**Every run records what each of its parts returned and what each cost, and
+reads them against the runs before it.** This check grew a section at a time,
+each one added because a real run wanted it, and until 2026-09-11 nothing had
+ever asked the reverse question: does any of them still earn its place?
+[tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) appends every run to the
+checked repo's own
+[record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/staging/record/very-deep-check-ledger.json)
+— per section: what it found, what it printed, how long it took — and prints
+the cross-run read at the end of each run. **The tokens it reports are what a
+section PRINTED**, which is what it costs a session's context to read it, and
+never the model's spend on judging that material, which no tool here can see.
+The four passes are the expensive half and are the session's own measurement:
+record each one as you finish it with `--record-pass`, findings and cost
+included where you have them and left absent where you do not.
+
+**A section that has come back empty across every recorded run gets a
+decision, not a drift.** The run names those at the end, with three answers
+and none of them automatic: **keep** it and say why here, **cheapen** it
+(same check, less printed), or **retire** it — which means this practice's
+Detail loses the bullet and
+[decommission-deletes-files](decommission-deletes-files.md) applies to
+whatever it owned. **Quiet is not the same as useless**: a guard that never
+fires may be exactly why nothing is broken, and several of these sections
+were written after one expensive incident they exist to prevent. Quiet is
+also not the same as unmeasurable — a section that could not produce a count
+is reported separately and is never graded as clean.
+
 ## Why
 The mechanical audits ([doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py),
 [leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py),
@@ -2827,6 +2965,26 @@ the repo root instead of the linking file's own directory). A document
 describing somebody else's tree is right to carry bare names, and a sweep
 that treats the count as the target will break it.
 
+Morgan, 2026-09-28 (strength: decided): *"do NOT put the list
+of practices in the very deep check, and you can remove it now; BUT make an
+artifact (NOT linked to from the github page), that [1] lists all those
+branches I can delete, including a link I can click on for each and then
+[2] lists ALL active practices, by repo, starting with universal, then the
+individual, then the shared ones I have access to."* It replaced the
+committed catalogue (added 2026-09-23), which a public repo had to hold the
+private sets back from, so he never got the list he asked for.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 3,724 words, a section at a time, each paragraph added with the extension
+that asked for it. It now holds the scope, the refusals, the order, and what
+every run must produce, in 1,305 words (both counted with `wc -w` over the
+section). Every paragraph it held moved word for word into Detail, under
+"The Rule's points in full"; the 2026-09-28 quote that replaced the
+committed catalogue moved here, above. Morgan, 2026-10-31 (strength:
+assented), on the 2026-10-30 very deep check's call 11: *"do your
+recommendations for all"*, after asking *"maybe we should do a cleanup of
+the long rules?"*
+
 
 ### Approval history
 
@@ -2941,6 +3099,7 @@ it landed and still unreviewed.
 - **Extended 2026-10-17, Morgan (strength: decided)**, with the TOKEN BUDGETS section: every session-load budget in every repo in force is printed with its number, limit, share used and approved max even when all pass, the session file charged as `session-load-budget` charges it, and each repo's own budget checks are shown to fire on an overage planted in a throwaway worktree; the table and fire test go into the run's write-up. A session had just checked this by hand after weeks with no budget warning: "please see if this same analysis ... is done in very deep check. If not, add it ... even if they all pass, share the exact numbers, the limits, the chart, and any other details." The same change stopped SESSION LOAD charging the session file whole, which had reported an individual set over its target at about 4,011 against 4,000 when the share the check charges was about 3,614.
 - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 26 and the SET INDEPENDENCE section: every run checks that each practice set keeps its own rules, checks and tests, and fixes what it finds -- "The practice sets should be more independent as practices and the test for the practices in the practice sets", "add to a very deep check a review for that", and "fix it if it's not, if you find it otherwise at any point." The inventory behind it widened the same day to BestPractice's tests and universal rules; its first reading found three engine tests using a set's real practice names as sample data, which now use made-up ones.
 - **Extended again 2026-10-17, Morgan (strength: decided)**, with Pass 2's question 27 and the TEST WORTH section: every run judges every test it lists -- keep with its importance, cheapen, or retire -- and does what it decides in the same pass, and the account carries a `## Test review` section from runs on 2026-10-18 on: "review all TESTS to see if all tests are relevant and important. Do they test something still used and needed? Was what it tests deprecated?" and "does the amount of time it takes worth it for its level of importance? Write all this in the result doc you create." Prompted by tests for the retired tier below staging that outlived it. The same day, also Morgan (strength: decided): the test review judges on that day's times, recorded by the run's whole-suite pass, after a stale list made the planted-case test look nearly three times slower than it was. Its first reading listed 772 tests in this checkout, about an hour of recorded time, none judged yet; one test still named that tier (the migration that moves a repository off it), and 51 named the retired "team" level.
+- **Restructured 2026-10-31, Morgan (strength: assented)**, so the Rule holds only what a session must do when asked -- scope, refusals, order, and what every run produces -- with every paragraph it held moved whole into Detail's "The Rule's points in full" and one dated quote into the Story: "do your recommendations for all", on the 2026-10-30 very deep check's call 11
 
 ## Install
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) enumerates the scope

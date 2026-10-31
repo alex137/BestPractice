@@ -1,9 +1,9 @@
 ---
 slug:            gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging
-status:          live
+status:          retired
 noted:           2026-10-18
 severity:        notable
-retired:         null
+retired:         2026-10-31
 retires_when:    "a workflow here runs on pull requests into staging, or the landing guard's own refusal says when no check is coming"
 ---
 ## Symptom
@@ -43,3 +43,14 @@ But the copy a session here runs, the untracked copy of the guard
 the session start writes, still carries the old sentence, because it comes
 from the ladder set's `main`. This retires once that copy says when no
 check is coming, or a workflow here runs on pull requests into `staging`.
+
+**Retired 2026-10-31, on its stated condition** (very deep check of
+2026-10-30, pass 4). The copy a session runs comes from the ladder set's
+`main`, and that `main` now carries the guard whose refusal ends with the
+engine's `pull_request_route_note`, or, where the engine cannot be
+imported, says to merge at once when the pull request lists no checks
+(`route_note` in
+[landing_pr_guard.py](https://github.com/themorgan/precedent-shared-ladder/blob/main/tools/landing_pr_guard.py)).
+`check_land_refusal_says_whether_a_pull_request_gets_checks` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+pins the note.

@@ -52,7 +52,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY_RELPATH = 'tools/warning_exclusions.json'
 TERMS = {'permanent': ('why',), 'temporary': ('why', 'revisit')}
 ENTRY_KEYS = {'source', 'kind', 'path', 'match', 'term', 'why', 'revisit',
-              'decided', 'by', 'strength'}
+              'decided', 'by', 'strength', 'status_in'}
 DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}$')
 
 # The tools whose own output carries warning LINES, and how each marks one.
@@ -219,17 +219,42 @@ def load_registry(repo_root):
     return entries, problems
 
 
-def _matches(entry, group):
+_STATUS_RE = re.compile(r'^status:\s*["\']?([\w-]+)', re.M)
+
+
+def _file_status(root, rel):
+    """-> the `status:` a file's frontmatter declares, or None."""
+    try:
+        text = (pathlib.Path(root) / rel).read_text(encoding='utf-8')
+    except OSError:
+        return None
+    if not text.startswith('---'):
+        return None
+    head = text.split('\n---', 1)[0]
+    m = _STATUS_RE.search(head)
+    return m.group(1) if m else None
+
+
+def _matches(entry, group, root=None):
+    # `status_in` (2026-10-30 very deep check): an exclusion for the files
+    # in a directory whose own frontmatter says they are finished -- a done
+    # open item, a retired gotcha -- and only those, so the live files
+    # beside them stay open. A path glob alone could not tell them apart.
+    wanted = entry.get('status_in')
     return (entry['source'] == group['source']
             and entry['kind'] == group['kind']
             and fnmatch.fnmatchcase(group['path'], entry.get('path') or '*')
-            and (not entry.get('match') or entry['match'] in group['text']))
+            and (not entry.get('match') or entry['match'] in group['text'])
+            and (not wanted or _file_status(root or ROOT, group['path'])
+                 in wanted))
 
 
-def review(groups, entries, collected, today=None):
+def review(groups, entries, collected, today=None, root=None):
     """-> dict: every group with its status, the totals, and the exclusions
-    that matched nothing. Pure, so the harness can hand it planted groups and
-    a fixed date (practice: fixture-owns-its-state)."""
+    that matched nothing. Pure but for a `status_in` entry, which reads the
+    named file's frontmatter under `root` (default: this repository), so the
+    harness can hand it planted groups, a fixed date and a fixture root
+    (practice: fixture-owns-its-state)."""
     if today is None:
         sys.path.insert(0, str(ROOT / 'tools'))
         import precedent_time  # practice: timestamps-carry-offset
@@ -237,7 +262,7 @@ def review(groups, entries, collected, today=None):
     used = set()
     rows = []
     for g in groups:
-        hit = next((e for e in entries if _matches(e, g)), None)
+        hit = next((e for e in entries if _matches(e, g, root)), None)
         if hit is None:
             status = 'open'
         else:
@@ -379,7 +404,7 @@ def main(argv):
     repo_root = ROOT
     groups, collected, notes = collect(repo_root)
     entries, problems = load_registry(repo_root)
-    result = review(groups, entries, collected)
+    result = review(groups, entries, collected, root=repo_root)
     if '--json' in argv:
         print(json.dumps({'rows': [{k: v for k, v in r.items()
                                     if k != 'exclusion'} for r in result['rows']],
