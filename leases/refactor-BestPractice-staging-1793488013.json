@@ -1,0 +1,11 @@
+{
+  "holder": "BestPractice:staging",
+  "id": "refactor-BestPractice-staging-1793488013",
+  "items": [
+    "tools/verify_harness.py"
+  ],
+  "kind": "refactor",
+  "note": "split verify_harness",
+  "status": "active",
+  "taken_at": "2026-10-31T20:06:53-03:00"
+}
