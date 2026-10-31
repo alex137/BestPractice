@@ -753,7 +753,21 @@ def _second_practice_lists(repo_dir, threshold=0.8):
     r = subprocess.run(['git', '-C', str(root), 'ls-files'],
                        capture_output=True, text=True)
     out = []
-    pats = {s: re.compile(r'(?<![\w-])' + re.escape(s) + r'(?![\w-])') for s in slugs}
+    # One alternation, longest first, read once per file: 176 separate
+    # patterns over every tracked file cost over a minute a run.
+    pat = re.compile(r'(?<![\w-])(' + '|'.join(
+        re.escape(s) for s in sorted(slugs, key=len, reverse=True))
+        + r')(?![\w-])')
+    # A LIST, NOT A FILE THAT MENTIONS (2026-10-31). Counted across the whole
+    # file, tools/verify_harness.py -- some 94,000 lines of tests, each citing
+    # the practice it guards -- named most of the catalogue and came up as a
+    # candidate on every run, though no stretch of it lists the catalogue: the
+    # citations are scattered one per test. A candidate that is wrong every
+    # time teaches a reader to skip the section. So the slugs must sit
+    # together: within WINDOW_LINES_PER_SLUG lines per active practice, which
+    # the real case (routing_scope.json, about seven lines an entry) fits
+    # with room to spare.
+    window = WINDOW_LINES_PER_SLUG * len(slugs)
     for rel in r.stdout.split():
         if rel.startswith('practices/') or rel in generated:
             continue
@@ -763,10 +777,36 @@ def _second_practice_lists(repo_dir, threshold=0.8):
             text = (root / rel).read_text(encoding='utf-8', errors='ignore')
         except OSError:
             continue
-        named = sum(1 for s in slugs if pats[s].search(text))
+        found = [(m.start(), m.group(1)) for m in pat.finditer(text)]
+        if len({s for _p, s in found}) < threshold * len(slugs):
+            continue
+        named = _densest_slug_window(text, found, window)
         if named >= threshold * len(slugs):
             out.append((rel, named, len(slugs)))
     return out
+
+
+WINDOW_LINES_PER_SLUG = 10
+
+
+def _densest_slug_window(text, found, window):
+    """-> the most distinct slugs named within any `window` consecutive
+    lines of `text`, given `found` as [(offset, slug)] (see
+    _second_practice_lists)."""
+    import bisect
+    starts = [0] + [m.end() for m in re.finditer('\n', text)]
+    hits = sorted((bisect.bisect_right(starts, off) - 1, s) for off, s in found)
+    best, lo, live = 0, 0, {}
+    for line, slug in hits:
+        live[slug] = live.get(slug, 0) + 1
+        while hits[lo][0] <= line - window:
+            old = hits[lo][1]
+            live[old] -= 1
+            if not live[old]:
+                del live[old]
+            lo += 1
+        best = max(best, len(live))
+    return best
 
 
 def _tracked_blobs(repo_dir):
