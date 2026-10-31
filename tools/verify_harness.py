@@ -52570,6 +52570,134 @@ def check_bootstrap_writes_what_real_sets_converged_on():
           not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
 
 
+def check_bootstrap_does_what_a_first_update_vendors_adds():
+    """A newly bootstrapped set already has what its first Update Vendors
+    used to add: baseline approvals for every session-load budget in force,
+    the person's one session-load total with their own approval, and the
+    branch tiers said -- through the same functions that run calls
+    (seed_baseline_approvals, record_person_total, ensure_tiers).
+
+    2026-10-30, very deep check, CONVERGENT DRIFT: both shared sets carried
+    those lines and the generator wrote none (Morgan, 2026-10-31, strength:
+    assented). Controls: an individual set with no approval for its total
+    gives no total; off the ladder nothing about tiers is written or said;
+    and with seed_baseline_approvals neutered the registry has no approvals,
+    so the first case is the fix's and not the fixture's."""
+    import contextlib, io, tempfile
+    import build_views as bv
+    import precedent_bootstrap_source as pbs
+    import precedent_update as pu
+    tool = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        w = pathlib.Path(td)
+
+        def individual(name, approval):
+            d = w / name
+            d.mkdir()
+            man = {'level': 'individual', 'name': 'precedent-individual',
+                   'session_load_tokens': 9000}
+            if approval:
+                man['session_load_approval'] = {'strength': 'decided',
+                                                'approved_by': 'Fixture, 2026-10-28: "yes, 9k"'}
+            (d / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+            cfg = w / f'{name}.json'
+            cfg.write_text(json.dumps({'individual': {
+                'name': 'precedent-individual', 'path': str(d)}}), encoding='utf-8')
+            return cfg
+
+        def env_for(cfg, ladder):
+            env = dict(os.environ, HOME=str(w / 'home'), PRECEDENT_USER_CONFIG=str(cfg))
+            for k in ('PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS'):
+                env.pop(k, None)
+            env['PRECEDENT_ASSUME_LADDER' if ladder else 'PRECEDENT_NO_LADDERS'] = '1'
+            return env
+
+        def boot(dest, cfg, ladder):
+            r = subprocess.run([sys.executable, tool, '--level', 'shared', '--name',
+                                'precedent-shared-zzfirstupdate', '--dest', str(dest),
+                                '--approver', 'Fixture Person:fixture',
+                                '--off-main', 'true'],
+                               env=env_for(cfg, ladder), capture_output=True, text=True)
+            reg = dest / 'tools' / 'session_load_budgets.json'
+            data = json.loads(reg.read_text(encoding='utf-8')) if reg.is_file() else {}
+            pj = dest / 'precedent.json'
+            return r, data, (json.loads(pj.read_text(encoding='utf-8'))
+                             if pj.is_file() else {})
+
+        with_total = individual('ind-approved', True)
+        r, data, pj = boot(w / 'set', with_total, ladder=True)
+        cases.append(('the bootstrap succeeds', r.returncode == 0,
+                      (r.stdout + r.stderr)[-300:]))
+        ap = data.get('approved_budgets') or {}
+        in_force = bv.effective_budgets(w / 'set', registry=w / 'set' / 'tools'
+                                        / 'session_load_budgets.json')
+        unapproved = sorted(k for k, v in in_force.items() if isinstance(v, int)
+                            and not (isinstance((ap.get(k) or {}).get('max'), int)
+                                     and v <= ap[k]['max']))
+        cases.append(('THE DISCRIMINATING CASE: every budget in force has an '
+                      'approval at or above it from the first commit',
+                      bool(ap) and not unapproved, f'unapproved: {unapproved}'))
+        cases.append(('each per-part approval is the baseline, said to come from '
+                      'the bootstrap', all(e.get('strength') == 'baseline'
+                                           and 'at bootstrap' in e.get('approved_by', '')
+                                           for k, e in ap.items()
+                                           if k != 'session_load_tokens'), str(ap)[:300]))
+        tot = ap.get('session_load_tokens') or {}
+        cases.append(("the person's one total is copied with their own approval",
+                      data.get('session_load_tokens') == 9000 and tot.get('max') == 9000
+                      and tot.get('strength') == 'decided'
+                      and 'Fixture, 2026-10-28' in tot.get('approved_by', '')
+                      and 'set generator' in tot.get('approved_by', ''), str(tot)))
+        cases.append(('on the ladder, the set lands on staging and the command '
+                      'that makes staging on origin is said',
+                      pj.get('landing_branch') == 'staging'
+                      and '--ensure-tiers --apply' in r.stdout, r.stdout[-300:]))
+
+        r, data, _ = boot(w / 'set-noappr', individual('ind-bare', False), ladder=True)
+        cases.append(('CONTROL: a total with no approval beside it is not copied',
+                      r.returncode == 0 and 'session_load_tokens' not in data
+                      and 'session_load_tokens' not in (data.get('approved_budgets') or {}),
+                      str(data)[:300]))
+
+        r, data, pj = boot(w / 'set-off', with_total, ladder=False)
+        cases.append(('CONTROL: off the ladder no landing branch is written and '
+                      'no tier is said', r.returncode == 0
+                      and 'landing_branch' not in pj and 'ensure-tiers' not in r.stdout,
+                      r.stdout[-300:]))
+
+        saved_env = {k: os.environ.get(k) for k in
+                     ('HOME', 'PRECEDENT_USER_CONFIG', 'PRECEDENT_NO_LADDERS',
+                      'PRECEDENT_ASSUME_LADDER')}
+        saved_seed = pu.seed_baseline_approvals
+        try:
+            os.environ.update(env_for(with_total, ladder=False))
+            os.environ.pop('PRECEDENT_ASSUME_LADDER', None)
+            pu.seed_baseline_approvals = lambda *a, **k: False
+            with contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                pbs.bootstrap('shared', 'precedent-shared-zzneutered', w / 'set-neutered',
+                              approvers=[{'name': 'Fixture Person', 'github': 'fixture'}],
+                              off_main=True)
+            data = json.loads((w / 'set-neutered' / 'tools' / 'session_load_budgets.json')
+                              .read_text(encoding='utf-8'))
+            cases.append(('NEGATIVE CONTROL: with seed_baseline_approvals neutered '
+                          'only the person\'s total is approved, every per-part '
+                          'budget is not', set(data.get('approved_budgets') or {})
+                          == {'session_load_tokens'}, str(data.get('approved_budgets'))[:300]))
+        finally:
+            pu.seed_baseline_approvals = saved_seed
+            for k, v in saved_env.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a new practice set starts with what its first Update Vendors '
+          f'added ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:300]}" for n, d in bad))
+
+
 def check_global_gate_runs_a_repos_gate_only_from_above():
     """tools/precedent_global_gate.sh, run from the user-level settings the
     cloud setup script writes, runs the engine's merge or push gate for a
@@ -94792,6 +94920,7 @@ def main():
     check_creation_pipeline_fires()
     check_bootstrap_source_produces_resolvable_set()
     check_bootstrap_writes_what_real_sets_converged_on()
+    check_bootstrap_does_what_a_first_update_vendors_adds()
     check_session_hooks_run_for_a_session_opened_above_the_repos()
     check_freshness_quiet_says_when_a_source_is_unverified()
     check_catalogue_hook_runs_the_freshness_notice()

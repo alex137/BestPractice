@@ -1442,11 +1442,41 @@ def _bootstrap(level, name, dest, approvers=None, force=False,
     written += precedent_vendor_engine.record_ci_workflow_files(dest, 'source')
     written += _write_instructions_and_views(dest, level, name)
     written.append(_write_session_load_budget(dest))
+    # WHAT THE FIRST UPDATE VENDORS WOULD ADD (2026-10-30 very deep check,
+    # CONVERGENT DRIFT; Morgan, 2026-10-31, strength: assented). Both shared
+    # sets carried lines this tool never wrote, each added by a set's first
+    # Update Vendors, so every new set started out of date. Done here by the
+    # same code that run calls, never a copy of it: the baseline approvals
+    # (_write_session_load_budget, through precedent_update's
+    # seed_baseline_approvals), the person's one session-load total
+    # (record_person_total, which writes nothing when no total resolves),
+    # and the tiers (_tiers_next_step: staging is made on origin, which this
+    # tool never writes, so it says the command). The very deep check's own
+    # record files are listed by that check when it first writes them
+    # (very_deep_check.register_run_outputs): an entry for a file that does
+    # not exist yet is refused by generated-files-registered.
+    import precedent_update
+    precedent_update.record_person_total(dest, occasion='the set generator')
     written.append(write_generated_files(dest))
     if level == 'shared':
         written.append(_write_codeowners(dest))
 
-    return {'dest': dest, 'written': written}
+    return {'dest': dest, 'written': written, 'tiers': _tiers_next_step(dest)}
+
+
+def _tiers_next_step(dest):
+    """-> the lines precedent_branches.ensure_tiers says about this new set's
+    branch tiers, read only (apply off), or [] when the person is not on the
+    ladder. The first Update Vendors makes a missing staging on origin with
+    the same function, applied; this tool reaches no remote, so it hands the
+    person the command instead of leaving the gap unsaid."""
+    lines = []
+    try:
+        precedent_branches.ensure_tiers(dest, apply=False, say=lines.append,
+                                        new_install=True)
+    except Exception as e:                                     # noqa: BLE001
+        lines = [f'tiers: could not be read ({type(e).__name__}: {e})']
+    return [l for l in lines if 'missing' in l or 'could not' in l]
 
 
 def _codeowners(root, check_only):
@@ -1606,6 +1636,16 @@ def _write_session_load_budget(dest, occasion='bootstrap'):
         'headroom_floor_pct': 5,
         'surfaces': surfaces,
     }, indent=2) + '\n', encoding='utf-8')
+    # The budgets in force, recorded as the baseline, so
+    # budget-within-approval binds from the first commit (practice:
+    # session-load-budget). One writer for a new registry, at bootstrap and
+    # at Update Vendors alike: until 2026-10-31 only Update Vendors did
+    # this, so a new set got its approvals from its first update instead.
+    import precedent_update
+    precedent_update.seed_baseline_approvals(
+        dest, json.loads(path.read_text(encoding='utf-8')), path,
+        approved_by=f'seeded with the registry at {occasion}, at the values '
+                    f'in force')
     return path
 
 
@@ -2093,6 +2133,8 @@ def main():
               f"person whose set this is can give the values.")
     print(f"The set itself still needs a real git remote -- see "
           f"spec/BOOTSTRAP_NEW_SOURCES.md for that last, deliberately manual step.")
+    for line in result.get('tiers') or []:
+        print(f"Once it is pushed -- {line}")
     return 0
 
 
