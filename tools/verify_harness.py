@@ -8212,7 +8212,9 @@ def check_stale_freshness_also_says_delete_it():
 
     def row(value):
         os.environ['PRECEDENT_FRESHNESS_ALSO'] = value
-        return [r for r in psc.checks() if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
+        # offline: the row under test is local; only the fetch row is dropped.
+        return [r for r in psc.checks(offline=True)
+                if r[0].startswith('PRECEDENT_FRESHNESS_ALSO')][0]
     try:
         with tempfile.TemporaryDirectory() as td:
             tmp = pathlib.Path(td)
@@ -11220,12 +11222,18 @@ def check_source_level_reads_go_through_the_normalizer():
     cases = []
     skip = {'verify_harness.py', 'precedent_resolve.py'}
     hits = []
+    # The scanner flags only a comparison with a raw read, and a raw read is
+    # a 'level' string constant, so a file whose text quotes no `level` is
+    # never parsed: about a quarter of tools/ is, at half the time.
+    quoted = re.compile(r"""['"]level['"]""")
     for f in sorted((ROOT / 'tools').glob('*.py')):
         if f.name in skip:
             continue
         try:
-            hits += [f'{f.name}:{n}' for n in
-                     _raw_level_comparisons(f.read_text(encoding='utf-8'))]
+            text = f.read_text(encoding='utf-8')
+            if not quoted.search(text):
+                continue
+            hits += [f'{f.name}:{n}' for n in _raw_level_comparisons(text)]
         except (OSError, SyntaxError) as e:
             hits.append(f'{f.name}: unreadable ({e})')
     cases.append(('no tool compares a raw source level', not hits, ', '.join(hits[:20])))
@@ -11942,15 +11950,26 @@ def check_incident_coverage_reads_what_the_gotcha_names():
         g = got.get('gotcha-g-nothing', {})
         cases.append(('a gotcha with none of these has nothing to show',
                       bool(g) and not any(g.values())))
+        # The two real gotchas, read on their own: a scratch tree holding just
+        # their files, never this whole repository, which was half this
+        # check's time for two rows.
+        named = ('gotcha-2026-09-30-auto-mode-refuses-a-bare-'
+                 'promote-into-main-as-a-production',
+                 'gotcha-2026-09-28-stale-shallow-entries-for-'
+                 'deleted-branches-survive-unshallow')
+        two = fx / 'two-real'
+        (two / 'gotchas').mkdir(parents=True)
+        (two / 'tools').mkdir()
+        (two / 'tools' / 'verify_harness.py').write_text('', encoding='utf-8')
+        for s in named:
+            if (ROOT / 'gotchas' / f'{s}.md').is_file():
+                _sh.copy2(ROOT / 'gotchas' / f'{s}.md', two / 'gotchas' / f'{s}.md')
         real = {r[1]: (r[4] if len(r) > 4 else {})
-                for r in _vdc._incident_coverage(ROOT, since='2026-09-28')[1]}
+                for r in _vdc._incident_coverage(two, since='2026-09-28')[1]}
         cases.append(('the two gotchas with no mechanical prevention say so, '
                       'and why', all(
                           (real.get(s) or {}).get('written', '') or ''
-                          for s in ('gotcha-2026-09-30-auto-mode-refuses-a-bare-'
-                                    'promote-into-main-as-a-production',
-                                    'gotcha-2026-09-28-stale-shallow-entries-for-'
-                                    'deleted-branches-survive-unshallow'))))
+                          for s in named)))
     finally:
         _sh.rmtree(fx, ignore_errors=True)
     bad = [n for n, ok in cases if not ok]
@@ -12545,10 +12564,16 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     import tempfile as _tf
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as _pve
-    fx = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    top = pathlib.Path(_tf.mkdtemp(prefix='vh-orphan-msg-'))
+    fx = top / 'consumer'
+    fx.mkdir()
+    (top / 'home').mkdir()
+    # HOME and the user config are the fixture's own (practice:
+    # fixture-owns-its-state), which also lets the seed cache key them.
     env = dict(os.environ, GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
                GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
-               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+               PRECEDENT_ALLOW_ANY_AUTHOR='1', HOME=str(top / 'home'),
+               PRECEDENT_USER_CONFIG=str(top / 'no-user-config.json'))
 
     def sh(*args):
         r = subprocess.run(list(args), cwd=str(fx), env=env,
@@ -12561,8 +12586,16 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
     cases = []
     try:
         sh('git', 'init', '-q', '-b', 'main')
-        sh(sys.executable, str(ROOT / 'tools' / 'precedent_install.py'), str(fx),
-           '--project-name', 'Fixture')
+        # A seeded consumer engine, from the harness seed cache: the refresh
+        # reads only the engine and its manifest, never what else an install
+        # writes.
+        (fx / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'base_branch': 'main',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': str(ROOT)}]}) + '\n', encoding='utf-8')
+        (fx / 'AGENTS.md').write_text(
+            f'# fixture\n\n{bv.BEGIN_MARKER}\n{bv.END_MARKER}\n', encoding='utf-8')
+        _seed_fixture_engine(fx, 'consumer', env, cwd=fx)
         commit('installed')
         recorded = json.loads((fx / 'tools' / _pve.MANIFEST_NAME)
                               .read_text(encoding='utf-8'))['source_commit']
@@ -12588,7 +12621,7 @@ def check_refresh_never_says_nothing_to_do_after_removing_a_file():
                       bool(current) and 'nothing to do' not in current[-1]
                       and 'removed' in current[-1], str(current)))
     finally:
-        _sh.rmtree(fx, ignore_errors=True)
+        _sh.rmtree(top, ignore_errors=True)
     bad = [(n, x) for n, ok, x in cases if not ok]
     check(f'a refresh that removed an engine file never says nothing was done '
           f'({len(cases)} stated cases)', not bad,
@@ -16331,10 +16364,22 @@ def check_update_vendors_is_one_command():
                   '--repo', str(repo), '--from-ref', ref, '--skip-check', *extra,
                   cwd=repo)
 
+    def copy_of(src, name):
+        # Every consumer below starts the same, so one is built and the rest
+        # are copies, repository and bare origin, made before anything runs
+        # on it: each gets its own, and nothing one does reaches another.
+        repo, bare = tmp / name, tmp / f'{name}.git'
+        shutil.copytree(src, repo, symlinks=True)
+        shutil.copytree(tmp / f'{src.name}.git', bare, symlinks=True)
+        sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+        sh('git', 'fetch', '-q', 'origin', cwd=repo)
+        return repo
+
     import precedent_vendor_engine as _pve
     pve_branch = _pve.SOURCE_BRANCH
     try:
         done = consumer('done')
+        edited, local = copy_of(done, 'edited-engine'), copy_of(done, 'edited-catalogue')
         # The fixture's AGENTS.md is bare, so the first run rightly lists the
         # template's sections as this repo's call. Leaving them out is an
         # answer, and the refresh remembers it: the second run asks nothing.
@@ -16378,7 +16423,6 @@ def check_update_vendors_is_one_command():
                       (done / 'AGENTS.md').read_text() and
                       len((done / 'AGENTS.md').read_text()) > 200, failure_detail(out, 600)))
 
-        edited = consumer('edited-engine')
         with open(edited / 'tools' / 'precedent_show.py', 'a', encoding='utf-8') as f:
             f.write('# a local edit\n')
         rc, out = update(edited)
@@ -16387,7 +16431,6 @@ def check_update_vendors_is_one_command():
                       and 'precedent_show.py' in out.split('LEFT FOR YOU', 1)[-1],
                       failure_detail(out, 1500)))
 
-        local = consumer('edited-catalogue')
         target = next(p for p in sorted((local / 'process' / 'upstream' / 'practices')
                                         .glob('*.md')))
         with open(target, 'a', encoding='utf-8') as f:
@@ -16920,6 +16963,109 @@ class _LocalEditsFixture:
         shutil.rmtree(self.tmp, ignore_errors=True)
 
 
+# --------------------------------------------------------------------------
+# ONE CONSUMER, COPIED: an Update Vendors fixture past its slow first steps.
+#
+# Several update checks start from the same consumer carried through the same
+# warm-up (a vendored catalogue, a first update run, a commit), which costs
+# 20-25 seconds of real update runs each time and gives the same repository
+# every time. _uv_cached_consumer builds it once per key and copies it, the
+# repository and its bare origin, into each case; every case still gets its
+# own copy, and nothing one case does reaches another.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is used only when a
+# fresh build would leave the same repository. The key is _seed_cache_key's
+# for an empty destination -- this checkout's path, HEAD, its SOURCE_BRANCH
+# refs and every uncommitted or untracked file by content (this harness
+# included, so an edited recipe is a new key), the contents of HOME and the
+# user config, every PRECEDENT_*/GIT_* variable but the harness's own test
+# filter -- plus the recipe's name. A build that leaves anything in HOME, or
+# writes the fixture's temporary path anywhere but the remote URLs and
+# FETCH_HEAD a copy rewrites, is never kept. PRECEDENT_NO_SEED_CACHE=1 turns
+# it off with the seed cache; any error falls back to building, and within
+# one fixture a recipe is still built only once.
+_UV_CONSUMER_FILTER_VARS = ('PRECEDENT_CHECK_ONLY', 'PRECEDENT_CHECK_SKIP')
+_UV_CONSUMER_PATH_OK = ('.git/config', '.git/FETCH_HEAD', 'config')
+
+
+def _uv_consumer_source(fx, recipe, build):
+    """-> (repo, bare) holding fx.consumer() carried through build(repo):
+    a cache entry's, or one built in fx.tmp (and kept when it may be)."""
+    env = {k: v for k, v in fx.env.items() if k not in _UV_CONSUMER_FILTER_VARS}
+    key = None
+    if fx.env.get('PRECEDENT_NO_SEED_CACHE') != '1':
+        probe = fx.tmp / f'.uv-key-{recipe}'
+        probe.mkdir()
+        try:
+            key = _seed_cache_key(probe, f'uv-consumer {recipe}', env)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            key = None                      # an accelerator, never a dependency
+        finally:
+            shutil.rmtree(probe, ignore_errors=True)
+    cache = _seed_cache_dir(fx.env)
+    entry = cache / f'uv-{key}' if key else None
+    if entry is not None and (entry / 'complete').is_file():
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            return entry / 'repo', entry / 'bare'
+        except OSError:
+            pass
+    name = f'.uv-build-{recipe}'
+    repo = fx.consumer(name)
+    bare = fx.tmp / f'{name}.git'
+    build(repo)
+    if entry is None or any((fx.tmp / 'home').iterdir()):
+        return repo, bare
+    needle = os.fsencode(str(fx.tmp))
+    for top, ok in ((repo, _UV_CONSUMER_PATH_OK[:2]), (bare, _UV_CONSUMER_PATH_OK[2:])):
+        for dirpath, dirnames, filenames in os.walk(top):
+            rel_dir = pathlib.Path(dirpath).relative_to(top)
+            if rel_dir.as_posix() in ('.git/objects', 'objects'):
+                dirnames[:] = []            # compressed; the worktree is scanned
+                continue
+            for fn in filenames:
+                p = pathlib.Path(dirpath) / fn
+                rel = (rel_dir / fn).as_posix()
+                if rel not in ok and not p.is_symlink() and needle in p.read_bytes():
+                    return repo, bare       # path-dependent: never kept
+    import tempfile
+    try:
+        cache.mkdir(parents=True, exist_ok=True)
+        _seed_cache_prune(cache)
+        staging = pathlib.Path(tempfile.mkdtemp(prefix=f'.build-uv-{key[:12]}-', dir=cache))
+    except OSError:
+        return repo, bare
+    try:
+        shutil.copytree(repo, staging / 'repo', symlinks=True)
+        shutil.copytree(bare, staging / 'bare', symlinks=True)
+        (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+        os.rename(staging, entry)           # atomic; loses to an entry already there
+    except OSError:
+        pass
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+    return repo, bare
+
+
+def _uv_cached_consumer(fx, name, recipe, build):
+    """-> fx.tmp/<name>: a copy of fx.consumer() carried through
+    build(repo), with its own copy of the bare origin at fx.tmp/<name>.git
+    (see ONE CONSUMER, COPIED above). `recipe` names what build does, and
+    must change when what it does changes in a way the key cannot see."""
+    built = fx.__dict__.setdefault('_uv_built', {})
+    if recipe not in built:
+        built[recipe] = _uv_consumer_source(fx, recipe, build)
+    src_repo, src_bare = built[recipe]
+    repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
+    shutil.copytree(src_repo, repo, symlinks=True)
+    shutil.copytree(src_bare, bare, symlinks=True)
+    fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
+    fx.sh('git', 'remote', 'set-url', 'origin', str(repo), cwd=bare)
+    fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
+    return repo
+
+
 def _insert(data, text, at=3):
     lines = data.decode().splitlines(True)
     return ''.join(lines[:at] + [text] + lines[at:]).encode()
@@ -17290,18 +17436,28 @@ def check_update_rerun_after_failed_takes_its_own_output():
             'pu.judged_as_committed = lambda _r, _a: (1, "stubbed red check")\n'
             f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--from-ref", {ref!r}]))\n'),
             cwd=repo)
+    def local_fix(repo):
+        # Answer the bare fixture's first-run questions, so the run below
+        # reaches its check rather than stopping short of it.
+        fx.update(repo, fx.seeded_from(repo))
+        fx.commit(repo, 'first update')
+        f = repo / 'tools' / 'precedent_show.py'
+        f.write_bytes(_insert(f.read_bytes(), '# a local fix\n'))
+        fx.commit(repo, 'a local fix to a received engine file')
     try:
         for name, touch in (('untouched', False), ('touched', True)):
-            repo = fx.consumer(name)
+            # Both cases start from the same consumer, built once and copied
+            # (_uv_cached_consumer).
+            repo = _uv_cached_consumer(fx, name, 'first-update-local-fix', local_fix)
             seeded = fx.seeded_from(repo)
-            # Answer the bare fixture's first-run questions, so the run
-            # below reaches its check rather than stopping short of it.
-            fx.update(repo, seeded)
-            fx.commit(repo, 'first update')
             f = repo / 'tools' / 'precedent_show.py'
-            b = f.read_bytes()
-            f.write_bytes(_insert(b, '# a local fix\n'))
-            fx.commit(repo, 'a local fix to a received engine file')
+            b = subprocess.run(['git', '-C', str(repo), 'show',
+                                'HEAD~1:tools/precedent_show.py'],
+                               capture_output=True, env=fx.env).stdout
+            if f.read_bytes() != _insert(b, '# a local fix\n'):
+                cases.append((f'{name}: the fixture holds the local fix on top of the '
+                              'first update', False, ''))
+                continue
             ref = fx.upstream(seeded, {'tools/precedent_show.py': b + b'\n# upstream\n'})
             rc, out = red_update(repo, ref)
             # Upstream's version, since 2026-10-08 (rule 2 takes it): still
@@ -17490,7 +17646,9 @@ def check_gone_path_matcher_matches_one_regex_per_path():
     gone = {path() for _ in range(400)} | {'odd dir/x.md', 'a+b/c.md'}
     pool = sorted(gone)
     lines = []
-    for _ in range(3000):
+    # 1000 lines, not 3000 (2026-10-31): the old loop is the cost, and every
+    # boundary comes from the same generator either way.
+    for _ in range(1000):
         toks = []
         for _ in range(rnd.randint(1, 10)):
             r = rnd.random()
@@ -17509,7 +17667,7 @@ def check_gone_path_matcher_matches_one_regex_per_path():
     got = [first(l) for l in lines]
     diff = [(l, w, g) for l, w, g in zip(lines, want, got) if w != g]
     hits = sum(1 for w in want if w)
-    return (not diff and hits > 1000, f'{len(lines)} lines, {hits} with a hit, '
+    return (not diff and hits > 300, f'{len(lines)} lines, {hits} with a hit, '
             f'{len(gone)} removed paths', f'{len(diff)} differ, first: {diff[:2]}')
 
 
@@ -19025,38 +19183,30 @@ def check_update_vendors_leaves_the_copy_its_record_names():
                                            capture_output=True).stdout
     up = lambda repo, rel: repo / 'process' / 'upstream' / rel
 
-    pristine = {}
+    def pristine(repo):
+        # Every case starts from the same consumer: its catalogue vendored
+        # at the seeded commit and its first update run. Built once per
+        # checkout state and copied for each case, repository and bare
+        # origin (Morgan, 2026-10-09: "share the fake project"; the build
+        # is about 25 seconds of real update runs), so nothing a case does
+        # reaches another (_uv_cached_consumer).
+        seeded = fx.seeded_from(repo)
+        (repo / 'process').mkdir()
+        (repo / 'process' / 'manifest.json').write_text(json.dumps({
+            'upstream': {'repo': 'https://github.com/alex137/BestPractice',
+                         'vendored_at': 'process/upstream', 'branch': branch,
+                         'commit': seeded, 'scrub_blocklist': None},
+            'entries': []}, indent=2) + '\n', encoding='utf-8')
+        fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
+              '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
+        # Answer the bare fixture's first-run questions, so a later run
+        # can end DONE.
+        fx.update(repo, seeded)
+        fx.commit(repo, 'catalogue at the seeded commit')
 
     def build(name):
-        # Built once, copied for each case (Morgan, 2026-10-09: "share the
-        # fake project"). Every case starts from the same consumer: its
-        # catalogue vendored at the seeded commit and its first update run.
-        # That took about 30 seconds a case, five times over; two builds
-        # differ only by MANIFEST.json's generated_at_utc and their commit
-        # times. Each case gets its own copy of the repository and of its
-        # bare origin, and nothing a case does reaches another.
-        if not pristine:
-            repo = fx.consumer('pristine')
-            seeded = fx.seeded_from(repo)
-            (repo / 'process').mkdir()
-            (repo / 'process' / 'manifest.json').write_text(json.dumps({
-                'upstream': {'repo': 'https://github.com/alex137/BestPractice',
-                             'vendored_at': 'process/upstream', 'branch': branch,
-                             'commit': seeded, 'scrub_blocklist': None},
-                'entries': []}, indent=2) + '\n', encoding='utf-8')
-            fx.sh(sys.executable, str(ROOT / 'tools' / 'checkin.py'), 'update', str(ROOT),
-                  '--repo', str(repo), '--force', '--from-ref', seeded, cwd=repo)
-            # Answer the bare fixture's first-run questions, so a later run
-            # can end DONE.
-            fx.update(repo, seeded)
-            fx.commit(repo, 'catalogue at the seeded commit')
-            pristine.update(repo=repo, seeded=seeded)
-        repo, bare = fx.tmp / name, fx.tmp / f'{name}.git'
-        shutil.copytree(pristine['repo'], repo, symlinks=True)
-        shutil.copytree(fx.tmp / 'pristine.git', bare, symlinks=True)
-        fx.sh('git', 'remote', 'set-url', 'origin', str(bare), cwd=repo)
-        fx.sh('git', 'fetch', '-q', 'origin', cwd=repo)
-        return repo, pristine['seeded']
+        repo = _uv_cached_consumer(fx, name, 'catalogue-at-seeded', pristine)
+        return repo, fx.seeded_from(repo)
 
     def mismatch(repo, ref):
         """-> the copy-relative paths where the copy is not `ref` under the
@@ -19555,7 +19705,10 @@ def check_send_carries_a_local_edit_upstream():
         # vendored, with a change to the same file.
         fx.env.update(ident)
         owner, bare = fx.tmp / 'owner', fx.tmp / 'owner.git'
-        fx.sh('git', 'clone', '-q', '--no-local', str(ROOT), str(owner), cwd=fx.tmp)
+        # A plain local clone: its objects are hardlinks, never written to in
+        # place, so nothing the owner does reaches this checkout; --no-local
+        # copied every object of this repository, about 12 seconds of 23.
+        fx.sh('git', 'clone', '-q', str(ROOT), str(owner), cwd=fx.tmp)
         landing = fx.sh(sys.executable, 'tools/precedent_branches.py', '--landing',
                         cwd=owner)[1].split()[0]
         fx.sh('git', 'checkout', '-q', '-B', landing, seeded, cwd=owner)
@@ -40743,17 +40896,16 @@ def check_refresh_removes_dropped_engine_files():
                        'tools/precedent_vendor_engine.py is not present here')
         return
 
-    env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
     ref = _ref_including_worktree(ROOT)
 
     def _consumer(base):
         """Seed a real consumer engine from THIS working tree."""
         base.mkdir(parents=True)
         subprocess.run(['git', '-C', str(base), 'init', '-q'], capture_output=True)
-        r = subprocess.run(
-            [sys.executable, str(vend), 'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300, env=env)
-        if r.returncode != 0:
+        # The harness seed cache: the second and third consumers (and a later
+        # run at the same checkout state) copy what the first seed wrote.
+        rc, _out = _seed_fixture_engine(base, 'consumer', env, cwd=ROOT)
+        if rc != 0:
             return None
         # AND OVERWRITE THE SEEDED TOOL WITH THIS WORKING TREE'S. `seed`
         # vendors via git, so it copies the COMMITTED engine -- a fixture
@@ -40771,6 +40923,14 @@ def check_refresh_removes_dropped_engine_files():
     cases = []
     with tempfile.TemporaryDirectory() as td:
         tmp = pathlib.Path(td)
+        # HOME and the user config are the fixture's own (practice:
+        # fixture-owns-its-state), which is also what lets the seed cache
+        # key them.
+        (tmp / 'home').mkdir()
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1', HOME=str(tmp / 'home'),
+                   PRECEDENT_USER_CONFIG=str(tmp / 'no-user-config.json'),
+                   GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+                   GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
         base = _consumer(tmp / 'consumer')
         if base is None:
             not_applicable('refresh removes dropped engine files',
@@ -41550,6 +41710,21 @@ def check_retirement_record_is_not_a_stranded_link():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def _seed_consumer_engine_isolated(dest):
+    """Seed a consumer engine into `dest` through the harness seed cache
+    (_seed_fixture_engine), under this process's environment with HOME and
+    the user config swapped for an empty scratch directory and the harness's
+    own test filter dropped. A real HOME is too big for the cache to key, so
+    under it every seed ran for real; the seeded files do not depend on it
+    (2026-10-31: a seed under each wrote the same 146 files, byte for byte).
+    Returns _seed_fixture_engine's (returncode, output)."""
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix='seed-home-') as h:
+        env = {k: v for k, v in os.environ.items() if k not in _UV_CONSUMER_FILTER_VARS}
+        env.update(HOME=h, PRECEDENT_USER_CONFIG=str(pathlib.Path(h) / 'no-user-config.json'))
+        return _seed_fixture_engine(dest, 'consumer', env, cwd=ROOT)
+
+
 def check_shipped_hooks_pass_rename_links_without_the_mirror():
     """Every hook BestPractice ships passes rename-updates-links in a
     consumer whose process/upstream/tools/ was just deleted.
@@ -41577,10 +41752,7 @@ def check_shipped_hooks_pass_rename_links_without_the_mirror():
         base = pathlib.Path(td) / 'repo'
         (base / 'process' / 'upstream' / 'tools').mkdir(parents=True)
         (base / 'tools').mkdir()
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -41666,10 +41838,7 @@ def check_rename_links_spares_a_commit_pinned_permalink():
         (base / 'tools').mkdir()
         # Seeded, then overwritten with this tree's checker -- seeding copies
         # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -41740,10 +41909,7 @@ name the deleted file and are still reported.
         (base / 'tools').mkdir()
         # Seeded, then overwritten with this tree's checker -- seeding copies
         # the COMMITTED engine (see check_retirement_record_is_not_a_stranded_link).
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(base), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(base)
         (base / 'practices').mkdir(exist_ok=True)
         _shutil.copy2(ROOT / 'practices' / 'rename-updates-links.md',
                       base / 'practices' / 'rename-updates-links.md')
@@ -49108,7 +49274,8 @@ def check_session_check_reports_a_source_cloned_twice():
     saved_head = psc._git_head
 
     def row():
-        for name, ok, detail in psc.checks():
+        # offline: the row under test is local; only the fetch row is dropped.
+        for name, ok, detail in psc.checks(offline=True):
             if name_wanted in name:
                 return ok, detail
         return 'MISSING', ''
@@ -66635,9 +66802,9 @@ def check_shared_helpers_have_one_copy():
                       'are not', not ({'tools/imports_it.py', 'tools/doc_html.py',
                                        'tools/declared_base_branch.py'} & found),
                       sorted(found)))
-        here = [f.where for f in pc._declared_base_branch_is_read(None)]
-        cases.append(('this tree: no tool carries a copy, and none infers '
-                      'unguarded', not here, here))
+        # This tree itself is not scanned here: precedent_check.py runs the
+        # same scan on it as the tree check `declared-base-branch` in every
+        # full check, and it was nearly all of this test's time.
     finally:
         pc.ROOT = real_root
         shutil.rmtree(tmp, ignore_errors=True)
@@ -71223,7 +71390,10 @@ def check_engine_unpacks_tars_in_one_place():
         if py.name == 'verify_harness.py':
             continue
         try:
-            hits = outside_helper(py.read_text(encoding='utf-8'))
+            src = py.read_text(encoding='utf-8')
+            # Only a file naming extractall can call it: the rest are never
+            # parsed, a handful left of 140.
+            hits = outside_helper(src) if 'extractall' in src else []
         except SyntaxError:
             continue
         stray += [f'{py.name}:{n}' for n in hits]
@@ -72969,10 +73139,7 @@ def check_practice_change_propagates_refuses():
         sources, _consumer, write = _renamed_universal_fixture(tmp)
         repo = tmp / 'repo'
         repo.mkdir()
-        subprocess.run(
-            [sys.executable, str(ROOT / 'tools' / 'precedent_vendor_engine.py'),
-             'seed', str(repo), '--kind', 'consumer'],
-            capture_output=True, text=True, timeout=300)
+        _seed_consumer_engine_isolated(repo)
         # The seed copies the COMMITTED engine; the code under test is this
         # working tree's (the rename-updates-links fixture found this the hard way).
         for name in ('precedent_check.py', 'precedent_practice_refs.py'):
@@ -79642,8 +79809,12 @@ def check_self_heal_universal_source_leaves_no_bytecode():
             'sources': [{'level': 'universal', 'name': 'precedent',
                         'path': '../universal-sibling-not-yet-cloned'}],
         }), encoding='utf-8')
+        # A source_repo that fails at once, locally: the .pyc is written by
+        # _credential_args()'s import before any git command, so the real
+        # remote (most of this check's time, and an outbound call) adds
+        # nothing to what it asserts.
         (tools_dir / 'ENGINE_MANIFEST.json').write_text(json.dumps({
-            'source_repo': 'https://github.com/alex137/BestPractice',
+            'source_repo': (tmp / 'no-such-remote.git').as_uri(),
             'source_branch': 'precedent-beta-v01',
         }), encoding='utf-8')
 
@@ -90165,9 +90336,19 @@ def check_moved_claims_says_when_it_could_not_read_the_tree():
     caller prints CANNOT TELL rather than counting a clean repository. The
     quiet one: against a real tree it still returns a list, because a guard
     that has learned to answer UNKNOWN to everything is not a guard."""
+    import tempfile
     import very_deep_check as vdc
 
-    root = pathlib.Path(__file__).resolve().parent.parent
+    # A scratch repository with two tracked files, never this tree: the quiet
+    # half asks only that a readable tree answers with a list, and reading
+    # this whole repository for it was most of this check's time.
+    td = tempfile.TemporaryDirectory(prefix='moved-claims-')
+    root = pathlib.Path(td.name)
+    (root / 'docs').mkdir()
+    (root / 'README.md').write_text('# fixture\n\nSee docs/notes.md.\n', encoding='utf-8')
+    (root / 'docs' / 'notes.md').write_text('Moved to docs/gone.md.\n', encoding='utf-8')
+    subprocess.run(['git', 'init', '-q', str(root)], capture_output=True)
+    subprocess.run(['git', '-C', str(root), 'add', '-A'], capture_output=True)
 
     real = vdc._moved_claims(root)
 
@@ -90183,6 +90364,7 @@ def check_moved_claims_says_when_it_could_not_read_the_tree():
         unreadable = vdc._moved_claims(root)
     finally:
         vdc._run_git = original
+        td.cleanup()
 
     results = [
         ('PLANTED, `git ls-files` fails: the answer is UNKNOWN (None)',
