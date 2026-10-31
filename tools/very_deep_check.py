@@ -617,11 +617,25 @@ def freshen(repo_dir, verdict):
 
 def _contains_origin_base(repo_dir, out):
     """For a branch origin does not have: True, with `out` set to 'ahead',
-    when HEAD contains origin's declared base branch (else `main`)."""
+    when HEAD contains origin's declared base branch (else `main`), or
+    origin's live branch, `main`.
+
+    THE LIVE BRANCH COUNTS TOO (2026-10-31). The practice says to read
+    `main`, the version people actually run, from a working branch cut from
+    `origin/main`; until this date the gate accepted only the declared base,
+    so in a repo whose base is `staging` and whose staging was ahead of main
+    it refused exactly the branch the practice tells a run to cut. The
+    2026-10-30 run worked around it by branching from staging instead. A
+    branch at or past origin/main is current for what the check reads, and
+    what staging carries that main does not is LIVE VERSUS LANDING's job."""
     base = _declared_base_branch(repo_dir) or 'main'
-    _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin', base)
-    ref = f'origin/{base}'
-    if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] != 0:
+    for ref_branch in dict.fromkeys((base, 'main')):
+        _run_git(repo_dir, 'fetch', *_depth(repo_dir, 50), 'origin',
+                 ref_branch)
+        ref = f'origin/{ref_branch}'
+        if _run_git(repo_dir, 'merge-base', '--is-ancestor', ref, 'HEAD')[0] == 0:
+            break
+    else:
         return False
     # What no origin ref has, never what the base lacks: a branch cut from
     # origin/main in a repo whose base is staging carries main's merge

@@ -88016,12 +88016,36 @@ def check_freshness_gate_fires():
         results.append(('a detached HEAD behind origin/main is refused',
                         v['status'] == 'detached'))
 
+        # A repo whose declared base is `staging`, with staging AHEAD of
+        # main: the practice says to read main from a branch cut from
+        # origin/main, and until 2026-10-31 the gate refused exactly that
+        # branch because it does not contain origin/staging. The control
+        # beside it, a branch cut behind origin/main, must still be refused.
+        _git(upstream, 'checkout', '-q', '-b', 'staging')
+        (upstream / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        (upstream / 's.txt').write_text('landed, not live\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'staging only')
+        _git(upstream, 'checkout', '-q', 'main')
+        _git(work, 'fetch', '-q', 'origin', 'staging:refs/remotes/origin/staging')
+        _git(work, 'checkout', '-q', '-b', 'read-main', 'origin/main')
+        (work / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        v = vdc.freshness(work)
+        results.append(('a branch cut from origin/main reads clean where the '
+                        'base is a staging branch ahead of main',
+                        v['status'] in vdc.FRESHNESS_CLEAN))
+        _git(work, 'checkout', '-q', '-b', 'read-old-main', 'origin/main~1')
+        v = vdc.freshness(work)
+        results.append(('a branch cut behind origin/main is still refused '
+                        'where the base is staging',
+                        v['status'] == 'branch-not-on-origin'))
+        (work / 'precedent.json').unlink()
+
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check refuses a stale repo ({len(results)} stated '
               f'cases: a current clone, a remoteless repo, a non-checkout, a '
               f'behind clone, --freshen against dirty and clean trees, a '
-              f'diverged clone whose commit must survive, and a local-only '
-              f'branch)',
+              f'diverged clone whose commit must survive, a local-only '
+              f'branch, and a branch cut from main where the base is staging)',
               not failed,
               '; '.join(failed) if failed else '')
 
