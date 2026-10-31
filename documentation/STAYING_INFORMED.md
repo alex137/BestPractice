@@ -79,8 +79,9 @@ can fix it, and a line buried in a log nobody opens doesn't.
 ## "Am I Running an Old Version of the Rules?"
 
 **At the start of every conversation, the AI Assistant checks whether
-Precedent, or any practice set your project uses, has moved on since your
-project last took an update, and tells you right away.** Nothing updates
+Precedent, any practice set your project uses, or any files your project
+copies in from another repository, has moved on since your project last
+took an update, and tells you right away.** Nothing updates
 behind your back: taking the update is your call, with the phrase
 *"Update Vendors"*. If you use Precedent in several projects,
 *"Update All Vendors"* takes the update in every one of them, one after

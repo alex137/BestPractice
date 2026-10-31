@@ -1,5 +1,5 @@
 {
-  "_comment": "Warnings the very deep check's WARNINGS section has decided to stop showing, each with its reason (practice: very-deep-check; tool: tools/warning_review.py). One entry excludes one group: `source` (doc_lint, precedent_check, or a line source the tool names), `kind` (doc_lint's class, the check's slug, or the line source's own kind: WARNING, or undetermined for the session check), optional `path` (a glob over the file; absent means every file) and optional `match` (a substring of the warning text). `term` is permanent, or temporary with a `revisit` date after which the warning shows again. `decided` is the date; `by` is `agent` when the session judged it alone, or the person's name with a `strength` of decided or assented when it asked. An entry that matches nothing any more is reported stale and deleted, never kept.",
+  "_comment": "Warnings the very deep check's WARNINGS section has decided to stop showing, each with its reason (practice: very-deep-check; tool: tools/warning_review.py). One entry excludes one group: `source` (doc_lint, precedent_check, or a line source the tool names), `kind` (doc_lint's class, the check's slug, or the line source's own kind: WARNING, or undetermined for the session check), optional `path` (a glob over the file; absent means every file) optional `match` (a substring of the warning text) and optional `status_in` (the file's own frontmatter `status:` must be one of these, so a directory's finished files are excluded and its live ones are not). `term` is permanent, or temporary with a `revisit` date after which the warning shows again. `decided` is the date; `by` is `agent` when the session judged it alone, or the person's name with a `strength` of decided or assented when it asked. An entry that matches nothing any more is reported stale and deleted, never kept.",
   "exclusions": [
     {
       "source": "doc_lint",
@@ -36,6 +36,49 @@
       "revisit": "2026-11-16",
       "why": "The check's own advisory term: temporary, waiting for the moves in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md, revisit 2026-11-16. Each finding is one of those moves, already listed there.",
       "decided": "2026-10-17",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "todo/todo-*.md",
+      "status_in": [
+        "done",
+        "dropped"
+      ],
+      "term": "permanent",
+      "why": "A closed open item (done or dropped) is a dated record of how it was settled. It names paths as they were; relinking them is churn no reader gains from. An open item stays open here: it is still read to act on, so its references should be links.",
+      "decided": "2026-10-30",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "gotchas/gotcha-*.md",
+      "status_in": [
+        "retired"
+      ],
+      "term": "permanent",
+      "why": "A retired gotcha is history: the trap can no longer fire, and the file is kept for its story, not read to act on. A live gotcha stays open here.",
+      "decided": "2026-10-30",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "spec/PHASE[0-9]*_*.md",
+      "term": "permanent",
+      "why": "The phase briefs and deep-check accounts of spec/PRACTICE_ENGINE_PLAN.md, whose phases 0-7 were merged 2026-09-14: dated records of how the engine was built, not documents anyone works from.",
+      "decided": "2026-10-30",
+      "by": "agent"
+    },
+    {
+      "source": "doc_lint",
+      "kind": "unlinked file reference",
+      "path": "spec/PRELAUNCH_AUDIT.md",
+      "term": "permanent",
+      "why": "The 2026-09-06 pre-launch audit's account: a dated record whose findings were filed and settled elsewhere.",
+      "decided": "2026-10-30",
       "by": "agent"
     }
   ]

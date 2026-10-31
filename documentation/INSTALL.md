@@ -2,7 +2,7 @@
 
 **If you are not a programmer**, you do not want a document — you want
 [SETUP.md](../SETUP.md). Paste it to an AI Assistant in a session on your
-project and it runs the whole install as a conversation, asking you three
+project and it runs the whole install as a conversation, asking you five
 questions and doing the technical work itself.
 [ADOPTING.md](ADOPTING.md) explains what you are agreeing to before you
 start.

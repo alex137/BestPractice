@@ -1701,8 +1701,9 @@ first so this pass spends its attention on what they cannot see.
   folklore. The usual home is a practice's `defines:` field, which lands it
   in [GLOSSARY.md](https://github.com/alex137/BestPractice/blob/staging/GLOSSARY.md) — **but a glossary entry is not the
   property; being findable is.** Every standing command is listed by
-  `python3 tools/precedent_vocabulary.py` and in AGENTS.md's command list,
-  and `check_park_it.py` fails if the "Drop it" paragraph goes missing — so
+  `python3 tools/precedent_vocabulary.py`, the most used ones again in
+  AGENTS.md's command list, and `check_park_it.py` fails if the "Drop it"
+  paragraph goes missing — so
   check where a keyword IS defined before calling it undefined. (An early
   "don't put it in the glossary", Morgan 2026-09-08, was later read
   narrowly; park-it's Story records why, and "Drop it" is in the glossary

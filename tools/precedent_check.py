@@ -4503,13 +4503,25 @@ def _practice_is_reachable(ctx):
         # session-start.sh, every universal practice in a set read as
         # reachable by nothing once a set's checks saw them). So read what
         # settings.json actually starts, and the tools/ script of that name.
+        #
+        # That tools/ script may in turn hand off to tools/bootstrap.sh, as
+        # the consumer's does once .claude/hooks/session-start.sh became a
+        # shim (2026-10-31, very deep check pass 1: every fresh install
+        # reported its four code-owner practices as reachable by nothing,
+        # while its first session start had just written them into
+        # .precedent/SESSION_PRACTICES.md).
+        boot_runs_it = boot.is_file() and 'precedent_session_practices' in \
+            boot.read_text(encoding='utf-8', errors='ignore')
         if not runs_it:
             for cmd in _session_start_commands(ROOT):
                 name = pathlib.Path(cmd.split()[0]).name
                 for f in (ROOT / 'tools' / name,
                           ROOT / cmd.split()[0].replace('$CLAUDE_PROJECT_DIR/', '')):
-                    if f.is_file() and 'precedent_session_practices' in \
-                            f.read_text(encoding='utf-8', errors='ignore'):
+                    text = (f.read_text(encoding='utf-8', errors='ignore')
+                            if f.is_file() else '')
+                    if 'precedent_session_practices' in text or (
+                            boot_runs_it and f.name != 'bootstrap.sh'
+                            and 'tools/bootstrap.sh' in text):
                         runs_it = True
         wired = ((ROOT / 'tools' / 'precedent_session_practices.py').is_file()
                  and runs_it)

@@ -74,7 +74,10 @@ DEFAULT_OUT = pathlib.Path('.precedent') / 'very-deep-check-review.html'
 # branches Promote and the push-check receipts live on
 # (practice: branch-delete-links, "Never a tier branch").
 KEEP = {'HEAD', 'main', 'staging', 'precedent-beta-v01',
-        'precedent-promote-lock', 'precedent-check-receipts'}
+        'precedent-promote-lock', 'precedent-check-receipts',
+        # the board libraries' branches (lease board, landing queue,
+        # heartbeat, result cache), the same list very_deep_check.py keeps
+        'coord', 'result-cache'}
 # Any data- branch is a live record, never finished work (2026-10-11,
 # precedent_data_branches.py).
 DATA_PREFIX = 'data-'

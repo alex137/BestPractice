@@ -3,7 +3,7 @@ slug:              todo-2026-10-05-very-deep-check-pass-3-findings
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,7 +12,7 @@ decision:          null
 decision_strength: null
 waiting_on:        null
 noted:             2026-10-05
-closed:            null
+closed:            2026-10-31
 ---
 ## What
 
@@ -72,3 +72,15 @@ or recorded here as declined.
 ## Notes
 
 2026-10-17, very deep check pass 4 (still live, narrowed): the decision and the engine halves are fixed and the writing set's curly-quotes no longer cites fix-typos-keep-ambiguity; left: three set stubs still say "in force there" (individual name-the-branch.md and practice-links-travel.md, writing resolved-issue-note-updates.md).
+2026-10-31, very deep check of 2026-10-30, pass 4 (closed on its condition):
+the decision was made and recorded on 2026-10-06, and every set item is now
+fixed. The ladder set's full copies of the-boildown and vendor-update-runbook
+are `status: deduplicated`, replaced by the additions the-boildown-on-the-ladder
+and vendor-update-on-the-ladder (`adds_to:`), so neither can fall behind
+again. The three stubs the 2026-10-17 note named were re-read and each is
+true today: the individual name-the-branch stub names the live writing set,
+practice-links-travel's "in force there" means universal's check in a
+consumer, and the writing set's resolved-issue-note-updates waited on an
+example that universal's change-updates-its-docs has carried since
+2026-10-01. Every other folded-set name left in a deduplicated stub sits in
+a dated Story line or in the retired Rule text kept as record.

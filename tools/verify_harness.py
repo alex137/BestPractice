@@ -9065,6 +9065,30 @@ def check_very_deep_check_warnings_are_judged_not_just_counted():
         unread = wr.review(groups, entries, [], today='2026-10-11')
         cases.append(('a source that was not read proves no exclusion stale', not unread['stale'],
                       repr(unread['stale'])))
+        # status_in (2026-10-30): only the files whose own frontmatter says
+        # they are finished; the live one beside them stays open.
+        (tmp / 'gotchas').mkdir()
+        (tmp / 'gotchas' / 'gotcha-old.md').write_text('---\nstatus:   retired\n---\nx\n',
+                                                       encoding='utf-8')
+        (tmp / 'gotchas' / 'gotcha-live.md').write_text('---\nstatus:   live\n---\nx\n',
+                                                        encoding='utf-8')
+        ent = [{'source': 'doc_lint', 'kind': 'unlinked file reference',
+                'path': 'gotchas/gotcha-*.md', 'status_in': ['retired'], 'term': 'permanent',
+                'why': 'history', 'decided': '2026-10-30', 'by': 'agent', '_index': 1}]
+        gs = [{'source': 'doc_lint', 'kind': 'unlinked file reference', 'path': f'gotchas/{n}',
+               'text': '', 'count': 1} for n in ('gotcha-old.md', 'gotcha-live.md')]
+        st = {r['path']: r['status'] for r in
+              wr.review(gs, ent, ['doc_lint'], today='2026-10-30', root=tmp)['rows']}
+        cases.append(('a status_in exclusion takes the retired file and leaves the live one '
+                      'beside it open',
+                      st == {'gotchas/gotcha-old.md': 'excluded, permanent',
+                             'gotchas/gotcha-live.md': 'open'}, repr(st)))
+        reg = json.loads((tmp / 'tools' / 'warning_exclusions.json').read_text(encoding='utf-8'))
+        reg['exclusions'].append({k: v for k, v in ent[0].items() if k != '_index'})
+        (tmp / 'tools' / 'warning_exclusions.json').write_text(json.dumps(reg), encoding='utf-8')
+        cases.append(('status_in is a known registry key',
+                      not any('unknown key' in p for p in wr.load_registry(tmp)[1]),
+                      repr(wr.load_registry(tmp)[1])))
         text = wr.render_text(result, problems, [], previous=9)
         cases.append(('the text names the open count against the previous run',
                       'Open at the previous run: 9; now: 6.' in text, text))
@@ -11334,6 +11358,240 @@ def check_install_names_the_other_assistants_adapters():
     bad = [n for n, ok in cases if not ok]
     check(f'an adopter on another assistant is told to add its adapter '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
+def check_install_report_lists_only_placeholders_an_adopter_fills():
+    """The installer's "placeholders to adapt" list leaves out a generated
+    block and a backslash-escaped `\\<date\\>`.
+
+    Found 2026-10-31 by the very deep check's pass 1 install rehearsal: every
+    fresh install listed `AGENTS.md:37: <their city>` -- a word inside a
+    practice's Rule in the generated loader block, which the sync rewrites,
+    so "adapting" it is a hand-edit the next sync undoes -- and TODO.md's
+    `todo-\\<date\\>-\\<slug\\>`, a file-name pattern the template escapes on
+    purpose.
+
+    Negative control, measured 2026-10-31: on the code before the fix both
+    of the first two cases fail (the report holds `<their city>` and
+    `<date\\>`); the third, a real placeholder, is listed either way.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-placeholders-'))
+    cases = []
+    try:
+        (tmp / 'AGENTS.md').write_text(
+            '# Notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '"about 15 minutes, done around 15:35 <their city> time".\n'
+            '<!-- END GENERATED -->\n\n'
+            'Items are named *todo-\\<date\\>-\\<slug\\>*.\n'
+            '| <key deliverable> | <path> |\n', encoding='utf-8')
+        left = pi._placeholders_left(tmp, ['AGENTS.md'])
+        cases.append(('a word inside a generated block is not a placeholder to adapt',
+                      not any('their city' in x for x in left), str(left)))
+        cases.append(('a backslash-escaped angle bracket is not a placeholder',
+                      not any('date' in x or 'slug' in x for x in left), str(left)))
+        cases.append(('a real placeholder outside both is still listed',
+                      left == ['AGENTS.md:8: <key deliverable>', 'AGENTS.md:8: <path>'],
+                      str(left)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the install report lists only placeholders an adopter fills '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_commit_note_leaves_out_the_vendored_catalogue():
+    """Update Vendors' "name each of these in the commit message" list
+    leaves out the section 0 catalogue at precedent.json's universal path,
+    exactly as it leaves out tools/.
+
+    Found 2026-10-31 by the very deep check's pass 1 update rehearsal: a
+    consumer installed at a two-week-old commit and brought forward got
+    every changed upstream practice listed one by one as a file "rewritten
+    outside the vendored trees" -- VENDORED_PREFIXES knew only tools/ and
+    the retired process/upstream/.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (the list holds precedent/universal/practices/a.md and
+    precedent/universal/close_detect.json).
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-commit-note-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], check=True)
+        (tmp / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+            encoding='utf-8')
+        for rel in ('precedent/universal/practices/a.md',
+                    'precedent/universal/close_detect.json',
+                    'tools/x.py', 'practices/a.md', 'AGENTS.md'):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text('x\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True, env=genv)
+        got = pu.rewritten_outside_vendored(tmp)
+        cases.append(('the vendored catalogue is not listed as rewritten outside '
+                      'the vendored trees',
+                      not any('precedent/universal' in x for x in got), str(got)))
+        cases.append(('a root file outside them still is, and practices/ is one line',
+                      'A AGENTS.md' in got and 'tools/x.py' not in ' '.join(got)
+                      and any(x.startswith('practices/ (1 practice file') for x in got),
+                      str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f"Update Vendors' commit note leaves out the vendored catalogue "
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_fresh_install_reaches_its_code_owner_practices():
+    """On a fresh install, layered-practice-packs counts the session file as
+    the channel that carries the practices for code owners, now that
+    .claude/hooks/session-start.sh is a shim to tools/session-start.sh,
+    which runs tools/bootstrap.sh, which writes the session file.
+
+    Found 2026-10-31 by the very deep check's pass 1 install rehearsal: a
+    correct fresh install's full sweep reported drift-notice,
+    full-practice-audit, install and rule-scope-ask as "reachable by no
+    channel", while its first session start had just written all four into
+    .precedent/SESSION_PRACTICES.md. The check followed the settings
+    command one level (to tools/session-start.sh), which names bootstrap.sh
+    and not the session-practices tool.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (the four advisories are printed) and the second does
+    not see the session-file line.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-owner-reach-'))
+    # A newcomer's machine: no individual set, no PRECEDENT_* variables, an
+    # empty HOME -- this session's own sets resolving into the fixture is
+    # what the first draft of this test measured instead
+    # (fixture-owns-its-state).
+    (tmp / 'home').mkdir()
+    genv = dict(_isolated_env(os.environ, tmp / 'home'),
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com',
+                PRECEDENT_SEED_OFF_MAIN='1')
+    tmp = tmp / 'proj'
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], check=True, env=genv)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(tmp), '--project-name', 'Fixture', '--visibility', 'private',
+                        '--admin', 'fixture-admin'],
+                       capture_output=True, text=True, env=genv)
+        # The seed copies the engine as committed; the check under test is
+        # this tree's, committed or not.
+        shutil.copy2(ROOT / 'tools' / 'precedent_check.py', tmp / 'tools' / 'precedent_check.py')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', 'layered-practice-packs'],
+                           capture_output=True, text=True, cwd=str(tmp), env=genv)
+        out = r.stdout + r.stderr
+        cases.append(('no code-owner practice reads as reachable by no channel',
+                      'install is in force here but reachable by no channel' not in out
+                      and 'drift-notice is in force here but reachable by no channel'
+                      not in out and '0 errored' in out, out[-600:]))
+        cases.append(('they are counted as reaching the session through its file',
+                      'reach this session through .precedent/SESSION_PRACTICES.md' in out
+                      and 'drift-notice' in out.split('SESSION_PRACTICES.md', 1)[-1],
+                      out[:600]))
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a fresh install reaches its code-owner practices through the '
+          f'session file ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_session_start_says_when_bootstrap_is_missing():
+    """tools/session-start.sh says so when tools/bootstrap.sh is not there,
+    locally and in the cloud, instead of doing nothing silently (local) or
+    failing its exec (cloud).
+
+    Found 2026-10-31 by the very deep check's pass 1 migration rehearsal: a
+    classic install that had run step 7 (seed and refresh) had the engine's
+    tools/session-start.sh and no tools/bootstrap.sh, which step 8
+    instantiates; a local session start then printed nothing at all.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    local case prints nothing and the cloud case exits 127 with bash's own
+    "No such file or directory".
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-no-bootstrap-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        for remote in ('', 'true'):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp), CLAUDE_CODE_REMOTE=remote)
+            r = subprocess.run(['bash', str(ROOT / 'tools' / 'session-start.sh')],
+                               capture_output=True, text=True, env=env, cwd=str(tmp),
+                               stdin=subprocess.DEVNULL, timeout=60)
+            said = r.stdout + r.stderr
+            cases.append((f'{"cloud" if remote else "local"}: exits 0 and says '
+                          f'tools/bootstrap.sh is not here',
+                          r.returncode == 0 and 'tools/bootstrap.sh is not here' in said,
+                          f'exit {r.returncode}: {said[-300:]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'session start says when tools/bootstrap.sh is missing '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_individual_bootstrap_says_to_fill_in_identity():
+    """Bootstrapping an individual set ends by naming the identity.json
+    fields still holding placeholders, and a shared set's report does not.
+
+    Found 2026-10-31 by the very deep check's pass 1 practice-move
+    rehearsal: an individual set bootstrapped as FOR_DEVELOPERS.md says,
+    then committed, failed its own full sweep -- check_commit_author wanted
+    the author '{{PERSON_NAME}}' -- and the closing report had said only
+    that the set needs a git remote.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (no FILL IN line).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-bootstrap-identity-'))
+    (tmp / 'home').mkdir()
+    env = dict(_isolated_env(os.environ, tmp / 'home'), PRECEDENT_SEED_OFF_MAIN='1')
+    cases = []
+    try:
+        outs = {}
+        for level, extra in (('individual', []),
+                             ('shared', ['--approver', 'A Person:aperson'])):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                                '--level', level, '--name', f'vh-{level}', '--dest',
+                                str(tmp / level), '--off-main', 'true', *extra],
+                               capture_output=True, text=True, env=env, timeout=300)
+            outs[level] = r.stdout + r.stderr
+        tail = outs['individual'].split('BOOTSTRAPPED:', 1)[-1]
+        cases.append(("an individual set's report names identity.json's unfilled fields",
+                      'FILL IN identity.json' in tail and 'name, email, timezone' in tail,
+                      tail[-500:]))
+        cases.append(("a shared set's report does not",
+                      'BOOTSTRAPPED:' in outs['shared']
+                      and 'FILL IN identity.json' not in outs['shared'],
+                      outs['shared'][-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'an individual bootstrap says to fill in identity.json '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
 
 
 def check_update_hands_the_engine_refresh_the_followed_tip():
@@ -29382,14 +29640,48 @@ def check_very_deep_check_finds_a_second_list_of_practices():
         (d / 'routing.json').write_text(listing, encoding='utf-8')
         (d / 'MAP.md').write_text('\n'.join(slugs), encoding='utf-8')
         (d / 'NOTES.md').write_text(' '.join(slugs[:3]), encoding='utf-8')
+        # Every practice cited, one per test, far apart: a big test file,
+        # not a list (2026-10-31: tools/verify_harness.py was a candidate on
+        # every run for exactly this shape).
+        filler = 'x = 1\n' * (getattr(vdc, 'WINDOW_LINES_PER_SLUG', 10) * len(slugs))
+        (d / 'tests.py').write_text(''.join(
+            f'# (practice: {s})\n{filler}' for s in slugs), encoding='utf-8')
         subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
         subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
         found = [rel for rel, _n, _t in vdc._second_practice_lists(d)]
     finally:
         shutil.rmtree(d, ignore_errors=True)
     check('the very deep check names a hand-kept list of every practice, and '
-          'not a generated view or a file naming a few',
+          'not a generated view, a file naming a few, or a file citing each '
+          'one far apart',
           found == ['routing.json'], repr(found))
+
+    # The real case, where history holds it: routing_scope.json as it stood
+    # before dcaa1c94 retired it, against practice files for its own keys.
+    real = subprocess.run(['git', '-C', str(ROOT), 'show',
+                           'dcaa1c94^:tools/routing_scope.json'],
+                          capture_output=True, text=True)
+    if real.returncode != 0:
+        not_applicable('the very deep check names the real routing_scope.json',
+                 'dcaa1c94 is not in this clone (a shallow checkout)')
+        return
+    d = pathlib.Path(tempfile.mkdtemp(prefix='precedent-second-list-real-'))
+    try:
+        (d / 'practices').mkdir()
+        for s in json.loads(real.stdout)['practices']:
+            (d / 'practices' / f'{s}.md').write_text(
+                f'---\nslug:        {s}\nstatus:      active\n---\n## Rule\nDo.\n',
+                encoding='utf-8')
+        (d / 'tools').mkdir()
+        (d / 'tools' / 'routing_scope.json').write_text(real.stdout,
+                                                        encoding='utf-8')
+        subprocess.run(['git', '-C', str(d), 'init', '-q'], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'add', '-A'], capture_output=True)
+        found = [rel for rel, _n, _t in vdc._second_practice_lists(d)]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+    check('the very deep check names the real routing_scope.json',
+          found == ['tools/routing_scope.json'], repr(found))
 
 
 def check_very_deep_check_finds_vendored_surplus():
@@ -33864,6 +34156,55 @@ def check_push_to_staging_runs_own_checks_inside_a_budget():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_push_check_refuses_a_deleted_test_that_keeps_its_time():
+    """2026-10-30: 7e5d9d26 deleted two harness tests and left their recorded
+    times, and the full suite's partition case failed on main until a very
+    deep check ran it. The push check already refused a new test with no
+    time; a deleted test that keeps one is the same record gone wrong."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_push_check as ppc
+    cases = []
+    g = lambda d, *a: _sp.run(['git', '-C', str(d), *a], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'tools').mkdir()
+        g(d, 'init', '-q')
+        g(d, 'config', 'user.email', 't@example.com')
+        g(d, 'config', 'user.name', 't')
+        h = d / 'tools' / 'verify_harness.py'
+        times = d / 'tools' / 'harness_check_times.json'
+        h.write_text('def check_kept():\n    pass\n\n\ndef check_gone():\n    pass\n')
+        times.write_text(json.dumps({'seconds': {'check_kept': 1, 'check_gone': 1}}))
+        g(d, 'add', '-A'); g(d, 'commit', '-qm', 'base')
+        base = g(d, 'rev-parse', 'HEAD')
+        h.write_text('def check_kept():\n    pass\n')
+        g(d, 'commit', '-qam', 'delete a test')
+        files = ['tools/verify_harness.py']
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('a deleted test that keeps its recorded time is refused, by name',
+                      any('deletes 1 test(s) whose recorded time is still kept' in p
+                          and 'check_gone' in p for p in problems), problems))
+        times.write_text(json.dumps({'seconds': {'check_kept': 1}}))
+        g(d, 'commit', '-qam', 'drop its time')
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('CONTROL: the same deletion with its time dropped passes',
+                      not problems, problems))
+        h.write_text('def check_kept():\n    pass\n\n\ndef check_new():\n    pass\n')
+        g(d, 'commit', '-qam', 'add a test')
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('a new test with no recorded time is still refused',
+                      any('adds 1 test(s) with no recorded time' in p for p in problems),
+                      problems))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'the push check refuses a deleted test that keeps its recorded time '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -34358,9 +34699,20 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
                            'boildown-finished-plan-asks-to-act and '
                            'boildown-hold-names-what-runs')
 
-    def kinds(body, boildown, **kw):
+    # The Consider trigger is the ladder set's, added over universal's rule
+    # with "inherits": true (2026-10-31); universal alone does not carry it.
+    # Built here rather than read from the set, so the fixture owns it.
+    ladder_add = {'id': ids[0], 'inherits': True,
+                  'require_finished_plan_asks_to_act': {
+                      'stage_line': r'\bfinished step 1 of 5\b[^)]{0,10}\bConsider\b'}}
+    universal = reqs
+    reqs = [_rc.inherit_requirement(r, ladder_add) if r.get('id') == ids[0]
+            else r for r in universal]
+
+    def kinds(body, boildown, rules=None, **kw):
         return sorted(v['kind'] for v in _rc.violations(
-            body + '\n\n## The Boildown\n' + boildown, reqs, **kw))
+            body + '\n\n## The Boildown\n' + boildown,
+            reqs if rules is None else rules, **kw))
     consider = ('- The work of this session is now on: no branch yet (you '
                 'have finished step 1 of 5, Consider)\n')
     booked = ('- The work of this session is now on: staging in BestPractice '
@@ -34376,9 +34728,19 @@ def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
              "(https://claude.ai/code/session_x); I start step 4 when it "
              'reports back, about 06:10 Buenos Aires time.\n')
     cases = [
-        ('a Consider reply that makes a plan and never asks is refused',
+        ('a Consider reply that makes a plan and never asks is refused, once '
+         'the ladder adds its stage line',
          kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
                'you to do now.\n' + free) == ['plan_without_ask']),
+        ('universal alone carries no stage line, so the same reply is not '
+         'read as a finished plan there',
+         kinds(plan, consider + '- **Your next steps:** Nothing blocking for '
+               'you to do now.\n' + free, rules=universal) == []),
+        ('the added stage line is merged into universal\'s mapping, which '
+         'keeps its ask and the rest',
+         all(k in (r.get('require_finished_plan_asks_to_act') or {})
+             for r in reqs if r.get('id') == ids[0]
+             for k in ('stage_line', 'ask', 'heading', 'plan_words'))),
         ('a turn that wrote a plan file and never asks is refused',
          kinds('Written up.', booked + '- **Your next steps:** read it.\n' + free,
                written=['/r/spec/NEW_PLAN.md']) == ['plan_without_ask']),
@@ -41679,6 +42041,34 @@ def check_a_pushed_branch_in_a_shallow_clone_is_safe():
     check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_visibility_audit_skips_only_fixture_names():
+    """The visibility audit does not spend an API call on a name only a test
+    mentions, under an owner nothing else names -- and still asks about a
+    real owner a fixture happens to name (2026-10-30 very deep check: 187
+    GitHub calls against a declared 150, 110 of 149 names fixture-only).
+
+    Control: a name in a test whose owner is named in a document is kept."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as v
+    refs = {('zz-made-up', 'a'): ['tools/verify_harness.py'],
+            ('zz-made-up', 'b'): ['tools/checks/tests/test_x.sh'],
+            ('realacct', 'in-test'): ['tools/verify_harness.py'],
+            ('realacct', 'documented'): ['README.md'],
+            ('mixed', 'both'): ['tools/verify_harness.py', 'INSTALL.md']}
+    keep, skipped = v._drop_fixture_only_refs(refs)
+    cases = [('a made-up owner named only in tests is skipped, and listed',
+              skipped == ['zz-made-up/a', 'zz-made-up/b'], skipped),
+             ('control: a real owner named in a document is still asked about '
+              'where only a test names the repository',
+              ('realacct', 'in-test') in keep, sorted(keep)),
+             ('a name a document also mentions is asked about',
+              ('mixed', 'both') in keep and ('realacct', 'documented') in keep,
+              sorted(keep))]
+    bad = [f'{n} ({d})' for n, ok, d in cases if not ok]
+    check(f'the visibility audit skips only fixture-only names ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(bad))
+
+
 def check_very_deep_check_lists_checks_by_stage():
     """The very deep check's CHECKS BY STAGE reads, from a repository's own
     push check and branch tool, what runs before and after Booked, Produce
@@ -41700,8 +42090,10 @@ def check_very_deep_check_lists_checks_by_stage():
     name = 'the very deep check lists the checks by stage and flags extra ones before a push'
 
     def read(tree):
+        # No person's config: a set they bring would supply its own moves.
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(pathlib.Path(tree) / 'no-config.json'))
         p = subprocess.run([sys.executable, str(vdc), '--stage-checks-json', str(tree)],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, timeout=120, env=env)
         try:
             return json.loads(p.stdout)
         except ValueError:
@@ -41741,6 +42133,36 @@ def check_very_deep_check_lists_checks_by_stage():
                       planted.get('error') or texts))
         cases.append(('a check in the quick tier with no approval is a violation',
                       any(t.startswith('doc_sync runs before every push') for t in texts),
+                      texts))
+        # THE MOVES A SET SUPPLIES ARE READ TOO (2026-10-30 very deep check:
+        # Produce lives in a set's branch_moves tool, and the scan read only
+        # precedent_branches.py, so it printed "`--full` on request: none").
+        # A planted moves tool, named the way the engine finds one -- the
+        # branch_moves key -- never by a set's name.
+        (tmp / 'tools' / 'zz_moves.py').write_text(
+            'core = None\n'
+            'def _promote_to_main(root, wt):\n'
+            '    return core._check(root, wt, core.FULL, dest=core.MAIN)\n'
+            'def _promote_to_main_fast(root, wt):\n'
+            '    return core._check(root, wt, core.BASIC, dest=core.MAIN)\n'
+            'def main(root, argv):\n    return 0\n', encoding='utf-8')
+        (tmp / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-moves', 'level': 'shared', 'branch_moves': 'tools/zz_moves.py'}),
+            encoding='utf-8')
+        moved = read(tmp)
+        got = {r.get('fn'): (r.get('tier'), r.get('file')) for r in moved.get('routes') or []}
+        cases.append(('Produce in a set\'s moves tool is read: the fast move runs the '
+                      'quick tier, --full the full one, each from that file',
+                      got.get('_promote_to_main_fast') == ('basic', 'tools/zz_moves.py')
+                      and got.get('_promote_to_main') == ('full', 'tools/zz_moves.py'),
+                      moved.get('error') or got))
+        mv = tmp / 'tools' / 'zz_moves.py'
+        mv.write_text(mv.read_text(encoding='utf-8').replace(
+            'core.BASIC, dest=core.MAIN', 'core.FULL, dest=core.MAIN'), encoding='utf-8')
+        texts = [t for lvl, t in read(tmp).get('findings') or [] if lvl == 'VIOLATION']
+        cases.append(('a fast move into main in a set\'s moves tool that runs the full '
+                      'tier is a violation, naming that file',
+                      any('fast move' in t and 'tools/zz_moves.py' in t for t in texts),
                       texts))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -62993,19 +63415,25 @@ def check_land_skips_a_push_the_pull_request_guard_would_refuse():
     Negative control, measured 2026-10-30: with _takes_pull_request
     returning [] the first case fails -- the hook records the push."""
     import tempfile
-    # The guard is the ladder set's file, shipped into a session's tools/
-    # (never tracked here): GitHub's test has no ladder set, and copying it
-    # from ROOT failed main's test there (2026-10-30, issue #1424).
-    guard = next((g for g in (ROOT / 'tools' / 'landing_pr_guard.py',
-                              ROOT.parent / 'precedent-shared-ladder' / 'tools'
-                              / 'landing_pr_guard.py')
-                  if g.is_file()), None)
-    if guard is None:
-        not_applicable('--land skips a push the pull-request guard would refuse',
-                       'the ladder set\'s landing_pr_guard.py is not here: the '
-                       'set is not attached and its file not shipped')
-        return
+    # A PLANTED GUARD, never a set's own file (2026-10-30 very deep check,
+    # SET INDEPENDENCE). The real guard is a practice set's, and this test
+    # read it from a sibling clone by the set's name: an engine test that
+    # depended on one set being attached, and skipped on GitHub where none
+    # is. What the engine owns is the contract _takes_pull_request calls --
+    # in_force(), changed(root, base, tip), risky(root, paths, rev) -- so the
+    # fixture plants a guard that keeps it and calls one file risky.
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-skip-'))
+    guard = tmp / 'landing_pr_guard.py'
+    guard.write_text(
+        'import subprocess\n'
+        'def in_force():\n    return True\n'
+        'def changed(root, base, tip):\n'
+        '    r = subprocess.run(["git", "-C", str(root), "diff", "--name-only",\n'
+        '                        f"{base}...{tip}"], capture_output=True, text=True)\n'
+        '    return None if r.returncode else [p for p in r.stdout.splitlines() if p]\n'
+        'def risky(root, paths, rev):\n'
+        '    return [p for p in paths if p == "tools/verify_harness.py"]\n',
+        encoding='utf-8')
     cases = []
     try:
         hooks = tmp / 'hooks'
@@ -83458,6 +83886,107 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
           not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_landing_waits_for_a_missing_ladder_set():
+    """A brought set that is not on disk yet does not read as "off the
+    ladder" (2026-10-30 very deep check: `precedent_branches.py --landing`
+    said main in a session whose person brings the ladder set, before the set
+    was cloned, and staging after -- the wrong answer being the one that
+    skips staging).
+
+    Fixture world, in a repository whose precedent.json declares staging:
+      1. the brought set is missing: --landing says staging, and why says the
+         ladder cannot be read and names the set; the ladder's own --status
+         says so too; the session check's landing row is not a pass;
+      2. control: the brought set is on disk and provides nothing -- main,
+         as for anyone off the ladder;
+      3. the brought set is on disk and provides the ladder -- staging;
+      4. PRECEDENT_NO_LADDERS with the set missing -- main, never a guess."""
+    import shutil, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='landing-missing-set-'))
+    cases = []
+    try:
+        home = tmp / 'home'
+        ind = home / 'precedent-individual'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps({
+            'name': 'precedent-individual', 'level': 'individual',
+            'brings': [{'name': 'fixture-ladder',
+                        'repo_url': 'https://github.com/example/fixture-ladder'}]}),
+            encoding='utf-8')
+        cfg = tmp / 'cfg.json'
+        cfg.write_text(json.dumps({'individual': {
+            'name': 'precedent-individual', 'path': str(ind)}}), encoding='utf-8')
+        repo = tmp / 'repo'
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'sources': [],
+            'base_branch': 'staging', 'landing_branch': 'staging'}),
+            encoding='utf-8')
+        import precedent_branches as pb
+        import precedent_ladder as pl
+        import precedent_session_check as psc
+
+        def landing(**extra):
+            saved = {k: os.environ.get(k) for k in (
+                'PRECEDENT_ASSUME_LADDER', 'PRECEDENT_NO_LADDERS',
+                'PRECEDENT_USER_CONFIG')}
+            try:              # practice: fixture-owns-its-state
+                for k in saved:
+                    os.environ.pop(k, None)
+                os.environ['PRECEDENT_USER_CONFIG'] = str(cfg)
+                os.environ.update(extra)
+                branch, why = pb.landing_branch(repo, user_config=str(cfg))
+                status = pl.status_sentence(repo, user_config=str(cfg))
+                old_root, psc.ROOT = psc.ROOT, repo
+                try:
+                    row = psc._landing_row()
+                finally:
+                    psc.ROOT = old_root
+                return branch, why, status, row
+            finally:
+                for k, v in saved.items():
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
+
+        out, why, status, row = landing()
+        cases.append(('the brought set is missing: staging, and why names the set and '
+                      'says the ladder cannot be read',
+                      out == 'staging' and 'cannot be read' in why
+                      and 'fixture-ladder' in why, f'{out!r} {why!r}'))
+        cases.append(('the ladder\'s --status says it cannot be read, naming the set',
+                      'cannot be read' in status and 'fixture-ladder' in status, status))
+        cases.append(('the session check\'s landing row is not a pass while it is a guess',
+                      row[1] is None, repr(row)))
+        out, why, _st, _row = landing(PRECEDENT_NO_LADDERS='1')
+        cases.append(('PRECEDENT_NO_LADDERS with the set missing: main, never a guess',
+                      out == 'main', f'{out!r} {why!r}'))
+        brought = home / 'fixture-ladder'
+        (brought / 'practices').mkdir(parents=True)
+        (brought / 'precedent-source.json').write_text(json.dumps({
+            'name': 'fixture-ladder', 'level': 'shared', 'visibility': 'public',
+            'subject': 'a fixture', 'code': []}), encoding='utf-8')
+        out, why, _st, row = landing()
+        cases.append(('control: on disk and providing nothing, main, as for anyone off '
+                      'the ladder, and the row is a pass',
+                      out == 'main' and 'cannot be read' not in why and row[1] is True,
+                      f'{out!r} {why!r} {row!r}'))
+        man = json.loads((brought / 'precedent-source.json').read_text(encoding='utf-8'))
+        man['provides'] = ['ladder']
+        (brought / 'precedent-source.json').write_text(json.dumps(man), encoding='utf-8')
+        out, why, _st, _row = landing()
+        cases.append(('on disk and providing the ladder: staging, from the repository',
+                      out == 'staging' and 'cannot be read' not in why,
+                      f'{out!r} {why!r}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [c for c in cases if not c[1]]
+    check(f'a brought set not on disk yet leaves the landing branch on staging, '
+          f'never a guess of main ({len(cases)} stated cases)',
+          not failed, '; '.join(f'{n}: {d}' for n, _ok, d in failed))
+
+
 def check_ladder_opt_in_loader():
     """spec/LADDER_OPT_IN_PLAN.md steps 2-4, tested in a fixture world (never a
     real profile: a real one would carry private set text into the harness).
@@ -87967,12 +88496,36 @@ def check_freshness_gate_fires():
         results.append(('a detached HEAD behind origin/main is refused',
                         v['status'] == 'detached'))
 
+        # A repo whose declared base is `staging`, with staging AHEAD of
+        # main: the practice says to read main from a branch cut from
+        # origin/main, and until 2026-10-31 the gate refused exactly that
+        # branch because it does not contain origin/staging. The control
+        # beside it, a branch cut behind origin/main, must still be refused.
+        _git(upstream, 'checkout', '-q', '-b', 'staging')
+        (upstream / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        (upstream / 's.txt').write_text('landed, not live\n')
+        _git(upstream, 'add', '-A'); _git(upstream, 'commit', '-qm', 'staging only')
+        _git(upstream, 'checkout', '-q', 'main')
+        _git(work, 'fetch', '-q', 'origin', 'staging:refs/remotes/origin/staging')
+        _git(work, 'checkout', '-q', '-b', 'read-main', 'origin/main')
+        (work / 'precedent.json').write_text('{"base_branch": "staging"}\n')
+        v = vdc.freshness(work)
+        results.append(('a branch cut from origin/main reads clean where the '
+                        'base is a staging branch ahead of main',
+                        v['status'] in vdc.FRESHNESS_CLEAN))
+        _git(work, 'checkout', '-q', '-b', 'read-old-main', 'origin/main~1')
+        v = vdc.freshness(work)
+        results.append(('a branch cut behind origin/main is still refused '
+                        'where the base is staging',
+                        v['status'] == 'branch-not-on-origin'))
+        (work / 'precedent.json').unlink()
+
         failed = [name for name, ok in results if not ok]
         check(f'the very deep check refuses a stale repo ({len(results)} stated '
               f'cases: a current clone, a remoteless repo, a non-checkout, a '
               f'behind clone, --freshen against dirty and clean trees, a '
-              f'diverged clone whose commit must survive, and a local-only '
-              f'branch)',
+              f'diverged clone whose commit must survive, a local-only '
+              f'branch, and a branch cut from main where the base is staging)',
               not failed,
               '; '.join(failed) if failed else '')
 
@@ -88379,6 +88932,74 @@ def check_very_deep_check_never_offers_a_tier_branch_for_deletion():
         check(f'the very deep check never offers a tier branch for deletion '
               f'({len(results)} stated cases)', not failed,
               '; '.join(failed) + f' -- listed {listed}')
+
+
+def check_very_deep_check_skips_the_board_branches():
+    """`coord` holds the lease board, the landing queue and the maintainer
+    heartbeat; `result-cache` the shared result cache. Both are orphan
+    histories that hold machinery, never work. Before 2026-10-31 the branch
+    sweep listed `coord` as unmerged with "deepen and re-check", which no
+    depth can settle, and the review page had no rule keeping it off.
+
+    Discriminating cases: the board branches are in no list and get no
+    delete link, while an ordinary orphan branch in the same fixture IS
+    listed (an empty sweep would pass the first case), and on this full
+    clone its verdict says the branch shares no history rather than
+    telling the reader to deepen (practice: very-deep-check)."""
+    import tempfile
+    import very_deep_check as vdc
+    import precedent_review_page as rp
+
+    _git = fixture_git
+    board = ['coord', 'result-cache']
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        up, work = tmp / 'up', tmp / 'work'
+        up.mkdir()
+        _git(up, 'init', '-q', '-b', 'main')
+        _git(up, 'config', 'user.email', 'harness@example.com')
+        _git(up, 'config', 'user.name', 'Harness')
+        (up / 'base.txt').write_text('base\n')
+        _git(up, 'add', '-A'); _git(up, 'commit', '-qm', 'base')
+        for b in board + ['claude/stray-orphan']:
+            _git(up, 'checkout', '-q', '--orphan', b)
+            _git(up, 'rm', '-rq', '--cached', '.')
+            (up / 'base.txt').unlink()
+            (up / 'leases').mkdir(exist_ok=True)
+            (up / 'leases' / 'x.json').write_text(f'{{"b": "{b}"}}\n')
+            _git(up, 'add', '-A'); _git(up, 'commit', '-qm', f'{b} record')
+            _git(up, 'checkout', '-q', '-f', 'main')
+            _git(up, 'clean', '-qfd')
+        subprocess.run(['git', 'clone', '-q', f'file://{up}', str(work)],
+                       capture_output=True, text=True)
+        _git(work, 'fetch', '-q', 'origin', '+refs/heads/*:refs/remotes/origin/*')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        scan = vdc.scan_branches(work, 'main') or {}
+        rows = {r['name']: r for k in ('merged', 'merged_elsewhere', 'unmerged')
+                for r in scan.get(k) or []}
+        _git(work, 'config', 'remote.origin.url',
+             'https://github.com/example/fixture.git')
+        vdc._NEVER_DELETABLE_CACHE.clear()
+        links = {b: vdc._branch_url(work, b) for b in board}
+        page = [name for name, _d in rp.landed_branches(work)]
+        stray = (rows.get('claude/stray-orphan') or {}).get('verdict') or ''
+        results = [
+            ('no board branch appears in any list of the sweep',
+             not [b for b in board if b in rows]),
+            ('no delete link is minted for a board branch',
+             all(links[b] is None for b in board)),
+            ('the review page offers no board branch',
+             not [b for b in board if b in page]),
+            ('an ordinary orphan branch in the same fixture IS listed',
+             'claude/stray-orphan' in rows),
+            ('...and on a full clone its verdict says it shares no history, '
+             'not "deepen"',
+             'shares no history' in stray and 'Deepen' not in stray),
+        ]
+        failed = [name for name, ok in results if not ok]
+        check(f'the very deep check skips the board branches '
+              f'({len(results)} stated cases)', not failed,
+              '; '.join(failed) + f' -- listed {sorted(rows)}; stray: {stray}')
 
 
 def check_upstream_review_only_for_a_code_owner_on_the_ladder():
@@ -92732,6 +93353,25 @@ def check_template_freshness_reads_the_skeleton_correctly():
         results.append(('the file the skeleton really lacks is still named',
                         'ONLY_HERE.md' in joined))
 
+        # OPTIONAL CONTENT is not shape. Two sources that each declare a
+        # reply rule both carry reply_check.json; a missing one means "no
+        # requirement", so the skeleton correctly ships none. Control: a
+        # file both carry that IS shape-like is still a FINDING, so the
+        # silence above is the exemption and not a blind scan.
+        two = []
+        for name in ('one', 'two'):
+            s = pathlib.Path(tmp) / name
+            (s / 'practices').mkdir(parents=True)
+            (s / 'reply_check.json').write_text('[]')
+            (s / 'BOTH_HAVE.md').write_text('x')
+            two.append({'level': 'shared', 'name': name, 'path': str(s)})
+        out2 = ' | '.join(vdc._template_freshness(two))
+        results.append(('reply_check.json that two sets carry is not a '
+                        'template gap', 'reply_check.json' not in out2))
+        results.append(('a file two sets carry that the skeleton lacks is '
+                        'still a FINDING (control)',
+                        'FINDING' in out2 and 'BOTH_HAVE.md' in out2))
+
     # The gap that motivated all of this must actually be closed.
     results.append(('the individual skeleton now ships an identity file',
                     any(f.name.startswith('identity.json')
@@ -93612,6 +94252,7 @@ def main():
     check_update_keeps_the_harness_go_ahead_with_its_content()
     check_wait_main_test_finds_a_merged_pull_requests_head()
     check_push_to_staging_runs_own_checks_inside_a_budget()
+    check_push_check_refuses_a_deleted_test_that_keeps_its_time()
     check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer()
     check_promote_is_handed_to_the_moves_a_set_names()
     check_update_holds_a_settings_change_and_offers_it_again()
@@ -93627,6 +94268,7 @@ def main():
     check_branch_name_follows_the_convention()
     check_base_branch_drift_ignores_carried_work()
     check_very_deep_check_never_offers_a_tier_branch_for_deletion()
+    check_very_deep_check_skips_the_board_branches()
     check_very_deep_check_walks_every_tier_pair()
     check_upstream_review_only_for_a_code_owner_on_the_ladder()
     check_merged_branches_carry_a_date_and_a_staleness_verdict()
@@ -93706,6 +94348,11 @@ def main():
     check_engine_carries_no_branch_naming_enforcement()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
+    check_install_report_lists_only_placeholders_an_adopter_fills()
+    check_update_commit_note_leaves_out_the_vendored_catalogue()
+    check_fresh_install_reaches_its_code_owner_practices()
+    check_session_start_says_when_bootstrap_is_missing()
+    check_individual_bootstrap_says_to_fill_in_identity()
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
@@ -94337,6 +94984,8 @@ def main():
     check_attached_sets_sources_are_synced()
     check_attached_sets_sync_is_safe_for_everyone()
     check_ladder_opt_in_loader()
+    check_landing_waits_for_a_missing_ladder_set()
+    check_visibility_audit_skips_only_fixture_names()
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
     check_moves_core_names_exist_in_the_engine()

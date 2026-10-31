@@ -69,12 +69,17 @@ instructions for this repo, not gotchas.
   inherited just because `precedent.json` names a repo. No token or secret is
   involved: the tool that grants a session this access rides the same GitHub
   identity already behind the session, so it only ever succeeds because that
-  person is already a collaborator on the target repo. **At the very start of
-  every session, before running `tools/bootstrap.sh`, call that tool
-  (`add_repo`, read access) for every shared and individual source
-  [`precedent.json`](precedent.json) declares — silently, with no
-  confirmation needed first.** This is a read-only scope extension, not a
-  credential or production change. Never write this as "if the clone fails,
+  person is already a collaborator on the target repo. **At the start of
+  every session, attach (`add_repo`, read access) each practice source
+  session start reports missing -- the sets
+  [`precedent.json`](precedent.json) declares and those the person's
+  individual set brings -- silently, with no confirmation needed first.**
+  Session start prints the exact `add_repo` call for each one; when the
+  environment's token already cloned them all it prints none, and the
+  session attaches nothing. Attach a source that is already cloned only
+  when this session has to push to it. The settings Precedent installs allow
+  the attach and the clone, so neither stops for a prompt. This is a
+  read-only scope extension, not a credential or production change. Never write this as "if the clone fails,
   ask to add the repo" — that only works when a human happens to be watching
   for the failure, and the whole point is that a person only ever attaches
   the one repo they're actually working in; reaching for the shared sources is
@@ -248,9 +253,10 @@ Conflicts in shared files are EXPECTED. The fast, safe path:
   [INSTALL.md §0](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md#0-installing-directly-onto-the-precedent-loader)
   for the resolution and precedence rules. The `universal` source is a
   **real vendored copy** at `precedent/universal/`, not a live reference.
-  The `team` sources resolve live from sibling clones instead — never
-  vendored. Which sets those are is read off `precedent.json` rather than
-  named here, so retiring or adding one is a single edit to that file.
+  A shared set resolves live from a sibling clone unless its entry says
+  `"vendored": true`, when it is copied in the same way. Which sets those
+  are is read off `precedent.json` rather than named here, so retiring or
+  adding one is a single edit to that file.
 - `python3 tools/precedent_sync_views.py --repo . --check` is this repo's own drift
   gate — run it before trusting [AGENTS.md](AGENTS.md)'s generated block, and after
   `precedent.json` or a vendored copy changes.

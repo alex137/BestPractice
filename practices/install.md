@@ -25,7 +25,7 @@ Install Precedent with its own installer, `python3 tools/precedent_install.py` (
 ## Detail
 This applies the same way when the target repo already has some pieces present because they arrived indirectly -- a fork, a copy, an older install -- rather than fresh from the installer. Do the missing pieces; presence of one file is not evidence the rest came with it.
 
-Where the person working in the target repo has their own individual set, this install also wires that up -- a distinct step from declaring the shared sets, since an individual set is never committed into the target repo at all (that's the privacy boundary). Concretely, for a Claude Code Web session: copy that person's individual repo's own bootstrap script (a worked example of this pattern exists in the individual-set practice for it) into the target repo as a tracked `SessionStart` hook, so the individual source clones and configures itself before the session's first tool call -- no command run by hand, on any machine, by anyone whether or not they're a developer. Skip this step only if the person has no individual set, or explicitly doesn't want one wired into this particular project.
+Where the person working in the target repo has their own individual set, this install also wires that up -- a distinct step from declaring the shared sets, since an individual set is never committed into the target repo at all (that's the privacy boundary). Concretely, for a Claude Code Web session: the installer does it, and so does every Update Vendors after it. When the person running it has an individual set, it writes `.claude/hooks/precedent-individual-bootstrap.sh` (rendered from the engine's `individual-source-bootstrap.sh.template`, with no repository URL in it) and wires it first in the project's `SessionStart`, so the individual source clones and configures itself before the session's first tool call -- no command run by hand, on any machine, by anyone whether or not they're a developer. Commit what it writes: the hook works only because it is tracked. Skip the step only if the person has no individual set, or explicitly doesn't want one wired into this particular project; then remove the hook the installer wrote.
 
 The default-branch step stays here, and `default-branch` stays in force as its own practice, only because its check, the registered `default-branch` check, is keyed to that slug: folding it into this Rule would stop the check.
 
@@ -66,6 +66,15 @@ it and default-branch left the index by taking a real path
 (`precedent.json`, which every install writes). It was not marked
 deduplicated, because its check is keyed to its own slug and a practice not
 in force has its check skipped.
+
+**2026-10-31: the individual-set step said what the installer does.** The
+very deep check of 2026-10-30 found Detail still telling a session to copy
+the individual set's bootstrap script into the target repo by hand. The
+installer has written and wired that hook itself since 2026-10-08
+(`_individual_hook` in
+[`precedent_install.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py)),
+and Update Vendors since 2026-10-02, so a session following the old text
+would have made a second, hand-made copy beside the generated one.
 
 ## Install
 No mechanical check: this rule describes a procedure a *target* repo's install session follows (run the installer, declare the shared sets, wire the individual set, check the default branch). This repo is the source being vendored, not a target -- there's no install here to verify the outcome of. A target repo could check its own manifest for completeness (light-check's own Detail section already covers exactly that), but that check would live there, not here.

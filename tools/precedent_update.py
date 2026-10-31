@@ -3788,10 +3788,19 @@ def rewritten_outside_vendored(repo):
                         '--no-renames'], capture_output=True, text=True)
     if r.returncode != 0:
         return []
+    # A section 0 install vendors its catalogue wherever precedent.json's
+    # universal source says (precedent/universal/ by default), and that tree
+    # is exactly as vendored as tools/. Left out, every practice upstream
+    # changed was listed one by one as a file "outside the vendored trees"
+    # (very deep check pass 1, 2026-10-31 update rehearsal).
+    prefixes = VENDORED_PREFIXES
+    universal = universal_catalogue_path(pathlib.Path(repo))
+    if universal:
+        prefixes = prefixes + (universal.rstrip('/') + '/',)
     out, practices = [], 0
     for line in r.stdout.splitlines():
         status, _tab, rel = line.partition('\t')
-        if not rel or rel.startswith(VENDORED_PREFIXES):
+        if not rel or rel.startswith(prefixes):
             continue
         if rel.startswith(MATERIALIZED_PREFIX):
             practices += 1

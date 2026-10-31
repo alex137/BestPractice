@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Morgan -- whether to close it as evaluated"
 noted:             2026-09-08
 closed:            null
 ---
@@ -58,3 +58,9 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+2026-10-31, very deep check of 2026-10-30, pass 4 (ambiguous, asked of Morgan): the cheaper
+thing this item said to try first is in place. `precedent_show.py` opens a
+withdrawn practice with "NOT IN FORCE ANYWHERE (status: ...)" (since
+284b4cf4, 2026-09-06), and MAP.md carries the "Withdrawn practices" table.
+Nothing since has shown a raw listing misleading anyone. The session would
+close it as evaluated, keeping the filenames as they are.
