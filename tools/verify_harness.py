@@ -9315,6 +9315,74 @@ def check_very_deep_check_test_worth_judges_what_changed():
           not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
 
 
+def check_test_review_times_script_tests():
+    """`test_review.py --time-scripts` runs each test script once and records
+    what each that passed took in the repo's tools/script_test_times.json,
+    and inventory() then reports those seconds. Controls: before the file
+    exists every script is untimed, as it was; a failing script is named,
+    left out of the file and stays untimed; and the run exits 1 for it.
+
+    Added 2026-10-31 (Morgan, strength: decided: "Yes do the test review and
+    redo the incident verdicts"): inventory() gave every script None, so a
+    practice set's totals said "0 timed" and the rule that judges a keep
+    again when its time more than doubled could never fire for a script.
+    The repository is a temporary one built here (practice:
+    fixture-owns-its-state)."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import test_review as tr
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-script-times-'))
+    try:
+        tests = tmp / 'tools' / 'checks' / 'tests'
+        tests.mkdir(parents=True)
+        (tests / 'test_slow.sh').write_text(
+            '#!/bin/sh\n# Takes a measurable moment.\nsleep 0.3\nexit 0\n', encoding='utf-8')
+        (tests / 'test_quick.py').write_text(
+            '"""Passes at once."""\nimport sys\nsys.exit(0)\n', encoding='utf-8')
+        (tests / 'test_broken.sh').write_text(
+            '#!/bin/sh\n# Fails.\necho "FAIL: the planted failure"\nexit 1\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', str(tmp)], check=True)
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True)
+        slow, quick, broken = (f'tools/checks/tests/{n}' for n in
+                               ('test_slow.sh', 'test_quick.py', 'test_broken.sh'))
+
+        before = {t['name']: t['seconds'] for t in tr.inventory(tmp)}
+        cases.append(('CONTROL: with no times file every script is untimed, as before',
+                      before == {slow: None, quick: None, broken: None}, repr(before)))
+        run = subprocess.run([sys.executable, str(ROOT / 'tools' / 'test_review.py'),
+                              '--time-scripts', '--repo', str(tmp)],
+                             capture_output=True, text=True, timeout=120)
+        out = run.stdout + run.stderr
+        cases.append(('the run exits 1 and names the failing script as not recorded',
+                      run.returncode == 1
+                      and f'FAILED' in out and f'{broken} (exit 1; not recorded)' in out
+                      and '2 of 3 script(s) timed' in out, failure_detail(out, 600)))
+        try:
+            rec = json.loads((tmp / 'tools' / 'script_test_times.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError) as e:
+            rec = {'error': str(e)}
+        cases.append(('THE CASE: both passing scripts are recorded, the failing one is not',
+                      sorted((rec.get('seconds') or {})) == sorted([slow, quick])
+                      and 'cores' in str(rec.get('measured')) and rec.get('_comment'),
+                      repr(rec)))
+        after = {t['name']: t['seconds'] for t in tr.inventory(tmp)}
+        cases.append(('THE CASE: inventory() reports the recorded seconds; the '
+                      'failing script stays untimed',
+                      isinstance(after.get(slow), float) and after[slow] >= 0.3
+                      and isinstance(after.get(quick), float) and after.get(broken) is None,
+                      repr(after)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'test_review.py --time-scripts records what each passing test script '
+          f'took and inventory() reads it ({len(cases)} stated cases: untimed '
+          f'before, failing one named, recorded, read back)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
 def check_very_deep_check_token_budgets_are_shown_and_fire_tested():
     """very_deep_check.py's TOKEN BUDGETS section: every budget gets a row
     with its number whether or not it is over; a limit above the person's
@@ -95876,6 +95944,7 @@ def main():
     check_very_deep_check_boundary_audit_reads_the_setting()
     check_very_deep_check_warnings_are_judged_not_just_counted()
     check_very_deep_check_test_worth_judges_what_changed()
+    check_test_review_times_script_tests()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
     check_very_deep_check_lists_the_longest_rules()
     check_very_deep_check_record_pass_needs_a_green_suite()

@@ -695,6 +695,7 @@
   "check_template_freshness_reads_the_skeleton_correctly": 0.0,
   "check_template_history_includes_a_version_made_in_a_merge": 0.5,
   "check_templates_point_at_gotchas_rather_than_inline_them": 0.0,
+  "check_test_review_times_script_tests": 0.4,
   "check_thread_renders_never_touch_the_shared_ledger": 0.1,
   "check_tier_branches_are_never_a_pull_requests_source": 0.7,
   "check_title_case_honours_repo_declared_internal_paths": 0.0,
