@@ -66293,7 +66293,13 @@ first_after = json.loads((pb._reach_dir(work) / (one[:12] + '.json')).read_text(
 out['fix'] = dict(rc=rc, moved=two != one, first=first_after.get('status'),
                   rec=wait_record(two), since_ok=wait_record(two).get('since')
                   == out['first']['rec'].get('since'))
+rd = pb._reach_dir(work)
+(rd / 'aaaaaaaaaaaa.json').write_text(json.dumps({{'landed': 'a' * 40,
+    'since': 'b' * 40, 'status': 'failed', 'label': 'x'}}))
 os.environ['PRECEDENT_LAND_REACH_RUN'] = '0'
+said_confirm = pb.start_reach_run(work, 'c' * 40, two, 'y', fixing='aaaaaaaaaaaa')
+out['confirm_route'] = dict(since_ok=('PRECEDENT_HARNESS_SINCE=' + 'b' * 40) in said_confirm,
+                            fixed=json.loads((rd / 'aaaaaaaaaaaa.json').read_text())['status'])
 rc, said = land(branch('b3', 'z.md'))
 three = staging_tip()
 out['off'] = dict(rc=rc, printed='NEXT, IN THE BACKGROUND' in said,
@@ -66358,6 +66364,11 @@ print(json.dumps(out))
                       and (fix.get('rec') or {}).get('status') == 'passed'
                       and fix.get('since_ok'),
                       str(fix) if fix else why))
+        cr = out.get('confirm_route') or {}
+        cases.append(('...and by the --land-confirm route too, the fix starts from '
+                      'the red run\'s base and marks it fixed',
+                      cr.get('since_ok') and cr.get('fixed') == 'fixed',
+                      str(cr) if cr else why))
         cases.append(('NEGATIVE CONTROL: with the run off, a landing prints the '
                       'command and records nothing',
                       off.get('rc') == 0 and off.get('printed')
