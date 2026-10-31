@@ -608,6 +608,7 @@
   "check_session_start_lists_a_red_main_first": 0.0,
   "check_session_start_refreshes_an_attached_team_clone": 0.3,
   "check_session_start_says_did_not_load_only_after_cloning": 0.0,
+  "check_session_start_says_when_bootstrap_is_missing": 0.0,
   "check_session_start_warns_of_unapproved_workflow": 1.1,
   "check_session_sweep_reports_the_repo_half": 0.8,
   "check_session_trailer_check_ships_with_the_engine": 0.4,

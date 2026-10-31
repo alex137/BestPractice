@@ -11490,6 +11490,43 @@ def check_fresh_install_reaches_its_code_owner_practices():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_session_start_says_when_bootstrap_is_missing():
+    """tools/session-start.sh says so when tools/bootstrap.sh is not there,
+    locally and in the cloud, instead of doing nothing silently (local) or
+    failing its exec (cloud).
+
+    Found 2026-10-31 by the very deep check's pass 1 migration rehearsal: a
+    classic install that had run step 7 (seed and refresh) had the engine's
+    tools/session-start.sh and no tools/bootstrap.sh, which step 8
+    instantiates; a local session start then printed nothing at all.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    local case prints nothing and the cloud case exits 127 with bash's own
+    "No such file or directory".
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-no-bootstrap-'))
+    cases = []
+    try:
+        (tmp / 'tools').mkdir()
+        for remote in ('', 'true'):
+            env = dict(os.environ, CLAUDE_PROJECT_DIR=str(tmp), CLAUDE_CODE_REMOTE=remote)
+            r = subprocess.run(['bash', str(ROOT / 'tools' / 'session-start.sh')],
+                               capture_output=True, text=True, env=env, cwd=str(tmp),
+                               stdin=subprocess.DEVNULL, timeout=60)
+            said = r.stdout + r.stderr
+            cases.append((f'{"cloud" if remote else "local"}: exits 0 and says '
+                          f'tools/bootstrap.sh is not here',
+                          r.returncode == 0 and 'tools/bootstrap.sh is not here' in said,
+                          f'exit {r.returncode}: {said[-300:]}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'session start says when tools/bootstrap.sh is missing '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_hands_the_engine_refresh_the_followed_tip():
     """Update Vendors runs the engine refresh with the CONSUMER's own engine
     copy, and an older copy resolves the branch it was written to follow: a
@@ -93913,6 +93950,7 @@ def main():
     check_install_report_lists_only_placeholders_an_adopter_fills()
     check_update_commit_note_leaves_out_the_vendored_catalogue()
     check_fresh_install_reaches_its_code_owner_practices()
+    check_session_start_says_when_bootstrap_is_missing()
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
