@@ -36,65 +36,39 @@ approved_by: "Morgan, 2026-09-30 -- the plan from a brainstorm session, the entr
 strength:    decided
 ---
 ## Rule
-**"What's new?" has two halves, in this order.**
+**"What's new?" has two halves, in this order** (in full under "The two
+halves in full", in Detail).
 
 **1. Bring the log up to date.** Run
-`python3 tools/precedent_whats_new.py --days`. It lists **every finished
-day since the log's last one, however many** -- not only yesterday. Say
-first how many you are about to write (*"writing the 3 missing days
-first"*), then write **one entry per day**, newest first, at the top of the
-log. **A quiet day, with no activity at all, gets no entry**: put nothing in
-the log for it, and tell the person which days were quiet and skipped. Run
-`python3 tools/precedent_whats_new.py --mark <the latest day listed>`, quiet
-or not, then `--check`. A day already covered is never written twice, so a
-second "What's new?" the same day skips straight to half 2. Commit the log
-like any other change.
+`python3 tools/precedent_whats_new.py --days`: it lists **every finished
+day since the log's last one, however many**. Say how many you are about to
+write, then write **one entry per day**, newest first, at the top of the
+log. A quiet day, with no activity at all, gets no entry: tell the person
+which days were skipped. Run `--mark <the latest day listed>`, quiet or
+not, then `--check`, and commit the log. A day already covered is never
+written twice.
 
 **2. Show it.** **The reply opens with the log's link** (*"check here
-daily"*), on its first line, before anything else. Show the newest entries, then what changed
-today so far (`--today`), which no entry covers yet. Then ask what they want
-to know more about.
+daily"*), on its first line. Show the newest entries, then what changed
+today so far (`--today`), then ask what they want to know more about.
 
-**The log is a running record of everything interesting the project did**,
-not a digest since someone's last visit. **Any change counts, not only
-code.** An entry picks **the day's most noteworthy changes**, whether code,
-plumbing or content. A new guide or a new philosophy document can be the
-day's news without a commit message saying so, and `--days` lists each
-day's new documents for that reason. In a project whose day was mostly
-content -- many pages written or revised -- the entry names the most
-important of those, the same way.
+**An entry picks the day's most noteworthy changes, of any kind**: code,
+plumbing or content, and a new document can be the day's news ("What
+counts"). **Its shape** ("An entry's shape in full"):
 
-**An entry's shape:**
-
-- **The heading:** the weekday, the date, and a slug, as in
-  *Wednesday 2026-09-30: daily-log-and-safer-merges*. The slug is a few
-  lowercase words joined by hyphens naming the day's top highlight, in
-  plain text: not a link, and not in backticks, which every viewer sizes
-  its own way and one showed far larger than the date.
-  [headline-capitalization](headline-capitalization.md) knows a dated
-  heading's slug is a name and leaves it alone.
+- **The heading:** the weekday, the date and a slug naming the day's top
+  highlight, in plain text, as in
+  *Wednesday 2026-09-30: daily-log-and-safer-merges*.
 - **The opening line, word for word:** *"Some top highlights from the
   day's activity; ask if you want to learn more details or the full list
-  of everything done."* Never a sentence summing up the bullets: in
-  something this short it only says them twice.
-- **About three bullets, each opening with its key phrase in bold**, so a
-  skimmer reads the day down the left edge from the bold alone
-  ([bold-key-phrases](bold-key-phrases.md)). Bold in the middle of a
-  sentence is easy to miss on the page; the phrase leads. Each says the change plainly
-  first, then the technical version in parentheses, with a real figure or a real technical
-  name: *"**The instructions every session reads first got much shorter** (the
-  opening of AGENTS.md went from about 3,460 tokens to about 980)."* Lead
-  with what a reader would most want to know, not with command words.
-**Approximate is fine** ("about 800 tokens per session"): the figure has to
-be real, not exact ([no-invented-specifics](no-invented-specifics.md)).
-**Never name who approved or signed off on anything.**
+  of everything done."*
+- **About three bullets, each opening with its key phrase in bold**: the
+  change said plainly, then the technical version in parentheses, with a
+  real figure or name. Approximate is fine; invented is not.
+- **Never name who approved or signed off on anything.**
 
-**The shape is enforced.** `python3 tools/precedent_whats_new.py --check`
-flags an entry whose heading, weekday, opening line or bullets (each
-opening in bold) are off the shape, or that names an approver, and the push check runs the same test
-on any change to the log, so an entry out of shape cannot land. An older
-entry it flags is rewritten into the shape once. The reply check refuses
-a reply that shows the log without the log's link on its first line.
+`--check` and the push check refuse an entry off this shape ("How the shape
+is enforced").
 
 ## Detail
 **Where the log lives.** `WHATS_NEW.md` at the root (the tool: [tools/precedent_whats_new.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_whats_new.py)), or wherever
@@ -126,6 +100,76 @@ exception).
 **Fixing an entry is an ordinary edit.** The opening line is fixed in one
 place, `HEADLINE` in the tool, and `--days` prints it.
 
+Everything under the headings below from "The two halves in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+### The two halves in full
+
+**"What's new?" has two halves, in this order.**
+
+**1. Bring the log up to date.** Run
+`python3 tools/precedent_whats_new.py --days`. It lists **every finished
+day since the log's last one, however many** -- not only yesterday. Say
+first how many you are about to write (*"writing the 3 missing days
+first"*), then write **one entry per day**, newest first, at the top of the
+log. **A quiet day, with no activity at all, gets no entry**: put nothing in
+the log for it, and tell the person which days were quiet and skipped. Run
+`python3 tools/precedent_whats_new.py --mark <the latest day listed>`, quiet
+or not, then `--check`. A day already covered is never written twice, so a
+second "What's new?" the same day skips straight to half 2. Commit the log
+like any other change.
+
+**2. Show it.** **The reply opens with the log's link** (*"check here
+daily"*), on its first line, before anything else. Show the newest entries, then what changed
+today so far (`--today`), which no entry covers yet. Then ask what they want
+to know more about.
+
+### What counts
+
+**The log is a running record of everything interesting the project did**,
+not a digest since someone's last visit. **Any change counts, not only
+code.** An entry picks **the day's most noteworthy changes**, whether code,
+plumbing or content. A new guide or a new philosophy document can be the
+day's news without a commit message saying so, and `--days` lists each
+day's new documents for that reason. In a project whose day was mostly
+content -- many pages written or revised -- the entry names the most
+important of those, the same way.
+
+### An entry's shape in full
+
+**An entry's shape:**
+
+- **The heading:** the weekday, the date, and a slug, as in
+  *Wednesday 2026-09-30: daily-log-and-safer-merges*. The slug is a few
+  lowercase words joined by hyphens naming the day's top highlight, in
+  plain text: not a link, and not in backticks, which every viewer sizes
+  its own way and one showed far larger than the date.
+  [headline-capitalization](headline-capitalization.md) knows a dated
+  heading's slug is a name and leaves it alone.
+- **The opening line, word for word:** *"Some top highlights from the
+  day's activity; ask if you want to learn more details or the full list
+  of everything done."* Never a sentence summing up the bullets: in
+  something this short it only says them twice.
+- **About three bullets, each opening with its key phrase in bold**, so a
+  skimmer reads the day down the left edge from the bold alone
+  ([bold-key-phrases](bold-key-phrases.md)). Bold in the middle of a
+  sentence is easy to miss on the page; the phrase leads. Each says the change plainly
+  first, then the technical version in parentheses, with a real figure or a real technical
+  name: *"**The instructions every session reads first got much shorter** (the
+  opening of AGENTS.md went from about 3,460 tokens to about 980)."* Lead
+  with what a reader would most want to know, not with command words.
+**Approximate is fine** ("about 800 tokens per session"): the figure has to
+be real, not exact ([no-invented-specifics](no-invented-specifics.md)).
+**Never name who approved or signed off on anything.**
+
+### How the shape is enforced
+
+**The shape is enforced.** `python3 tools/precedent_whats_new.py --check`
+flags an entry whose heading, weekday, opening line or bullets (each
+opening in bold) are off the shape, or that names an approver, and the push check runs the same test
+on any change to the log, so an entry out of shape cannot land. An older
+entry it flags is rewritten into the shape once. The reply check refuses
+a reply that shows the log without the log's link on its first line.
+
 ## Why
 A shared project changes between a member's conversations, and nothing
 brings those changes into their old chats. A summary made up at each
@@ -147,6 +191,16 @@ summed up its own bullets, so a four-bullet entry said everything twice. It
 became a fixed opening line, the heading gained a weekday and a slug, quiet
 days became something the reply says rather than something silently
 skipped, and the ten entries already written were rewritten into the shape.
+
+**2026-10-31: the Rule cut to what a session must do.** The Rule had grown
+to 594 words; it now holds the two halves and the entry's shape, in
+286 words (both counted with `wc -w` over the section). Every paragraph
+it held moved word for word into Detail, under the headings the Rule
+names; nothing was deleted. Morgan, 2026-10-31 (strength: assented), after
+the 2026-10-30 very deep check cut four Rules: *"maybe we add to very deep
+check to always review like the 25% of all the rules that are the longest
+in that repo and shorten them like you did?"*, then *"use your judgment,
+and act booked produce"*.
 
 ## Install
 Nothing to do: the tool ships with the engine, and the first "What's new?"
