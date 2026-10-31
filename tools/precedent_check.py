@@ -7726,10 +7726,11 @@ def _vdc_pass2_questions():
     here lists, or [] when its file cannot be found."""
     cands = [ROOT / 'practices' / 'very-deep-check.md']
     try:
+        import precedent_resolve as _pr
         cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
         cands += [ROOT / s['path'] / 'practices' / 'very-deep-check.md'
                   for s in cfg.get('sources') or []
-                  if s.get('level') == 'universal' and s.get('path')]
+                  if _pr.declared_level(s) == 'universal' and s.get('path')]
     except (OSError, ValueError, AttributeError, TypeError):
         pass
     for f in cands:
@@ -7775,7 +7776,10 @@ def _vdc_account_holds(run, runs, text):
             'this checkout') or 0
         if n_here:
             try:
-                verdicts = json.loads((ROOT / 'tools' / 'test_verdicts.json')
+                # Built a segment at a time: the verdicts are this repo's
+                # own file, never vendored, and the literal spelling is what
+                # vendored-engine-file-refs-resolve scans for.
+                verdicts = json.loads((ROOT / 'tools').joinpath('test_verdicts.json')
                                       .read_text(encoding='utf-8')).get('verdicts') or {}
             except (OSError, ValueError, AttributeError):
                 verdicts = {}

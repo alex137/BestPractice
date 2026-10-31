@@ -55440,7 +55440,8 @@ def check_precedent_check_degrades_in_a_source_set():
                       'not a broken tool', ' 0 errored' in out, out[-400:]))
         cases.append(('no VIOLATION on a bare source set -- a check that '
                       'fires on a correct fresh install is one people learn '
-                      'to ignore', 'VIOLATION' not in out, out[-600:]))
+                      'to ignore', 'VIOLATION' not in out,
+                      '\n'.join(l for l in out.splitlines() if 'VIOLATION' in l)[:800] or out[-600:]))
         cases.append(('a skip names the module that was missing, rather than '
                       'going quiet', 'did not import' in out, out[-600:]))
     finally:
