@@ -12024,6 +12024,153 @@ def check_upholds_is_a_listed_field():
           f'its own ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+# --------------------------------------------------------------------------
+# ONE BUILD, COPIED BY PATH: a fixture tree a tool writes its own path into.
+#
+# A fresh precedent_install.py (about 9 seconds) and a pair of bootstrapped
+# practice sets (a couple of seconds each) are the same bytes every time,
+# but for the directory they were made in, which they write into a few
+# files: the install report, a leak blocklist's comment, a session's
+# practice list. _fixture_tree_cache builds one under a scratch directory,
+# keeps it with that directory's path held as a marker, and copies it into
+# each check's own directory with the marker written back as that path.
+#
+# CONTRACT (practice: review-against-a-contract): a copy is what a build in
+# the check's own directory would leave, but for __pycache__, which is never
+# kept (compiled files carry the path, and Python rebuilds them), and the
+# time a build stamps (an install's MANIFEST.json generated_at_utc; checked
+# 2026-10-31, file by file, against an install made in place). The key is
+# _seed_cache_key's for an empty destination (ONE CONSUMER, COPIED above
+# says what that covers) plus the recipe's name and today's UTC date, since
+# a build may write the date. Every build runs under _isolated_env -- an
+# empty HOME, no user config, no token, no PRECEDENT_*/GIT_* variable but
+# PRECEDENT_SEED_OFF_MAIN, local git only -- which is what lets the key read
+# HOME, and a build that writes anything into HOME, or fails, is never kept.
+# PRECEDENT_NO_SEED_CACHE=1, or any error, builds in the check's directory.
+_TREE_CACHE_MARKER = '@@PRECEDENT-HARNESS-FIXTURE-ROOT@@'
+_TREE_CACHE_HOME_MARKER = '@@PRECEDENT-HARNESS-FIXTURE-HOME@@'
+
+
+def _fixture_tree_env(home):
+    """The environment every _fixture_tree_cache build runs under."""
+    return dict(_isolated_env(os.environ, home), PRECEDENT_SEED_OFF_MAIN='1')
+
+
+def _fixture_tree_cache(recipe, target, build, only=None):
+    """build(root, env) -> (ok, outputs): writes a fixture tree into the
+    existing empty directory `root` and returns a JSON-able dict of strings
+    (its reports). This puts the same tree into `target` -- an existing,
+    empty directory -- from the cache when it can, and returns the outputs
+    with `target` and this call's HOME in place of the build's. `only`
+    names the top-level entries of the tree to copy (all when None)."""
+    import tempfile
+    from datetime import datetime, timezone
+    marker, home_marker = _TREE_CACHE_MARKER, _TREE_CACHE_HOME_MARKER
+    target = pathlib.Path(target)
+    with tempfile.TemporaryDirectory(prefix='fixture-home-') as home:
+        env = _fixture_tree_env(home)
+
+        def for_real():
+            ok, outputs = build(target, env)
+            if only is not None:
+                for child in target.iterdir():
+                    if child.name not in only:
+                        shutil.rmtree(child) if child.is_dir() else child.unlink()
+            return outputs
+
+        def rewrite(top, old, new):
+            for p in top.rglob('*') if top.is_dir() else [top]:
+                if p.is_file() and not p.is_symlink():
+                    data = p.read_bytes()
+                    if old in data:
+                        p.write_bytes(data.replace(old, new))
+
+        if os.environ.get('PRECEDENT_NO_SEED_CACHE') == '1':
+            return for_real()
+        probe = pathlib.Path(tempfile.mkdtemp(prefix='fixture-key-'))
+        try:
+            day = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            key = _seed_cache_key(probe, f'fixture-tree {recipe} {day}', env)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            key = None                      # an accelerator, never a dependency
+        finally:
+            shutil.rmtree(probe, ignore_errors=True)
+        if key is None:
+            return for_real()
+        cache = _seed_cache_dir()
+        entry = cache / f'tree-{key}'
+        if not (entry / 'complete').is_file():
+            scratch = pathlib.Path(tempfile.mkdtemp(prefix='fixture-build-'))
+            staging = None
+            try:
+                root = scratch / 'root'
+                root.mkdir()
+                ok, outputs = build(root, env)
+                if ok and not any(pathlib.Path(home).iterdir()):
+                    cache.mkdir(parents=True, exist_ok=True)
+                    _seed_cache_prune(cache)
+                    staging = pathlib.Path(tempfile.mkdtemp(
+                        prefix=f'.build-tree-{key[:12]}-', dir=cache))
+                    shutil.copytree(root, staging / 'root', symlinks=True,
+                                    ignore=shutil.ignore_patterns('__pycache__'))
+                    rewrite(staging / 'root', os.fsencode(str(root)), marker.encode())
+                    (staging / 'outputs.json').write_text(json.dumps(
+                        {k: v.replace(str(root), marker).replace(home, home_marker)
+                         for k, v in outputs.items()}), encoding='utf-8')
+                    (staging / 'complete').write_text(key + '\n', encoding='utf-8')
+                    os.rename(staging, entry)   # atomic; loses to an entry already there
+            except OSError:
+                pass
+            finally:
+                shutil.rmtree(scratch, ignore_errors=True)
+                if staging is not None and staging.exists():
+                    shutil.rmtree(staging, ignore_errors=True)
+            # The build above wrote into HOME (it is still this call's), so
+            # a build for real starts from an emptied one.
+            for child in pathlib.Path(home).iterdir():
+                shutil.rmtree(child) if child.is_dir() else child.unlink()
+        if not (entry / 'complete').is_file():
+            return for_real()
+        try:
+            os.utime(entry)                 # in use: the prune leaves it
+            outputs = json.loads((entry / 'outputs.json').read_text(encoding='utf-8'))
+            for child in sorted((entry / 'root').iterdir()):
+                if only is not None and child.name not in only:
+                    continue
+                dest = target / child.name
+                if child.is_dir() and not child.is_symlink():
+                    shutil.copytree(child, dest, symlinks=True)
+                else:
+                    shutil.copy2(child, dest, follow_symlinks=False)
+                rewrite(dest, marker.encode(), os.fsencode(str(target)))
+        except OSError:
+            for child in list(target.iterdir()):    # undo, then build for real
+                shutil.rmtree(child, ignore_errors=True) if child.is_dir() else child.unlink()
+            return for_real()
+        return {k: v.replace(marker, str(target)).replace(home_marker, home)
+                for k, v in outputs.items()}
+
+
+def _fresh_install_fixture(dest):
+    """A fresh `precedent_install.py <dest> --project-name Fixture` into an
+    empty repository at `dest` (made here when absent), the install every
+    install check runs, through _fixture_tree_cache.
+    -> (returncode, stdout, stderr) of the install."""
+    dest = pathlib.Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    def build(root, env):
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(root)], env=env,
+                       capture_output=True, check=True)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(root), '--project-name', 'Fixture'], cwd=str(ROOT),
+                           env=env, capture_output=True, text=True)
+        return r.returncode == 0, {'rc': str(r.returncode), 'stdout': r.stdout,
+                                   'stderr': r.stderr}
+    out = _fixture_tree_cache('fresh-install Fixture 1', dest, build)
+    return int(out['rc']), out['stdout'], out['stderr']
+
+
 def check_consumer_engine_carries_what_its_checks_import():
     """A consumer's precedent_check.py imports doc_lifecycle for
     document-status-header and speculation-is-marked, and the module was on
@@ -12051,10 +12198,8 @@ def check_consumer_engine_carries_what_its_checks_import():
               not missing)]
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-doclife-'))
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                        str(fx), '--project-name', 'Fixture'],
-                       capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _fresh_install_fixture(fx)
         (fx / 'spec').mkdir()
         (fx / 'spec' / 'PLAN.md').write_text(
             '---\ntitle: "Plan"\nkind: reference\nstatus: current\n'
@@ -12123,11 +12268,9 @@ def check_install_names_the_other_assistants_adapters():
     fx = pathlib.Path(_tf.mkdtemp(prefix='vh-adapters-'))
     cases = []
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(fx), '--project-name', 'Fixture'],
-                           capture_output=True, text=True)
-        tail = r.stdout.split('DONE.', 1)[-1]
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _rc, stdout, _err = _fresh_install_fixture(fx)
+        tail = stdout.split('DONE.', 1)[-1]
         cases.append(("the install report's what-is-left names the adapters "
                       "page for another assistant",
                       'templates/harness/README.md' in tail
@@ -12647,11 +12790,8 @@ def check_fresh_install_links_its_file_names():
     cases = []
     try:
         proj = fx / 'proj'
-        proj.mkdir()
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], check=True)
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(proj), '--project-name', 'Fixture'],
-                           capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _rc, install_out, _err = _fresh_install_fixture(proj)
         step8 = ['AGENTS.md', 'MAP.md', 'TODO.md', 'GLOSSARY.md',
                  'GETTING_STARTED.md', 'local/practices/project-voice.md',
                  'local/practices/project-visual-identity.md', 'README.md',
@@ -12672,8 +12812,8 @@ def check_fresh_install_links_its_file_names():
                       'templates wrote', lint.returncode == 0 and not outside,
                       '; '.join(outside) or failure_detail(lint.stdout, 600)))
         cases.append(('...and the installer\'s own light check passes',
-                      'the light check on the written files: OK' in r.stdout,
-                      failure_detail(r.stdout, 600)))
+                      'the light check on the written files: OK' in install_out,
+                      failure_detail(install_out, 600)))
         # The installer's light check counts a template's unlinked name and
         # leaves the generated block's alone.
         probe = fx / 'probe'
@@ -42128,10 +42268,8 @@ def check_very_deep_check_record_trips_no_check_in_a_consumer():
                            capture_output=True, text=True)
         return r.returncode, r.stdout + r.stderr
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(fx)], check=True)
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                        str(fx), '--project-name', 'Fixture'],
-                       capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not rerun.
+        _fresh_install_fixture(fx)
         (fx / 'spec').mkdir(exist_ok=True)
         for n in ('call-notes.md', 'connected-systems.md'):
             (fx / 'spec' / n).write_text(f'# {n}\n\nNo header.\n', encoding='utf-8')
@@ -82014,19 +82152,11 @@ def check_update_vendors_rehearsal_findings():
 
     # -- a fresh install tracks its hooks ------------------------------------
     cases = []
-    ienv = dict(env, PRECEDENT_USER_CONFIG=str(tmp / 'no-such-user-config.json'))
-    for k in ('CLAUDE_CODE_REMOTE', 'PRECEDENT_LEAK_BLOCKLIST'):
-        ienv.pop(k, None)
     proj = tmp / 'proj'
     try:
-        subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)], env=ienv,
-                       capture_output=True, check=True)
-        (proj / 'README.md').write_text('# Notes\n', encoding='utf-8')
-        git(proj, 'add', '-A')
-        git(proj, 'commit', '-qm', 'before')
-        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
-                            str(proj), '--project-name', 'Notes'], cwd=str(ROOT),
-                           env=ienv, capture_output=True, text=True)
+        # The shared fresh install (_fresh_install_fixture), copied, not
+        # rerun: no user config and no individual set, as on GitHub.
+        rc, stdout, stderr = _fresh_install_fixture(proj)
         m = json.loads((proj / 'tools' / pve.MANIFEST_NAME).read_text(encoding='utf-8'))
         # The individual-set bootstrap hook is the person's, not the
         # engine's: written only where the person running the install has an
@@ -82049,13 +82179,13 @@ def check_update_vendors_rehearsal_findings():
                           f'first SessionStart command={first} '
                           f'hook_files={m.get("hook_files")}'))
         cases.append(('a fresh install records every hook it wrote, by hash',
-                      r.returncode == 0 and bool(hooks)
+                      rc == 0 and bool(hooks)
                       and sorted(m.get('hook_files') or []) == hooks
                       and all(recorded.get(h) == hashlib.sha256(
                           (proj / '.claude' / 'hooks' / h).read_bytes()).hexdigest()
                           for h in hooks),
-                      f'rc={r.returncode} on disk={hooks} recorded={sorted(recorded)} '
-                      + failure_detail(r.stdout + r.stderr, 400)))
+                      f'rc={rc} on disk={hooks} recorded={sorted(recorded)} '
+                      + failure_detail(stdout + stderr, 400)))
     except (OSError, ValueError, subprocess.CalledProcessError) as e:
         cases.append((f'fixture could not be built ({e})', False, ''))
     finally:
@@ -84687,13 +84817,11 @@ def check_move_fixes_mentions_of_the_moved_practice():
 
     results = []
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv, other = (tmp / 'precedent-team-fixture',
                               tmp / 'precedent-individual', tmp / 'other')
-        run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
-             '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
-        run([boot, '--level', 'individual', '--name', 'precedent-individual',
-             '--dest', str(indiv)])
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         (other / 'docs').mkdir(parents=True)
         (indiv / 'practices' / 'zz-moves.md').write_text(
             practice('zz-moves', 'Do the thing.', 'A dated incident.'))
@@ -84801,14 +84929,13 @@ def check_move_tool_lands_then_deduplicates():
 
     try:
         tool = str(ROOT / 'tools' / 'precedent_move.py')
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        r1 = run([boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                  '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'])
-        r2 = run([boot, '--level', 'individual', '--name', 'precedent-individual',
-                  '--dest', str(indiv)])
-        cases.append(('both fixture sets bootstrap', r1.returncode == 0 and r2.returncode == 0,
-                      failure_detail(r1.stdout + r1.stderr + r2.stdout + r2.stderr, 600)))
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        boots = _move_fixture_sets(tmp)
+        (rc1, out1), (rc2, out2) = boots['team'], boots['individual']
+        cases.append(('both fixture sets bootstrap', rc1 == 0 and rc2 == 0,
+                      failure_detail(out1 + out2, 600)))
         (indiv / 'practices' / 'zz-moves.md').write_text(practice('zz-moves'), encoding='utf-8')
         (indiv / 'practices' / 'zz-no-story.md').write_text(practice('zz-no-story', ''), encoding='utf-8')
 
@@ -85044,6 +85171,34 @@ def _move_fixture_env(tmp):
     return env
 
 
+_MOVE_SETS = {'team': 'precedent-team-fixture', 'individual': 'precedent-individual'}
+
+
+def _move_fixture_sets(tmp, which=('team', 'individual')):
+    """Bootstrap the move checks' starting sets into `tmp`:
+    precedent-team-fixture, a shared set at the `team` level with the
+    fixture approver, and precedent-individual, an individual set -- what
+    every move check below bootstrapped for itself, with the same arguments.
+    Through _fixture_tree_cache, so a run bootstraps the pair once and each
+    check copies the sets it names in `which`.
+    -> {level: (returncode, output)} for each of them."""
+    def build(root, env):
+        env = dict(env, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+        got = {}
+        for level, name in _MOVE_SETS.items():
+            extra = ['--approver', 'Fixture Approver:fixture-gh'] if level == 'team' else []
+            r = subprocess.run([sys.executable,
+                                str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                                '--level', level, '--name', name, '--dest', str(root / name),
+                                *extra], capture_output=True, text=True, env=env,
+                               cwd=str(ROOT))
+            got[f'{level} rc'], got[f'{level} out'] = str(r.returncode), r.stdout + r.stderr
+        return all(got[f'{lv} rc'] == '0' for lv in _MOVE_SETS), got
+    out = _fixture_tree_cache('move-sets 1', tmp, build,
+                              only=[_MOVE_SETS[w] for w in which])
+    return {w: (int(out[f'{w} rc']), out[f'{w} out']) for w in which}
+
+
 def _move_fixture_practice(slug, story='A dated incident.', install=None):
     """A minimal practice file, optionally with an ## Install section."""
     return ('---\nslug:        ' + slug + '\n'
@@ -85087,13 +85242,10 @@ def check_move_tool_covers_every_direction_and_team_removals():
         return p.read_text(encoding='utf-8') if p.is_file() else ''
 
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
-                     (boot, '--level', 'individual', '--name', 'precedent-individual',
-                      '--dest', str(indiv))):
-            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         uclone = tmp / 'precedent-universal-fixture'
         (uclone / 'practices').mkdir(parents=True)
         P = _move_fixture_practice
@@ -85478,10 +85630,9 @@ def check_move_withdrawal_from_universal_leaves_universal_green():
 
     try:
         team = tmp / 'precedent-team-fixture'
-        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
-                        '--level', 'team', '--name', 'precedent-team-fixture', '--dest', str(team),
-                        '--approver', 'Fixture Approver:fixture-gh'],
-                       capture_output=True, text=True, env=env)
+        # The team set every move check starts from, bootstrapped once and
+        # copied (_move_fixture_sets).
+        _move_fixture_sets(tmp, ('team',))
         uclone = tmp / 'precedent'
         (uclone / 'practices').mkdir(parents=True)
         (uclone / 'tools').mkdir()
@@ -88860,13 +89011,10 @@ def check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix():
     env = _move_fixture_env(tmp)
     cases = []
     try:
-        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
         team, indiv = tmp / 'precedent-team-fixture', tmp / 'precedent-individual'
-        for args in ((boot, '--level', 'team', '--name', 'precedent-team-fixture',
-                      '--dest', str(team), '--approver', 'Fixture Approver:fixture-gh'),
-                     (boot, '--level', 'individual', '--name', 'precedent-individual',
-                      '--dest', str(indiv))):
-            subprocess.run([sys.executable, *args], capture_output=True, text=True, env=env)
+        # The pair every move check starts from, bootstrapped once and copied
+        # (_move_fixture_sets).
+        _move_fixture_sets(tmp)
         (indiv / 'practices' / 'zz-moves.md').write_text(
             _move_fixture_practice('zz-moves'), encoding='utf-8')
         (indiv / 'NOTES.md').write_text(

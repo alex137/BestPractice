@@ -28,11 +28,12 @@
       ]
     },
     "check_update_vendors_rehearsal_findings": {
-      "verdict": "cheapen",
-      "why": "Ten regressions from a real Update Vendors rehearsal (citations of renamed practices, .gitignore lines, hooks in ENGINE_MANIFEST.json, checkin.py's slashed branch), all in live code; the team lead is the precedent-team-* retired-name sweep it plants on purpose. How: One fresh precedent_install.py run into a throwaway project took 8.2 s today, about a third of its 23 s; about 15 harness tests each run their own fresh install, so a cached once-per-run install (no user config, copied per test) would save that here and more across the suite. The rest is in-process update steps and was not profiled.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "Ten regressions from a real Update Vendors rehearsal (citations of renamed practices, .gitignore lines, hooks in ENGINE_MANIFEST.json, checkin.py's slashed branch), all in live code; the team lead is the precedent-team-* retired-name sweep it plants on purpose. Cheapened 2026-10-31: the hooks case reads the shared fresh install (_fresh_install_fixture) instead of its own install of a repo holding one committed README under another project name, neither of which the case reads; the individual-hook branch now never fires, as on GitHub. Same cases otherwise. 23.0 s before, 9.3-10.2 s after. Note: on 2026-10-31 this container's /dev/null had become a regular file, which failed this test's GIT_CONFIG_GLOBAL=/dev/null sections before and after the change alike; it was restored to the null device.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 23.0,
+      "seconds": 10.2,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -49,21 +50,23 @@
       "importance": "high"
     },
     "check_move_tool_lands_then_deduplicates": {
-      "verdict": "cheapen",
-      "why": "tools/precedent_move.py is live and this is its main path (individual to shared, recorded at both ends, refusals); The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES). How: Bootstrap the shared (team) skeleton with --approver 'Fixture Approver:fixture-gh' and the individual skeleton once per harness run, cached, and copytree them into each test's tmp (6.3 MB each, well under a second); every move test, check_ladder_opt_in_loader and the test at verify_harness.py:85121 bootstrap with identical arguments today. A bootstrap timed 4.1-4.5 s today on a loaded machine and about 2 s under the recorded conditions (check_bootstrapped_shared_set_carries_current_codeowners, one bootstrap, records 2.0 s), so this saves roughly 2-4 s per bootstrap after the first pair; check_bootstrap_source_produces_resolvable_set and the codeowners test keep bootstrapping for real, since that is what they test.",
+      "verdict": "keep",
+      "importance": "high",
+      "why": "tools/precedent_move.py's main path (individual to shared, recorded at both ends, refusals); the team lead is fixture text the engine still accepts as an alias. Cheapened 2026-10-31: the two starting sets come from _move_fixture_sets (bootstrapped once per checkout state and day under an isolated HOME, copied with their path written back), and the bootstrap case reads the copy's recorded results; same cases. 16.8 s before, 21.7 s cold (it built the pair, on a loaded machine) and 14.5 s warm after: the moves themselves are the rest.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 16.8,
+      "seconds": 14.5,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
     },
     "check_move_tool_covers_every_direction_and_team_removals": {
-      "verdict": "cheapen",
-      "why": "The move directions and the approval for removing a shared set's practice that the lands test does not run; live tool. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES); the test name itself still says 'team'. How: Bootstrap the shared (team) skeleton with --approver 'Fixture Approver:fixture-gh' and the individual skeleton once per harness run, cached, and copytree them into each test's tmp (6.3 MB each, well under a second); every move test, check_ladder_opt_in_loader and the test at verify_harness.py:85121 bootstrap with identical arguments today. A bootstrap timed 4.1-4.5 s today on a loaded machine and about 2 s under the recorded conditions (check_bootstrapped_shared_set_carries_current_codeowners, one bootstrap, records 2.0 s), so this saves roughly 2-4 s per bootstrap after the first pair; check_bootstrap_source_produces_resolvable_set and the codeowners test keep bootstrapping for real, since that is what they test.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The move directions and the approval for removing a shared set's practice that the lands test does not run; live tool, the team lead is fixture text. Cheapened 2026-10-31: the starting sets come from _move_fixture_sets; same cases. 10.1 s before, 6.0 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 10.1,
+      "seconds": 6.0,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -80,11 +83,12 @@
       "importance": "high"
     },
     "check_move_mention_fix_reads_list_items_and_names_what_it_cannot_fix": {
-      "verdict": "cheapen",
-      "why": "The move tool's mention fix judging history one list item at a time, from a 2026-09-28 rehearsal; live. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES). How: Bootstrap the shared (team) skeleton with --approver 'Fixture Approver:fixture-gh' and the individual skeleton once per harness run, cached, and copytree them into each test's tmp (6.3 MB each, well under a second); every move test, check_ladder_opt_in_loader and the test at verify_harness.py:85121 bootstrap with identical arguments today. A bootstrap timed 4.1-4.5 s today on a loaded machine and about 2 s under the recorded conditions (check_bootstrapped_shared_set_carries_current_codeowners, one bootstrap, records 2.0 s), so this saves roughly 2-4 s per bootstrap after the first pair; check_bootstrap_source_produces_resolvable_set and the codeowners test keep bootstrapping for real, since that is what they test.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "The move tool's mention fix judging history one list item at a time (2026-09-28 rehearsal); live, the team lead is fixture text. Cheapened 2026-10-31: the starting sets come from _move_fixture_sets; same cases. 8.1 s before, 3.4 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 8.1,
+      "seconds": 3.4,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -101,11 +105,12 @@
       "importance": "high"
     },
     "check_move_fixes_mentions_of_the_moved_practice": {
-      "verdict": "cheapen",
-      "why": "After a move, mentions in both sets and other repos are rewritten and history is left; Morgan decided this 2026-09-28. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES). How: Bootstrap the shared (team) skeleton with --approver 'Fixture Approver:fixture-gh' and the individual skeleton once per harness run, cached, and copytree them into each test's tmp (6.3 MB each, well under a second); every move test, check_ladder_opt_in_loader and the test at verify_harness.py:85121 bootstrap with identical arguments today. A bootstrap timed 4.1-4.5 s today on a loaded machine and about 2 s under the recorded conditions (check_bootstrapped_shared_set_carries_current_codeowners, one bootstrap, records 2.0 s), so this saves roughly 2-4 s per bootstrap after the first pair; check_bootstrap_source_produces_resolvable_set and the codeowners test keep bootstrapping for real, since that is what they test.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "After a move, mentions in both sets and other repos are rewritten and history is left (Morgan decided this 2026-09-28); the team lead is fixture text. Cheapened 2026-10-31: the starting sets come from _move_fixture_sets; same cases, and changing the move's 'mentions fixed in:' line still fails it. 7.5 s before, 3.4 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 7.5,
+      "seconds": 3.4,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -155,11 +160,12 @@
       ]
     },
     "check_move_withdrawal_from_universal_leaves_universal_green": {
-      "verdict": "cheapen",
-      "why": "Withdrawing a universal practice must leave universal's own checks green and tell consumers where the rule went; live. The team lead is fixture text only ('level': 'team' / precedent-team-* names), which the engine still accepts as an alias (precedent_resolve.LEVEL_ALIASES). How: Bootstrap the shared (team) skeleton with --approver 'Fixture Approver:fixture-gh' and the individual skeleton once per harness run, cached, and copytree them into each test's tmp (6.3 MB each, well under a second); every move test, check_ladder_opt_in_loader and the test at verify_harness.py:85121 bootstrap with identical arguments today. A bootstrap timed 4.1-4.5 s today on a loaded machine and about 2 s under the recorded conditions (check_bootstrapped_shared_set_carries_current_codeowners, one bootstrap, records 2.0 s), so this saves roughly 2-4 s per bootstrap after the first pair; check_bootstrap_source_produces_resolvable_set and the codeowners test keep bootstrapping for real, since that is what they test.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Withdrawing a universal practice must leave universal's own checks green and tell consumers where the rule went; the team lead is fixture text. Cheapened 2026-10-31: the team set comes from _move_fixture_sets; same cases. 5.0 s before, 3.1 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 5.0,
+      "seconds": 3.1,
       "leads": [
         "names the word 'team (as a level)' (retired 2026-09-18)"
       ]
@@ -1160,19 +1166,21 @@
       "importance": "low"
     },
     "check_very_deep_check_record_trips_no_check_in_a_consumer": {
-      "verdict": "cheapen",
-      "why": "Today's consumer incident (2026-10-31): the very deep check's own record file in spec/ tripped filename-separator and document-status-header; worth keeping, but 9 of its 10 s is a fresh precedent_install.py. How: Tests 25, 58, 59, 62 and 66 in this batch each run the same `precedent_install.py <empty repo> --project-name Fixture` (9.1 s measured 2026-10-31) before asserting on the result. Keep one cached install, modeled on _seed_fixture_engine's cache (keyed on this checkout's state and the arguments; files plus the report with the destination path substituted), and copytree it into each test's directory; the test then commits and asserts as now. Saves ~9 s here.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "Today's consumer incident (2026-10-31): the very deep check's own record file in spec/ tripped filename-separator and document-status-header. Cheapened 2026-10-31: the consumer is the shared fresh install (_fresh_install_fixture), installed once per checkout state and copied; same cases and controls. 10.3 s before, 2.2 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 10.3,
+      "seconds": 2.2,
       "leads": []
     },
     "check_fresh_install_links_its_file_names": {
-      "verdict": "cheapen",
-      "why": "A fresh install's own link convention (18 unlinked file names the installer called a pass, 2026-10-05); worth keeping, but nearly all of its 10 s is the same fresh install other tests also run. How: Tests 25, 58, 59, 62 and 66 in this batch each run the same `precedent_install.py <empty repo> --project-name Fixture` (9.1 s measured 2026-10-31) before asserting on the result. Keep one cached install, modeled on _seed_fixture_engine's cache (keyed on this checkout's state and the arguments; files plus the report with the destination path substituted), and copytree it into each test's directory; the test then commits and asserts as now. Saves ~9 s here.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "A fresh install's own link convention (18 unlinked file names the installer called a pass, 2026-10-05). Cheapened 2026-10-31: lints the shared fresh install (_fresh_install_fixture), installed once per checkout state and copied; same cases. 10.1 s before, 1.0 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 10.1,
+      "seconds": 1.0,
       "leads": []
     },
     "check_vendor_engine_wires_a_new_hook_into_an_installed_repo": {
@@ -1194,11 +1202,12 @@
       "importance": "medium"
     },
     "check_consumer_engine_carries_what_its_checks_import": {
-      "verdict": "cheapen",
-      "why": "An installed consumer must actually run document-status-header and speculation-is-marked rather than report SKIPPED for a missing module (2026-10-05); worth keeping, but most of its 9.6 s is the same fresh install. How: Tests 25, 58, 59, 62 and 66 in this batch each run the same `precedent_install.py <empty repo> --project-name Fixture` (9.1 s measured 2026-10-31) before asserting on the result. Keep one cached install, modeled on _seed_fixture_engine's cache (keyed on this checkout's state and the arguments; files plus the report with the destination path substituted), and copytree it into each test's directory; the test then commits and asserts as now. Saves ~9 s here.",
+      "verdict": "keep",
+      "importance": "medium",
+      "why": "An installed consumer must actually run document-status-header and speculation-is-marked rather than report SKIPPED for a missing module (2026-10-05). Cheapened 2026-10-31: the fresh install is the shared one (_fresh_install_fixture through _fixture_tree_cache: built once per checkout state and day under an isolated HOME, copied with its own path written back), so it now installs as GitHub's runner does, with no user config or individual set; same cases. 9.6 s before, 7.5 s cold (it built the install) and 0.9 s warm after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 9.6,
+      "seconds": 0.9,
       "leads": []
     },
     "check_harness_drops_inherited_git_repository_variables": {
@@ -1229,11 +1238,12 @@
       "importance": "medium"
     },
     "check_install_names_the_other_assistants_adapters": {
-      "verdict": "cheapen",
-      "why": "The install report must name the adapters page for Codex/Gemini CLI adopters (2026-10-05); a wording check that pays a whole install for one paragraph of output. How: Tests 25, 58, 59, 62 and 66 in this batch each run the same `precedent_install.py <empty repo> --project-name Fixture` (9.1 s measured 2026-10-31) before asserting on the result. Keep one cached install, modeled on _seed_fixture_engine's cache (keyed on this checkout's state and the arguments; files plus the report with the destination path substituted), and copytree it into each test's directory; the test then commits and asserts as now. The cache keeps the report, so this test reads it without installing. Saves ~8 of 9 s.",
+      "verdict": "keep",
+      "importance": "low",
+      "why": "The install report must name the adapters page for Codex/Gemini CLI adopters (2026-10-05). Cheapened 2026-10-31: reads the shared fresh install's report (_fresh_install_fixture), installed once per checkout state and copied; same cases, and rewording the report in precedent_install.py moves the cache key and fails it. 8.9 s before, 0.5 s after.",
       "date": "2026-10-31",
       "by": "agent",
-      "seconds": 8.9,
+      "seconds": 0.5,
       "leads": []
     },
     "check_leak_gate_fires": {
