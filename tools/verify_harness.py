@@ -60776,6 +60776,25 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         cases.append(('a command that reaches no network goes through', rc == 0))
         rc, _ = run_gate('WebFetch', {'url': 'https://example.com/ab'})
         cases.append(('a term under 5 characters is ignored', rc == 0))
+        # 2026-10-31 (and 2026-10-20): a local commit carries the author's
+        # address and the session trailer's URL; neither makes it outbound.
+        commit = (f'git add a && git -c user.email="{email}" commit -q '
+                  f'--author="A <{email}>" -F - <<\'EOF\'\nsubject\n\n'
+                  'Claude-Session: https://claude.ai/code/session_x\nEOF\n'
+                  'git log -1')
+        rc, out = run_gate('Bash', {'command': commit})
+        cases.append(('a local commit with the address and a trailer URL goes through',
+                      rc == 0, failure_detail(out, 200)))
+        rc, _ = run_gate('Bash', {'command': f'git commit -m "see https://a.b" '
+                                             f'--author="A <{email}>"'})
+        cases.append(('...and with the URL in -m', rc == 0))
+        rc, _ = run_gate('Bash', {'command': commit + f'\ncurl -H "From: {email}" https://example.com'})
+        cases.append(('NEGATIVE CONTROL: a commit followed by a curl carrying the '
+                      'address is still refused', rc == 2))
+        rc, _ = run_gate('Bash', {'command': f"python3 - <<'EOF'\nimport urllib.request\n"
+                                             f"urllib.request.urlopen('https://x/?{email}')\nEOF"})
+        cases.append(('NEGATIVE CONTROL: an inline script that reaches the network '
+                      'with the address is still refused', rc == 2))
         sess = tmp / 'proj' / 'sess.jsonl'
         (tmp / 'proj' / 'sess' / 'subagents').mkdir(parents=True)
         call = lambda cid, cmd: _json.dumps({'timestamp': '2026-10-18T00:00:00Z', 'message': {
