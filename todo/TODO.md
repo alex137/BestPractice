@@ -116,6 +116,7 @@ as_of: 2026-10-30
 | [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 3d | ask | Morgan's call (needs: decision -- Morgan), asked again on 2026-11-10 |
 | [`todo-2026-10-29-root-issues-from-the-landing-check-session`](todo-2026-10-29-root-issues-from-the-landing-check-session.md) | Found by the session that fixed | 1d | wait | item 3: Morgan runs Update Vendors in each repository that brings the ladder set… |
 | [`todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice`](todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice.md) | Left from the Root issues of the 2026-10-28 Update Vendors run across seven | 1d | wait | the two voice repositories could not be attached to the session that fixed the r… |
+| [`todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session`](todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session.md) | Root issues found by the session that fixed the 2026-10-30 vendor-update | 0d | wait | out of scope for the session that found them (session_01Xcy6U1UBGg4Vvg5QFAE1Mz,… |
 
 ## Decisions (the Person's Call)
 
