@@ -9543,6 +9543,732 @@ def check_legacy_status_migration():
           f'is never guessed ({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_very_deep_check_lists_the_longest_rules():
+    """very_deep_check.py's LONGEST RULES section: the longest quarter of a
+    repo's active Rules (n/4 rounded half up, at least one), longest first,
+    by words in the `## Rule` section alone; a retired practice is not
+    counted however long its Rule, and a long Detail does not make a Rule
+    long. In a public repo a private set's slugs stay out of the write-up's
+    `## Long Rules` block, which a second write replaces; and the account
+    check refuses a run from 2026-11-01 on whose account has no such block.
+
+    Added 2026-10-31 with the section (practice: very-deep-check, Pass 3;
+    Morgan, strength: assented: "maybe we add to very deep check to always
+    review like the 25% of all the rules that are the longest in that repo
+    and shorten them like you did?"). The repositories are temporary ones
+    the test builds (practice: fixture-owns-its-state); each case asserts
+    the tool's own words (practice: control-asserts-which-failure)."""
+    import contextlib, io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    import precedent_check as pc
+
+    def practice(d, slug, rule_words, status='active', detail_words=0):
+        (d / 'practices').mkdir(parents=True, exist_ok=True)
+        body = ('---\nslug:        ' + slug + '\nstatus:      ' + status
+                + '\n---\n## Rule\n' + ' '.join(['must'] * rule_words) + '\n'
+                + ('\n## Detail\n' + ' '.join(['how'] * detail_words) + '\n'
+                   if detail_words else ''))
+        (d / 'practices' / f'{slug}.md').write_text(body, encoding='utf-8')
+
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-vdc-long-rules-'))
+    try:
+        repo, priv = tmp / 'repo', tmp / 'private-set'
+        # Seven active: the quarter is (7 + 2) // 4 = 2. The retired one and
+        # the long-Detail one are the controls.
+        for slug, n in (('fx-a', 40), ('fx-b', 300), ('fx-c', 120),
+                        ('fx-d', 300), ('fx-e', 10), ('fx-f', 75)):
+            practice(repo, slug, n)
+        practice(repo, 'fx-retired', 5000, status='retired')
+        practice(repo, 'fx-long-detail', 20, detail_words=5000)
+        r = vdc.longest_rules(repo / 'practices')
+        cases.append(('the longest quarter, longest first, ties by slug',
+                      r['listed'] == [('fx-b', 300), ('fx-d', 300)], repr(r)))
+        cases.append(('a retired practice is not counted and a long Detail '
+                      'is not a long Rule',
+                      r['active'] == 7 and r['median'] == 75, repr(r)))
+        practice(priv, 'fx-private-one', 30)
+        (priv / 'precedent-source.json').write_text(
+            json.dumps({'name': 'fx-private', 'level': 'individual',
+                        'visibility': 'private'}), encoding='utf-8')
+        cases.append(('a set of one lists its one Rule',
+                      vdc.longest_rules(priv / 'practices')['listed']
+                      == [('fx-private-one', 30)], ''))
+        (repo / 'spec').mkdir()
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'public'}), encoding='utf-8')
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        doc.write_text('# Run\n\nBody.\n', encoding='utf-8')
+        sources = [{'name': 'precedent', 'level': 'universal', 'path': str(repo)},
+                   {'name': 'fx-private', 'level': 'individual', 'path': str(priv)}]
+        for _ in range(2):
+            out = io.StringIO()
+            listed = vdc.longest_rules_section(sources, repo, out=out)
+        body = doc.read_text(encoding='utf-8')
+        cases.append(('the console names every listed slug and says what the '
+                      'session does with it',
+                      listed == 3 and 'fx-private-one' in out.getvalue()
+                      and 'never cut\n  to a quota' in out.getvalue(),
+                      out.getvalue()[-600:]))
+        cases.append(('the write-up gets one ## Long Rules block, replaced on '
+                      'the second write, a private set named in general terms',
+                      body.count('## Long Rules') == 1
+                      and '`fx-b` 300, `fx-d` 300' in body
+                      and 'fx-private' not in body
+                      and 'a private individual set' in body, body))
+        # The account check, through the real function with its ROOT on the
+        # fixture: a run from 2026-11-01 on owes the block.
+        (repo / 'record').mkdir()
+        (repo / 'record' / 'very-deep-check-ledger.json').write_text(json.dumps(
+            {'runs': [{'date': '2026-11-01', 'run_id': 'fx', 'passes': [
+                {'pass': str(n), 'status': 'done'} for n in (1, 2, 3, 4)]}]}),
+            encoding='utf-8')
+        whole = ('---\nopened: 2026-11-01\n---\n# Run\n\n## Checks by stage\n\n'
+                 'x\n\n## Test review\n\nx\n')
+        saved = pc.ROOT
+        try:
+            pc.ROOT = repo
+            doc.write_text(whole, encoding='utf-8')
+            missing = ' | '.join(str(getattr(f, 'detail', f))
+                                 for f in pc._very_deep_check_write_up(None))
+            doc.write_text(whole + '\n## Long Rules\n\nx\n', encoding='utf-8')
+            # Only this block's finding: from 2026-11-01 the account owes
+            # more than its headings (check_very_deep_check_account_shows_
+            # the_work holds the rest).
+            present = [f for f in pc._very_deep_check_write_up(None)
+                       if 'Long Rules' in str(getattr(f, 'detail', f))]
+        finally:
+            pc.ROOT = saved
+        cases.append(('the account check refuses a 2026-11-01 run with no '
+                      '## Long Rules, and passes one with it',
+                      'no `## Long Rules` section' in missing and not present,
+                      missing + ' || ' + repr(present)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'very_deep_check.py\'s LONGEST RULES lists the longest quarter of '
+          f'active Rules ({len(cases)} stated cases: order, controls, a set of '
+          f'one, console, write-up block, account check)',
+          not bad, '; '.join(f"{n}: {d[:300]}" for n, d in bad))
+
+
+# THE VERY DEEP CHECK'S GUARDS (Morgan, 2026-10-31, strength: decided: "why
+# didnt this run do it? How do we make sure future runs do it?", then
+# "Update the very deep instructions so to fix this in the future"). The
+# 2026-10-30 run recorded every pass `partial` with nothing saying what was
+# skipped or who agreed, never re-ran its suite green, left question 27
+# "Not judged this run", lost 62 incident verdicts with a scratch file and
+# copied the quiet-sections answer from the run before. Each test below
+# plants one of those shapes in a run dated 2026-11-01 and asserts the
+# tool's own refusal; its control is the same shape the guard lets through.
+_VDC_G_START = '2026-11-01T09:00:00-03:00'
+
+
+def _vdc_guard_repo(tmp, green=None, passes=(), date='2026-11-01',
+                    harness=True, consumer=False, run_extra=None):
+    """-> (repo, ledger): a repository with one completed run in its ledger,
+    a harness of its own when `harness`, and `green` as its last green
+    whole-suite run (practice: fixture-owns-its-state)."""
+    repo = pathlib.Path(tmp) / 'repo'
+    (repo / 'tools').mkdir(parents=True, exist_ok=True)
+    (repo / 'record').mkdir(exist_ok=True)
+    if harness:
+        (repo / 'tools' / 'verify_harness.py').write_text('', encoding='utf-8')
+        rec = {'measured': '2026-11-01, 4 cores, --as-ci', 'seconds': {}}
+        if green:
+            rec['green_full_run'] = green
+        (repo / 'tools' / 'harness_check_times.json').write_text(
+            json.dumps(rec), encoding='utf-8')
+    if consumer:
+        (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+    run = {'run_id': _VDC_G_START, 'date': date, 'completed': True,
+           'components': [], 'passes': list(passes)}
+    run.update(run_extra or {})
+    ledger = repo / 'record' / 'very-deep-check-ledger.json'
+    ledger.write_text(json.dumps({'runs': [run]}), encoding='utf-8')
+    return repo, ledger
+
+
+def _vdc_record(vdc, arg, ledger, repo):
+    """-> (exit, stderr, the run after it) for one --record-pass."""
+    import contextlib, io
+    err, out = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+        rc = vdc._record_pass(arg, ledger, repo)
+    run = json.loads(ledger.read_text(encoding='utf-8'))['runs'][-1]
+    return rc, err.getvalue(), run
+
+
+def check_very_deep_check_record_pass_needs_a_green_suite():
+    """--record-pass refuses a pass, for a run from 2026-11-01 on, until a
+    green whole-suite `verify_harness.py --all --record-times` run has
+    finished since the run started -- and, for done or partial, since the
+    pass recorded before it (step 7: the suite re-run after each pass). The
+    green run stamps tools/harness_check_times.json's green_full_run, and a
+    later write keeps the stamp.
+
+    The 2026-10-30 run's step-2 suite failed a case; the case was fixed and
+    the suite never re-run green, so question 27 had no fresh times, and no
+    pass was followed by a re-run. Controls: a green run after the right
+    moment records; a run dated before 2026-11-01 records as it always did;
+    a repository with no harness of its own is not asked."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-green-suite-'))
+    try:
+        repo, ledger = _vdc_guard_repo(tmp / 'a', green=None)
+        rc, err, run = _vdc_record(vdc, '2=done', ledger, repo)
+        cases.append(('THE CASE: no green whole-suite run at all -- refused, '
+                      'naming the command to re-run until green',
+                      rc == 1 and not run['passes']
+                      and 'no green whole-suite run since this run started' in err
+                      and "re-run `python3 tools/verify_harness.py --all "
+                          "--record-times --because 'very deep check, step 2'` "
+                          "until it is green" in err, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'b', green='2026-11-01T08:00:00-03:00')
+        rc, err, run = _vdc_record(vdc, '2=done', ledger, repo)
+        cases.append(('THE CASE: the green run finished before this run '
+                      'started -- refused',
+                      rc == 1 and not run['passes']
+                      and '2026-11-01T08:00:00-03:00' in err, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'c', green='2026-11-01T10:00:00-03:00')
+        rc, err, run = _vdc_record(vdc, '2=done', ledger, repo)
+        cases.append(('CONTROL: a green run after the run started records the '
+                      'pass, and the entry names that green run',
+                      rc == 0 and run['passes'][0].get('suite_green')
+                      == '2026-11-01T10:00:00-03:00', err))
+        prev = [{'pass': '1', 'status': 'done',
+                 'recorded': '2026-11-01T11:00:00-03:00'}]
+        repo, ledger = _vdc_guard_repo(tmp / 'd', green='2026-11-01T10:00:00-03:00',
+                                       passes=prev,
+                                       run_extra={'consumer': {'checked': 'x'}})
+        rc, err, run = _vdc_record(vdc, '3=done', ledger, repo)
+        cases.append(('THE CASE: pass 1 was recorded after the last green run '
+                      '-- pass 3 is refused (the suite was not re-run)',
+                      rc == 1 and len(run['passes']) == 1
+                      and 'since pass 1 was recorded' in err, err))
+        rc, err, run = _vdc_record(
+            vdc, "3=not run,skipped=all of it,agreed='skip 3'", ledger, repo)
+        cases.append(('CONTROL: `not run` needs the green run since the start '
+                      'only, not since the pass before it',
+                      rc == 0 and len(run['passes']) == 2, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'e', green='2026-11-01T12:00:00-03:00',
+                                       passes=prev)
+        rc, err, run = _vdc_record(vdc, '3=done', ledger, repo)
+        cases.append(('CONTROL: a green re-run after pass 1 was recorded lets '
+                      'pass 3 record', rc == 0 and len(run['passes']) == 2, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'f', green=None, date='2026-10-31')
+        rc, err, run = _vdc_record(vdc, '2=whatever', ledger, repo)
+        cases.append(('CONTROL: a run dated before 2026-11-01 records as before',
+                      rc == 0 and run['passes'][0]['status'] == 'whatever', err))
+        repo, ledger = _vdc_guard_repo(tmp / 'g', harness=False)
+        rc, err, run = _vdc_record(vdc, '2=done', ledger, repo)
+        cases.append(('CONTROL: a repository with no harness of its own is not '
+                      'asked for a green run', rc == 0, err))
+        # The stamp: written by a green --all run, kept by every other write.
+        times = tmp / 'times.json'
+        _write_check_times({'check_a': 1.0}, 'm', path=times,
+                           green='2026-11-01T10:00:00-03:00')
+        _write_check_times({'check_a': 2.0}, 'm2', path=times)
+        kept = json.loads(times.read_text(encoding='utf-8'))
+        cases.append(('a later write of the times file keeps green_full_run',
+                      kept.get('green_full_run') == '2026-11-01T10:00:00-03:00'
+                      and kept['seconds'] == {'check_a': 2.0}, repr(kept)))
+        src = pathlib.Path(__file__).read_text(encoding='utf-8')
+        cases.append(('only a green run of every case (--all) stamps it',
+                      'if recorded:' in src and 'if every_case:' in src
+                      and "green = precedent_time.stamp_iso(ROOT)" in src
+                      and "only a green run records them" in src, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'--record-pass needs a green whole-suite run since the run started '
+          f'and since the pass before it ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_record_pass_partial_needs_what_and_who():
+    """--record-pass, for a run from 2026-11-01 on, takes only done, partial
+    or not run, and a partial or not-run pass carries `skipped=` (what was
+    not done) and `agreed=` (the person's words). Values may hold commas.
+
+    The 2026-10-30 run recorded all four passes `partial` with no list of
+    what was skipped and no words from the person agreeing, though the Rule
+    says a narrowed run is said up front and agreed. Controls: `done` needs
+    neither; a partial pass with both records them in the ledger."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-partial-'))
+    green = '2026-11-01T10:00:00-03:00'
+    try:
+        repo, ledger = _vdc_guard_repo(tmp / 'a', green=green)
+        rc, err, run = _vdc_record(vdc, '2=partial,findings=3,note=two helpers',
+                                   ledger, repo)
+        cases.append(("THE CASE: partial with neither -- refused in its own "
+                      "words, nothing written",
+                      rc == 1 and not run['passes']
+                      and "pass 2 is 'partial' and does not say what was "
+                          "skipped and who agreed" in err
+                      and "skipped='<what this pass did not do>' and "
+                          "agreed='<the person's words, quoted>'" in err, err))
+        rc, err, run = _vdc_record(vdc, '2=partial,skipped=questions 9, 10',
+                                   ledger, repo)
+        cases.append(('THE CASE: partial with what but not who -- refused',
+                      rc == 1 and not run['passes'], err))
+        rc, err, run = _vdc_record(vdc, "4=not run,agreed='fine'", ledger, repo)
+        cases.append(('THE CASE: not run with who but not what -- refused',
+                      rc == 1 and not run['passes'], err))
+        rc, err, run = _vdc_record(vdc, '2=half done', ledger, repo)
+        cases.append(('THE CASE: a status nobody defined -- refused',
+                      rc == 1 and "must be done, partial or not run, not "
+                                  "'half done'" in err, err))
+        rc, err, run = _vdc_record(
+            vdc, "2=partial,findings=3,skipped=questions 9, 10 and 27,"
+                 "agreed=\"Morgan: skip 9, 10 and 27 today\",note=two helpers, merged",
+            ledger, repo)
+        p = (run['passes'] or [{}])[0]
+        cases.append(('CONTROL: partial with both records them, commas and all, '
+                      'and note= still runs to the end',
+                      rc == 0 and p.get('skipped') == 'questions 9, 10 and 27'
+                      and p.get('agreed') == 'Morgan: skip 9, 10 and 27 today'
+                      and p.get('findings') == 3
+                      and p.get('note') == 'two helpers, merged', repr(p)))
+        rc, err, run = _vdc_record(vdc, '3=done,findings=1', ledger, repo)
+        cases.append(('CONTROL: done needs neither', rc == 0, err))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'--record-pass: partial and not run carry skipped= and agreed= '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_pass_one_needs_a_consumer():
+    """--record-pass 1=..., for a run from 2026-11-01 on, refuses until the
+    run has a consumer entry: `consumer=PATH`, a consumer repository it
+    checked (one with tools/ENGINE_MANIFEST.json), or `consumer_declined=`,
+    the person's words. A run inside a consumer is its own. The ledger
+    records whether, never which: a consumer is often private.
+
+    Step 6 says to ask for a real consumer before pass 1; the 2026-10-30
+    run never did, and its pass 1 said "No real consumer attached"."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import very_deep_check as vdc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-consumer-'))
+    green = '2026-11-01T10:00:00-03:00'
+    try:
+        repo, ledger = _vdc_guard_repo(tmp / 'a', green=green)
+        rc, err, run = _vdc_record(vdc, '1=done', ledger, repo)
+        cases.append(('THE CASE: no consumer and no words -- refused',
+                      rc == 1 and not run['passes']
+                      and 'pass 1 needs a real consumer repository' in err
+                      and "consumer_declined='<their words, quoted>'" in err, err))
+        plain = tmp / 'not-a-consumer'
+        plain.mkdir()
+        rc, err, run = _vdc_record(vdc, f'1=done,consumer={plain}', ledger, repo)
+        cases.append(('THE CASE: consumer= names a directory that is no '
+                      'consumer -- refused',
+                      rc == 1 and 'is not a consumer repository' in err, err))
+        cons = tmp / 'private-consumer-name'
+        (cons / 'tools').mkdir(parents=True)
+        (cons / 'tools' / 'ENGINE_MANIFEST.json').write_text('{}', encoding='utf-8')
+        rc, err, run = _vdc_record(vdc, f'1=done,consumer={cons}', ledger, repo)
+        cases.append(('CONTROL: a real consumer records, and the ledger keeps '
+                      'no path or name of it',
+                      rc == 0 and run.get('consumer', {}).get('checked')
+                      and 'private-consumer-name' not in ledger.read_text(), err))
+        rc, err, run = _vdc_record(vdc, '1=done,findings=2', ledger, repo)
+        cases.append(('CONTROL: once on record, pass 1 can be recorded again '
+                      'without it', rc == 0, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'b', green=green)
+        rc, err, run = _vdc_record(
+            vdc, "1=done,consumer_declined='Morgan: no consumer today, go on'",
+            ledger, repo)
+        cases.append(("CONTROL: the person's words declining one record",
+                      rc == 0 and run.get('consumer', {}).get('declined')
+                      == 'Morgan: no consumer today, go on', err))
+        repo, ledger = _vdc_guard_repo(tmp / 'c', green=green, consumer=True)
+        rc, err, run = _vdc_record(vdc, '1=done', ledger, repo)
+        cases.append(('CONTROL: a run inside a consumer is its own consumer',
+                      rc == 0, err))
+        repo, ledger = _vdc_guard_repo(tmp / 'd', green=green)
+        rc, err, run = _vdc_record(vdc, '2=done', ledger, repo)
+        cases.append(('CONTROL: only pass 1 asks', rc == 0, err))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'--record-pass 1 needs a consumer, or the person declining one '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+_VDC_G_ACCOUNT = """---
+opened: 2026-11-01
+---
+# Run
+
+## Pass 2
+
+| Question | Answer |
+|---|---|
+| 1 | answered |
+| 2 | partly: half of it |
+| 2a | not attempted |
+
+## Incidents
+
+- `gotcha-fx-one`: a check with a planted case, check_fx.
+- `todo-fx-two`: nothing mechanical, deliberately, because it is judgment.
+
+## Quiet sections, answered
+
+2026-11-01: QUIET ONE kept, a cheap guard. CANNOT COUNT kept: it needs GitHub.
+
+## Checks by stage
+
+x
+
+## Test review
+
+<!--vdc-embed:test-review: never hand-edit -->
+### this checkout
+
+3 test(s), 3 timed, 4 s recorded in all. Judged: 3. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 0. Times measured 2026-11-01, 4 cores, --as-ci.
+
+### a set
+
+2 test(s), 0 timed, 0 s recorded in all. Judged: 2. Never judged: 0. To judge again: 0. Cheapen or retire owed: 0. Carrying a lead: 0.
+<!--/vdc-embed:test-review-->
+
+## Long Rules
+
+x
+"""
+
+
+def _vdc_account_fixture(tmp, date='2026-11-01'):
+    """-> repo: a run whose account shows all the work, for the account
+    check to be planted against (practice: fixture-owns-its-state)."""
+    repo = pathlib.Path(tmp) / 'repo'
+    for d in ('record', 'spec', 'tools', 'practices'):
+        (repo / d).mkdir(parents=True, exist_ok=True)
+    comp = lambda n, st='clean', f=0: {'name': n, 'kind': 'mechanical',
+                                       'findings': f, 'status': st,
+                                       'output_tokens': 10}
+    earlier = [{'run_id': f'2026-10-{d}', 'date': f'2026-10-{d}',
+                'components': [comp('QUIET ONE -- a guard')], 'passes': []}
+               for d in ('10', '20')]
+    run = {'run_id': '2026-11-01T09:00:00-03:00', 'date': date,
+           'components': [comp('QUIET ONE -- a guard'),
+                          comp('CANNOT COUNT', 'unknown', None),
+                          dict(comp('INCIDENT COVERAGE'), kind='read',
+                               listed=['gotcha-fx-one', 'todo-fx-two']),
+                          dict(comp('TEST WORTH', 'findings', 3),
+                               to_judge={'this checkout': 3})],
+           'passes': [{'pass': str(n), 'status': 'done',
+                       'recorded': '2026-11-01T13:00:00-03:00'}
+                      for n in (1, 2, 3, 4)]}
+    (repo / 'record' / 'very-deep-check-ledger.json').write_text(
+        json.dumps({'runs': earlier + [run]}), encoding='utf-8')
+    (repo / 'record' / 'automated_actions.md').write_text(
+        '# Schedules\n\nConfirmed unchanged on 2026-11-01.\n', encoding='utf-8')
+    (repo / 'tools' / 'test_verdicts.json').write_text(json.dumps(
+        {'verdicts': {'check_a': {'verdict': 'keep', 'importance': 'low',
+                                  'why': 'w', 'date': '2026-11-01'}}}),
+        encoding='utf-8')
+    (repo / 'practices' / 'very-deep-check.md').write_text(
+        '## Detail\n\n### Pass 2 — mechanisms\n1. **One?** x\n\n'
+        '2. **Two?** y\n2a. **Two, again?** z\n\n### Pass 3 — writing\n'
+        '9. **Not pass 2.** w\n', encoding='utf-8')
+    (repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').write_text(
+        _VDC_G_ACCOUNT, encoding='utf-8')
+    return repo
+
+
+def _vdc_account_findings(pc, repo):
+    saved = pc.ROOT
+    try:
+        pc.ROOT = repo
+        return ' | '.join(str(getattr(f, 'detail', f))
+                          for f in pc._very_deep_check_write_up(None))
+    finally:
+        pc.ROOT = saved
+
+
+def check_very_deep_check_account_owes_tests_and_incidents():
+    """The account check (precedent_check.py --only very-deep-check), for a
+    run from 2026-11-01 on: question 27 is done -- every repository's test
+    review shows nothing left to judge, this checkout's times are from the
+    run, and tools/test_verdicts.json holds a verdict dated in the run when
+    TEST WORTH listed tests here -- and question 20 is done: `## Incidents`
+    carries a verdict line for every incident INCIDENT COVERAGE listed (the
+    ledger keeps the list). Either may instead quote the person agreeing to
+    skip it, on a line opening `Skipped with the person's words:`.
+
+    The 2026-10-30 run recorded question 27 "Not judged this run" and its 62
+    incident verdicts were lost with a scratch file; nothing refused either.
+    Controls: the complete account passes; a run dated before 2026-11-01 is
+    not held to it."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-account-q27-'))
+    try:
+        repo = _vdc_account_fixture(tmp)
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('CONTROL: the account that shows the work passes',
+                      got == '', got))
+
+        def planted(old, new):
+            doc.write_text(_VDC_G_ACCOUNT.replace(old, new, 1), encoding='utf-8')
+            return _vdc_account_findings(pc, repo)
+        got = planted('Never judged: 0. To judge again: 0. Cheapen or retire '
+                      'owed: 0. Carrying a lead: 0.\n<!--',
+                      'Never judged: 2. To judge again: 0. Cheapen or retire '
+                      'owed: 0. Carrying a lead: 0.\n<!--')
+        cases.append(('THE CASE: a set still has tests never judged',
+                      'question 27 is not done -- a set still has 2 never '
+                      'judged' in got, got))
+        got = planted('Times measured 2026-11-01', 'Times measured 2026-10-09')
+        cases.append(("THE CASE: this checkout's times are from before the run",
+                      "test times were measured 2026-10-09, before this run"
+                      in got, got))
+        got = planted('<!--/vdc-embed:test-review-->',
+                      '<!--/vdc-embed:test-review-->\n\nSkipped with the '
+                      "person's words: \"Morgan: skip the tests today\"")
+        cases.append(("CONTROL: with the person's words, a stale block passes",
+                      got == '', got))
+        doc.write_text(_VDC_G_ACCOUNT, encoding='utf-8')
+        (repo / 'tools' / 'test_verdicts.json').write_text(json.dumps(
+            {'verdicts': {'check_a': {'verdict': 'keep', 'importance': 'low',
+                                      'why': 'w', 'date': '2026-10-30'}}}),
+            encoding='utf-8')
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('THE CASE: tests were listed here and no verdict is '
+                      'dated in the run',
+                      'TEST WORTH listed 3 test(s) here to judge and '
+                      'tools/test_verdicts.json holds no verdict dated '
+                      '2026-11-01 or later' in got, got))
+        repo = _vdc_account_fixture(tmp / 'b')
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        got = planted('- `todo-fx-two`: nothing mechanical, deliberately, '
+                      'because it is judgment.\n', '')
+        cases.append(('THE CASE: an incident the run listed has no line',
+                      'question 20 is not done -- 1 of the 2 incident(s) '
+                      'INCIDENT COVERAGE listed have no verdict line: '
+                      'todo-fx-two' in got, got))
+        got = planted('- `todo-fx-two`: nothing mechanical, deliberately, '
+                      'because it is judgment.', '- `todo-fx-two`')
+        cases.append(('THE CASE: the slug alone is not a verdict',
+                      'have no verdict line: todo-fx-two' in got, got))
+        got = planted('## Incidents\n', '## Incident notes\n')
+        cases.append(('THE CASE: no `## Incidents` section',
+                      'the account has no `## Incidents` section' in got, got))
+        got = planted('- `gotcha-fx-one`: a check with a planted case, '
+                      'check_fx.\n- `todo-fx-two`: nothing mechanical, '
+                      'deliberately, because it is judgment.',
+                      "Skipped with the person's words: 'Morgan: not today'")
+        cases.append(("CONTROL: the person's words agreeing to skip it pass",
+                      'question 20' not in got, got))
+        repo = _vdc_account_fixture(tmp / 'c', date='2026-10-31')
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        got = planted('## Incidents\n', '## Incident notes\n')
+        cases.append(('CONTROL: a run dated before 2026-11-01 is not held to it',
+                      got == '', got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check account owes question 27 and question 20, '
+          f'or the person\'s words ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_account_reads_the_ledger_and_the_questions():
+    """The account check, for a run from 2026-11-01 on: the quiet-sections
+    answer names this run's date and answers every section the component
+    ledger names as quiet and every section the run could not measure (the
+    same quiet_sections() the printed read uses); `## Pass 2` lists every
+    Pass 2 question the practice in force numbers, each answered, partly or
+    not attempted; and record/automated_actions.md was rewritten or
+    confirmed unchanged in the run.
+
+    The 2026-10-30 run copied its quiet-sections answer from the 2026-10-17
+    run, left two unmeasured sections unanswered, summarised Pass 2's
+    questions as ranges with none listed one by one, and did not touch the
+    schedules inventory. Control: the account that does all of it passes."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-account-ledger-'))
+    try:
+        repo = _vdc_account_fixture(tmp)
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('CONTROL: the complete account passes', got == '', got))
+
+        def planted(old, new):
+            doc.write_text(_VDC_G_ACCOUNT.replace(old, new, 1), encoding='utf-8')
+            return _vdc_account_findings(pc, repo)
+        got = planted('2026-11-01: QUIET ONE', '2026-10-17: QUIET ONE')
+        cases.append(("THE CASE: the answer is an earlier run's",
+                      "the component ledger was not read for this run -- it "
+                      "does not name this run's date, 2026-11-01" in got, got))
+        got = planted(' CANNOT COUNT kept: it needs GitHub.', '')
+        cases.append(('THE CASE: a section the run could not measure is not '
+                      'answered', 'it does not answer CANNOT COUNT' in got, got))
+        got = planted(' QUIET ONE kept, a cheap guard.', '')
+        cases.append(('THE CASE: a quiet section is not answered',
+                      'it does not answer QUIET ONE' in got, got))
+        got = planted('## Quiet sections, answered\n', '## Ledger thoughts\n')
+        cases.append(('THE CASE: no answer anywhere',
+                      'no `### Quiet sections, answered` heading' in got, got))
+        (repo / 'spec' / 'VERY_DEEP_CHECK.md').write_text(
+            '# Record\n\n### Quiet sections, answered\n\n2026-11-01: QUIET ONE '
+            'kept; CANNOT COUNT kept.\n', encoding='utf-8')
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('CONTROL: the answer may sit in the run record instead',
+                      'component ledger' not in got, got))
+        (repo / 'spec' / 'VERY_DEEP_CHECK.md').unlink()
+        got = planted('| 2a | not attempted |\n', '')
+        cases.append(('THE CASE: a Pass 2 question is missing',
+                      'Pass 2 does not list every question -- missing 2a' in got
+                      and 'missing 2a, ' not in got, got))
+        got = planted('| 2 | partly: half of it |', '| 2 | looked at it |')
+        cases.append(('THE CASE: a question with no answer word counts as '
+                      'missing', 'missing 2.' in got, got))
+        doc.write_text(_VDC_G_ACCOUNT, encoding='utf-8')
+        sched = repo / 'record' / 'automated_actions.md'
+        sched.write_text('# Schedules\n\nConfirmed unchanged on 2026-10-30.\n',
+                         encoding='utf-8')
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('THE CASE: the schedules inventory was confirmed in an '
+                      'earlier run only',
+                      'record/automated_actions.md was not rewritten or '
+                      'confirmed in this run' in got, got))
+        sched.unlink()
+        got = _vdc_account_findings(pc, repo)
+        cases.append(('THE CASE: no schedules inventory at all',
+                      'record/automated_actions.md was not written in this '
+                      'run' in got, got))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check account answers the component ledger, every '
+          f'Pass 2 question and the schedules ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_very_deep_check_account_blocks_postdate_the_last_fix():
+    """Every block the run writes into its account is stamped with when it
+    was measured, `--refresh-blocks` rewrites them all without a ledger row,
+    and the account check, for a run from 2026-11-01 on, refuses a warnings,
+    checks-by-stage, set-independence or test-review block stamped before
+    the run's last commit to tools/ or practices/ (by author date, between
+    the run's start and its last recorded pass). The ledger keeps what the
+    account is held to: the incidents a run listed, the tests it left.
+
+    The 2026-10-30 run's account showed blocks that still reported bugs
+    fixed hours earlier. Controls: a block measured after the last fix
+    passes, and a commit after the last pass is not the run's."""
+    import contextlib, io, shutil, subprocess as sp, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_check as pc
+    import very_deep_check as vdc
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-account-blocks-'))
+    try:
+        repo = _vdc_account_fixture(tmp)
+        doc = repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md'
+
+        def git(*a, date=None):
+            env = dict(os.environ, GIT_AUTHOR_NAME='fx', GIT_AUTHOR_EMAIL='fx@x',
+                       GIT_COMMITTER_NAME='fx', GIT_COMMITTER_EMAIL='fx@x')
+            if date:
+                env['GIT_AUTHOR_DATE'] = date
+            return sp.run(['git', '-c', 'core.hooksPath=/dev/null',
+                           '-c', 'commit.gpgsign=false', *a], cwd=str(repo),
+                          env=env, capture_output=True, text=True)
+        git('init', '-q')
+        git('add', '-A')
+        git('commit', '-qm', 'start', date='2026-11-01T08:00:00-03:00')
+        (repo / 'tools' / 'fix.py').write_text('x = 1\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'a fix', date='2026-11-01T12:00:00-03:00')
+
+        def stamped(stamp):
+            body = _VDC_G_ACCOUNT.replace(
+                '<!--vdc-embed:test-review: never hand-edit -->\n',
+                '<!--vdc-embed:test-review: never hand-edit -->\n'
+                + (f'<!--vdc-measured: {stamp} -->\n' if stamp else ''))
+            doc.write_text(body, encoding='utf-8')
+            return _vdc_account_findings(pc, repo)
+        got = stamped('2026-11-01T11:00:00-03:00')
+        cases.append(('THE CASE: a block measured before the last fix',
+                      "the account's generated blocks predate the run's last "
+                      "fix (2026-11-01T12:00:00-03:00): test-review "
+                      "(2026-11-01T11:00:00-03:00)" in got
+                      and '--refresh-blocks' in got, got))
+        got = stamped(None)
+        cases.append(('THE CASE: a block with no stamp',
+                      'test-review (no stamp)' in got, got))
+        got = stamped('2026-11-01T12:30:00-03:00')
+        cases.append(('CONTROL: a block measured after the last fix passes',
+                      got == '', got))
+        (repo / 'tools' / 'later.py').write_text('y = 1\n', encoding='utf-8')
+        git('add', '-A')
+        git('commit', '-qm', 'later', date='2026-11-02T10:00:00-03:00')
+        got = stamped('2026-11-01T12:30:00-03:00')
+        cases.append(("CONTROL: a commit after the run's last pass is not the "
+                      "run's fix", got == '', got))
+        # The tool stamps what it writes.
+        (repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').write_text(
+            '# Run\n', encoding='utf-8')
+        vdc._write_run_block(repo, vdc.STAGES_EMBED, 'Checks by stage',
+                             'CHECKS BY STAGE', 'body')
+        text = (repo / 'spec' / 'VERY_DEEP_CHECK_LATEST_RUN.md').read_text(
+            encoding='utf-8')
+        cases.append(('the tool stamps every block it writes',
+                      re.search(r'<!--vdc-embed:checks-by-stage[^>]*-->\n'
+                                r'<!--vdc-measured: \d{4}-\d{2}-\d{2}T[^ ]+ -->'
+                                r'\nbody', text) is not None, text))
+        src = (ROOT / 'tools' / 'very_deep_check.py').read_text(encoding='utf-8')
+        cases.append(('--refresh-blocks rewrites the four blocks the check '
+                      'reads, and adds no ledger row',
+                      "if '--refresh-blocks' in args:" in src
+                      and all(f in src.split("if '--refresh-blocks' in args:")[1]
+                              .split('return 0')[0]
+                              for f in ('warnings_section(', 'checks_by_stage_section(',
+                                        'set_independence_section(',
+                                        'test_worth_section(')), ''))
+        led = vdc.RunLedger(path=tmp / 'ledger.json', repo=tmp)
+        with contextlib.redirect_stdout(io.StringIO()):
+            led.start('INCIDENT COVERAGE', kind='read')
+            led.end(findings=0, extra={'listed': ['gotcha-a']})
+        cases.append(('the ledger row keeps what the account is held to',
+                      led.components[-1].get('listed') == ['gotcha-a'], ''))
+        cases.append(('the full run records the incidents listed and the tests '
+                      'left to judge',
+                      "extra={'listed': [r[1] for r in _ic_rows]}" in src
+                      and "extra={'to_judge': _tw_by_repo}" in src, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'the very deep check account\'s blocks postdate the run\'s last fix '
+          f'({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
 def check_default_blocklist_runs_the_vocabulary_layer():
     """The vocabulary layer runs on every invocation, against a real list.
 
@@ -13279,6 +14005,9 @@ def _write_failing_cases(lines):
 # (gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy).
 # Refreshed only when asked: `--as-ci --record-times` (run_as_ci).
 HARNESS_CHECK_TIMES = ROOT / 'tools' / 'harness_check_times.json'
+# When the last green whole-suite `--all --record-times` run finished, in the
+# person's zone with its offset (very_deep_check.py reads the same key).
+GREEN_FULL_RUN_KEY = 'green_full_run'
 
 # How many processes `--as-ci` starts, wherever it runs: the heavy shard
 # plus three parts of the rest. A fixed number, not the machine's cores,
@@ -13304,23 +14033,39 @@ def _check_times(path=None):
     return times, (float(default) if isinstance(default, (int, float)) else None)
 
 
-def _write_check_times(seconds, measured, path=None, default=None):
+def _write_check_times(seconds, measured, path=None, default=None, green=None):
     """Rewrite HARNESS_CHECK_TIMES from {check name: seconds}. Every check is
     named, so default_seconds covers only checks added since. `default`
     keeps the recorded one: only a whole re-record moves it (2026-10-17,
-    harness_times_merge.py says why)."""
+    harness_times_merge.py says why).
+
+    `green`: when the last green whole-suite run (`--all --record-times`)
+    finished, a timestamp with its offset. Only that run passes one; every
+    other write keeps the one recorded. The very deep check's --record-pass
+    reads it: a pass is recorded only after a green whole-suite run in the
+    same run (Morgan, 2026-10-31, strength: decided: "Update the very deep
+    instructions so to fix this in the future")."""
+    if green is None:
+        try:
+            green = json.loads(pathlib.Path(path or HARNESS_CHECK_TIMES)
+                               .read_text(encoding='utf-8')).get(GREEN_FULL_RUN_KEY)
+        except (OSError, ValueError, AttributeError):
+            green = None
     vals = sorted(seconds.values())
     rec = {
         'about': ('What each verify_harness check took, read by --as-ci to '
                   'deal the suite into parts the same way on every machine. '
                   "Regenerate with: python3 tools/verify_harness.py --as-ci "
                   "--record-times --because '<why>'. A check missing here "
-                  'counts as default_seconds.'),
+                  'counts as default_seconds. green_full_run is when the last '
+                  'green --all --record-times run finished.'),
         'measured': measured,
         'default_seconds': (default if default is not None else
                             round(vals[len(vals) // 2], 2) if vals else 1.0),
         'seconds': {k: round(v, 1) for k, v in sorted(seconds.items())},
     }
+    if green:
+        rec[GREEN_FULL_RUN_KEY] = green
     pathlib.Path(path or HARNESS_CHECK_TIMES).write_text(
         json.dumps(rec, indent=1) + '\n', encoding='utf-8')
 
@@ -13877,8 +14622,18 @@ def run_as_ci(every_case=False, record_times=False):
         shutil.rmtree(record_dir, ignore_errors=True)
     wall = time.monotonic() - t0
     if recorded:
+        # A green run of EVERY case (--all) is the very deep check's step 2:
+        # it stamps when it finished, and --record-pass reads the stamp.
+        green = None
+        if every_case:
+            import precedent_time
+            green = precedent_time.stamp_iso(ROOT)
         _write_check_times(recorded, f'{time.strftime("%Y-%m-%d")}, '
-                           f'{os.cpu_count() or 1} cores, --as-ci')
+                           f'{os.cpu_count() or 1} cores, --as-ci', green=green)
+        if green:
+            print(f'--as-ci: green whole-suite run recorded at {green} '
+                  f'({GREEN_FULL_RUN_KEY}) -- the very deep check\'s '
+                  f'--record-pass reads it.')
         print(f'--as-ci: {len(recorded)} check times written to '
               f'{HARNESS_CHECK_TIMES.relative_to(ROOT)} -- commit it.')
     elif record_times:
@@ -94747,6 +95502,13 @@ def main():
     check_very_deep_check_warnings_are_judged_not_just_counted()
     check_very_deep_check_test_worth_judges_what_changed()
     check_very_deep_check_token_budgets_are_shown_and_fire_tested()
+    check_very_deep_check_lists_the_longest_rules()
+    check_very_deep_check_record_pass_needs_a_green_suite()
+    check_very_deep_check_record_pass_partial_needs_what_and_who()
+    check_very_deep_check_pass_one_needs_a_consumer()
+    check_very_deep_check_account_owes_tests_and_incidents()
+    check_very_deep_check_account_reads_the_ledger_and_the_questions()
+    check_very_deep_check_account_blocks_postdate_the_last_fix()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
     check_fix_sweep_copy_keeps_its_neighbours()
