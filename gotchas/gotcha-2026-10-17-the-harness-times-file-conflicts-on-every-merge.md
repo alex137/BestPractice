@@ -40,4 +40,16 @@ it works in) configures the driver by hand, once per clone:
 A stale-name failure that is already on a branch goes away with
 `python3 tools/verify_harness.py --record-new-times`.
 
-Prevention: the merge driver, [tools/harness_times_merge.py](https://github.com/alex137/BestPractice/blob/staging/tools/harness_times_merge.py), with a planted case in `check_harness_times_merge_without_a_conflict`; the stale-name half is held by `check_as_ci_parts_partition_the_suite`, and since 2026-10-30 the push check refuses a deleted test that keeps its time. A session whose hooks did not run still has no driver configured, which nothing mechanical catches before the conflict appears. (2026-10-30 very deep check, Pass 2 question 20.)
+**Prevention: the driver, and a planted case that proves it merges.**
+`check_harness_times_merge_without_a_conflict` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+merges two branches that each record a test, one deleting another, and
+fails on the old code. Session start configures the driver in each clone
+(`precedent_session_check.py --merge-drivers`); a session rooted above its
+repositories gets it from `python3 tools/precedent_run_session_hooks.py`,
+or the one `git config` line above. Still live on 2026-10-31 (very deep
+check of 2026-10-30, pass 4): this file's condition is about every clone,
+and a clone whose start-up hooks never ran still lacks the driver.
+The stale-name half is held by `check_as_ci_parts_partition_the_suite` in
+the full suite, and since 2026-10-30 the push check refuses a deleted test
+that keeps its recorded time.

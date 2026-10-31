@@ -35,4 +35,9 @@ configuration, with the Edit tool, not with `sed -i`, a heredoc or a
 script run through Bash. Nothing needs asking: the Edit goes through, and
 so does the commit that follows.
 
-Prevention: nothing mechanical, deliberately, because the refusal is Claude Code's auto-mode classifier judging a command, outside this repository; no check here can see it or change it. The Fix above is the whole answer, and it costs one retry with the Edit tool. (2026-10-30 very deep check, Pass 2 question 20.)
+Prevention: nothing mechanical, deliberately, because the refusal comes
+from Claude Code's own auto-mode classifier judging a Bash command, which
+no check or hook in this repository can see or change; nothing is lost
+when it fires, since the Edit tool route above goes through. Judged
+2026-10-31 by the very deep check of 2026-10-30 (pass 4): still live, as
+nothing about the classifier is known to have changed.

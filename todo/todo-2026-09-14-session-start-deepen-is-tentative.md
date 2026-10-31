@@ -59,3 +59,12 @@ closed:            null
 ## Notes
 
 2026-09-16: migrated from TODO.md by tools/todo_migrate.py.
+2026-10-31, very deep check of 2026-10-30, pass 4 (re-measured, asked of Morgan): a
+`--depth=50` clone of `staging` through this container's proxy took 19.6
+seconds to `git fetch --unshallow`, and its `.git` grew from 7.7 MB to 33 MB,
+against 4 seconds and about 7 MB at roughly 1,300 commits on 2026-09-14;
+history is now about 5,560 commits. One measurement, and of `staging` alone:
+the hook widens the refspec first, so a real session pays at least this.
+The trade the item asked to watch has moved about fivefold. The session's
+pick: narrow it to a bounded deepen (`--deepen=1000`, already the hook's
+fallback) and leave the full history to the tools that ask for it.

@@ -28,8 +28,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A repository attached mid-session clones single-branch, so every branch you create there reads as "unpushed" forever — including to a Stop hook that then blocks the turn.** [story](gotcha-2026-09-13-a-repository-attached-mid-session-clones-single-branch-so-ev.md)
 
-- **A `scope: 'tree'` check in `tools/precedent_check.py` can silently report a false *pass* on an under-fetched local clone, not just degrade loudly like the two entries above.** [story](gotcha-2026-09-13-a-scope-tree-check-in-tools-precedentcheck-py-can-silently-r.md)
-
 - **A scratch COPY of this repo, taken to prototype a change without touching the working tree, goes stale the moment the freshness guard fast-forwards the real checkout under you — and copying the prototyped files back reverts every commit that arrived in between, silently.** [story](gotcha-2026-09-13-a-scratch-copy-of-this-repo-taken-to-prototype-a-change-with.md)
 
 - **A session you spawn can lose its Model Context Protocol (MCP) tools mid-run, and it cannot report back to you either — so a spawned session must take the measurement it was spawned for in its OPENING turn.** [story](gotcha-2026-09-13-a-session-you-spawn-can-lose-its-model-context-protocol-mcp-.md)
@@ -152,8 +150,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **A consuming repository's push check refuses every push because a practice set moved, so its copies are out of date. Running the sync to refresh them rewrites `.claude/hooks/commit-identity.sh`, `freshness-guard.sh` and `precedent-individual-bootstrap.sh` as the short pointer stub. Each stub runs a script under `tools/` that the repository does not have yet, so it prints one NOTE and lets everything through: the hook is off, and the sync said nothing about it.** [story](gotcha-2026-10-08-a-set-sync-can-switch-hooks-off-in-a-repo-with-an-older-engine.md)
 
-- **A consuming repository has just finished Update Vendors, and its records say it took BestPractice at a given commit: `process/manifest.json` and `tools/ENGINE_MANIFEST.json` both name it. Yet fixes that commit carries do not show there. Its light check still reports broken links that commit fixed, and two rules that commit has active still read as deduplicated stubs, "in force nowhere". A comparison of `process/upstream/` against BestPractice at that commit finds most of the copy different, and files the trimmed copy no longer carries are back.** [story](gotcha-2026-10-08-a-vendored-copy-can-claim-a-commit-it-does-not-hold.md)
-
 - **A consuming repository's pull request fails GitHub's light check with:** [story](gotcha-2026-10-09-a-loader-block-with-individual-practices-reads-as-hand-edited-in-ci.md)
 
 - **In a repository whose `precedent.json` says `"visibility": "private"`, the pull request into `main` never becomes mergeable by the engine's own word. The pull request page shows the light check passed and `.github/workflows/leak-gate.yml` "skipped". `python3 tools/precedent_branches.py --wait-main-test COPY` prints "GitHub test NONE on SHA: .github/workflows/leak-gate.yml never ran on it. Do not merge." The step that opened the pull request printed "GitHub test: DUE -- .github/workflows/leak-gate.yml predates the not-due skip, so it runs on every pull request into main until Update Vendors brings the current one."** [story](gotcha-2026-10-09-a-private-repo-pull-request-into-main-waits-forever-on-a-skipped-leak-gate.md)
@@ -175,8 +171,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A merge of staging into a branch stops on a conflict in `tools/harness_check_times.json`, often the only conflicted file. Or the merge goes through and, later, `check_as_ci_parts_partition_the_suite` fails with "the committed record names only checks that exist: stale: ...".** [story](gotcha-2026-10-17-the-harness-times-file-conflicts-on-every-merge.md)
 
 - **A PreToolUse hook that reads `transcript_path` does not find the tool call it was started for, or the text the session wrote just before that call. A hook that judges "what has the session said so far" undercounts by exactly the message being guarded.** [story](gotcha-2026-10-18-a-pretooluse-hook-reads-a-transcript-that-lacks-the-call-it-guards.md)
-
-- **A landing on `staging` is refused with "This one takes a pull request ... merge it once its checks pass". The pull request into `staging` shows no checks at all, and the session sits waiting for a CI event that never arrives.** [story](gotcha-2026-10-18-no-check-runs-on-a-pull-request-into-staging.md)
 
 - **A harness case that sets `HOME` to a temporary folder still clones into, links to, or pulls a real practice set, such as `/home/user/precedent-individual`. Or a case passes on GitHub's runner and fails in a Claude Code cloud session, or the other way round, with a path outside its temporary folder in the output.** [story](gotcha-2026-10-19-a-fixture-that-fakes-home-keeps-the-real-attach-folder.md)
 

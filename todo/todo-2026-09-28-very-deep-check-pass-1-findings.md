@@ -6,7 +6,7 @@ severity:          null
 status:            open
 disposition:       wait
 remind_on:         null
-blocked_on:        null
+blocked_on:        "decision -- Morgan: how a Codex or Gemini CLI hook should tell a local session from a hosted one"
 batch:             null
 decision:          null
 decision_strength: null
@@ -33,3 +33,12 @@ install or machine-wide git setup). What that fix turned up:
   their shipped hook files run `tools/bootstrap.sh` without
   `PRECEDENT_LOCAL_SESSION`, and neither harness sets a variable that tells
   local from hosted. Recorded in the harness ledger's 2026-09-28 row.
+
+## Notes
+2026-10-31, very deep check of 2026-10-30, pass 4 (still live, narrowed): the first
+bullet is fixed. `tools/commit-identity.sh` writes only the checkout's own
+config in a local session, told apart by `CLAUDE_CODE_REMOTE` or
+`PRECEDENT_LOCAL_SESSION` (81d037b1, 2026-10-17). Left: the Codex and
+Gemini CLI hook templates still run `tools/bootstrap.sh` without
+`PRECEDENT_LOCAL_SESSION`, and neither harness sets a variable that tells
+local from hosted, so the fix needs a way to tell them apart first.
