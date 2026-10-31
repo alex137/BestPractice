@@ -45844,6 +45844,30 @@ def check_branch_tiers():
                 os.environ[pb.PUSH_FROM_ENV] = old_env
         cases.append(('the branch the hook names is where a bare push goes',
                       named == ['new-x'] and 'landing branch' not in named_tier[1]))
+        # 2026-10-31: `git checkout -b "$(...)" ... && git push -u origin
+        # HEAD` was read as a push from the branch it left (main) and
+        # refused as one. The hook blanks quoted text, so it sees spaces.
+        made = ('git checkout -q -b "$(python3 tools/precedent_branch_name.py x)" '
+                'origin/staging && git commit -q -m m && git push -u origin HEAD')
+        blanked = ('git checkout -q -b "                                      " '
+                   'origin/staging && git commit -q -m " " && git push -u origin HEAD')
+        cases.append(('a branch made from a command substitution is unreadable, '
+                      'never "no change"',
+                      sw(repo, made) == pb.SWITCH_UNREADABLE
+                      and sw(repo, blanked) == pb.SWITCH_UNREADABLE
+                      and sw(repo, 'git switch "$B" && git push') == pb.SWITCH_UNREADABLE))
+        os.environ[pb.PUSH_FROM_ENV] = pb.SWITCH_UNREADABLE
+        try:
+            unread = targets('-u origin HEAD')
+            unread_tier = pb.tier_for_push(repo, '-u origin HEAD', nocfg)
+        finally:
+            if old_env is None:
+                os.environ.pop(pb.PUSH_FROM_ENV, None)
+            else:
+                os.environ[pb.PUSH_FROM_ENV] = old_env
+        cases.append(('...so its push goes nowhere readable: the landing '
+                      'branch\'s tier, not the branch the command leaves',
+                      unread is None and 'landing branch' in unread_tier[1]))
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 

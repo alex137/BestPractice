@@ -4254,6 +4254,10 @@ _UNREADABLE = {'--all', '--mirror', '--tags', '--follow-tags', '--branches'}
 # (`git switch -c X && git push`): the hook runs before any of it, so HEAD
 # is still the old branch, or detached, and the push's own words name none.
 PUSH_FROM_ENV = 'PRECEDENT_PUSH_FROM_BRANCH'
+# What --switched-to prints when the command changes branch to one its
+# words do not name: `git checkout -b "$(...)"`, or a quoted name the hook
+# has blanked. No branch can be called this (git refuses a space and "?").
+SWITCH_UNREADABLE = '? unreadable'
 
 
 def _current_push_branch(root):
@@ -4263,6 +4267,12 @@ def _current_push_branch(root):
     which is where a branch with no upstream goes. None on a detached
     HEAD."""
     head = os.environ.get(PUSH_FROM_ENV, '').strip() or None
+    if head == SWITCH_UNREADABLE:
+        # The command makes a branch this hook cannot name; HEAD is still
+        # the branch it leaves. Unreadable, never the old branch
+        # (2026-10-31: `git checkout -b "$(...)" && ... git push -u origin
+        # HEAD` was refused as a push to main).
+        return None
     ref = f'{head}@{{push}}' if head else '@{push}'
     dest = _git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', ref)
     if dest and '/' in dest:
@@ -4280,9 +4290,14 @@ _PUSH_WORDS = re.compile(
 def branch_switched_to(root, command):
     """-> the branch a shell `command` leaves checked out by the time its
     first `git push` runs, from a `git switch` / `git checkout` before it;
-    None when nothing there changes branch, or what it changes to cannot
-    be read. `git checkout X` counts only when X is a branch (local or on
-    origin): otherwise it restored a file."""
+    None when nothing there changes branch; SWITCH_UNREADABLE when it
+    makes or switches to a branch whose name its words do not give (a
+    command substitution, or quoted text the hook blanked) -- never None
+    for that, which would read as "no change" and send the push from the
+    branch the command leaves. `git checkout X` counts only when X is a
+    branch (local or on origin): otherwise it restored a file."""
+    def unreadable(name):
+        return (not name.strip() or '$' in name or '`' in name)
     m = _PUSH_WORDS.search(command)
     before = command[:m.start()] if m else command
     found = None
@@ -4308,11 +4323,17 @@ def branch_switched_to(root, command):
             if w in create:
                 named = rest[i + 1] if i + 1 < len(rest) else None
                 break
+        if named is not None and unreadable(named):
+            found = SWITCH_UNREADABLE
+            continue
         if named is None:
             plain = [w for w in rest if not w.startswith('-')]
             if len(plain) != 1 or plain[0] == '-':
                 continue
             cand = plain[0]
+            if sub == 'switch' and unreadable(cand):
+                found = SWITCH_UNREADABLE
+                continue
             if sub == 'checkout' and not (
                     _git(root, 'rev-parse', '-q', '--verify', f'refs/heads/{cand}')
                     or _git(root, 'rev-parse', '-q', '--verify',
