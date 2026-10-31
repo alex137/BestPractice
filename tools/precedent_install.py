@@ -780,18 +780,34 @@ _HTML_LIKE = re.compile(r'^</?(a|b|br|code|details|div|em|hr|i|img|kbd|li|ol|p|'
 
 
 def _placeholders_left(dest, names):
+    import generated_blocks
     left = []
     for name in names:
         p = dest / name
         if not p.is_file():
             continue
+        text = p.read_text(encoding='utf-8')
+        # Not inside a generated block: the sync writes those and rewrites
+        # them on every run, so a `<their city>` a practice's Rule carries is
+        # the practice's own wording, and "adapting" it there is a hand-edit
+        # of the loader block that the next sync undoes (very deep check
+        # pass 1, 2026-10-31: every fresh install listed AGENTS.md's resident
+        # block as a placeholder to fill).
+        generated = generated_blocks.mask(text)
         # Not inside a comment: a comment that names a placeholder
         # ("Replace <angle-bracket> placeholders ...") renders nowhere and
         # is not one to adapt (2026-10-17).
-        for n, line in enumerate(_blank_comments(p.read_text(encoding='utf-8')).splitlines(), 1):
+        for n, line in enumerate(_blank_comments(text).splitlines(), 1):
+            if n - 1 < len(generated) and generated[n - 1]:
+                continue
             for m in _PLACEHOLDER.finditer(line):
                 tok = m.group(0)
                 if _HTML_LIKE.match(tok) or tok in ('<undecided>',):
+                    continue
+                # A backslash-escaped `\<date\>` is Markdown for a literal
+                # angle bracket: the template is showing a file-name
+                # pattern, not leaving a blank (TODO.md's todo-<date>-<slug>).
+                if m.start() > 0 and line[m.start() - 1] == '\\':
                     continue
                 left.append(f'{name}:{n}: {tok}')
     return left

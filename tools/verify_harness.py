@@ -11336,6 +11336,160 @@ def check_install_names_the_other_assistants_adapters():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_install_report_lists_only_placeholders_an_adopter_fills():
+    """The installer's "placeholders to adapt" list leaves out a generated
+    block and a backslash-escaped `\\<date\\>`.
+
+    Found 2026-10-31 by the very deep check's pass 1 install rehearsal: every
+    fresh install listed `AGENTS.md:37: <their city>` -- a word inside a
+    practice's Rule in the generated loader block, which the sync rewrites,
+    so "adapting" it is a hand-edit the next sync undoes -- and TODO.md's
+    `todo-\\<date\\>-\\<slug\\>`, a file-name pattern the template escapes on
+    purpose.
+
+    Negative control, measured 2026-10-31: on the code before the fix both
+    of the first two cases fail (the report holds `<their city>` and
+    `<date\\>`); the third, a real placeholder, is listed either way.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_install as pi
+    finally:
+        sys.path.pop(0)
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-placeholders-'))
+    cases = []
+    try:
+        (tmp / 'AGENTS.md').write_text(
+            '# Notes\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+            '"about 15 minutes, done around 15:35 <their city> time".\n'
+            '<!-- END GENERATED -->\n\n'
+            'Items are named *todo-\\<date\\>-\\<slug\\>*.\n'
+            '| <key deliverable> | <path> |\n', encoding='utf-8')
+        left = pi._placeholders_left(tmp, ['AGENTS.md'])
+        cases.append(('a word inside a generated block is not a placeholder to adapt',
+                      not any('their city' in x for x in left), str(left)))
+        cases.append(('a backslash-escaped angle bracket is not a placeholder',
+                      not any('date' in x or 'slug' in x for x in left), str(left)))
+        cases.append(('a real placeholder outside both is still listed',
+                      left == ['AGENTS.md:8: <key deliverable>', 'AGENTS.md:8: <path>'],
+                      str(left)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'the install report lists only placeholders an adopter fills '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_update_commit_note_leaves_out_the_vendored_catalogue():
+    """Update Vendors' "name each of these in the commit message" list
+    leaves out the section 0 catalogue at precedent.json's universal path,
+    exactly as it leaves out tools/.
+
+    Found 2026-10-31 by the very deep check's pass 1 update rehearsal: a
+    consumer installed at a two-week-old commit and brought forward got
+    every changed upstream practice listed one by one as a file "rewritten
+    outside the vendored trees" -- VENDORED_PREFIXES knew only tools/ and
+    the retired process/upstream/.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (the list holds precedent/universal/practices/a.md and
+    precedent/universal/close_detect.json).
+    """
+    import tempfile
+    pu, _pve, _pr = _update_tools()
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-commit-note-'))
+    genv = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com')
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], check=True)
+        (tmp / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}]}),
+            encoding='utf-8')
+        for rel in ('precedent/universal/practices/a.md',
+                    'precedent/universal/close_detect.json',
+                    'tools/x.py', 'practices/a.md', 'AGENTS.md'):
+            (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (tmp / rel).write_text('x\n', encoding='utf-8')
+        subprocess.run(['git', '-C', str(tmp), 'add', '-A'], check=True, env=genv)
+        got = pu.rewritten_outside_vendored(tmp)
+        cases.append(('the vendored catalogue is not listed as rewritten outside '
+                      'the vendored trees',
+                      not any('precedent/universal' in x for x in got), str(got)))
+        cases.append(('a root file outside them still is, and practices/ is one line',
+                      'A AGENTS.md' in got and 'tools/x.py' not in ' '.join(got)
+                      and any(x.startswith('practices/ (1 practice file') for x in got),
+                      str(got)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f"Update Vendors' commit note leaves out the vendored catalogue "
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
+def check_fresh_install_reaches_its_code_owner_practices():
+    """On a fresh install, layered-practice-packs counts the session file as
+    the channel that carries the practices for code owners, now that
+    .claude/hooks/session-start.sh is a shim to tools/session-start.sh,
+    which runs tools/bootstrap.sh, which writes the session file.
+
+    Found 2026-10-31 by the very deep check's pass 1 install rehearsal: a
+    correct fresh install's full sweep reported drift-notice,
+    full-practice-audit, install and rule-scope-ask as "reachable by no
+    channel", while its first session start had just written all four into
+    .precedent/SESSION_PRACTICES.md. The check followed the settings
+    command one level (to tools/session-start.sh), which names bootstrap.sh
+    and not the session-practices tool.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (the four advisories are printed) and the second does
+    not see the session-file line.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-owner-reach-'))
+    # A newcomer's machine: no individual set, no PRECEDENT_* variables, an
+    # empty HOME -- this session's own sets resolving into the fixture is
+    # what the first draft of this test measured instead
+    # (fixture-owns-its-state).
+    (tmp / 'home').mkdir()
+    genv = dict(_isolated_env(os.environ, tmp / 'home'),
+                GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com',
+                PRECEDENT_SEED_OFF_MAIN='1')
+    tmp = tmp / 'proj'
+    cases = []
+    try:
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(tmp)], check=True, env=genv)
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                        str(tmp), '--project-name', 'Fixture', '--visibility', 'private',
+                        '--admin', 'fixture-admin'],
+                       capture_output=True, text=True, env=genv)
+        # The seed copies the engine as committed; the check under test is
+        # this tree's, committed or not.
+        shutil.copy2(ROOT / 'tools' / 'precedent_check.py', tmp / 'tools' / 'precedent_check.py')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--only', 'layered-practice-packs'],
+                           capture_output=True, text=True, cwd=str(tmp), env=genv)
+        out = r.stdout + r.stderr
+        cases.append(('no code-owner practice reads as reachable by no channel',
+                      'install is in force here but reachable by no channel' not in out
+                      and 'drift-notice is in force here but reachable by no channel'
+                      not in out and '0 errored' in out, out[-600:]))
+        cases.append(('they are counted as reaching the session through its file',
+                      'reach this session through .precedent/SESSION_PRACTICES.md' in out
+                      and 'drift-notice' in out.split('SESSION_PRACTICES.md', 1)[-1],
+                      out[:600]))
+    finally:
+        shutil.rmtree(tmp.parent, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'a fresh install reaches its code-owner practices through the '
+          f'session file ({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_hands_the_engine_refresh_the_followed_tip():
     """Update Vendors runs the engine refresh with the CONSUMER's own engine
     copy, and an older copy resolves the branch it was written to follow: a
@@ -93756,6 +93910,9 @@ def main():
     check_engine_carries_no_branch_naming_enforcement()
     check_consumer_engine_carries_what_its_checks_import()
     check_install_names_the_other_assistants_adapters()
+    check_install_report_lists_only_placeholders_an_adopter_fills()
+    check_update_commit_note_leaves_out_the_vendored_catalogue()
+    check_fresh_install_reaches_its_code_owner_practices()
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
