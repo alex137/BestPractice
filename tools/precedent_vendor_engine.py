@@ -6195,6 +6195,52 @@ def _cli_repin_kept(args):
     return 0 if ok else 1
 
 
+def judge_kept_block(dest_root, item, bid, verdict, quote=None, detail=None,
+                     practice=None):
+    """Record one block's verdict on a kept item (ONE VERDICT PER BLOCK,
+    above). -> (ok, message). The item must already be recorded as kept,
+    with its own reason; `bid` is the id the update printed for the block."""
+    if verdict not in BLOCK_VERDICTS:
+        return False, f'verdict must be one of {", ".join(BLOCK_VERDICTS)}'
+    if verdict == 'standardize':
+        return False, ('standardize is a fix, not a verdict: copy upstream\'s '
+                       'block into the local text, and the item stops lacking it')
+    need = {'covered': ('quote', quote), 'send-upstream': ('detail', detail),
+            'local-add-on': ('practice', practice)}[verdict]
+    if not (need[1] or '').strip():
+        return False, f'{verdict} needs --{need[0]}'
+    path = dest_root / 'precedent.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        entry = data[KEPT_DIVERGENCES_KEY][item]
+    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
+        return False, (f'{item} is not in precedent.json\'s {KEPT_DIVERGENCES_KEY}: '
+                       f'record it with its own reason first')
+    if not isinstance(entry, dict):
+        return False, f'{item} is not a kept entry'
+    entry.setdefault(BLOCKS_KEY, {})[bid] = {'verdict': verdict, need[0]: need[1].strip()}
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True, f'BLOCK JUDGED: {item} block {bid} -- {verdict}'
+
+
+def _cli_judge_kept(args):
+    """`judge-kept "ITEM" BLOCK_ID VERDICT (--quote Q | --detail URL |
+    --practice PATH)`, run from the consuming repository."""
+    opts = {}
+    for flag in ('--quote', '--detail', '--practice'):
+        if flag in args:
+            i = args.index(flag)
+            opts[flag[2:]] = args[i + 1] if i + 1 < len(args) else ''
+            args = args[:i] + args[i + 2:]
+    if len(args) != 3:
+        sys.exit('usage: precedent_vendor_engine.py judge-kept "ITEM" BLOCK_ID '
+                 'VERDICT (--quote "local words" | --detail URL | --practice PATH)')
+    ok, msg = judge_kept_block(ROOT, args[0], args[1], args[2], **opts)
+    print(msg)
+    return 0 if ok else 1
+
+
 def _cli_drop_retired(args):
     """`drop-retired [REPO] [--dry-run] [--offline]`: drop every declared set
     that says it is retired, or that GitHub reports archived, when no rule it
@@ -7002,24 +7048,149 @@ def kept_template_divergences(dest_root):
             for k, v in declared.items() if isinstance(v, dict)}
 
 
-def _kept_divergence(dest_root, item, template_sha, carried_sha=None):
+def _kept_divergence(dest_root, item, template_sha, carried_sha=None,
+                     lacks=None, local_text=None):
     """-> (verdict, reason) for one diverged item: 'kept' when precedent.json
     records it with a reason against this template text, 'stale' when it
     was recorded against older text, 'unreasoned' when it has no reason,
-    None when it is not recorded at all.
+    'stock' when the same reason is recorded for another item too,
+    'unjudged' when a block it lacks has no valid verdict of its own
+    (block_problems), None when it is not recorded at all.
 
     `carried_sha` (an AGENTS.md section's _carried_sha) is a second way to
     match: the decision also holds while the blocks the section carries are
     unchanged upstream. Either match is enough, so a stale verdict means the
-    template text itself changed -- never only the consumer's own."""
+    template text itself changed -- never only the consumer's own.
+
+    `lacks` (the titles of the upstream blocks the item lacks) and
+    `local_text` turn on the block-by-block judgment; a caller that passes
+    neither gets the pin's answer alone."""
     entry = kept_template_divergences(dest_root).get(item)
     if entry is None:
         return None, ''
     if not entry['reason']:
         return 'unreasoned', ''
+    if item in stock_reason_items(dest_root):
+        return 'stock', entry['reason']
     if not _pin_matches(entry, template_sha, carried_sha):
         return 'stale', entry['reason']
+    if lacks is not None and block_problems(dest_root, item, lacks, local_text or ''):
+        return 'unjudged', entry['reason']
     return 'kept', entry['reason']
+
+
+# --- ONE VERDICT PER BLOCK (2026-10-31) --------------------------------------
+# A kept divergence was a whole-section waiver: any non-empty reason, and
+# every upstream sentence the local copy lacked went silent ("Not listed
+# again until upstream changes that text"). Measured that day in a
+# consuming repository: six sections waived on 2026-10-01 with ONE identical
+# stock reason, and its copies lacked lines the template had carried all
+# along -- nobody had judged them, the waiver recorded an accident as a
+# decision. Morgan, 2026-10-31 (strength: decided): judge each block. So an
+# entry now carries "blocks", one verdict per upstream block the local text
+# lacks, keyed by block_id(title):
+#
+#   covered       -- the local text says it already. "quote" is the local
+#                    words that say it, and they must be found there.
+#   send-upstream -- the local wording is better: carry it to BestPractice.
+#                    "detail" links the pull request or issue that does.
+#   local-add-on  -- true only here. "practice" is the repository's own
+#                    add-on practice file that now carries the local text.
+#   standardize   -- the difference was accidental: take upstream's block.
+#                    Never a resting verdict -- copy the block in, and the
+#                    item no longer lacks it.
+#
+# A reason recorded word for word for two or more items is refused as a
+# stock reason: it is the shape the 2026-10-01 waiver had.
+BLOCKS_KEY = 'blocks'
+BLOCK_VERDICTS = ('covered', 'send-upstream', 'local-add-on', 'standardize')
+_URL_IN_DETAIL_RE = re.compile(r'https?://\S+')
+
+
+def block_id(title):
+    """The id a block verdict is recorded under: the block's title (its
+    first words, as the report prints them), whitespace collapsed, hashed."""
+    return hashlib.sha256(' '.join(str(title).split()).encode('utf-8')).hexdigest()[:12]
+
+
+def _norm_words(text):
+    return ' '.join(re.sub(r'[`*_>]', ' ', str(text)).split()).casefold()
+
+
+def stock_reason_items(dest_root):
+    """-> the items whose reason is recorded word for word on another item
+    too. Whitespace and case are ignored; a reason under 40 characters is
+    too short to be a copied paragraph and never counts."""
+    try:
+        declared = json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(KEPT_DIVERGENCES_KEY) or {}
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return set()
+    seen = collections.defaultdict(list)
+    for item, e in declared.items() if isinstance(declared, dict) else ():
+        r = _norm_words((e or {}).get('reason') or '') if isinstance(e, dict) else ''
+        if len(r) >= 40:
+            seen[r].append(item)
+    return {i for items in seen.values() if len(items) > 1 for i in items}
+
+
+def _raw_kept_entry(dest_root, item):
+    try:
+        e = json.loads((dest_root / 'precedent.json').read_text(
+            encoding='utf-8')).get(KEPT_DIVERGENCES_KEY, {}).get(item)
+    except (OSError, ValueError, AttributeError):             # noqa: BLE001
+        return {}
+    return e if isinstance(e, dict) else {}
+
+
+def block_problems(dest_root, item, lacks, local_text):
+    """-> [(id, title, problem)] for each lacked block whose verdict is
+    missing or does not hold. `lacks` is the block titles; `local_text` is
+    where a "covered" quote must be found (the section, wherever it lives)."""
+    verdicts = _raw_kept_entry(dest_root, item).get(BLOCKS_KEY) or {}
+    if not isinstance(verdicts, dict):
+        verdicts = {}
+    have = _norm_words(local_text)
+    out = []
+    for title in lacks:
+        bid = block_id(title)
+        v = verdicts.get(bid)
+        if not isinstance(v, dict) or v.get('verdict') not in BLOCK_VERDICTS:
+            out.append((bid, title, 'no verdict'))
+            continue
+        kind = v['verdict']
+        if kind == 'covered':
+            q = _norm_words(v.get('quote') or '')
+            if not q:
+                out.append((bid, title, 'covered, but no "quote" of the local words that say it'))
+            elif q not in have:
+                out.append((bid, title, 'covered, but its "quote" is not in the local text any more'))
+        elif kind == 'send-upstream':
+            if not _URL_IN_DETAIL_RE.search(str(v.get('detail') or '')):
+                out.append((bid, title, 'send-upstream needs "detail": the link to the '
+                            'pull request or issue that carries it to BestPractice'))
+        elif kind == 'local-add-on':
+            p = str(v.get('practice') or '')
+            if not p or not (dest_root / p).is_file():
+                out.append((bid, title, 'local-add-on needs "practice": the path of the '
+                            'add-on practice that carries the local text, and it must exist'))
+        else:
+            out.append((bid, title, 'standardize: copy upstream\'s block in -- it is a '
+                        'fix to make, not a verdict to keep'))
+    return out
+
+
+def _print_block_problems(dest_root, item, lacks, local_text):
+    probs = block_problems(dest_root, item, lacks, local_text)
+    if not probs:
+        return
+    print(f"    {len(probs)} block(s) need a verdict of their own -- covered (quote "
+          f"the local words), send-upstream (link), local-add-on (practice "
+          f"path) or standardize (copy it in). Record each with "
+          f"`python3 tools/precedent_vendor_engine.py judge-kept \"{item}\" "
+          f"BLOCK_ID VERDICT ...`:")
+    for bid, title, why in probs:
+        print(f"      {bid} \"{title}\" -- {why}")
 
 
 def _pin_matches(entry, template_sha, carried_sha):
@@ -7029,18 +7200,33 @@ def _pin_matches(entry, template_sha, carried_sha):
                                                  entry['carried_sha256'])
 
 
-def _report_kept(dest_root, item, what, template_sha, carried_sha=None):
+def _report_kept(dest_root, item, what, template_sha, carried_sha=None,
+                 lacks=None, local_text=None):
     """Print the kept-divergence line for a diverged `item` that lacks
     template blocks, and -> True when the declaration covers it, so the
     caller lists nothing. Otherwise prints, under the DIVERGED listing the
     caller has just printed, what recording it would take (indented, so
-    precedent_update.py carries it under the item), and -> False."""
-    verdict, reason = _kept_divergence(dest_root, item, template_sha, carried_sha)
+    precedent_update.py carries it under the item), and -> False.
+    `lacks` and `local_text` as _kept_divergence takes them."""
+    verdict, reason = _kept_divergence(dest_root, item, template_sha, carried_sha,
+                                       lacks, local_text)
     if verdict == 'kept':
         print(f"KEPT ON PURPOSE: {item} differs from {what} as precedent.json's "
-              f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\". Not listed "
-              f"again until upstream changes that text.")
+              f"{KEPT_DIVERGENCES_KEY} records -- \"{reason}\", with a verdict "
+              f"for every block it lacks. Not listed again until upstream "
+              f"changes one of those blocks.")
         return True
+    if verdict == 'stock':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} with a "
+              f"reason recorded word for word on another item too, so not "
+              f"honoured: a stock reason waives every block without judging "
+              f"one. Say why THIS item differs, and judge its blocks")
+    elif verdict == 'unjudged':
+        print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} as kept "
+              f"(\"{reason}\"), but a whole-section waiver no longer holds: "
+              f"each block it lacks needs its own verdict")
+        _print_block_problems(dest_root, item, lacks or [], local_text or '')
+        return False
     if verdict == 'stale':
         print(f"    recorded in precedent.json's {KEPT_DIVERGENCES_KEY} as kept "
               f"on purpose (\"{reason}\"), but upstream's {what} has changed "
@@ -7313,8 +7499,10 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
             _report_dead_after_exit(rel, local)
             continue
         template_sha = _sha256(templates_dir / src_rel)
-        if _kept_divergence(dest_root, rel, template_sha)[0] == 'kept':
-            _report_kept(dest_root, rel, src_rel, template_sha)
+        titles = [t for _n, t, _h in lacks]
+        if _kept_divergence(dest_root, rel, template_sha, None, titles,
+                            local)[0] == 'kept':
+            _report_kept(dest_root, rel, src_rel, template_sha, None, titles, local)
             continue
         shim_own = _legacy_shim_lines(local, template)
         print(f"DIVERGED: {rel} has local edits, so refresh leaves it "
@@ -7328,7 +7516,7 @@ def _report_diverged_template_instances(dest_root, templates_dir, plan):
                   f"{_LEGACY_SHIM_TARGET} -- upstream's own bootstrap, not "
                   f"the template -- plus {len(shim_own)} line(s) of its own: "
                   f"replace it with {src_rel} and carry those lines in")
-        _report_kept(dest_root, rel, src_rel, template_sha)
+        _report_kept(dest_root, rel, src_rel, template_sha, None, titles, local)
         _left(rel, f'diverged from {src_rel} and lacks {len(lacks)} of its '
                    f'blocks (listed above) -- copy each in from the template '
                    f'by hand, keeping this repo\'s own lines, or record it '
@@ -7697,6 +7885,58 @@ def _read_agents_md_sources(clone, commit, kind, out_dir):
                                                    encoding='utf-8')
 
 
+# A SECTION MOVED OUT OF AGENTS.md IS STILL COMPARED (2026-10-31). A
+# reduction pass in a consuming repository moved four template sections to
+# a side file word for word, left a one-line index for each, and recorded
+# them as kept; from then on the refresh found no such section in AGENTS.md,
+# called it left out on purpose, and never compared the text again -- so it
+# never learned the copies already lacked lines the template carried.
+# _moved_section finds where the section lives now: the file a kept entry
+# names in "moved_to", else any Markdown file of the repository's own (the
+# top level and docs/) with the same heading. _agents_md_plan records the
+# find here for _report_agents_md, which compares the text there as it
+# would in AGENTS.md. Filled afresh by each plan.
+_MOVED_SECTIONS = {}
+_MOVED_SEARCH_DIRS = ('docs', 'documentation', 'spec')
+_MOVED_MAX_BYTES = 400_000
+
+
+def _moved_section(dest_root, key, parent=None):
+    """-> (repo-relative path, section text) for a template section this
+    AGENTS.md lacks but another file of the repository carries, or None."""
+    declared = []
+    for k in (key, parent):
+        if not k:
+            continue
+        rel = str(_raw_kept_entry(dest_root, f'{AGENTS_MD} {k}').get('moved_to') or '')
+        if rel and (dest_root / rel).is_file():
+            declared.append(dest_root / rel)
+    files = list(declared)
+    files += sorted(p for p in dest_root.glob('*.md') if p.name not in (AGENTS_MD, 'CLAUDE.md'))
+    for d in _MOVED_SEARCH_DIRS:
+        if (dest_root / d).is_dir():
+            files += sorted((dest_root / d).rglob('*.md'))
+    seen = set()
+    for path in files:
+        if path in seen or not path.is_file() or path.stat().st_size > _MOVED_MAX_BYTES:
+            continue
+        seen.add(path)
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        lines = text.split('\n')
+        for k, first, end in _md_sections(text):
+            if _heading_key(k) == _heading_key(key):
+                return path.relative_to(dest_root).as_posix(), _section_text(lines, first, end)
+        if path in declared:
+            # Declared, but under another heading: the whole file is where
+            # the text went.
+            return (path.relative_to(dest_root).as_posix(),
+                    key + '\n' + text)
+    return None
+
+
 def _agents_md_plan(dest_root, kind, templates_dir, manifest):
     """-> [(key, src_rel, line_no, action, span)], one per trackable section
     of the current template, in template order -- see the block comment
@@ -7729,6 +7969,11 @@ def _agents_md_plan(dest_root, kind, templates_dir, manifest):
         parent = parents.get(key)
         found = spans.get(_heading_key(key)) or []
         if not found:
+            moved = _moved_section(dest_root, key, parent)
+            if moved:
+                _MOVED_SECTIONS[key] = moved
+                plan.append((key, srcs[0], line_no, 'moved', None))
+                continue
             # Left out on purpose is also what precedent.json says, for the
             # section or the `##` section it sat in: a repository that moved
             # a section out of AGENTS.md (a reduction pass) records that
@@ -8313,9 +8558,10 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
                       f"({src_rel}:{line_no}) -- recorded as left out on "
                       f"purpose, so refresh does not raise it.")
             continue
-        if action != 'diverged':
+        moved = _MOVED_SECTIONS.get(key) if action == 'moved' else None
+        if action != 'diverged' and moved is None:
             continue
-        if span is None:
+        if span is None and moved is None:
             print(f"DIVERGED: {AGENTS_MD} has \"{key}\" more than once, so "
                   f"refresh cannot tell which is the template's and leaves "
                   f"both alone. Merge them into one.")
@@ -8326,27 +8572,42 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
             template_text = _template_sections(
                 (templates_dir / src_rel).read_text(encoding='utf-8'))
         t_line, raw = template_text[key]
-        lacks = missing_markdown_blocks(_section_text(lines, *span),
-                                        _instantiate(raw, subs))
+        # Text moved out of AGENTS.md is compared wherever it now lives
+        # (2026-10-31): until then a section a reduction pass moved to a
+        # side file was recorded as left out and never compared again.
+        local_text = moved[1] if moved else _section_text(lines, *span)
+        lacks = missing_markdown_blocks(local_text, _instantiate(raw, subs))
         if not lacks:
-            complete.append(key)
+            if moved:
+                print(f"  NOTE: {AGENTS_MD} \"{key}\" lives in {moved[0]} now, "
+                      f"and carries every block of the template's -- compared "
+                      f"there.")
+            else:
+                complete.append(key)
             continue
+        if moved:
+            print(f"MOVED: {AGENTS_MD} \"{key}\" lives in {moved[0]} now, and is "
+                  f"compared there.")
         item = f'{AGENTS_MD} {key}'
         what = f'{src_rel} section "{key}"'
         section = _instantiate(raw, subs)
         template_sha = _sha_text(section)
         carried_sha = _carried_sha(section, lacks)
         _repin_kept(dest_root, item, template_sha, carried_sha)
-        verdict = _kept_divergence(dest_root, item, template_sha, carried_sha)[0]
+        titles = [t for _o, t, _h, _a in lacks]
+        verdict = _kept_divergence(dest_root, item, template_sha, carried_sha,
+                                   titles, local_text)[0]
         if verdict == 'kept':
-            _report_kept(dest_root, item, what, template_sha, carried_sha)
+            _report_kept(dest_root, item, what, template_sha, carried_sha,
+                         titles, local_text)
             continue
         if verdict == 'stale' and _report_stale_kept(
                 dest_root, templates_dir, key, item, what, section,
                 template_sha, carried_sha, subs,
                 local=_section_text(lines, *span)):
             continue
-        print(f"DIVERGED: {AGENTS_MD} \"{key}\" (line {span[0] + 1}) has local "
+        where = f'in {moved[0]}' if moved else f'line {span[0] + 1}'
+        print(f"DIVERGED: {AGENTS_MD} \"{key}\" ({where}) has local "
               f"edits, so refresh leaves it alone (it never overwrites a line "
               f"of it, --force included). It lacks {len(lacks)} block(s) the "
               f"current template's section carries:")
@@ -8354,7 +8615,8 @@ def _report_agents_md(dest_root, templates_dir, plan, reask_absent=False,
             print(f"    {src_rel}:{t_line + offset} \"{title}\" -- {how}")
             for s in absent:
                 print(f"        lacks: \"{s if len(s) <= 160 else s[:157] + '...'}\"")
-        _report_kept(dest_root, item, what, template_sha, carried_sha)
+        _report_kept(dest_root, item, what, template_sha, carried_sha,
+                     titles, local_text)
         _left(f'{AGENTS_MD} "{key}"', f'diverged from {src_rel} and lacks '
               f'{len(lacks)} of its blocks (listed above) -- copy each in by '
               f'hand, keeping this repo\'s own text, or record it as kept on '
@@ -10567,6 +10829,8 @@ def main():
         return _cli_drop_retired(args[1:])
     if args and args[0] == 'repin-kept':
         return _cli_repin_kept(args[1:])
+    if args and args[0] == 'judge-kept':
+        return _cli_judge_kept(args[1:])
     if len(args) < 2 or args[0] not in ('seed', 'status', 'refresh'):
         sys.exit(__doc__)
     if args[0] == 'seed':

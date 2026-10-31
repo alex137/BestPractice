@@ -58141,6 +58141,22 @@ class _KeptDivergenceFixture:
             'reason': reason, 'template_sha256': template_sha}
         self.write_config(repo, cfg)
 
+    def judge(self, repo, item, titles, verdict='local-add-on'):
+        """Record one block verdict per title (precedent_vendor_engine's ONE
+        VERDICT PER BLOCK): since 2026-10-31 a reason and a pin alone no
+        longer keep a section that lacks blocks. local-add-on points at an
+        add-on practice the fixture writes, so the verdict holds."""
+        addon = repo / 'local' / 'practices' / 'fixture-local-add-on.md'
+        addon.parent.mkdir(parents=True, exist_ok=True)
+        addon.write_text('---\nslug: fixture-local-add-on\n---\n## Rule\nLocal.\n',
+                         encoding='utf-8')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        blocks = cfg['kept_template_divergences'][item].setdefault('blocks', {})
+        for t in titles:
+            blocks[self.pve.block_id(t)] = {
+                'verdict': verdict, 'practice': 'local/practices/fixture-local-add-on.md'}
+        self.write_config(repo, cfg)
+
     def update(self, repo, ref=None):
         return self.sh(sys.executable, str(ROOT / 'tools' / 'precedent_update.py'),
                        '--repo', str(repo), '--from-ref', ref or self.base,
@@ -58148,6 +58164,138 @@ class _KeptDivergenceFixture:
 
     def close(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+
+def check_kept_divergence_is_judged_block_by_block():
+    """A kept template divergence is judged block by block (2026-10-31,
+    precedent_vendor_engine's ONE VERDICT PER BLOCK). Measured that day in a
+    consuming repository: six AGENTS.md sections waived on 2026-10-01 with
+    one identical stock reason, and the copies lacked template lines nobody
+    had judged; then a reduction pass moved four of them to a side file,
+    where nothing compared them again.
+
+    Cases, each against the engine's own words (practice:
+    control-asserts-which-failure): a whole-section waiver with a reason and
+    a matching pin is no longer kept; the same reason on two items is
+    refused as stock even with every block judged; a judged item with its
+    own reason is kept (the positive control); a "covered" quote that is
+    not in the local text, a send-upstream with no link and a local-add-on
+    whose practice is missing each fail by name, and "standardize" never
+    rests; judge-kept records a verdict and refuses standardize; and a
+    section moved out of AGENTS.md is still compared where it lives, both
+    when it lacks a block (listed) and when it carries every one (quiet)."""
+    import contextlib
+    import io
+    fx = _KeptDivergenceFixture('precedent-kept-blocks-')
+    pve = fx.pve
+    cases = []
+    key = '### Session start'
+    item = f'AGENTS.md {key}'
+    try:
+        tpl = fx.template(fx.AGENTS_SRC).decode()
+        raw = pve._template_sections(tpl)[key][1]
+        repo = fx.consumer('blocks')
+        sec = pve._instantiate(raw, pve._agents_md_subs(repo))
+        own = f'{key}\n\n- This repository starts its sessions its own way.'
+        lacks = pve.missing_markdown_blocks(own, sec)
+        titles = [t for _o, t, _h, _a in lacks]
+        sha, carried = pve._sha_text(sec), pve._carried_sha(sec, lacks)
+        fx.keep(repo, item, 'we start sessions our own way, on purpose here', sha)
+
+        def verdict(it=item, local=own):
+            return pve._kept_divergence(repo, it, sha, carried, titles, local)[0]
+
+        cases.append(('a whole-section waiver (reason + matching pin, no block '
+                      'verdicts) is no longer kept',
+                      verdict() == 'unjudged', verdict()))
+        cases.append(('...while the pin alone, asked without the blocks, still '
+                      'matches (so nothing else that reads the pin moved)',
+                      pve._kept_divergence(repo, item, sha, carried)[0] == 'kept', ''))
+        fx.judge(repo, item, titles)
+        cases.append(('POSITIVE CONTROL: every lacked block judged, own reason: kept',
+                      verdict() == 'kept', verdict()))
+
+        stock = ('This repository words this section in its own terms, so the '
+                 'template wording is not copied in.')
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        cfg['kept_template_divergences'][item]['reason'] = stock
+        cfg['kept_template_divergences']['AGENTS.md ## Conventions'] = {
+            'reason': '  ' + stock.upper() + ' ', 'template_sha256': 'x'}
+        fx.write_config(repo, cfg)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            kept = pve._report_kept(repo, item, 'the template', sha, carried, titles, own)
+        cases.append(('the same reason on two items (case and spacing aside) is '
+                      'refused as stock, with every block judged',
+                      verdict() == 'stock' and not kept
+                      and 'word for word on another item' in buf.getvalue(),
+                      buf.getvalue()[:600]))
+        cfg['kept_template_divergences'][item]['reason'] = 'we start sessions our own way'
+        del cfg['kept_template_divergences']['AGENTS.md ## Conventions']
+        fx.write_config(repo, cfg)
+
+        b0 = pve.block_id(titles[0])
+        for v, want in (({'verdict': 'covered', 'quote': 'words nobody wrote here'},
+                         'not in the local text'),
+                        ({'verdict': 'covered', 'quote': 'its own way'}, None),
+                        ({'verdict': 'send-upstream', 'detail': 'later'}, 'needs "detail"'),
+                        ({'verdict': 'send-upstream',
+                          'detail': 'https://github.com/OWNER/REPO/pull/1'}, None),
+                        ({'verdict': 'local-add-on', 'practice': 'local/practices/gone.md'},
+                         'must exist'),
+                        ({'verdict': 'standardize'}, 'not a verdict to keep')):
+            cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg['kept_template_divergences'][item]['blocks'][b0] = v
+            fx.write_config(repo, cfg)
+            probs = [w for i, _t, w in pve.block_problems(repo, item, titles, own) if i == b0]
+            ok = (not probs) if want is None else (len(probs) == 1 and want in probs[0])
+            cases.append((f'block verdict {v} -> {want or "holds"}', ok, probs))
+
+        ok, msg = pve.judge_kept_block(repo, item, b0, 'standardize')
+        cases.append(('judge-kept refuses standardize as a resting verdict',
+                      not ok and 'a fix, not a verdict' in msg, msg))
+        ok, msg = pve.judge_kept_block(repo, item, b0, 'covered', quote='its own way')
+        stored = json.loads((repo / 'precedent.json').read_text(encoding='utf-8')
+                            )['kept_template_divergences'][item]['blocks'][b0]
+        cases.append(('judge-kept records a covered verdict with its quote',
+                      ok and stored == {'verdict': 'covered', 'quote': 'its own way'},
+                      (msg, stored)))
+
+        # Moved out: AGENTS.md without the section, docs/ carrying it.
+        moved = fx.consumer('moved')
+        stock_md = (moved / 'AGENTS.md').read_text(encoding='utf-8')
+        (moved / 'AGENTS.md').write_text(
+            stock_md.replace(sec, f'{key}\n\nSee [docs/agents-detail.md](docs/agents-detail.md).')
+            .replace(f'{key}\n\nSee', 'Session start: see'), encoding='utf-8')
+        (moved / 'docs').mkdir()
+
+        def report(side_text):
+            (moved / 'docs' / 'agents-detail.md').write_text(
+                '# Detail\n\n' + side_text + '\n', encoding='utf-8')
+            plan = pve._agents_md_plan(moved, 'consumer', ROOT, {})
+            buf = io.StringIO()
+            left_before = list(pve._LEFT_FOR_YOU)
+            with contextlib.redirect_stdout(buf):
+                pve._report_agents_md(moved, ROOT, plan)
+            if left_before is not None:
+                pve._LEFT_FOR_YOU[:] = left_before
+            return [r[3] for r in plan if r[0] == key], buf.getvalue()
+
+        acts, out = report(own)
+        cases.append(('a section moved to docs/ that lacks template blocks is '
+                      'compared THERE and listed',
+                      acts == ['moved'] and 'lives in docs/agents-detail.md' in out
+                      and '(in docs/agents-detail.md) has local edits' in out,
+                      (acts, out[:800])))
+        acts, out = report(sec)
+        cases.append(('...and one that carries every block is compared and quiet',
+                      acts == ['moved'] and 'carries every block' in out
+                      and 'DIVERGED' not in out, (acts, out[:800])))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {str(d)[:600]}' for n, d in bad))
 
 
 def check_agents_templates_repeat_no_practice_text():
@@ -58435,7 +58583,16 @@ def check_kept_agents_md_divergence_is_recorded():
 
         # Recorded the way an engine before 2026-09-30 printed it: the whole
         # section's hash. Still honoured, and narrowed to the pin above.
+        titles = [t for _o, t, _h, _a in pve.missing_markdown_blocks(own, sec)]
         fx.keep(repo, item, 'we say this our own way', full_now)
+        rc, out = fx.update(repo)
+        cases.append(('since 2026-10-31 a reason alone no longer keeps it: each '
+                      'block the section lacks is listed for its own verdict',
+                      rc == 1 and 'whole-section waiver no longer holds' in out
+                      and out.count('no verdict') >= len(titles) >= 1,
+                      failure_detail(out, 1500)))
+        first_out = out
+        fx.judge(repo, item, titles)
         rc, out = fx.update(repo)
         cases.append(('THE FIX: recorded with a reason against the current '
                       'template, the next update is DONE, exit 0',
@@ -58447,7 +58604,8 @@ def check_kept_agents_md_divergence_is_recorded():
                       'beside the template\'s own text, and says so',
                       entry['template_sha256'] == full_now
                       and entry.get('carried_sha256') == sha_now
-                      and 'now records both' in out, failure_detail(out, 1500)))
+                      and 'now records both' in first_out + out,
+                      failure_detail(first_out + out, 1500)))
         cases.append(('...and says it once, with the reason, as a note',
                       out.count('kept on purpose: ') == 2   # step line + summary
                       and 'we say this our own way' in out, failure_detail(out, 1500)))
@@ -58463,14 +58621,19 @@ def check_kept_agents_md_divergence_is_recorded():
                               pve.missing_markdown_blocks(own, sec)), \
             'this fixture needs a section whose blocks are all missing'
         head, rest = raw.split('\n', 1)
-        word = next(w for w in rest.split() if len(w) > 5 and w.isalpha())
+        word = next(w for w in blocks[0][:60].split() if len(w) > 5 and w.isalpha())
         reworded = tpl.replace(raw, head + '\n' + rest.replace(word, word + 'x', 1))
         assert reworded != tpl
         rc, out = fx.update(repo, fx.upstream_with(fx.AGENTS_SRC,
                                                    reworded.encode()))
+        # Since 2026-10-31 a lacked block is judged by its own words: a
+        # rewording in its title is a new block to judge, and only that one
+        # is asked about -- the pin still holds, so the section is not
+        # listed as changed.
+        reasked = [ln for ln in out.split('\n') if ln.rstrip().endswith('-- no verdict')]
         cases.append(('a rewording inside a block the section lacks entirely '
-                      'keeps the decision: DONE, exit 0, said as kept',
-                      rc == 0 and 'DONE' in out and 'kept on purpose: ' in out,
+                      'asks for that one block\'s verdict, never "has changed since"',
+                      rc == 1 and len(reasked) == 1 and 'has changed since' not in out,
                       failure_detail(out, 1500)))
 
         moved = tpl.replace(raw, raw + '\n- **FIXTURE BULLET** -- a sentence '
@@ -58491,6 +58654,7 @@ def check_kept_agents_md_divergence_is_recorded():
         # local text and the report said upstream had changed).
         local = fx.consumer('local-edit', agents=ours)
         fx.keep(local, item, 'we say this our own way', full_now)
+        fx.judge(local, item, titles)
         fx.update(local)
         first = blocks[0].split('\n')[0]
         text = (local / 'AGENTS.md').read_text(encoding='utf-8')
@@ -58633,6 +58797,8 @@ def check_kept_bootstrap_divergence_is_recorded():
                       failure_detail(out, 1500)))
 
         fx.keep(repo, rel, 'our scripts import yaml', sha_now)
+        fx.judge(repo, rel, [t for _n, t, _h in fx.pve.missing_template_blocks(
+            ours.decode(), tpl.decode())])
         rc, out = fx.update(repo)
         cases.append(('THE FIX: recorded with a reason, the next update is DONE, '
                       'exit 0, and names it once as kept on purpose',
@@ -97303,6 +97469,8 @@ def main():
     check_update_seeds_budgets_on_the_run_that_reports_done()
     check_absent_agents_md_section_is_asked_across_self_refresh()
     check_kept_bootstrap_divergence_is_recorded()
+    check('a kept template divergence is judged block by block, and text moved '
+          'out of AGENTS.md is still compared', *check_kept_divergence_is_judged_block_by_block())
     check_legacy_bootstrap_shim_is_replaced()
     check_duplicated_resident_text_detector()
     check_settled_marker_scan_is_scoped_and_follows_the_split()
