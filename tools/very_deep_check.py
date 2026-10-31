@@ -9039,37 +9039,74 @@ def stage_checks(tree):
                                      + (ast.get_source_segment(per_file, node) or
                                         'a call')[:120]))
     routes = []
-    pb_path = tools / 'precedent_branches.py'
-    if pb_path.is_file():
-        src = pb_path.read_text(encoding='utf-8')
+    # WHERE THE MOVES LIVE (2026-10-30 very deep check). Produce moved out of
+    # precedent_branches.py into the moves tool a practice set supplies
+    # (branch_moves in its precedent-source.json), and this scan read only
+    # the engine's file: Produce printed "no check found" and "`--full` on
+    # request: none" while the set's moves still ran the quick tier before
+    # the fast move and the full one on --full. Every file that holds a move
+    # is read, the set's by the key the engine knows, never by a set's name.
+    sources = [('precedent_branches.py', tools / 'precedent_branches.py')]
+    moves_key = getattr(pb, 'MOVES_KEY', None) if pb is not None else None
+    if moves_key:
+        try:
+            import precedent_resolve as _pr
+            found = _pr.set_tool(tree, moves_key)
+        except Exception:                                    # noqa: BLE001
+            found = None
+        if found and pathlib.Path(found).is_file():
+            fp = pathlib.Path(found).resolve()
+            home = next((d for d in fp.parents
+                         if (d / 'precedent-source.json').is_file()), None)
+            try:
+                label = str(fp.relative_to(tree))
+            except ValueError:
+                label = (f'{home.name}/{fp.relative_to(home)}' if home
+                         else str(fp))
+            sources.append((label, fp))
+
+    def _is_check(node):
+        f = node.func
+        return (isinstance(f, ast.Name) and f.id == '_check') or (
+            isinstance(f, ast.Attribute) and f.attr == '_check')
+
+    def _tier_name(arg):
+        name = arg.id if isinstance(arg, ast.Name) else (
+            arg.attr if isinstance(arg, ast.Attribute) else None)
+        return {'BASIC': 'basic', 'FULL': 'full'}.get(name, name) if name else None
+
+    for label, path in sources:
+        if not path.is_file():
+            continue
+        src = path.read_text(encoding='utf-8')
         for fn in ast.walk(ast.parse(src)):
             if not isinstance(fn, ast.FunctionDef):
                 continue
             for node in ast.walk(fn):
-                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                        and node.func.id == '_check' and len(node.args) >= 3
-                        and isinstance(node.args[2], ast.Name)):
-                    tier = {'BASIC': 'basic', 'FULL': 'full'}.get(node.args[2].id,
-                                                                 node.args[2].id)
-                    move, when, dest = STAGE_ROUTES.get(
-                        fn.name, (None, None, None))
-                    routes.append({'fn': fn.name, 'line': node.lineno,
-                                   'tier': tier, 'move': move, 'when': when,
-                                   'dest': dest})
-                    if move is None:
-                        findings.append(('FINDING', f'precedent_branches.py:'
-                                         f'{node.lineno}: {fn.name} runs the '
-                                         f'{tier} check and no stage names it '
-                                         f'-- add it to STAGE_ROUTES in '
-                                         f'tools/very_deep_check.py, saying '
-                                         f'whether it runs before a push'))
-                    elif when == 'before' and tier != 'basic' and dest in (
-                            'staging', 'main'):
-                        findings.append(('VIOLATION', f'{move} runs the {tier} '
-                                         f'check before it pushes '
-                                         f'(precedent_branches.py:{node.lineno},'
-                                         f' {fn.name}) -- only the quick tier '
-                                         f'may run before a push to {dest}'))
+                if not (isinstance(node, ast.Call) and _is_check(node)
+                        and len(node.args) >= 3):
+                    continue
+                tier = _tier_name(node.args[2])
+                if tier is None:
+                    continue
+                move, when, dest = STAGE_ROUTES.get(fn.name, (None, None, None))
+                routes.append({'fn': fn.name, 'line': node.lineno, 'file': label,
+                               'tier': tier, 'move': move, 'when': when,
+                               'dest': dest})
+                if move is None:
+                    findings.append(('FINDING', f'{label}:'
+                                     f'{node.lineno}: {fn.name} runs the '
+                                     f'{tier} check and no stage names it '
+                                     f'-- add it to STAGE_ROUTES in '
+                                     f'tools/very_deep_check.py, saying '
+                                     f'whether it runs before a push'))
+                elif when == 'before' and tier != 'basic' and dest in (
+                        'staging', 'main'):
+                    findings.append(('VIOLATION', f'{move} runs the {tier} '
+                                     f'check before it pushes '
+                                     f'({label}:{node.lineno},'
+                                     f' {fn.name}) -- only the quick tier '
+                                     f'may run before a push to {dest}'))
     gates = {}
     if pb is not None and hasattr(pb, 'tier_for_branch'):
         staging = pb.staging_branch(tree) if hasattr(pb, 'staging_branch') else 'staging'
@@ -9286,8 +9323,10 @@ def _stage_lines(name, r):
         return [x for x in r['routes'] if x['fn'] == fn]
 
     def tiers(fn):
-        return ', '.join(f'{x["tier"]} tier (precedent_branches.py:{x["line"]})'
-                         for x in by(fn)) or 'no check found'
+        return ', '.join(f'{x["tier"]} tier ({x.get("file", "precedent_branches.py")}:'
+                         f'{x["line"]})' for x in by(fn)) or (
+            'no move here (no set in force names one)'
+            if fn.startswith('_promote') else 'no check found')
     st, gates = r['staging'], r['gates']
 
     def gate(b):
@@ -9320,7 +9359,7 @@ def _stage_lines(name, r):
         for x in other:
             out.append(f'      {x["move"] or x["fn"]}: {x["tier"]} tier, '
                        f'{x["when"] or "unclassified"} '
-                       f'(precedent_branches.py:{x["line"]})')
+                       f'({x.get("file", "precedent_branches.py")}:{x["line"]})')
         for k, g in gates.items():
             if k.startswith('for a person'):
                 out.append(f'      a push to {g["branch"]}, {k}: {g["tier"]} tier')
@@ -9349,7 +9388,8 @@ def _stage_markdown(results):
 
         def tier(fn):
             return ', '.join(sorted({x['tier'] for x in r['routes']
-                                     if x['fn'] == fn})) or 'none'
+                                     if x['fn'] == fn})) or (
+                'no move here' if fn.startswith('_promote') else 'none')
         g = {b: (v['tier'] or 'unread') for b, v in r['gates'].items()}
         gh_s = ', '.join(r['gh_after']['staging']) or 'none'
         gh_m = ', '.join(r['gh_after']['main']) or 'none'

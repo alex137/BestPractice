@@ -41749,8 +41749,10 @@ def check_very_deep_check_lists_checks_by_stage():
     name = 'the very deep check lists the checks by stage and flags extra ones before a push'
 
     def read(tree):
+        # No person's config: a set they bring would supply its own moves.
+        env = dict(os.environ, PRECEDENT_USER_CONFIG=str(pathlib.Path(tree) / 'no-config.json'))
         p = subprocess.run([sys.executable, str(vdc), '--stage-checks-json', str(tree)],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, timeout=120, env=env)
         try:
             return json.loads(p.stdout)
         except ValueError:
@@ -41790,6 +41792,36 @@ def check_very_deep_check_lists_checks_by_stage():
                       planted.get('error') or texts))
         cases.append(('a check in the quick tier with no approval is a violation',
                       any(t.startswith('doc_sync runs before every push') for t in texts),
+                      texts))
+        # THE MOVES A SET SUPPLIES ARE READ TOO (2026-10-30 very deep check:
+        # Produce lives in a set's branch_moves tool, and the scan read only
+        # precedent_branches.py, so it printed "`--full` on request: none").
+        # A planted moves tool, named the way the engine finds one -- the
+        # branch_moves key -- never by a set's name.
+        (tmp / 'tools' / 'zz_moves.py').write_text(
+            'core = None\n'
+            'def _promote_to_main(root, wt):\n'
+            '    return core._check(root, wt, core.FULL, dest=core.MAIN)\n'
+            'def _promote_to_main_fast(root, wt):\n'
+            '    return core._check(root, wt, core.BASIC, dest=core.MAIN)\n'
+            'def main(root, argv):\n    return 0\n', encoding='utf-8')
+        (tmp / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-moves', 'level': 'shared', 'branch_moves': 'tools/zz_moves.py'}),
+            encoding='utf-8')
+        moved = read(tmp)
+        got = {r.get('fn'): (r.get('tier'), r.get('file')) for r in moved.get('routes') or []}
+        cases.append(('Produce in a set\'s moves tool is read: the fast move runs the '
+                      'quick tier, --full the full one, each from that file',
+                      got.get('_promote_to_main_fast') == ('basic', 'tools/zz_moves.py')
+                      and got.get('_promote_to_main') == ('full', 'tools/zz_moves.py'),
+                      moved.get('error') or got))
+        mv = tmp / 'tools' / 'zz_moves.py'
+        mv.write_text(mv.read_text(encoding='utf-8').replace(
+            'core.BASIC, dest=core.MAIN', 'core.FULL, dest=core.MAIN'), encoding='utf-8')
+        texts = [t for lvl, t in read(tmp).get('findings') or [] if lvl == 'VIOLATION']
+        cases.append(('a fast move into main in a set\'s moves tool that runs the full '
+                      'tier is a violation, naming that file',
+                      any('fast move' in t and 'tools/zz_moves.py' in t for t in texts),
                       texts))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
