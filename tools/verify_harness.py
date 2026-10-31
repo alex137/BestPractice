@@ -88398,12 +88398,22 @@ def check_a_brought_sets_spoken_trigger_reaches_the_session_at_start():
         def run(*flags):
             out, saved_argv = io.StringIO(), sys.argv
             sys.argv = ['precedent_session_practices.py', '--repo', str(repo), *flags]
+            # The person's own sets stay out of the fixture: main() also
+            # notes a real source clone that is off its base branch, and on
+            # 2026-10-31 that printed three lines into a --quiet run while
+            # the clones sat on staging (practice: fixture-owns-its-state).
+            saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+            os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-such-config.json')
             try:
                 with contextlib.redirect_stdout(out), \
                         contextlib.redirect_stderr(io.StringIO()):
                     psp.main()
             finally:
                 sys.argv = saved_argv
+                if saved_cfg is None:
+                    os.environ.pop('PRECEDENT_USER_CONFIG', None)
+                else:
+                    os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
             written = repo / '.precedent' / 'SESSION_PRACTICES.md'
             return out.getvalue(), (written.read_text(encoding='utf-8')
                                     if written.is_file() else '')
@@ -88516,8 +88526,18 @@ def check_session_file_says_each_command_once():
         psp.collect = lambda r, skip_brought=False: (
             (bare, bare_levels, notes) if skip_brought else (full, levels, notes))
         out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            psp.main(['--repo', str(repo)])
+        # Not the person's own sets (2026-10-31: their clones on staging put
+        # an off-base notice ahead of the file; fixture-owns-its-state).
+        saved_cfg = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = str(tmp / 'no-such-config.json')
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                psp.main(['--repo', str(repo)])
+        finally:
+            if saved_cfg is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = saved_cfg
         said = out.getvalue()
         cases.append(('4. main() prints the commands once, at the top of the file',
                       said.count(head) == 1 and said.count('"Debut" -> planted-stage') == 1
