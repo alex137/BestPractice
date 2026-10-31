@@ -143,3 +143,33 @@ left the three set clones on their landing branches; with each clone back on
 rather than planting their own (practice: fixture-owns-its-state), so a clone
 on any other branch turns them red (needs: a session of its own -- out of
 scope for this run).
+
+2026-10-31, what each answer became:
+
+- **1 (reply rules for adopters):** done. All 19 universal requirements were
+  read against their practices and every one binds any adopter, so none
+  moved to the individual set; install and Update Vendors now carry
+  `reply_check.json`, and the open-item check reads it from every source.
+- **2, 5, 6, 12:** done by the session (above).
+- **4 (session-start deepen):** not made. Measured from a fresh clone,
+  `--deepen=1000` cost the same as `--unshallow` (about 27 s and 31 MB each),
+  because 1,000 steps reach every commit here; deepening only the current
+  branch by about 100 came in near 10 s and 15 MB. Asked again (needs: a
+  decision -- Morgan's), with the session's pick in the run's reply.
+- **7 and 8 (the ladder set):** done, ladder #155.
+- **9 (the writing set's hook here):** no change. Wiring it in the tracked
+  setup would point at a script that arrives untracked, and a missing
+  script blocks every file hand-over; the set's check already accepts the
+  untracked wiring. Asked to close as already right.
+- **10 (the set generator):** done: budgets and the person's total, by the
+  same functions Update Vendors uses; the staging branch is printed as a
+  command, since the generator never writes to a remote.
+- **11 (the four longest Rules):** done, every moved line kept: the runbook
+  9,301 words to 1,773, the-boildown 7,690 to 2,128, very-deep-check 3,724
+  to 1,305, prompt-please 2,714 to 903.
+- **13 (the old receipts branch):** done, kept off every deletion list.
+- **14 (a real consumer):** done on a private consumer, on a branch there and
+  not merged. It found two engine traps, fixed here: the push check passing
+  silently when a single-branch clone lacks the base, and the very deep
+  check's own run record tripping two checks in a consumer. Its update ends
+  "left for you" until two private copied-in sets are attached.
