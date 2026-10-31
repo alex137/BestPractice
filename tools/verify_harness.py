@@ -36990,11 +36990,16 @@ def check_compaction_offer_owed_printed_at_turn_start():
                 stderr=subprocess.PIPE, text=True, cwd=str(fx),
                 env={**os.environ, 'CLAUDE_PROJECT_DIR': str(fx),
                      'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
-            return proc, payload
+            # Handed over now, not at finish(): the hook's first act is to
+            # read stdin to its end, so a payload held back would hold every
+            # run back until the one before it was read.
+            proc.stdin.write(payload)
+            proc.stdin.close()
+            proc.stdin = None
+            return proc
 
-        def finish(started):
-            proc, payload = started
-            out, err = proc.communicate(payload)
+        def finish(proc):
+            out, err = proc.communicate()
             return subprocess.CompletedProcess(proc.args, proc.returncode, out, err)
 
         _started = {
