@@ -290,6 +290,7 @@
   "check_identity_reality_reads_grandfathering_the_bot_and_a_shallow_clone": 0.2,
   "check_in_force_at_chain_is_followed": 0.0,
   "check_incident_coverage_reads_what_the_gotcha_names": 0.6,
+  "check_individual_bootstrap_says_to_fill_in_identity": 9.5,
   "check_individual_hook_run_by_hand_links_the_attached_set": 0.5,
   "check_individual_set_diverged_copies_are_reported_not_clobbered": 0.5,
   "check_individual_set_has_one_tree_whichever_route_cloned_it": 1.0,

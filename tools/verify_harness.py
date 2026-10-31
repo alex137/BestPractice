@@ -11527,6 +11527,49 @@ def check_session_start_says_when_bootstrap_is_missing():
           '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_individual_bootstrap_says_to_fill_in_identity():
+    """Bootstrapping an individual set ends by naming the identity.json
+    fields still holding placeholders, and a shared set's report does not.
+
+    Found 2026-10-31 by the very deep check's pass 1 practice-move
+    rehearsal: an individual set bootstrapped as FOR_DEVELOPERS.md says,
+    then committed, failed its own full sweep -- check_commit_author wanted
+    the author '{{PERSON_NAME}}' -- and the closing report had said only
+    that the set needs a git remote.
+
+    Negative control, measured 2026-10-31: on the code before the fix the
+    first case fails (no FILL IN line).
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-bootstrap-identity-'))
+    (tmp / 'home').mkdir()
+    env = dict(_isolated_env(os.environ, tmp / 'home'), PRECEDENT_SEED_OFF_MAIN='1')
+    cases = []
+    try:
+        outs = {}
+        for level, extra in (('individual', []),
+                             ('shared', ['--approver', 'A Person:aperson'])):
+            r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_bootstrap_source.py'),
+                                '--level', level, '--name', f'vh-{level}', '--dest',
+                                str(tmp / level), '--off-main', 'true', *extra],
+                               capture_output=True, text=True, env=env, timeout=300)
+            outs[level] = r.stdout + r.stderr
+        tail = outs['individual'].split('BOOTSTRAPPED:', 1)[-1]
+        cases.append(("an individual set's report names identity.json's unfilled fields",
+                      'FILL IN identity.json' in tail and 'name, email, timezone' in tail,
+                      tail[-500:]))
+        cases.append(("a shared set's report does not",
+                      'BOOTSTRAPPED:' in outs['shared']
+                      and 'FILL IN identity.json' not in outs['shared'],
+                      outs['shared'][-300:]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'an individual bootstrap says to fill in identity.json '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_hands_the_engine_refresh_the_followed_tip():
     """Update Vendors runs the engine refresh with the CONSUMER's own engine
     copy, and an older copy resolves the branch it was written to follow: a
@@ -93951,6 +93994,7 @@ def main():
     check_update_commit_note_leaves_out_the_vendored_catalogue()
     check_fresh_install_reaches_its_code_owner_practices()
     check_session_start_says_when_bootstrap_is_missing()
+    check_individual_bootstrap_says_to_fill_in_identity()
     check_install_records_the_commit_its_catalogue_came_from()
     check_update_hands_the_engine_refresh_the_followed_tip()
     check_fresh_install_links_its_file_names()
