@@ -92,12 +92,22 @@ def _strip(text):
     return text.rstrip('/')
 
 
-def parse(spec):
+def parse(spec, local_paths=False):
     """-> RepoId for a URL, an owner/repo or a bare repository name; None
-    for nothing usable (an empty value, a local path)."""
+    for nothing usable (an empty value, a local path). With `local_paths`,
+    a local path (an origin made by `git clone <path>`, as test fixtures
+    and hand reproductions make) is read as its last two folders,
+    owner/name, which is what the suffix tests this module replaced did."""
     text = _strip(spec)
-    if not text or text.startswith(('/', '.', '~')):
+    if text.startswith('file://'):
+        text = text[len('file://'):]
+    if not text:
         return None
+    if text.startswith(('/', '.', '~')):
+        if not local_paths:
+            return None
+        parts = [x for x in text.split('/') if x and x not in ('.', '..', '~')]
+        return RepoId('', parts[-2], parts[-1]) if len(parts) >= 2 else None
     m = _URL.match(text) if ('://' in text or '@' in text
                              or re.match(r'^[^/\s]+\.[a-z]{2,}[/:]', text, re.I)) \
         else None
@@ -128,10 +138,11 @@ def repo_key(spec):
     return rid.key() if rid else ''
 
 
-def same_repo(a, b):
+def same_repo(a, b, local_paths=False):
     """True when `a` and `b` name one repository. A bare name (no owner)
-    matches any owner's repository of that name: it is all a caller knew."""
-    ra, rb = parse(a), parse(b)
+    matches any owner's repository of that name: it is all a caller knew.
+    `local_paths` as in parse()."""
+    ra, rb = parse(a, local_paths), parse(b, local_paths)
     if not ra or not rb:
         return False
     if ra.owner and rb.owner:

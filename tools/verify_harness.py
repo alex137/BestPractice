@@ -45799,8 +45799,10 @@ def check_merge_check_gate():
         work = tmp / 'work'
         (work / 'tools').mkdir(parents=True)
         git(tmp, 'init', '-q', '-b', 'main', str(work))
+        # precedent_repo_id is how the gate finds the checkout by its origin
+        # (2026-10-31); every real repository has it with the engine.
         for f in ('precedent_push_check.py', 'precedent_branches.py',
-                  'precedent_merge_check.py'):
+                  'precedent_merge_check.py', 'precedent_repo_id.py'):
             _shutil.copy2(ROOT / 'tools' / f, work / 'tools' / f)
         # precedent_time is copied as every real repository has it
         # (2026-10-19: without it each import fell back quietly, the copy

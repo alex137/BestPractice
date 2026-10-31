@@ -103,7 +103,7 @@ def _clone_named(root, owner, repo):
                                  capture_output=True, text=True, timeout=20).stdout
         except (OSError, subprocess.SubprocessError):
             continue
-        if same_repo(url, want) and (child / '.claude' / 'settings.json').is_file():
+        if same_repo(url, want, local_paths=True) and (child / '.claude' / 'settings.json').is_file():
             return child
     return None
 

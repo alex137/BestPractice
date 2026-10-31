@@ -78,7 +78,7 @@ def _origin_matches(root, owner, repo):
     sys.path.insert(0, str(HERE))
     from precedent_repo_id import same_repo
     url = git(root, 'remote', 'get-url', 'origin') or ''
-    return same_repo(url, f'{owner}/{repo}')
+    return same_repo(url, f'{owner}/{repo}', local_paths=True)
 
 
 def find_checkout(search, owner, repo):

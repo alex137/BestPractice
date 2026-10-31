@@ -167,7 +167,15 @@ import split_practices as sp
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 import generated_blocks  # noqa: E402
-from precedent_repo_id import same_repo  # noqa: E402 -- practice: upstream-fix
+try:                                     # practice: upstream-fix
+    from precedent_repo_id import same_repo  # noqa: E402
+except ImportError:
+    # This file is also copied on its own, into a fixture or a repository
+    # with no engine beside it; there, folded text is the same test.
+    def same_repo(a, b):
+        def norm(x):
+            return str(x or '').strip().rstrip('/').removesuffix('.git').lower()  # repo-name-compare: ok -- fallback when the helper is absent
+        return bool(norm(a)) and norm(a) == norm(b)
 
 
 # Which trees this repo MIRRORS from somewhere else, and therefore may not

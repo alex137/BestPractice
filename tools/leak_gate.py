@@ -728,7 +728,12 @@ def _ref_key(ref):
     decides whether a repository is allowed (practice: upstream-fix;
     tools/precedent_repo_id.py)."""
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-    from precedent_repo_id import repo_key
+    try:
+        from precedent_repo_id import repo_key
+    except ImportError:
+        # This file is also copied on its own, into a repository with no
+        # engine beside it; there, owner/name folded is the same key.
+        return 'github.com/' + str(ref).strip().strip('/').lower()  # repo-name-compare: ok -- fallback when the helper is absent
     return repo_key(ref) or str(ref).strip().lower()
 
 

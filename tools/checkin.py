@@ -2387,7 +2387,7 @@ def record(clone, note, accept_loss=False, resolving=(), from_ref=None):
         if rc == 0 and url.strip():
             spelled = declared_spelling(url.strip(), root=ROOT)
             if not up.get('repo') or (same_repo(up['repo'], spelled)
-                                      and up['repo'] != spelled):
+                                      and up['repo'] != spelled):  # repo-name-compare: ok -- the spelling itself is the question
                 up['repo'] = spelled
     old = up.get('commit')
     manifest['upstream']['commit'] = head

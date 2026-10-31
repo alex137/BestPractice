@@ -217,14 +217,30 @@ GIT_EVENTS = ('pre-push',)
 
 def _attach_hints(root=ROOT):
     """-> {name: 'owner/repo'} for the sources whose repository is known:
-    the individual set from the user config, the sets it brings from its
-    `brings`, and a declared shared set from PRECEDENT_SOURCE_BASE_URL."""
+    a source precedent.json declares with a `repo`, in the spelling it
+    declares; the individual set from the user config; the sets it brings
+    from its `brings`; and any other declared shared set from
+    PRECEDENT_SOURCE_BASE_URL.
+
+    The declared `repo` comes first (2026-10-31). Before, a declared set
+    was named owner/<its source name>, and a source name is a lowercase
+    slug: the attach call asked for owner/someset where GitHub spells it
+    owner/SomeSet, and the session that followed it asked the person to
+    approve one repository under two spellings."""
     import precedent_resolve as pr
+    from precedent_repo_id import owner_repo as _owner_repo
     hints = {}
 
     def owner_repo(url):
-        m = re.search(r'github\.com[/:]([^/]+)/([^/]+?)(?:\.git)?/?$', url or '')
-        return f'{m.group(1)}/{m.group(2)}' if m else None
+        return _owner_repo(url) if 'github.com' in str(url or '') else None
+
+    try:
+        cfg = json.loads((Path(root) / 'precedent.json').read_text(encoding='utf-8'))
+        for e in cfg.get('sources') or []:
+            if isinstance(e, dict) and e.get('name') and owner_repo(e.get('repo')):
+                hints[e['name']] = owner_repo(e['repo'])
+    except (OSError, ValueError, AttributeError):
+        pass
 
     try:
         cfg = json.loads(Path(os.environ.get(pr.USER_CONFIG_ENV, str(
@@ -234,10 +250,10 @@ def _attach_hints(root=ROOT):
         ind = {}
     if isinstance(ind, dict):
         if owner_repo(ind.get('repo_url')):
-            hints[ind.get('name') or pr.DEFAULT_INDIVIDUAL_NAME] = owner_repo(ind['repo_url'])
+            hints.setdefault(ind.get('name') or pr.DEFAULT_INDIVIDUAL_NAME, owner_repo(ind['repo_url']))
         for b in pr.brought_sources(ind.get('path'), warn=False):
             if owner_repo(b.get('repo')):
-                hints[b['name']] = owner_repo(b['repo'])
+                hints.setdefault(b['name'], owner_repo(b['repo']))
     base = os.environ.get('PRECEDENT_SOURCE_BASE_URL', '')
     m = re.search(r'github\.com[/:]([^/]+)', base)
     if m:
