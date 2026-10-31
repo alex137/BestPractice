@@ -1496,6 +1496,10 @@ def _new_tests_have_times(root, since, files, problems):
     diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--',
                'tools/verify_harness.py') or ''
     added = re.findall(r'^\+def (check_\w+)\(', diff, re.M)
+    # 2026-10-30: 7e5d9d26 deleted two tests and left their times, and the
+    # full suite's partition case failed on main until a very deep check
+    # found it -- a deletion is the other half of the same record.
+    removed = set(re.findall(r'^-def (check_\w+)\(', diff, re.M)) - set(added)
     try:
         known = json.loads((root / 'tools' / 'harness_check_times.json')
                            .read_text(encoding='utf-8')).get('seconds') or {}
@@ -1508,6 +1512,13 @@ def _new_tests_have_times(root, since, files, problems):
             f'recorded time ({", ".join(missing)}) -- run `python3 '
             f'tools/verify_harness.py --record-new-times` and commit '
             f'tools/harness_check_times.json with them')
+    stale = sorted(n for n in removed if n in known)
+    if stale:
+        problems.append(
+            f'tools/verify_harness.py deletes {len(stale)} test(s) whose '
+            f'recorded time is still kept ({", ".join(stale)}) -- run '
+            f'`python3 tools/verify_harness.py --record-new-times`, which '
+            f'drops them, and commit tools/harness_check_times.json')
 
 
 def _retired_engine_files_unanswered(root, since):

@@ -33864,6 +33864,55 @@ def check_push_to_staging_runs_own_checks_inside_a_budget():
           f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
 
 
+def check_push_check_refuses_a_deleted_test_that_keeps_its_time():
+    """2026-10-30: 7e5d9d26 deleted two harness tests and left their recorded
+    times, and the full suite's partition case failed on main until a very
+    deep check ran it. The push check already refused a new test with no
+    time; a deleted test that keeps one is the same record gone wrong."""
+    import subprocess as _sp
+    import tempfile
+    import precedent_push_check as ppc
+    cases = []
+    g = lambda d, *a: _sp.run(['git', '-C', str(d), *a], capture_output=True,
+                              text=True, check=True).stdout.strip()
+    with tempfile.TemporaryDirectory() as td:
+        d = pathlib.Path(td)
+        (d / 'tools').mkdir()
+        g(d, 'init', '-q')
+        g(d, 'config', 'user.email', 't@example.com')
+        g(d, 'config', 'user.name', 't')
+        h = d / 'tools' / 'verify_harness.py'
+        times = d / 'tools' / 'harness_check_times.json'
+        h.write_text('def check_kept():\n    pass\n\n\ndef check_gone():\n    pass\n')
+        times.write_text(json.dumps({'seconds': {'check_kept': 1, 'check_gone': 1}}))
+        g(d, 'add', '-A'); g(d, 'commit', '-qm', 'base')
+        base = g(d, 'rev-parse', 'HEAD')
+        h.write_text('def check_kept():\n    pass\n')
+        g(d, 'commit', '-qam', 'delete a test')
+        files = ['tools/verify_harness.py']
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('a deleted test that keeps its recorded time is refused, by name',
+                      any('deletes 1 test(s) whose recorded time is still kept' in p
+                          and 'check_gone' in p for p in problems), problems))
+        times.write_text(json.dumps({'seconds': {'check_kept': 1}}))
+        g(d, 'commit', '-qam', 'drop its time')
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('CONTROL: the same deletion with its time dropped passes',
+                      not problems, problems))
+        h.write_text('def check_kept():\n    pass\n\n\ndef check_new():\n    pass\n')
+        g(d, 'commit', '-qam', 'add a test')
+        problems = []
+        ppc._new_tests_have_times(d, base, files, problems)
+        cases.append(('a new test with no recorded time is still refused',
+                      any('adds 1 test(s) with no recorded time' in p for p in problems),
+                      problems))
+    bad = [f'{n}: {x}' for n, ok, x in cases if not ok]
+    check(f'the push check refuses a deleted test that keeps its recorded time '
+          f'({len(cases)} stated cases)', not bad, '; '.join(map(str, bad)))
+
+
 def check_update_holds_a_settings_change_and_offers_it_again():
     """A .claude/ change Update Vendors asks the person about keeps its old
     manifest baseline until their words are given, and a read-only allow
@@ -93612,6 +93661,7 @@ def main():
     check_update_keeps_the_harness_go_ahead_with_its_content()
     check_wait_main_test_finds_a_merged_pull_requests_head()
     check_push_to_staging_runs_own_checks_inside_a_budget()
+    check_push_check_refuses_a_deleted_test_that_keeps_its_time()
     check_branch_policy_seam_asks_a_set_and_keeps_the_engine_answer()
     check_promote_is_handed_to_the_moves_a_set_names()
     check_update_holds_a_settings_change_and_offers_it_again()
