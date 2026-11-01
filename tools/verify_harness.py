@@ -4541,6 +4541,7 @@ def main():
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
+    check_acronym_expanded_after_or_listed_in_the_glossary()
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
