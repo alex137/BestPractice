@@ -222,6 +222,73 @@ ladder set. Each practice set (the ladder and writing sets) needs one
 commit declaring its `stays` files, or `set-file-decided` refuses at its
 next check. Those two commits go in the same sitting as the engine change.
 
+## The first Update Vendors after this lands, in every repository
+
+Morgan, 2026-11-01: "make sure your plan includes a vendor updates plan so
+when people update their vendors for the first time it does this
+smoothly".
+
+**The rule for the transition:** a new check never turns a repository red
+that has not yet had the chance to take the fix. A repository is judged by
+the new rules only once an Update Vendors with the new engine has run in
+it. Until then, a finding is an advisory that says which command fixes it.
+
+**What the first update does, by kind of repository:**
+
+| Repository | What the first update does | What the person sees |
+|---|---|---|
+| A consumer holding a full copy of a set (a voice repository and its ladder and writing copies) | Copies each registered file the set has and the copy lacks. Records the list it copied in the copy's manifest (`set_files`), so later checks compare against it. | One line per filled file, in the update's summary: "copy of precedent-shared-ladder: added our_language.json, the set's own words now reach this repository's vocabulary". No question, nothing LEFT FOR YOU. Then DONE. |
+| A consumer holding only a files-only copy | Nothing changes. Registered files stay out by design. | Nothing. |
+| A consumer reading its sets live (a sibling clone) | Nothing to copy. The readers now take their names from the registry. | Nothing. |
+| A practice set (ladder, writing, individual) | Its engine refresh brings `set-file-decided`. The engine already knows the files every set repository has for itself (`precedent.json`, `approvers.json`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `MAP.md`, `GLOSSARY.md`), so those need no `stays` line. Only a file the engine does not know needs a decision. | Only a file nobody can decide automatically, listed under LEFT FOR YOU with the two lines to choose from: ship it (register it) or keep it home (`stays`, with a reason). Today that list should be empty for the ladder and writing sets; the build checks it before landing. |
+| BestPractice itself | Not a consumer; the new checks run in its own push check from the commit that adds them. | The usual. |
+
+**Advisory until the first update, a finding after.** `set-copy-complete`
+reads the copy's manifest:
+- No `set_files` record means the copy was made by an engine from before
+  this change. The check then gives an advisory: "this copy predates the
+  set-files registry; the next Update Vendors fills it", and never a
+  violation. So a consumer's `main` does not go red the day BestPractice's
+  `main` moves.
+- Once a `set_files` record exists, a missing or differing registered file
+  is a real finding.
+
+**An existing nested copy is reported, never a stop.** The refusal of
+nested copies blocks a new one. If an existing copy already holds one, the
+first update lists it under LEFT FOR YOU instead of failing: the path, the
+set it duplicates, and the `precedent_decommission.py` line that removes
+it. Then it carries on. None is known today; the build's rehearsal
+confirms that on the repositories at hand.
+
+**The order the updates run in.**
+1. BestPractice lands and passes GitHub's test.
+2. The practice sets update next: individual, ladder, writing. Any `stays`
+   decision they need is made in that sitting.
+3. Then the consumers, sets before the repositories that copy them. Update
+   All Vendors already orders this from the declared repository links
+   (commit 8c50ec609, "updates run in source order").
+
+A consumer updated before its sets have updated still finishes DONE: it
+copies what the set holds today, and the next update tops it up.
+
+**The announcement.** The update's summary carries one line the first time
+a repository takes this engine. It says that copies of shared sets now
+carry every file the engine reads from them, and lists what was added. The
+change is also announced the way Update Vendors changes are announced
+(`check_update_vendors_change_is_announced` in the harness).
+
+**A rehearsal before landing.** The build runs the new Update Vendors on
+scratch copies of the repositories at hand: a voice repository with full
+copies of the ladder and writing sets, a project, and the ladder and
+writing sets themselves. It confirms:
+- each reports DONE;
+- the filled files are the expected ones (`our_language.json` in the voice
+  repository's ladder copy);
+- no new check turns any of them red;
+- a second update right after reports nothing new.
+
+The rehearsal's output goes in the pull request.
+
 ## Open questions for review
 
 1. Is `precedent_resolve.py` the right home for `SET_FILES`, or should it be
