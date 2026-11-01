@@ -1514,13 +1514,20 @@ def refresh_copies_step(repo, rep, take_sets=()):
 
 
 def set_files_decided_step(repo, rep):
-    """In a shared practice set: the first Update Vendors with the set-files
-    registry notes each top-level file nothing decides (set-file-decided)
-    and writes the marker after which that check is strict here
-    (precedent_set_files.DECIDED_MARKER_KEY, in tools/ENGINE_MANIFEST.json).
-    That run's own closing check reads it as a note too, so a set's first
-    update never stops on a rule it has not had the chance to meet (plan,
-    second review, 3). An individual set is never copied, and is left out."""
+    """In a shared practice set, the two steps that turn set-file-decided on
+    without ever stopping an update on it (plan, second review, 3):
+
+      - the first Update Vendors with the set-files registry notes each
+        top-level file nothing decides, and writes the marker as
+        "noted <date>" (precedent_set_files.DECIDED_MARKER_KEY, in
+        tools/ENGINE_MANIFEST.json). The check stays a note until the next
+        update, so this update's own closing check and the push that lands
+        it are not refused;
+      - the next update makes it strict ("<date>"), and from then on an
+        undecided file is a finding there.
+
+    A set with nothing undecided goes strict on the first run. An individual
+    set is never copied, and is left out."""
     import precedent_set_files as psf
     import precedent_time
     try:
@@ -1536,9 +1543,20 @@ def set_files_decided_step(repo, rep):
         data = json.loads(em.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return
-    if data.get(psf.DECIDED_MARKER_KEY):
+    held = str(data.get(psf.DECIDED_MARKER_KEY) or '')
+    if held and not held.startswith(psf.DECIDED_NOTED):
         return
+    today = precedent_time.today(repo)
     undecided, adapters, loose = psf.set_file_decisions(repo)
+    if held:
+        data[psf.DECIDED_MARKER_KEY] = today
+        em.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                      encoding='utf-8')
+        rep.step('set files', 'set-file-decided is strict here from now on'
+                 + (f': {len(undecided) + len(loose) + bool(adapters)} '
+                    f'undecided item(s) are refused by this run\'s check'
+                    if undecided or adapters or loose else ''))
+        return
     for name in undecided:
         rep.step('set files', f'{name} is a top-level file a copy of this set '
                  f'does not carry and nothing decides: noted, not a stop. '
@@ -1551,13 +1569,16 @@ def set_files_decided_step(repo, rep):
         rep.step('set files', 'precedent.json declares `adapters`, which a copy '
                  'of this set never carries: noted. Move it to '
                  'precedent-source.json before the next Update Vendors')
-    data[psf.DECIDED_MARKER_KEY] = precedent_time.today(repo)
+    pending = bool(undecided or adapters or loose)
+    data[psf.DECIDED_MARKER_KEY] = f'{psf.DECIDED_NOTED} {today}' if pending else today
     em.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
                   encoding='utf-8')
-    os.environ['PRECEDENT_SET_FILES_FIRST_RUN'] = '1'
-    rep.step('set files', 'set-file-decided is strict here from the next update'
-             + ('' if undecided or adapters or loose
-                else ': every top-level file is already decided'))
+    if pending:
+        rep.step('set files', 'set-file-decided is a note until the next '
+                 'Update Vendors here, and strict after it')
+    else:
+        rep.step('set files', 'set-file-decided is strict here from now on: '
+                 'every top-level file is already decided')
 
 
 def set_copy_complete_step(repo, rep, entry, clone, was, now):

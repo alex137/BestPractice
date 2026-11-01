@@ -3607,17 +3607,18 @@ def _set_copy_complete(ctx):
 
 
 def _set_files_first_run():
-    """True while a practice set has not yet had its first Update Vendors
-    with the set-files registry: set-file-decided is a note then, never a
-    finding, so that update cannot stop on it (plan, second review, 3)."""
-    if os.environ.get('PRECEDENT_SET_FILES_FIRST_RUN'):
-        return True
+    """True until a practice set's Update Vendors with the set-files
+    registry has made set-file-decided strict there: before its first one,
+    and after a first one that only noted undecided files ("noted <date>"),
+    so neither that update nor the push landing it stops on the rule (plan,
+    second review, 3)."""
     try:
         m = json.loads((ROOT / 'tools' / 'ENGINE_MANIFEST.json').read_text(
             encoding='utf-8'))
     except (OSError, ValueError):
         return True
-    return not m.get(_psf.DECIDED_MARKER_KEY)
+    held = str(m.get(_psf.DECIDED_MARKER_KEY) or '')
+    return not held or held.startswith(_psf.DECIDED_NOTED)
 
 
 @check('set-file-decided', 'tree',
@@ -3663,8 +3664,8 @@ def _set_file_decided(ctx):
                            'declaration to precedent-source.json, or drop it'))
     if out and _set_files_first_run():
         raise NotApplicable(
-            'the first Update Vendors with the set-files registry has not run '
-            'here yet, so this is a note: ' + '; '.join(
+            'Update Vendors with the set-files registry has not made this strict '
+            'here yet (the first one notes, the next one turns it on), so this is a note: ' + '; '.join(
                 f'{f.where}: {f.detail}' for f in out))
     return out
 

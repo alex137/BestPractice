@@ -110,9 +110,13 @@ RECORD_KEY = 'set_files'
 RECORD_COMMIT_KEY = 'set_files_commit'
 
 # Written into a practice set's tools/ENGINE_MANIFEST.json by its first
-# Update Vendors with this engine: from then on set-file-decided is strict
-# there; before it, an undecided file is a note (plan, second review, 3).
+# Update Vendors with this engine: "noted <date>" while that run noted
+# undecided files (still a note), then the date set-file-decided went
+# strict there, at the next update (plan, second review, 3).
 DECIDED_MARKER_KEY = 'set_files_decided'
+# Its value while undecided files were only noted: the check stays a note
+# until the next update replaces it with the date it went strict.
+DECIDED_NOTED = 'noted'
 
 _BY_KEY = {e['key']: e for e in SET_FILES}
 

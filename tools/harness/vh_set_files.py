@@ -442,8 +442,9 @@ def check_set_file_decided_in_a_practice_set():
        copy never carries precedent.json.
     5. Before the marker (the set's first Update Vendors with this engine)
        the same findings are a note, never a stop.
-    6. The first update's step notes NOTES.md, writes the marker, and sets
-       this run's closing check to a note; a second update does nothing.
+    6. The first update's step notes NOTES.md and marks the set "noted":
+       its own closing check and the push landing it stay a note. The next
+       update makes the check strict; the one after does nothing.
     7. NEGATIVE CONTROL: an individual set is left out.
     Fails on the engine before this change: there is no such check."""
     import shutil, tempfile
@@ -452,7 +453,6 @@ def check_set_file_decided_in_a_practice_set():
     import precedent_update as pu
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-files-decided-'))
     cases = []
-    saved = os.environ.pop('PRECEDENT_SET_FILES_FIRST_RUN', None)
     try:
         env = _sf_env(tmp)
         s = tmp / 'zz-set'
@@ -510,29 +510,35 @@ def check_set_file_decided_in_a_practice_set():
         kind, got = _sf_run(pc, 'set-file-decided')
         cases.append(('5. before the marker, the same finding is a note',
                       kind == 'skipped' and 'NOTES.md' in got
-                      and 'first Update Vendors' in got, got))
+                      and 'not made this strict here yet' in got, got))
         rep = _SfRep()
         pu.set_files_decided_step(s, rep)
         marked = json.loads(em.read_text(encoding='utf-8')).get(psf.DECIDED_MARKER_KEY)
-        first_run = os.environ.get('PRECEDENT_SET_FILES_FIRST_RUN') == '1'
         kind, got = _sf_run(pc, 'set-file-decided')
-        os.environ.pop('PRECEDENT_SET_FILES_FIRST_RUN', None)
+        cases.append(('6. the first update notes NOTES.md and marks it noted; its '
+                      'own check, and the push that lands it, stay a note',
+                      any('NOTES.md' in o and 'not a stop' in o for _n, o in rep.steps)
+                      and str(marked).startswith(psf.DECIDED_NOTED)
+                      and kind == 'skipped' and not rep.left,
+                      repr(rep.steps) + repr(marked) + repr((kind, got))))
         rep2 = _SfRep()
         pu.set_files_decided_step(s, rep2)
-        cases.append(('6. the first update notes NOTES.md, writes the marker and '
-                      'keeps its own closing check a note; the second does nothing',
-                      any('NOTES.md' in o and 'not a stop' in o for _n, o in rep.steps)
-                      and bool(marked) and first_run and kind == 'skipped'
-                      and not rep.left and not rep2.steps,
-                      repr(rep.steps) + repr(marked) + repr((kind, got)) + repr(rep2.steps)))
+        marked = json.loads(em.read_text(encoding='utf-8')).get(psf.DECIDED_MARKER_KEY)
+        kind, got = _sf_run(pc, 'set-file-decided')
+        rep3 = _SfRep()
+        pu.set_files_decided_step(s, rep3)
+        cases.append(('6b. the next update makes it strict, and the third does '
+                      'nothing', any('strict here from now on' in o
+                                     for _n, o in rep2.steps)
+                      and not str(marked).startswith(psf.DECIDED_NOTED)
+                      and kind == 'findings' and got and got[0].startswith('NOTES.md')
+                      and not rep3.steps,
+                      repr(rep2.steps) + repr(marked) + repr((kind, got)) + repr(rep3.steps)))
         write_manifest(level='individual')
         kind, got = _sf_run(pc, 'set-file-decided')
         cases.append(('7. NEGATIVE CONTROL: an individual set is left out',
                       kind == 'skipped' and 'individual' in got, got))
     finally:
-        os.environ.pop('PRECEDENT_SET_FILES_FIRST_RUN', None)
-        if saved is not None:
-            os.environ['PRECEDENT_SET_FILES_FIRST_RUN'] = saved
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'set-file-decided decides every top-level file of a shared set '
