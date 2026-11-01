@@ -361,6 +361,13 @@
         "what is running": "\\b(?:running|runs|carrying (?:it |this |them )?out|building|working on|in progress|under way|waiting (?:on|for))\\b",
         "where it runs (the session or job, linked, or this session's background)": "https?://|\\]\\(|\\bin the background\\b|\\bbackground (?:task|job|command|run)\\b",
         "when this session next acts": "\\bwhen\\b[^.;]{0,100}?\\b(?:reports?|finish(?:es)?|ends?|lands?|returns?|comes? back|is done|repl(?:y|ies)|completes?|wakes?)\\b|\\b(?:about|around|by|at|until) \\d{1,2}:\\d{2}\\b"
+      },
+      "blockers": {
+        "(1) work that exists only in this container": "\\bonly (?:here|in (?:this|the) container)\\b|\\bnot (?:yet )?pushed\\b|\\bunpushed\\b|\\buncommitted\\b",
+        "(2) a scheduled task bound to this session": "\\bscheduled task\\b|\\broutine\\b",
+        "(3) an action you owe that the work cannot finish or be made safe without": "\\b(?:cannot|can't|can\u2019t) (?:be )?(?:finish(?:ed)?|land(?:ed)?|made safe|go on|continue)\\b[^.]{0,60}\\bwithout\\b|\\bstopped on your\\b|\\buntil you (?:push|merge|approve|answer|attach|grant)\\b",
+        "(4) something still running or waited on": "\\b(?:running|in progress|under way|waiting (?:on|for))\\b",
+        "(5) a plan with steps left": "\\*\\*Plan:\\*\\*|\\bPlan:|\\bsteps? left\\b"
       }
     },
     "why": "Morgan, 2026-10-30 (strength: decided): \"You tell me not to archive this session, but you also tell me there's nothing for me to do. Are you doing anything? I looked and there's no background task, so I think you're not doing anything.\" The session was waiting on sessions it had spawned to carry out its plan; its Boildown said \"nothing for you to decide right now\" beside \"Don't archive this session\", with the reason only implied by a Plan line and a list of spawned sessions. When the archive line holds and Your next steps gives the person nothing, the What's blocking line names what is running, where (linked), and when the session next acts. The \"nothing blocking\" contradiction pair steps aside for a reply that carries the line, and this requirement judges it.",
@@ -379,7 +386,7 @@
         "refused": false
       },
       {
-        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** merge [the pull request](https://github.com/o/r/pull/1); I land the rest once it is in.\n- Don't archive this session.\n",
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging in BestPractice\n- **Your next steps:** merge [the pull request](https://github.com/o/r/pull/1); I land the rest once it is in.\n- **What's blocking:** the rest cannot land without that merge.\n- Don't archive this session.\n",
         "refused": false
       },
       {

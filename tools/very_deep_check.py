@@ -1454,7 +1454,8 @@ def _orphan_scan(repo_dir):
             # individual set (a false orphan on every run until 2026-09-28).
             runners = [r for r in (list((repo_dir / '.claude' / 'hooks')
                                         .glob('*.sh'))
-                                   + list(tools_dir.glob('*.py')))
+                                   + list(tools_dir.glob('*.py'))
+                                   + _harness_part_paths(repo_dir))
                        if f.name in r.read_text(encoding='utf-8',
                                                 errors='replace')]
             if not runners:
@@ -1798,6 +1799,17 @@ _MECHANISM_SPAN_RE = re.compile(r'`([A-Za-z_][\w.-]*?)(?:\(\))?`')
 _FILE_SUFFIXES = ('.sh', '.py', '.json')
 
 
+def _harness_part_paths(repo_dir):
+    """-> the harness's area files in `repo_dir` (tools/harness/vh_*.py):
+    the tests that lived in tools/verify_harness.py until 2026-10-31.
+    [] in a tree copied without tools/harness_parts.py, which has none."""
+    try:
+        import harness_parts
+    except ImportError:
+        return []
+    return harness_parts.part_paths(repo_dir)
+
+
 def _harness_cases(harness_text):
     """-> [(check_ name, body)] for each planted case, in file order."""
     parts = re.split(r'^def (check_\w+)\(', harness_text, flags=re.M)
@@ -1916,11 +1928,10 @@ def _incident_coverage(repo_dir, since=None):
                         encoding='utf-8')
                 except (OSError, UnicodeDecodeError):
                     continue
-    try:
-        harness = (repo_dir / 'tools' / 'verify_harness.py').read_text(
-            encoding='utf-8')
-    except (OSError, UnicodeDecodeError):
-        harness = ''
+    harness = '\n\n'.join(
+        p.read_text(encoding='utf-8', errors='replace')
+        for p in [repo_dir / 'tools' / 'verify_harness.py',
+                  *_harness_part_paths(repo_dir)] if p.is_file())
     cases = _harness_cases(harness)
     rows = []
     for kind, sub, datefield in (('gotcha filed', 'gotchas', 'noted'),
@@ -7083,7 +7094,8 @@ def _referenced_repos(repo_dir):
 # file naming it is a test AND its owner appears nowhere outside tests, so
 # a real account pasted into a fixture is still asked about; what is
 # skipped is listed in the audit's notes, never dropped silently.
-_FIXTURE_PATHS = ('tools/verify_harness.py', 'tools/checks/tests/', 'tests/')
+_FIXTURE_PATHS = ('tools/verify_harness.py', 'tools/harness/',
+                  'tools/checks/tests/', 'tests/')
 
 
 def _is_fixture_file(rel):
@@ -11600,8 +11612,9 @@ def _main(box):
             for _c in _ans['missing']:
                 _ic_findings += 1
                 print(f"                  FINDING: names {_c}, which does "
-                      f"not exist (no planted case in tools/verify_harness.py"
-                      f", no tools/checks/{_c}.py)")
+                      f"not exist (no planted case in the harness, "
+                      f"tools/harness/vh_planted_cases.py, "
+                      f"no tools/checks/{_c}.py)")
             if _ans['written']:
                 _w = _ans['written']
                 print(f"                  answered in the file: Prevention: "

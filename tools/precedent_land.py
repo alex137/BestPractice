@@ -90,7 +90,8 @@ def _verify_checked_by_universal(checked_by, slug):
             f"with no registered, tested check is refused here (the exact "
             f"gap phase 4 spent its first hours undoing). Register the "
             f"check and give it a planted case in "
-            f"verify_harness.py's check_precedent_check_fires first.")
+            f"check_precedent_check_fires, in "
+            f"tools/harness/vh_planted_cases.py, first.")
 
 
 def _verify_checked_by_private(repo_path, checked_by):

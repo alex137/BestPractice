@@ -1388,7 +1388,8 @@ _CHECK_SCRIPT_DIRS = ('tools/checks', 'local/tools/checks')
 
 def _unplanted_checks(root):
     """-> sorted slugs registered here with no `case('<slug>', ...)` in
-    tools/verify_harness.py: every @check in tools/precedent_check.py, and
+    the harness (tools/verify_harness.py and tools/harness/, read through
+    harness_parts): every @check in tools/precedent_check.py, and
     every check_*.py script precedent_check.register_materialized_checks()
     would add (named by the practice whose checked_by claims it, else by its
     stem -- the same naming). [] where either file is missing."""
@@ -1408,8 +1409,7 @@ def _unplanted_checks(root):
         for script in sorted((root / d).glob('check_*.py')):
             slug = claimed.get(script.name, script.stem)
             registered.add(slug)
-    declared = set(_CASE_RE.findall(vh.read_text(encoding='utf-8',
-                                                 errors='replace')))
+    declared = set(_CASE_RE.findall(_harness_text(root)))
     return sorted(registered - declared)
 
 
@@ -1422,6 +1422,36 @@ def _unplanted_checks(root):
 # verify_harness.py changes. One pass over the source, about a tenth of a
 # second; the per-name regex it replaced took over a minute.
 _HARNESS_DEF_RE = re.compile(r'^def (check_[a-z_0-9]+)\(', re.M)
+
+
+def _harness_parts():
+    """-> tools/harness_parts.py, or None in a tree copied without it (a
+    fixture's handful of tools, say), which then has no area files either:
+    every caller falls back to tools/verify_harness.py alone."""
+    try:
+        import harness_parts
+    except ImportError:
+        return None
+    return harness_parts
+
+
+_RUNNER = 'tools/verify_harness.py'
+
+
+def _is_harness_file(rel):
+    """True for tools/verify_harness.py and its area files (harness_parts)."""
+    hp = _harness_parts()
+    return hp.is_harness(rel) if hp else rel == _RUNNER
+
+
+def _harness_text(root):
+    """-> the source of every harness file under `root`."""
+    hp = _harness_parts()
+    if hp:
+        return hp.read_all(root)
+    runner = Path(root) / _RUNNER
+    return runner.read_text(encoding='utf-8', errors='replace') \
+        if runner.is_file() else ''
 
 
 def unrecorded_harness_checks(src):
@@ -1516,15 +1546,20 @@ def _new_tests_have_times(root, since, files, problems):
     2026-10-16: "The new heavy tests should be in the batch of tests as they
     land on the branch"). A text read of the diff and the timing list --
     no test runs here; the command it names times only the new ones."""
-    if 'tools/verify_harness.py' not in files:
+    if not any(_is_harness_file(f) for f in files):
         return
+    # Every harness file, not only the ones this change touched: a test moved
+    # from one area file to another is deleted in one and added in the other.
+    hp = _harness_parts()
     diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--',
-               'tools/verify_harness.py') or ''
+               *((hp.HARNESS, hp.PARTS_DIR) if hp else (_RUNNER,))) or ''
     added = re.findall(r'^\+def (check_\w+)\(', diff, re.M)
     # 2026-10-30: 7e5d9d26 deleted two tests and left their times, and the
     # full suite's partition case failed on main until a very deep check
     # found it -- a deletion is the other half of the same record.
     removed = set(re.findall(r'^-def (check_\w+)\(', diff, re.M)) - set(added)
+    added = [n for n in dict.fromkeys(added)
+             if n not in set(re.findall(r'^-def (check_\w+)\(', diff, re.M))]
     try:
         known = json.loads((root / 'tools' / 'harness_check_times.json')
                            .read_text(encoding='utf-8')).get('seconds') or {}
@@ -1533,14 +1568,14 @@ def _new_tests_have_times(root, since, files, problems):
     missing = [n for n in added if n not in known]
     if missing:
         problems.append(
-            f'tools/verify_harness.py adds {len(missing)} test(s) with no '
+            f'the harness adds {len(missing)} test(s) with no '
             f'recorded time ({", ".join(missing)}) -- run `python3 '
             f'tools/verify_harness.py --record-new-times` and commit '
             f'tools/harness_check_times.json with them')
     stale = sorted(n for n in removed if n in known)
     if stale:
         problems.append(
-            f'tools/verify_harness.py deletes {len(stale)} test(s) whose '
+            f'the harness deletes {len(stale)} test(s) whose '
             f'recorded time is still kept ({", ".join(stale)}) -- run '
             f'`python3 tools/verify_harness.py --record-new-times`, which '
             f'drops them, and commit tools/harness_check_times.json')
@@ -1623,13 +1658,19 @@ def raw_tail_reports(tree):
 
 
 def _added_raw_tail_reports(root, since, files, problems):
-    """A change to tools/verify_harness.py adds no failure report that is
+    """A change to any harness file (tools/verify_harness.py, or an area
+    file under tools/harness/) adds no raw-tail failure report."""
+    for rel in [f for f in files if _is_harness_file(f)]:
+        _added_raw_tail_reports_in(root, since, rel, problems)
+
+
+def _added_raw_tail_reports_in(root, since, rel, problems):
+    """A change to the harness file `rel` adds no failure report that is
     the raw tail of a tool's output. Reads the diff for the added lines,
     and parses only the top-level function around each candidate -- the
     whole file takes seconds to parse, one function a few milliseconds."""
     import ast
-    rel = 'tools/verify_harness.py'
-    if rel not in files:
+    if not (root / rel).is_file():
         return
     diff = git(root, 'diff', '-U0', f'{since}...HEAD', '--', rel) or ''
     added, line = set(), 0
@@ -1883,21 +1924,25 @@ def changed_files_check(root, since):
                 f'PRACTICE_FILE against SOURCE_ROOT, or check_deep_check.py '
                 f'refuses the next full check')
     if repo_kind(HERE) == 'upstream' and any(
-            rel in ('tools/precedent_check.py', 'tools/verify_harness.py')
+            rel == 'tools/precedent_check.py' or _is_harness_file(rel)
             or re.match(r'(?:local/)?tools/checks/check_\w+\.py$', rel)
             for rel in files):
         for slug in _unplanted_checks(root):
             problems.append(
                 f'{slug}: a registered check with no planted case -- add '
                 f"case('{slug}', <plant>) to check_precedent_check_fires in "
-                f'tools/verify_harness.py, planting the violation it exists '
+                f'tools/harness/planted_cases.py, planting the violation it exists '
                 f'to catch; the harness refuses a check without one, and '
                 f'the next full check runs it')
     harness = root / 'tools' / 'verify_harness.py'
-    if 'tools/verify_harness.py' in files and harness.is_file():
-        for fn, why in unrecorded_harness_checks(
-                harness.read_text(encoding='utf-8', errors='replace')):
-            problems.append(f'tools/verify_harness.py: {fn} {why}')
+    if any(_is_harness_file(f) for f in files) and harness.is_file():
+        hp, where = _harness_parts(), {}
+        for path in (hp.paths(root) if hp else [harness]):
+            for fn in _HARNESS_DEF_RE.findall(
+                    path.read_text(encoding='utf-8', errors='replace')):
+                where.setdefault(fn, path.relative_to(root).as_posix())
+        for fn, why in unrecorded_harness_checks(_harness_text(root)):
+            problems.append(f'{where.get(fn, _RUNNER)}: {fn} {why}')
     problems += _retired_engine_files_unanswered(root, since)
     practice = [f for f in files if f.endswith('.md')
                 and (f.startswith('practices/') or '/practices/' in f)]

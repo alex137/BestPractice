@@ -51,6 +51,7 @@ ROOT = None
 PREFIX = None
 OUT = None
 _HARNESS = None                  # verify_harness.py: its top level is the run, not an import
+_HARNESS_PARTS = None            # tools/harness/: its area files, the same
 _ME = set()
 _CHILD_START = None
 _state = {'check': None, 'busy': False, 'mode': None}
@@ -281,6 +282,17 @@ def _load_copies(path):
 CACHED_READERS = {('tools/precedent_check.py', '_engine_fixed_filenames')}
 
 
+def _is_harness_file(fn):
+    """verify_harness.py or one of its area files, tools/harness/vh_*.py:
+    executed into its namespace as it loads, so their top level is the run
+    too. The same rule as tools/harness_parts.py's is_harness, written out
+    here because this hook imports nothing from the repository it watches."""
+    if fn == _HARNESS:
+        return True
+    d, name = os.path.split(fn)
+    return d == _HARNESS_PARTS and name.startswith('vh_') and name.endswith('.py')
+
+
 def _importing_module():
     """-> the repository module whose top level is running, or the cached
     reader running (as 'file::name'), innermost first, or None
@@ -293,9 +305,9 @@ def _importing_module():
             return f'{fn[len(PREFIX):]}::{co.co_name}'
         if co.co_name == '<module>':
             fn = co.co_filename
-            if fn.startswith(PREFIX) and fn != _HARNESS and fn not in _ME:
+            if fn.startswith(PREFIX) and not _is_harness_file(fn) and fn not in _ME:
                 return fn[len(PREFIX):]
-            if fn == _HARNESS:
+            if _is_harness_file(fn):
                 return None
         f = f.f_back
     return None
@@ -588,7 +600,7 @@ def _watch_stat(fn):
 
 
 def _common(root):
-    global ROOT, PREFIX, _HARNESS
+    global ROOT, PREFIX, _HARNESS, _HARNESS_PARTS
     _ALIASES.extend(a for a in os.environ.get('HARNESS_REACH_ALIASES', '').split(os.pathsep) if a)
     _BASES.extend(_ALIASES)
     # Copies are shared by every process of one check: one directory per
@@ -601,6 +613,7 @@ def _common(root):
     _BASES[:] = [ROOT] + ([os.path.normpath(os.path.abspath(root))]
                           if os.path.normpath(os.path.abspath(root)) != ROOT else [])
     _HARNESS = os.path.join(ROOT, 'tools', 'verify_harness.py')
+    _HARNESS_PARTS = os.path.join(ROOT, 'tools', 'harness')
     here = os.path.realpath(__file__)
     _ME.update({here, os.path.join(os.path.dirname(here), 'harness_reach.py')})
     _install_code_watch()

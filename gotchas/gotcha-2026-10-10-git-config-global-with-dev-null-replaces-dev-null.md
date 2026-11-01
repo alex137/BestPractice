@@ -35,3 +35,22 @@ device needs `mknod`, which the session's auto mode refused as destructive.
   lets git read it again until something writes to it, and a new container
   has the real device. Restoring it in place takes
   `rm /dev/null && mknod -m 666 /dev/null c 1 3`, as root.
+
+## Again, 2026-10-31
+
+In the 2026-10-30 very deep check's session, a helper ran
+`check_identity_reaches_a_repo_that_did_not_exist_yet` once with
+`GIT_CONFIG_GLOBAL=/dev/null` set from outside. The test gave git its own
+`HOME` but kept the inherited variable, so its `git config --global` wrote
+to `/dev/null` and replaced it; the session restored the device by hand.
+The Fix above had covered the hook, not a test that inherits the variable,
+and 42 fixture lines still pointed git at `/dev/null`.
+
+**Prevention, mechanical since:** the identity test drops an inherited
+`GIT_CONFIG_GLOBAL`; the harness swaps an inherited one that is not a
+regular file for an empty file when it starts; every fixture asks
+`empty_gitconfig()` in
+[tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)
+for a fresh empty file; and `check_no_fixture_points_git_config_at_dev_null`
+refuses `os.devnull` or `/dev/null` as git's global or system config in any
+tool or test under `tools/`.

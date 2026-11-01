@@ -222,6 +222,10 @@
       "go_to": "[tools/warning_exclusions.json](tools/warning_exclusions.json) — the very deep check's `WARNINGS` section reads it; [tools/warning_review.py](tools/warning_review.py) lists every open group"
     },
     {
+      "looking_for": "Where a harness test lives, and where a new one goes",
+      "go_to": "[tools/harness/](tools/harness/), one file per area, `vh_<area>.py`; the runner and shared fixtures stay in [tools/verify_harness.py](tools/verify_harness.py) (split 2026-10-31 by [tools/split_verify_harness.py](tools/split_verify_harness.py)); planted cases in [tools/harness/vh_planted_cases.py](tools/harness/vh_planted_cases.py)"
+    },
+    {
       "looking_for": "Why [`verify_harness.py`](tools/verify_harness.py) (the deep check) takes as long as it does, which checks actually cost the time, a parallelization that was tried and reverted for measuring no real gain, and the change-scoping fix that did measurably help",
       "go_to": "[spec/VERIFY_HARNESS_PERFORMANCE.md](spec/VERIFY_HARNESS_PERFORMANCE.md)"
     },
