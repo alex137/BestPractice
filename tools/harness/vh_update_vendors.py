@@ -7729,7 +7729,18 @@ def check_installed_templates_follow_their_source():
             return rep
 
         r = consumer(v1, approval_sha=sha(v1))
+        (r / 'process' / 'manifest_other.json').write_text(json.dumps({'entries': [
+            {'practice': 'prompt-check', 'local_path': wf, 'status': 'synced',
+             'local_sha256': sha(v1)},
+            {'practice': 'edited-elsewhere', 'local_path': wf, 'status': 'synced',
+             'local_sha256': sha(b'not the old text')}]}))
         rep = run(r)
+        base = json.loads((r / 'process' / 'manifest_other.json').read_text())['entries']
+        cases.append(('7. the drift baseline that recorded the old text moves to '
+                      'the new (2026-11-01); one recording other text is left',
+                      base[0]['local_sha256'] == sha(v2)
+                      and base[1]['local_sha256'] == sha(b'not the old text')
+                      and any('drift baseline' in s for s in rep.steps)))
         cfg = json.loads((r / 'precedent.json').read_text())
         appr = cfg['github_ci_approved'][wf]
         rec = json.loads((r / 'process' / 'manifest_voice-x.json').read_text())

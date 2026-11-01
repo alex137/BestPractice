@@ -1592,9 +1592,12 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
             dest.write_bytes(new)
             installed[to] = sha(new)
             repinned = _repin_installed_workflow(repo, to, sha(cur), sha(new), name)
+            rebased = _rebaseline_installed_entries(repo, to, sha(cur), sha(new))
             rep.step(f'copy of {name}', f'{what}: refreshed to the template\'s '
                      f'new text' + ('; its workflow approval moved to the new '
-                                    'text with it' if repinned else ''))
+                                    'text with it' if repinned else '')
+                     + (f'; its drift baseline in {", ".join(rebased)} moved too'
+                        if rebased else ''))
             continue
         reason = (kept.get(to) or {}).get('reason')
         if reason:
@@ -1610,6 +1613,36 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
         record[INSTALLED_KEY] = installed
         mpath.parent.mkdir(parents=True, exist_ok=True)
         mpath.write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+
+
+def _rebaseline_installed_entries(repo, rel, old_sha, new_sha):
+    """Move the local_sha256 baseline of every process/manifest*.json entry
+    for `rel` from `old_sha` to `new_sha`. -> the manifests changed.
+
+    WHY (2026-11-01, a voice repository's Update Vendors). The refresh above
+    rewrote an installed workflow to its template's new text and moved its
+    approval pin, but the copied-in source's manifest still recorded the old text's
+    hash for the same file as 'synced', so practice-export-loop failed the
+    update's own check with a DRIFT nobody made. An entry whose baseline is
+    anything but the old text is left alone: that difference is real, and
+    the drift check is right to judge it."""
+    changed = []
+    for mpath in sorted((repo / 'process').glob('manifest*.json')):
+        try:
+            data = json.loads(mpath.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        moved = False
+        for e in (data.get('entries') or []) if isinstance(data, dict) else []:
+            if isinstance(e, dict) and e.get('local_path') == rel \
+                    and e.get('local_sha256') == old_sha:
+                e['local_sha256'] = new_sha
+                moved = True
+        if moved:
+            mpath.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+            changed.append(mpath.relative_to(repo).as_posix())
+    return changed
 
 
 def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
@@ -4203,6 +4236,38 @@ def diverged_details(out):
     return {k: v for k, v in details.items() if v}
 
 
+_RETIRED_OWN_RE = re.compile(
+    r'RETIRED: (\S+) "(.+?)" moved upstream into practice \S+?'
+    r'(?:, and this repository carries a copy in (\S+), which|, and \d+ line)')
+
+
+def retired_details(out):
+    """-> {what: [own line, ...]} for each retired AGENTS.md section the
+    engine left for the person: the lines of it that are this repository's
+    own, which the engine prints as `    own: "..."` under its RETIRED line
+    and names in Left-for-you as "(listed above)". `what` is the item's
+    own name there: `AGENTS.md "<section>"`, or `<file> "<section>"` for a
+    copy a reduction pass moved into another file.
+
+    2026-11-01, a voice repository's Update Vendors: this command kept the
+    RETIRED line and the Left-for-you item but dropped the own lines, so
+    "move its own lines (listed above)" listed nothing, and the session had
+    to call the engine's plan by hand to see them -- the same gap
+    diverged_details closed for DIVERGED blocks on 2026-09-28."""
+    details, key = {}, None
+    for line in out.splitlines():
+        m = _RETIRED_OWN_RE.match(line.strip()) if line.startswith('RETIRED: ') else None
+        if m:
+            key = f'{m.group(3) or m.group(1)} "{m.group(2)}"'
+            details[key] = []           # a second pass's list is the one that stands
+            continue
+        if key is not None and line.startswith('    own: '):
+            details[key].append(line.rstrip())
+        elif line.strip():
+            key = None
+    return {k: v for k, v in details.items() if v}
+
+
 def in_force_nowhere(out):
     """-> the view sync's IN FORCE NOWHERE warnings, each 'slug (source):
     why'. The sync prints them and still passes, and until 2026-09-28 this
@@ -6251,6 +6316,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
         return rep.close(f"the engine refresh failed:\n{tail(out, repo=repo)}")
     engine_out = out
     details = diverged_details(out)
+    details.update(retired_details(out))
     for item in left_block(out):
         what, _, why = item.partition(': ')
         why = why or item

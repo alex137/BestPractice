@@ -134,6 +134,11 @@ MANIFEST = ROOT / 'process' / 'manifest.json'
 # is mirrored whole, exactly as before.
 SOURCE = None
 SOURCE_MANIFEST = 'precedent-source.json'
+# Configs a tool reads from each source's own folder, by that source's path:
+# precedent_reply_check.CONFIG_NAME and precedent_close_detect.CONFIG_NAME.
+# A whole copy of a set carries each one the set has, or its requirements
+# never bind where the copy is the source (practice: vendor-update-runbook).
+SOURCE_CONFIGS = ('reply_check.json', 'close_detect.json')
 CODE_DIRS = None
 # The folder inside the set's repository that IS the set, for a set that
 # shares its repository with other things -- a voice pack beside the
@@ -259,6 +264,15 @@ def _bind_source(clone):
     # code at all -- its practices are the point.
     if (own.get('upstream') or {}).get('vendor_practices') or copied_in:
         dirs += ['practices', SOURCE_MANIFEST]
+        # And the per-source configs the engine reads from a source's own
+        # folder (SOURCE_CONFIGS): with the copy as the source's path, a
+        # config left behind is a requirement that silently never binds.
+        # Found 2026-11-01: a voice repository copying the ladder set in got
+        # none of its six reply-gate requirements, and no note said so.
+        root = clone / SET_ROOT if SET_ROOT else clone
+        for rel in SOURCE_CONFIGS:
+            if (root / rel).is_file() and rel not in dirs:
+                dirs.append(rel)
     # And every file its own rules point at: the check scripts in its
     # tools/checks/ (with their tests), and each file a practice ships, runs
     # from a hook, or is checked by. Without them the copy's rules are in

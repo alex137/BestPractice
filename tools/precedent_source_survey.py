@@ -109,6 +109,36 @@ def _children(d, name):
         return []
 
 
+def source_origin(root, src):
+    """-> the repository a source in force came from: its clone's origin,
+    or, for a copy vendored inside `root`, its `repo` key or the upstream
+    repo its manifest records. A vendored copy's folder is part of the
+    repository being surveyed, so asking git there answers with THIS
+    repository's origin (2026-11-01: a voice repository's four vendored
+    sets each came back SHOULD ADD?, though precedent.json declares all
+    four)."""
+    p = pathlib.Path(src['path'])
+    root = pathlib.Path(root).resolve()
+    try:
+        inside = p.resolve() != root and root in p.resolve().parents
+    except OSError:
+        inside = False
+    if not inside:
+        return origin_of(p) if p.is_dir() else ''
+    if src.get('repo'):
+        return str(src['repo'])
+    rel = p.resolve().relative_to(root).as_posix()
+    for m in sorted((p.resolve().parent).glob('manifest*.json')):
+        try:
+            up = json.loads(m.read_text(encoding='utf-8')).get('upstream') or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(up, dict) and up.get('repo') and \
+                str(up.get('vendored_at') or '').strip('/') in (rel, ''):
+            return str(up['repo'])
+    return ''
+
+
 def find_clone(spec, root, in_force=()):
     """-> a directory on disk that is a clone of `spec`, or None.
 
@@ -118,8 +148,9 @@ def find_clone(spec, root, in_force=()):
     this one, whatever it is called."""
     for src in in_force:
         p = pathlib.Path(src['path'])
-        if p.is_dir() and rid.same_repo(spec, origin_of(p) or src.get('repo')
-                                        or '', local_paths=True):
+        if p.is_dir() and rid.same_repo(spec, source_origin(root, src)
+                                        or src.get('repo') or '',
+                                        local_paths=True):
             return p
     parsed = rid.parse(spec)
     if not parsed:
@@ -162,6 +193,25 @@ def in_force_sources(repo, user_config=None):
     return out
 
 
+def _declared_files_only(root, spec):
+    """-> the name of a source precedent.json declares with exports_only
+    that is `spec`, or None. Such a source is copied for its exported files
+    and is not in force, so the resolver's list never carries it."""
+    try:
+        cfg = json.loads((pathlib.Path(root) / 'precedent.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    for s in cfg.get('sources') or []:
+        if not isinstance(s, dict) or not s.get('exports_only'):
+            continue
+        ident = s.get('repo') or source_origin(root, {
+            'path': str(pathlib.Path(root) / str(s.get('path') or '')), **s})
+        if ident and rid.same_repo(spec, ident, local_paths=True):
+            return str(s.get('name') or ident)
+    return None
+
+
 def survey(repo, candidates=(), user_config=None):
     """-> [row]: one per candidate and per source in force, each
     {repo, verdict, detail}. Never raises on one repository's trouble: a
@@ -173,8 +223,7 @@ def survey(repo, candidates=(), user_config=None):
 
     def matches_source(spec):
         for s in sources:
-            p = pathlib.Path(s['path'])
-            o = origin_of(p) if p.is_dir() else ''
+            o = source_origin(root, s)
             if rid.same_repo(spec, o or s.get('repo') or '', local_paths=True):
                 return s
             if not o and not s.get('repo') and rid.parse(spec) and \
@@ -195,6 +244,18 @@ def survey(repo, candidates=(), user_config=None):
         if src is not None:
             rows.append(_row_for_source(spec, src))
             src['_surveyed'] = True
+            continue
+        files_only = _declared_files_only(root, spec)
+        if files_only is not None:
+            # Declared, but copied for its exported files alone: its rules
+            # are not in force here, which is the declaration's point, so
+            # it is never a set to add (2026-11-01: a voice repository's
+            # files-only copy of a shared set came back SHOULD ADD?).
+            rows.append({'repo': spec, 'verdict': 'DECLARED',
+                         'detail': f'declared in precedent.json as '
+                                   f'"{files_only}", files only '
+                                   f'(exports_only): its exported files are '
+                                   f'copied in, its rules are not in force here'})
             continue
         clone = find_clone(spec, root)
         name = rid.parse(spec).name if rid.parse(spec) else spec
@@ -239,7 +300,7 @@ def survey(repo, candidates=(), user_config=None):
         p = pathlib.Path(s['path'])
         if p.resolve() == root:
             continue
-        label = rid.owner_repo(origin_of(p)) if p.is_dir() else ''
+        label = rid.owner_repo(source_origin(root, s)) if p.is_dir() else ''
         row = _row_for_source(label or s.get('repo') or s['name'], s)
         if candidates and s.get('declared') and not p.is_dir():
             # Declared, no clone, and not among the repositories the account

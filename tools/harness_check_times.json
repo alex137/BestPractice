@@ -162,6 +162,7 @@
   "check_content_preserved_by_sentence": 0.0,
   "check_content_record_self_check": 0.1,
   "check_contradiction_requirement_blocks": 0.8,
+  "check_copied_in_set_carries_its_reply_rules": 1.2,
   "check_copied_in_shared_sets": 5.2,
   "check_copied_set_carries_another": 1.6,
   "check_copy_fingerprint_is_checked_without_a_clone": 0.2,
