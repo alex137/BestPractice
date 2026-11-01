@@ -62,6 +62,7 @@ LOCAL_LEDGER = ROOT / '.precedent' / LEDGER_NAME
 # What a change to forces the whole suite: the recording and selection
 # machinery, and the workflow that runs it.
 MACHINERY = ('tools/harness_reach.py', 'tools/harness_reach_hook.py',
+             'tools/harness_parts.py',
              '.github/workflows/deep-check.yml')
 HARNESS = 'tools/verify_harness.py'
 # Above this share of the suite, a scoped run saves too little to be worth
@@ -325,8 +326,10 @@ def select(ledger, base, head=None, names=None, root=ROOT):
                                               (root / p).read_text(encoding='utf-8', errors='replace')
                                               if (root / p).is_file() else None)
             cu = changed_units(old or '', new or '')
-            if p == HARNESS and (cu is None or '<module>' in cu):
-                return set(), {}, f'{HARNESS}\'s own top level changed'
+            # The area files' top level is the harness's too: they are
+            # executed into its namespace while it loads (harness_parts).
+            if _is_harness(p) and (cu is None or '<module>' in cu):
+                return set(), {}, f'{p}\'s own top level changed'
             for n, r in rec.items():
                 ran = set(r.get('c', {}).get(p, ()))
                 if not ran:
@@ -422,9 +425,14 @@ def plan(names, head=None, fetch=True):
 
 def _names():
     sys.path.insert(0, str(ROOT / 'tools'))
-    src = (ROOT / HARNESS).read_text(encoding='utf-8')
-    return sorted({ln[4:].split('(', 1)[0] for ln in src.splitlines()
-                   if ln.startswith('def check_')})
+    import harness_parts
+    return sorted(harness_parts.check_names(harness_parts.read_all(ROOT)))
+
+
+def _is_harness(rel):
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import harness_parts
+    return harness_parts.is_harness(rel)
 
 
 def main(argv):

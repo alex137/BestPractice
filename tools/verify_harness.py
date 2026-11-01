@@ -1478,13 +1478,15 @@ HARNESS_ROTATION_BUCKETS = 10
 def _deep_assertion_slugs():
     """-> slugs whose planted output a later assertion reads back.
 
-    Read out of this file's own text. A case that is skipped must
+    Read out of the harness's own text, every file of it (the planted
+    cases live in tools/harness/vh_planted_cases.py since the 2026-10-31
+    split; this file alone would answer "none"). A case that is skipped must
     not leave `planted['<slug>']` missing for code that indexes it
     directly, and the set of such slugs is exactly what a regex
     over the source can answer without anyone maintaining a list.
     """
     try:
-        src = pathlib.Path(__file__).read_text(encoding='utf-8')
+        src = harness_parts.read_all(ROOT)
     except OSError:               # practice: fail-gracefully
         return None               # unknown -> caller runs everything
     found = set()

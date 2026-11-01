@@ -153,10 +153,10 @@ def _proven_checked_slugs():
     if the function cannot be found (a vendored/older tree, say), so a
     caller failing to find any proven slugs reads as "nothing to check",
     never as a crash."""
-    vh_path = ROOT / 'tools' / 'verify_harness.py'
-    if not vh_path.exists():
+    import harness_parts
+    text = harness_parts.read_all(ROOT)
+    if not text:
         return []
-    text = vh_path.read_text(encoding='utf-8', errors='ignore')
     m = re.search(r'\ndef check_precedent_check_fires\(.*?(?=\ndef [a-zA-Z_]+\()',
                   text, re.S)
     if not m:

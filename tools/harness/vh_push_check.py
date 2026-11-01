@@ -1001,7 +1001,7 @@ def check_every_verdict_returning_check_is_recorded():
     (the test after this one proves it); this full-run copy is the
     backstop."""
     import precedent_push_check as ppc
-    src = (ROOT / 'tools' / 'verify_harness.py').read_text(encoding='utf-8')
+    src = harness_parts.read_all(ROOT)
     bad = ppc.unrecorded_harness_checks(src)
     defined = len(re.findall(r'^def check_[a-z_0-9]+\(', src, re.M))
     return (not bad, f'{defined} check(s), all recorded',

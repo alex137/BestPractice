@@ -163,23 +163,39 @@ def inventory(root):
     harness = root / HARNESS_RELPATH
     if harness.is_file() and HARNESS_RELPATH not in vendored:
         times, measured = _read_times(root / TIMES_RELPATH)
-        text = harness.read_text(encoding='utf-8')
-        lines = text.splitlines()
-        try:
-            tree = ast.parse(text)
-        except SyntaxError:
-            tree = None
-        for node in (tree.body if tree else []):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith('check_'):
-                t = times.get(node.name)
-                # By line range: ast.get_source_segment rescans the whole
-                # file per call, minutes over the harness's 700-odd tests.
-                tests.append({
-                    'name': node.name, 'kind': 'harness', 'measured': measured,
-                    'file': HARNESS_RELPATH, 'line': node.lineno,
-                    'seconds': t,
-                    'about': _first_line(ast.get_docstring(node) or ''),
-                    'source': '\n'.join(lines[node.lineno - 1:node.end_lineno])})
+        import harness_parts
+        for path in harness_parts.paths(root):
+            tests += _harness_tests(path, path.relative_to(root).as_posix(),
+                                    times, measured)
+    return tests + _script_tests(root, vendored)
+
+
+def _harness_tests(path, rel, times, measured):
+    """-> the harness tests defined in one harness file: the runner or an
+    area file under tools/harness/."""
+    tests = []
+    text = path.read_text(encoding='utf-8')
+    lines = text.splitlines()
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        tree = None
+    for node in (tree.body if tree else []):
+        if isinstance(node, ast.FunctionDef) and node.name.startswith('check_'):
+            t = times.get(node.name)
+            # By line range: ast.get_source_segment rescans the whole
+            # file per call, minutes over the harness's 700-odd tests.
+            tests.append({
+                'name': node.name, 'kind': 'harness', 'measured': measured,
+                'file': rel, 'line': node.lineno,
+                'seconds': t,
+                'about': _first_line(ast.get_docstring(node) or ''),
+                'source': '\n'.join(lines[node.lineno - 1:node.end_lineno])})
+    return tests
+
+
+def _script_tests(root, vendored):
+    tests = []
     script_times, script_measured = _read_times(root / SCRIPT_TIMES_RELPATH)
     for rel in _git_files(root):
         p = pathlib.PurePosixPath(rel)

@@ -167,6 +167,7 @@ import split_practices as sp
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 import generated_blocks  # noqa: E402
+import harness_parts  # noqa: E402
 try:                                     # practice: upstream-fix
     from precedent_repo_id import same_repo  # noqa: E402
 except ImportError:
@@ -9111,7 +9112,7 @@ def _enforcement_lives_with_its_practice(ctx):
         if rel in shipped_here:
             continue
         hits = _set_names_in_strings(path, wanted, set_only, names)
-        test = rel == 'tools/verify_harness.py' or '/tests/' in rel \
+        test = harness_parts.is_harness(rel) or '/tests/' in rel \
             or pathlib.PurePosixPath(rel).name.startswith('test_')
         for h in sorted(hits):
             what = (f'the set {h}' if h in names else
