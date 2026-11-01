@@ -3767,6 +3767,52 @@ def update_vendors_note(root, before, after):
             'pushes nothing.')
 
 
+# A LANDED BRANCH SAYS IT IS DONE (2026-11-01). --land pushes staging
+# itself, so no pull request ever merges the work branch and GitHub's
+# auto-delete never sees it: every branch landed this way stayed on origin.
+# One practice set's origin held seventeen merged branches, beside older
+# update branches that still carried CI workflows main had deleted. Morgan, 2026-11-01: "All the
+# issues above - act, do the root fixes". So a landing ends by handing over
+# the landed branch's delete link, the one-click way a person deletes it
+# (practices: branch-delete-links, never-delete-a-remote-branch); the link
+# is precedent_stale_branches.link, the one builder every lister uses.
+def landed_branch_line(root, label, staging, landed):
+    """-> the line naming `label` (the branch just landed on `staging`, at
+    `landed`) as done, with its delete link; '' when it is not a branch on
+    origin, is a long-lived branch, or carries commits the landing did not
+    take (it moved after it was landed)."""
+    branch = label[len('origin/'):] if label.startswith('origin/') else label
+    if not branch or branch == 'HEAD' or re.fullmatch(r'[0-9a-f]{7,40}', branch):
+        return ''
+    keep = set(tier_branches(root)) | {LOCK_BRANCH, staging}
+    try:
+        keep.add(base_branch(root))
+    except Exception:                                            # noqa: BLE001
+        pass
+    if branch in keep:
+        return ''
+    tip = _remote_tip(root, branch)
+    if not tip or _run(root, 'merge-base', '--is-ancestor', tip,
+                       landed).returncode != 0:
+        return ''
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_stale_branches as psb
+        slug = psb._slug(root)
+        url = psb.link(*slug, branch) if slug else ''
+    except Exception:                                            # noqa: BLE001
+        url = ''
+    finally:
+        sys.path.pop(0)
+    if not url:
+        return ''
+    return (f'DONE WITH {branch}: everything on it is on {staging} now, and no '
+            f'pull request merged it, so GitHub will not delete it. It is safe '
+            f'to delete: {url} (the filtered page then reads "no branches '
+            f'matched"). Hand the link over; never delete it yourself '
+            f'(never-delete-a-remote-branch).')
+
+
 def land(root, work=None, say=print, fixing=None):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
@@ -3985,6 +4031,9 @@ def _land_composed(root, sha, label, staging, why, say, fixing=None,
     note = update_vendors_note(root, stip, new)
     if note:
         say(note)
+    done = landed_branch_line(root, label, staging, new)
+    if done:
+        say(done)
     return 0, f'LANDED at {new}'
 
 
