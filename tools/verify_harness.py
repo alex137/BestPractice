@@ -5006,6 +5006,7 @@ def main():
     check_changed_files_asks_a_new_check_for_its_test()
     check_changed_files_asks_a_new_check_for_its_planted_case()
     check_changed_files_fetches_a_base_a_single_branch_clone_lacks()
+    check_changed_files_asks_a_changed_glob_for_its_reason()
     check_very_deep_check_record_trips_no_check_in_a_consumer()
     check_changed_files_compares_quoted_counts_when_a_practice_changes()
     check_changed_files_runs_one_copy_of_a_repo_local_test()

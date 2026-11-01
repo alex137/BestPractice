@@ -11563,27 +11563,44 @@ def _glob_changed_reason_did_not(ctx, practices_dir):
             else _published_default_branch())
     if not base:
         return []
+    rels = [str(f.relative_to(ctx.root)) for f in sorted(practices_dir.glob('*.md'))]
+    return [Finding(rel, msg)
+            for rel, msg in glob_changed_reason_did_not(ctx.root, base, rels)]
+
+
+def glob_changed_reason_did_not(root, base, rels):
+    """-> [(rel, message)]: each practice file in `rels` (paths relative to
+    `root`) whose applies_to differs from `base`'s copy while its
+    applies_to_why is word for word the same. The one comparison, shared by
+    routing-reason here and the push check's per-file pass, which calls it
+    with only the practice files a change touched (2026-11-01: a landing on
+    staging changed two practices' globs, nothing compared them until the
+    move into main, and the Produce was refused; Morgan, "Fix at the
+    root"; practice: judgment-check-or-tool)."""
     out = []
-    for f in sorted(practices_dir.glob('*.md')):
-        rel = str(f.relative_to(ctx.root))
-        before = _git('show', f'{base}:{rel}')
+    for rel in rels:
+        path = pathlib.Path(root) / rel
+        if not path.is_file():
+            continue
+        before = subprocess.run(['git', '-C', str(root), 'show', f'{base}:{rel}'],
+                                capture_output=True, text=True)
         if before.returncode != 0:
             continue
         try:
             old_fm, _ = sp._parse_practice_text(before.stdout, rel)
-            new_fm, _ = sp._read_practice_file(f)
+            new_fm, _ = sp._read_practice_file(path)
         except sp.PracticeFileError:
             continue
         if (old_fm.get('applies_to') or '').strip() == (new_fm.get('applies_to') or '').strip():
             continue
         if (old_fm.get('applies_to_why') or '').strip() != (new_fm.get('applies_to_why') or '').strip():
             continue
-        out.append(Finding(rel, f'applies_to changed since {base} '
-                                f'({old_fm.get("applies_to", "").strip()} -> '
-                                f'{new_fm.get("applies_to", "").strip()}) but '
-                                f'applies_to_why did not -- update the reason '
-                                f'for the new pattern, or, if it still holds, '
-                                f'add a few words saying you checked it'))
+        out.append((rel, f'applies_to changed since {base} '
+                         f'({old_fm.get("applies_to", "").strip()} -> '
+                         f'{new_fm.get("applies_to", "").strip()}) but '
+                         f'applies_to_why did not -- update the reason '
+                         f'for the new pattern, or, if it still holds, '
+                         f'add a few words saying you checked it'))
     return out
 
 

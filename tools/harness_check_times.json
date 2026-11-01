@@ -105,6 +105,7 @@
   "check_catalogue_copy_is_an_allowlist": 0.0,
   "check_catalogue_hook_runs_the_freshness_notice": 0.1,
   "check_caused_by_this_push_reads_advisory_findings": 0.0,
+  "check_changed_files_asks_a_changed_glob_for_its_reason": 0.2,
   "check_changed_files_asks_a_new_check_for_its_planted_case": 0.2,
   "check_changed_files_asks_a_new_check_for_its_test": 0.1,
   "check_changed_files_compares_quoted_counts_when_a_practice_changes": 0.2,
