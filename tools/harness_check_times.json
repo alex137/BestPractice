@@ -441,6 +441,7 @@
   "check_not_binding_cannot_be_abused": 0.2,
   "check_null_frontmatter_is_absent": 0.1,
   "check_off_base_sources_are_named": 0.2,
+  "check_one_fix_mends_two_red_landings_in_a_row": 1.1,
   "check_one_list_declares_a_record": 0.0,
   "check_one_python": 0.3,
   "check_one_tree_per_source_whichever_way_links_run": 2.4,
