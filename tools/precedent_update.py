@@ -3537,6 +3537,157 @@ def source_steps_lines(repo):
     return out
 
 
+# EARLIER UPDATE BRANCHES THIS ONE REPLACES (2026-11-01). An update that
+# was replaced before it landed stays on origin for good: nothing marks it
+# done, and the stale-branch lists offer only merged branches. One practice
+# set kept three, from August, September and October; two still carried CI
+# workflows its main had deleted, so a push to either would have run them
+# again. Morgan, 2026-11-01: "All the issues above - act, do the root
+# fixes". So DONE names every earlier update branch whose engine is already
+# in the one just taken, with its delete link (practices: branch-delete-links,
+# never-delete-a-remote-branch -- the person deletes, never the session).
+UPDATE_BRANCH_WORDS = ('update-vendors', 'vendor-update', 'vendor-updates',
+                       'engine-refresh')
+
+
+def _engine_record_at(repo, ref):
+    """-> the source commit `ref` records for its vendored engine
+    (tools/ENGINE_MANIFEST.json's source_commit), or for a classic install
+    its catalogue (process/manifest.json's upstream.commit); None."""
+    for path, read in (('tools/ENGINE_MANIFEST.json',
+                        lambda d: d.get('source_commit')),
+                       ('process/manifest.json',
+                        lambda d: (d.get('upstream') or {}).get('commit')
+                        if isinstance(d.get('upstream'), dict) else None)):
+        r = subprocess.run(['git', '-C', str(repo), 'show', f'{ref}:{path}'],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            continue
+        try:
+            commit = read(json.loads(r.stdout))
+        except (ValueError, AttributeError):
+            commit = None
+        if isinstance(commit, str) and commit:
+            return commit
+    return None
+
+
+def replaced_update_branches(repo, clone=None):
+    """-> (replaced, unplaced) for `repo`'s origin: `replaced` is a list of
+    (branch, engine_commit, workflows_main_lacks) for each update branch
+    whose engine is an ancestor of, or the same as, the one now in the
+    working tree; `unplaced` the update branches whose engine `clone` (the
+    BestPractice clone this run is) cannot place. An update branch is one
+    whose name carries UPDATE_BRANCH_WORDS. Long-lived branches and the
+    checkout's own are never listed. One ls-remote and one fetch."""
+    if repo is None:
+        return [], []
+    clone = pathlib.Path(clone or HERE.parent.parent)
+    new = None
+    try:
+        new = json.loads((pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json')
+                         .read_text(encoding='utf-8')).get('source_commit')
+    except (OSError, ValueError, AttributeError):
+        pass
+    if not new:
+        return [], []
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True)
+
+    r = git('ls-remote', '--heads', 'origin')
+    if r.returncode != 0:
+        return [], []
+    names = [ln.partition('\t')[2][len('refs/heads/'):]
+             for ln in r.stdout.splitlines() if '\trefs/heads/' in ln]
+    keep = set(pb.tier_branches(repo)) | {pb.LOCK_BRANCH}
+    for read in (lambda: pb.landing_branch(repo)[0], lambda: pb.base_branch(repo)):
+        try:
+            keep.add(read())
+        except Exception:                                    # noqa: BLE001
+            pass
+    cur = git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+    keep.add(cur)
+    cands = [n for n in names if n not in keep
+             and any(w in n.lower() for w in UPDATE_BRANCH_WORDS)]
+    if not cands:
+        return [], []
+    git('fetch', '-q', 'origin', *[f'+refs/heads/{n}:refs/remotes/origin/{n}'
+                                    for n in cands])
+    main_wf = set(git('ls-tree', '--name-only', f'origin/{pb.MAIN}',
+                      '.github/workflows/').stdout.split())
+    replaced, unplaced = [], []
+    for name in sorted(cands):
+        ref = f'refs/remotes/origin/{name}'
+        if git('rev-parse', '--verify', '-q', ref).returncode != 0:
+            continue
+        old = _engine_record_at(repo, ref)
+        known = old and subprocess.run(
+            ['git', '-C', str(clone), 'merge-base', '--is-ancestor', old, new],
+            capture_output=True).returncode
+        if not old or known not in (0, 1):
+            unplaced.append(name)
+            continue
+        if known != 0:
+            continue      # newer than what was taken, or off to the side
+        wf = sorted(set(git('ls-tree', '--name-only', ref,
+                            '.github/workflows/').stdout.split()) - main_wf)
+        replaced.append((name, old, wf))
+    return replaced, unplaced
+
+
+def replaced_update_lines(repo, clone=None):
+    """-> the lines DONE prints for replaced_update_branches, [] when there
+    is nothing to say. Each listed branch carries its delete link from
+    precedent_stale_branches.link, the one builder every lister uses; a name
+    that is a substring of another branch's is flagged, not linked, since
+    the filtered page would show both (branch-delete-links)."""
+    try:
+        replaced, unplaced = replaced_update_branches(repo, clone)
+    except Exception:                                        # noqa: BLE001
+        return []
+    if not (replaced or unplaced):
+        return []
+    try:
+        import precedent_stale_branches as psb
+        slug = psb._slug(repo)
+    except Exception:                                        # noqa: BLE001
+        psb, slug = None, None
+    r = subprocess.run(['git', '-C', str(repo), 'ls-remote', '--heads', 'origin'],
+                       capture_output=True, text=True)
+    every = [ln.partition('\trefs/heads/')[2] for ln in r.stdout.splitlines()]
+    out = []
+    if replaced:
+        out.append(f"\nREPLACED UPDATE BRANCHES -- earlier update branches "
+                   f"this one replaces: the engine each carries is already in "
+                   f"the one this update took, so none of them needs to reach "
+                   f"{pb.MAIN}. Each has done its job. Hand over each link; "
+                   f"never delete one yourself (never-delete-a-remote-branch):")
+        for name, old, wf in replaced:
+            clash = [o for o in every if o != name and name in o]
+            if clash:
+                where = (f"not linked: its filter would also show "
+                         f"{', '.join(clash[:3])}; delete it from GitHub's "
+                         f"branches page by name")
+            elif psb and slug:
+                where = psb.link(*slug, name)
+            else:
+                where = "delete it from GitHub's branches page"
+            out.append(f"  - {name} (engine {old[:12]}): {where}")
+            if wf:
+                out.append(f"    still carries {', '.join(wf)}, which "
+                           f"{pb.MAIN} no longer has: a push to this branch "
+                           f"would run it again")
+    if unplaced:
+        out.append(f"\nUPDATE BRANCHES NOT PLACED -- this clone cannot tell "
+                   f"whether the engine on these is older than the one just "
+                   f"taken (no engine record, or a commit the clone lacks); "
+                   f"look at each before calling it replaced: "
+                   + ', '.join(unplaced))
+    return out
+
+
 def _person_is_code_owner(repo):
     """True when the person running the update is one of `repo`'s code
     owners; False in doubt (precedent_audience)."""
@@ -3807,6 +3958,8 @@ class Report:
         if live:
             print(live)
         for line in source_steps_lines(self.pin_repo):
+            print(line)
+        for line in replaced_update_lines(self.repo or self.pin_repo):
             print(line)
         self._commit_note()
         print(MERGE_HEAD_NOTE)
