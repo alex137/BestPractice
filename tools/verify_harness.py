@@ -4718,6 +4718,7 @@ def main():
     check_update_rerun_after_left_for_you_still_drops_a_deleted_set()
     check_update_takes_a_removal_its_source_decommissioned()
     check_update_decommission_fits_the_vendored_sync()
+    check_built_from_record_is_compared_and_orders_the_updates()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
     check_update_all_moves_a_reused_clone_off_its_pin()

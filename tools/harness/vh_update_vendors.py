@@ -3986,6 +3986,103 @@ def check_update_decommission_fits_the_vendored_sync():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_built_from_record_is_compared_and_orders_the_updates():
+    """A copied-in source exports BUILT_FROM.json -- what its compiled files
+    were built from, by git blob hash, naming the source a file came from.
+    Update Vendors compares each named file with this repository's own copy
+    of that source and refuses DONE on a difference (held copies are only
+    reported); a copied-in source's folder counts as another repository's
+    files for the generated-files list; Update All Vendors runs a repository
+    after the ones it copies from (2026-11-01: a consumer got a writing-rules
+    set by two routes, and the copy inside compiled prompts lagged the
+    direct one with nothing saying so)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+        import precedent_regenerate as preg
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        subprocess.run(['git', 'init', '-q'], cwd=repo, check=True)
+        (repo / 'process' / 'rules').mkdir(parents=True)
+        (repo / 'process' / 'voice').mkdir(parents=True)
+        rules = repo / 'process' / 'rules' / 'RULES.md'
+        rules.write_text('Write plainly.\n')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'rules', 'path': 'process/rules',
+             'vendored': True, 'repo': 'https://github.com/o/Rules'},
+            {'level': 'shared', 'name': 'voice', 'path': 'process/voice',
+             'vendored': True, 'exports_only': True,
+             'repo': 'https://github.com/o/Voice'}]}))
+        want = subprocess.run(['git', 'hash-object', str(rules)],
+                              capture_output=True, text=True).stdout.strip()
+        cases.append(('the blob hash is what git hash-object prints',
+                      pu.git_blob_hash(rules.read_bytes()) == want))
+
+        def record(blob):
+            (repo / 'process' / 'voice' / 'BUILT_FROM.json').write_text(json.dumps(
+                {'_generated_by': 'x', 'outputs': {'PROMPT.md': [
+                    {'path': 'voicepack.json', 'blob': '0' * 40},
+                    {'path': 'process/rules/RULES.md', 'blob': blob,
+                     'source': 'rules', 'source_path': 'RULES.md'},
+                    {'path': 'process/rules/GONE.md', 'blob': '1' * 40,
+                     'source': 'rules', 'source_path': 'GONE.md'}]}}))
+
+        class Rep:
+            def __init__(self):
+                self.left, self.steps = [], []
+
+            def leave(self, what, why):
+                self.left.append((what, why))
+
+            def step(self, what, why):
+                self.steps.append((what, why))
+
+        record(want)
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('the same content: nothing left, and a file this repo '
+                      'does not hold is not compared', not rep.left))
+        record('2' * 40)
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('different content: LEFT, naming the file and the repo '
+                      'to update first', len(rep.left) == 1
+                      and 'RULES.md' in rep.left[0][1]
+                      and 'o/Voice' in rep.left[0][1]
+                      and 'GONE.md' not in rep.left[0][1]))
+        cfg = json.loads((repo / 'precedent.json').read_text())
+        cfg['sources'][0]['hold'] = 'on purpose'
+        (repo / 'precedent.json').write_text(json.dumps(cfg))
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('a held source is reported, never left',
+                      not rep.left and any('held' in w for _, w in rep.steps)))
+        trees = preg.vendored_trees(repo)
+        cases.append(('every copied-in folder is another repository\'s files',
+                      {'process/upstream/', 'process/rules/', 'process/voice/'}
+                      <= set(trees)))
+    order = pua.dependency_order(
+        ['o/consumer', 'o/voice', 'o/rules', 'o/other'],
+        {'o/consumer': {'o/voice', 'o/rules'}, 'o/voice': {'o/rules'}})
+    cases.append(('a repository runs after the ones it copies from',
+                  order.index('o/rules') < order.index('o/voice')
+                  < order.index('o/consumer') and len(order) == 4))
+    cases.append(('a cycle keeps the order given',
+                  pua.dependency_order(['o/a', 'o/b'],
+                                       {'o/a': {'o/b'}, 'o/b': {'o/a'}})
+                  == ['o/a', 'o/b']))
+    cases.append(('a source URL reads as owner/repo',
+                  pua._repo_of('https://github.com/O/Voice.git') == 'o/voice'))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a built-from record is compared, and orders the updates '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_all_vendors_skips_its_own_source():
     """precedent_update_all.py never updates the BestPractice repository it
     runs from -- that repository has a precedent.json too -- and refuses to

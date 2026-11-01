@@ -4802,6 +4802,97 @@ def regenerated_step(repo, rep):
     return rebuilt
 
 
+# A COPY BUILT FROM ANOTHER COPY SAYS WHAT IT WAS BUILT FROM, AND THE
+# UPDATE CHECKS IT (Morgan, 2026-11-01, strength: decided: "Implement your
+# plan"; practice: built-from-is-checked). A source can export files it
+# compiles from a source of its own -- a voice repository's prompts carry a
+# writing-rules set inside them -- and a consumer that copies both gets the
+# second one by two routes of different length: straight from its source in
+# one hop, inside the compiled files in two. Update Vendors refreshed the
+# direct copy and said DONE while the compiled one still carried the old
+# text, and nothing could tell, because nothing recorded what the compiled
+# files were built from. The source now exports BUILT_FROM.json beside them:
+# every input with its git blob hash, and the source and path for an input
+# that sits inside a copied-in source. Content, not commits: most of a
+# source's commits never touch what a compiled file read.
+BUILT_FROM = 'BUILT_FROM.json'
+
+
+def git_blob_hash(data):
+    """-> the git blob hash of `data`, what `git hash-object` prints."""
+    import hashlib
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def built_from_differences(repo):
+    """-> [(copy entry, source entry, [paths])]: for each copy this
+    repository takes that carries a BUILT_FROM.json, each source it names
+    that this repository also copies in, with the files whose content in the
+    compiled files differs from this repository's own copy. A file this
+    repository does not hold is not compared: an exports-only copy may
+    narrow what it takes."""
+    try:
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    import precedent_resolve as pr
+    entries = [e for e in (cfg.get('sources') or []) if pr.is_vendored(e)
+               and e.get('name') and e.get('path')]
+    by_name = {e['name']: e for e in entries}
+    out = []
+    for e in entries:
+        try:
+            rec = json.loads((repo / str(e['path']) / BUILT_FROM).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        diffs = {}
+        outputs = rec.get('outputs') if isinstance(rec, dict) else None
+        for inputs in (outputs.values() if isinstance(outputs, dict) else []):
+            for i in inputs if isinstance(inputs, list) else []:
+                src, sp = (i.get('source'), i.get('source_path')) \
+                    if isinstance(i, dict) else (None, None)
+                if not src or not sp or src == e['name'] or src not in by_name:
+                    continue
+                here = repo / str(by_name[src]['path']) / sp
+                if not here.is_file():
+                    continue
+                if git_blob_hash(here.read_bytes()) != i.get('blob'):
+                    diffs.setdefault(src, set()).add(sp)
+        for src, paths in sorted(diffs.items()):
+            out.append((e, by_name[src], sorted(paths)))
+    return out
+
+
+def _repo_label(entry):
+    url = str(entry.get('repo') or '').rstrip('/')
+    if url.endswith('.git'):
+        url = url[:-4]
+    parts = url.split('/')
+    return '/'.join(parts[-2:]) if len(parts) >= 2 and parts[-2] else entry['name']
+
+
+def built_from_step(repo, rep):
+    """Refuse DONE while a copied-in source's compiled files were built from
+    different content than this repository's own copy of a source they name.
+    The fix is upstream of here: Update Vendors in the repository that
+    builds them, landed, then this update again. A copy this repository
+    holds on purpose is only reported, never left."""
+    for e, src, paths in built_from_differences(repo):
+        shown = ', '.join(paths[:6]) + (f' and {len(paths) - 6} more'
+                                         if paths[6:] else '')
+        held = [x['name'] for x in (e, src) if str(x.get('hold') or '').strip()]
+        what = (f'its compiled files were built from a different {src["name"]} '
+                f'than this repository\'s own copy of it ({shown})')
+        if held:
+            rep.step(f'copy of {e["name"]}', f'{what}; {" and ".join(held)} '
+                     f'is held here, so this is reported, not left')
+            continue
+        rep.leave(f'copy of {e["name"]}', f'{what}. Run Update Vendors in '
+                  f'{_repo_label(e)} first, so it rebuilds them from the current '
+                  f'{src["name"]}, land that on its main, then run this again')
+
+
 STAGED_RECORD = 'precedent-update-staged.json'
 
 
@@ -6561,6 +6652,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     record_copy_fingerprint(repo, rep)
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
+    built_from_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', staged_line(n, before, rep.earlier))
     superseded_refresh_step(repo, rep)
