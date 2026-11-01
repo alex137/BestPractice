@@ -3,16 +3,16 @@ slug:              todo-2026-10-31-root-issues-from-the-very-deep-check-session
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
-blocked_on:        "the harness split, running in a session of its own"
+blocked_on:        null
 batch:             null
 decision:          "all four picks taken"
 decision_strength: assented
-waiting_on:        "the harness-split session"
+waiting_on:        null
 noted:             2026-10-31
-closed:            null
+closed:            2026-10-31
 ---
 ## What
 
@@ -129,3 +129,10 @@ four, then booked". What each became:
   back when it lands. This item closes when it does.
 - **The ladder set's `/dev/null` lines:** fixed there and on its staging
   (precedent-shared-ladder #164).
+
+2026-10-31: closed on its condition. The harness split landed on staging
+by [pull request #1466](https://github.com/alex137/BestPractice/pull/1466)
+at 20fac640d: the runner stays in tools/verify_harness.py and the 896
+checks moved into tools/harness/vh_<area>.py, proved to be the same code
+with the same test results. One follow-up belongs to the ladder set, not
+here: its tools/landing_pr_guard.py should treat tools/harness/ as gating.
