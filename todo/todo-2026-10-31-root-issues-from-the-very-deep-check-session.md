@@ -136,3 +136,10 @@ at 20fac640d: the runner stays in tools/verify_harness.py and the 896
 checks moved into tools/harness/vh_<area>.py, proved to be the same code
 with the same test results. One follow-up belongs to the ladder set, not
 here: its tools/landing_pr_guard.py should treat tools/harness/ as gating.
+
+2026-10-31, the two follow-ups the split named, done: the ladder set's
+landing guard treats `tools/harness/` and
+[tools/harness_parts.py](../tools/harness_parts.py) as code other work is
+judged by (precedent-shared-ladder #166), and a stale example in
+`reply_check.json`'s requirement 13, left by #1465, now carries the
+What's blocking line that rule asks for.
