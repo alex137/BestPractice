@@ -42,6 +42,12 @@ Each repository's line starts with one word:
               as QUESTION, for the session to pass up
     LEFT      LEFT FOR YOU: this repository's own calls; clone kept, log named
     FAILED    a step could not run or the deep check is red; clone kept
+    WAITS     not run: it copies a source from a repository PUSHED earlier
+              in this run, whose update is not on its main yet; merge that,
+              then run this one again
+Repositories run in dependency order: one that copies a source from
+another in the list runs after it (an ORDER line says when that differs
+from the order given), read from each one's declared `repo` links.
 Every line but SKIPPED and NOT USED names the repository's log, which the
 session reads for that repository's root issues.
 The session opens and merges each PUSHED pull request itself (the merge
@@ -143,6 +149,67 @@ def link_sources(clone_dir):
             target.unlink()
         target.symlink_to(found)
     return missing
+
+
+def _repo_of(url):
+    """-> 'owner/repo', normalized, from a source entry's `repo` URL."""
+    tail = str(url or '').strip().rstrip('/').removesuffix('.git')
+    tail = tail.split('github.com')[-1].lstrip(':/')
+    parts = [x for x in tail.split('/') if x]
+    return norm('/'.join(parts[-2:])) if len(parts) >= 2 else ''
+
+
+def declared_upstreams(repo, work):
+    """-> the repositories `repo` copies a source from: each copied-in
+    source entry's `repo` in its precedent.json. Read from a clone an
+    earlier run kept, else from a throwaway clone with no checkout, so the
+    order costs one small fetch per repository. Unreadable means none."""
+    dest = work / norm(repo).replace('/', '_')
+    text = None
+    if (dest / 'precedent.json').is_file():
+        text = (dest / 'precedent.json').read_text(encoding='utf-8')
+    else:
+        tmp = work / '.order' / dest.name
+        shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            clone(repo, tmp, checkout=False)
+            text = git('show', 'HEAD:precedent.json', cwd=tmp, check=False)
+        except RuntimeError:
+            text = None
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    try:
+        sources = json.loads(text or '{}').get('sources') or []
+    except (ValueError, AttributeError):
+        return set()
+    return {_repo_of(e.get('repo')) for e in sources
+            if isinstance(e, dict) and e.get('vendored') is True and e.get('repo')
+            } - {'', norm(repo)}
+
+
+def dependency_order(repos, upstreams):
+    """-> `repos` reordered so each comes after every repository in the list
+    it copies a source from, otherwise in the order given. A cycle keeps the
+    order given for what is left of it.
+
+    WHY (Morgan, 2026-11-01, strength: decided: "Implement your plan"). A
+    voice repository compiles a writing-rules set into the prompts it
+    exports, and a consumer copies both; updated in the order typed, the
+    consumer could take the rules before the voice repository had rebuilt
+    its prompts from them, and the two copies disagreed. The order comes
+    from what each repository already declares, never from a list."""
+    names = [norm(r) for r in repos]
+    inlist = set(names)
+    waits = {n: {u for u in upstreams.get(n, set()) if u in inlist} for n in names}
+    out, done = [], set()
+    pending = list(range(len(repos)))
+    while pending:
+        ready = [i for i in pending if waits[names[i]] <= done]
+        pick = ready[0] if ready else pending[0]
+        out.append(repos[pick])
+        done.add(names[pick])
+        pending.remove(pick)
+    return out
 
 
 QUESTIONS_MARK = 'QUESTIONS FOR THE PERSON -- '
@@ -360,15 +427,35 @@ def main(argv=None):
     work = pathlib.Path(args.workdir)
     work.mkdir(parents=True, exist_ok=True)
     own = source_repo()
-    total, began, counts = len(args.repos), time.time(), {}
-    for i, repo in enumerate(args.repos, 1):
+    upstreams = {}
+    if len(args.repos) > 1:
+        print('reading which repository copies from which ...',
+              file=sys.stderr, flush=True)
+        upstreams = {norm(r): declared_upstreams(r, work) for r in args.repos
+                     if not (own and norm(r) == own)}
+    repos = dependency_order(args.repos, upstreams)
+    if repos != list(args.repos):
+        print('ORDER    ' + ' -> '.join(repos) + '  (a repository runs after '
+              'every one here it copies a source from)', flush=True)
+    total, began, counts, pushed = len(repos), time.time(), {}, set()
+    for i, repo in enumerate(repos, 1):
         print(f'[{i}/{total}] {repo} ...', file=sys.stderr, flush=True)
+        waiting = sorted(upstreams.get(norm(repo), set()) & pushed)
         if own and norm(repo) == own:
             print(f'SKIPPED  {repo}  (the universal source itself; it is '
                   f'updated by its own changes)', flush=True)
             outcome = 'SKIPPED'
+        elif waiting:
+            # Its source's update is on a branch, not on the main a copy is
+            # taken from: running now would copy the old content.
+            print(f'WAITS    {repo}  (it copies from {", ".join(waiting)}, '
+                  f'PUSHED in this run and not on its main yet: merge that, '
+                  f'then run this repository again)', flush=True)
+            outcome = 'WAITS'
         else:
             outcome = run_one(repo, work, args)
+        if outcome == 'PUSHED':
+            pushed.add(norm(repo))
         counts[outcome] = counts.get(outcome, 0) + 1
         done = time.time() - began
         print(f'    {int(done)}s so far, about {int(done / i * (total - i))}s '

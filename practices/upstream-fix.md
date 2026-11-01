@@ -200,7 +200,11 @@ the one it already made, or the one it is about to make.
    `root_fix` saying which, hand off the root fix with
    [Prompt Please](prompt-please.md), and tell the person either way.
    `precedent_check.py --only upstream-fix` refuses a new
-   entry in a `precedent.json` exemption list without a `root_fix`.
+   entry in a `precedent.json` exemption list without a `root_fix`. Once
+   the root fix lands, the `not_binding` entry is named for removal: a
+   `not_binding` check that would now pass or skip without its entry is
+   printed as `STALE EXEMPTION` by `precedent_check.py --stale-exemptions`,
+   by a full sweep or `--only` run, and in Update Vendors' warnings.
 
 ### Point 7 in full
 

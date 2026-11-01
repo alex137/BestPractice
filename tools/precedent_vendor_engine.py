@@ -1037,6 +1037,19 @@ ENGINE_FILES = [
     # set's own, nor those of the sets it resolves.
     'precedent_materialize.py',
     'precedent_source_pins.py',
+    # Update Vendors steps 8 and 9 (vendor-update-runbook): is every source
+    # still CALLED what this repo calls it, and should one be added or
+    # dropped. precedent_source_names.py was CONSUMER-only from 2026-09-11,
+    # on the reasoning that it "reads a multi-source config, which a
+    # practice SET does not have". That stopped being true: sets have
+    # resolved precedent_resolve.py from ENGINE_FILES since 2026-09-13, and
+    # a set declares sources in its own precedent.json (one private shared
+    # set declares the universal set and a shared one). On 2026-11-01 a session
+    # running Update Vendors in that set found step 8's tool missing and ran
+    # it from the BestPractice clone instead. Both steps apply wherever a
+    # repo declares sources, so both tools ship to every kind of repo.
+    'precedent_source_names.py',
+    'precedent_source_survey.py',
     'precedent_vendor_engine.py',
 ]
 
@@ -1056,13 +1069,9 @@ CONSUMER_ENGINE_FILES = ENGINE_FILES[:-1] + [
     # 2026-10-17: a set's session file needs the first, which imports the
     # second.
     'precedent_sync_views.py',
-    # Whether each declared source repository is still CALLED what this repo
-    # calls it (added 2026-09-11). CONSUMER-only for the same reason
-    # precedent_resolve.py is -- it reads a multi-source config, which a
-    # practice SET does not have -- and it is named by
-    # vendor-update-runbook's own Rule, so a consumer resolving that
-    # practice and lacking the file has a step it cannot run.
-    'precedent_source_names.py',
+    # precedent_source_names.py was listed here until 2026-11-01 and is now
+    # in ENGINE_FILES, with precedent_source_survey.py -- see their entry
+    # there. Repeating it here is refused by the duplicate guard below.
     # Named by a universal practice's own Install, so a consumer that
     # resolves that practice needs the file (added 2026-09-06, after
     # installing into a scratch repo exactly as INSTALL.md section 0

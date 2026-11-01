@@ -888,6 +888,183 @@ def check_source_names_detects_a_rename():
           not bad, '; '.join(f"{n}: {d}" for n, d in bad))
 
 
+def check_source_survey_gives_every_repository_a_verdict():
+    """precedent_source_survey.py -- vendor-update-runbook step 9, should a
+    source be added or dropped, gives every repository the account reaches a
+    verdict, and a repository it could not read is never a pass.
+
+    THE INCIDENT (2026-11-01). Step 9 was prose. A session running Update
+    Vendors in a practice set listed the account's repositories, found one
+    it had no clone of, and reported "not on disk, so I didn't check whether
+    it's a practice set" -- half the step, and nothing said so until the
+    person asked. Each case asserts the verdict printed for one repository
+    (practice: control-asserts-which-failure), and the fixture owns its
+    user config, so the machine's real individual set is never surveyed
+    (practice: fixture-owns-its-state)."""
+    import io, shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_survey as pss
+
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-survey-'))
+    cases = []
+
+    def clone(name, origin, source=None):
+        d = tmp / name
+        d.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q', str(d)], capture_output=True)
+        subprocess.run(['git', '-C', str(d), 'remote', 'add', 'origin',
+                        f'https://github.com/{origin}'], capture_output=True)
+        if source is not None:
+            (d / 'precedent-source.json').write_text(json.dumps(source),
+                                                     encoding='utf-8')
+        return d
+
+    try:
+        consumer = clone('consumer', 'example/consumer')
+        clone('precedent-shared-fixture', 'example/precedent-shared-fixture',
+              {'name': 'precedent-shared-fixture', 'level': 'shared',
+               'subject': 'the fixture subject'})
+        clone('precedent-shared-old', 'example/precedent-shared-old',
+              {'name': 'precedent-shared-old', 'level': 'shared',
+               'retired': {'date': '2026-10-01',
+                           'folded_into': ['precedent-shared-fixture']}})
+        clone('a-project', 'example/a-project')
+        clone('precedent-shared-other', 'example/precedent-shared-other',
+              {'name': 'precedent-shared-other', 'level': 'shared',
+               'subject': 'how to keep the other books'})
+        # A folder called for a candidate, holding a clone of something else.
+        clone('precedent-shared-impostor', 'example/somebody-else')
+        (consumer / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
+            'sources': [
+                {'level': 'shared', 'name': 'precedent-shared-fixture',
+                 'path': '../precedent-shared-fixture'},
+                {'level': 'shared', 'name': 'precedent-shared-old',
+                 'path': '../precedent-shared-old'},
+                {'level': 'shared', 'name': 'precedent-shared-gone',
+                 'path': '../precedent-shared-gone'}]}), encoding='utf-8')
+        user_cfg = tmp / 'user.json'
+        user_cfg.write_text(json.dumps({}), encoding='utf-8')
+
+        candidates = ['example/consumer', 'example/precedent-shared-fixture',
+                      'example/precedent-shared-old', 'example/a-project',
+                      'Example/Precedent-Shared-Other',
+                      'example/precedent-shared-impostor',
+                      'example/precedent-shared-unseen']
+        rows = pss.survey(str(consumer), candidates, user_config=str(user_cfg))
+        by = {r['repo']: r for r in rows}
+        verdict = {k: v['verdict'] for k, v in by.items()}
+        buf = io.StringIO()
+        pss.report(rows, out=buf)
+        out = buf.getvalue()
+
+        cases.append(('the repository being surveyed is THIS REPO',
+                      verdict.get('example/consumer') == 'THIS REPO', out))
+        cases.append(('a set precedent.json declares is DECLARED',
+                      verdict.get('example/precedent-shared-fixture')
+                      == 'DECLARED', out))
+        cases.append(('a declared set that says it is retired is SHOULD DROP?, '
+                      'naming the set it folded into',
+                      verdict.get('example/precedent-shared-old') == 'SHOULD DROP?'
+                      and 'precedent-shared-fixture' in
+                      by.get('example/precedent-shared-old', {}).get('detail', ''),
+                      out))
+        cases.append(('a clone with no precedent-source.json is NOT A SET',
+                      verdict.get('example/a-project') == 'NOT A SET', out))
+        cases.append(('a set not in force is SHOULD ADD?, with its subject, '
+                      'found though the candidate is spelled in another case',
+                      verdict.get('Example/Precedent-Shared-Other') == 'SHOULD ADD?'
+                      and 'how to keep the other books' in out, out))
+        cases.append(('a folder named for a candidate but cloned from another '
+                      'repository is not taken for it: NOT ON DISK, saying '
+                      'what the folder holds instead',
+                      verdict.get('example/precedent-shared-impostor')
+                      == 'NOT ON DISK' and 'example/somebody-else' in
+                      by.get('example/precedent-shared-impostor', {}).get(
+                          'detail', ''), out))
+        cases.append(('a candidate with no clone at all is NOT ON DISK, and the '
+                      'line says to attach, clone and run it again',
+                      verdict.get('example/precedent-shared-unseen') == 'NOT ON DISK'
+                      and 'run this again' in
+                      by.get('example/precedent-shared-unseen', {}).get('detail', ''),
+                      out))
+        gone = [r for r in rows if 'precedent-shared-gone' in r['repo']]
+        cases.append(('a declared set with no clone that the account no longer '
+                      'reaches is SHOULD DROP?',
+                      [r['verdict'] for r in gone] == ['SHOULD DROP?'], out))
+        cases.append(('the summary counts what was not checked and says an '
+                      'unchecked repository is not a passing one',
+                      '2 NOT checked' in out
+                      and 'an unchecked repository is not a passing one' in out,
+                      out))
+
+        def exit_of(argv):
+            real = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                return pss.main(argv)
+            finally:
+                sys.stdout = real
+        base = ['--repo', str(consumer), '--user-config', str(user_cfg)]
+        cases.append(('it exits 1 while any repository is NOT ON DISK',
+                      exit_of(base + sum((['--candidate', c] for c in
+                                          candidates), [])) == 1, ''))
+        cases.append(('...and 0 once every candidate was read',
+                      exit_of(base + ['--candidate', 'example/a-project',
+                                      '--candidate',
+                                      'example/precedent-shared-fixture']) == 0,
+                      ''))
+        cases.append(('with no --candidate at all it exits 1: step 9 is not '
+                      'done on the sources in force alone',
+                      exit_of(base) == 1, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2] if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'precedent_source_survey.py gives every repository a verdict and '
+          f'never passes one it could not read ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n}: {d}" for n, d in bad))
+
+
+def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
+    """Update Vendors steps 8 and 9 apply wherever a repo declares sources,
+    practice sets included, so their tools are in the shared ENGINE_FILES.
+
+    THE INCIDENT (2026-11-01). precedent_source_names.py was
+    CONSUMER_ENGINE_FILES-only, on the reasoning that a practice set has no
+    multi-source config. A set that declares two sources ran Update Vendors,
+    found step 8's tool missing, and ran it from the BestPractice clone."""
+    import shutil, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_vendor_engine as pve
+    import precedent_update as pu
+    tools = ('precedent_source_credentials.py', 'precedent_source_names.py',
+             'precedent_source_survey.py')
+    missing = [t for t in tools if t not in pve.ENGINE_FILES]
+    twice = [t for t in tools if pve.CONSUMER_ENGINE_FILES.count(t) != 1]
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-steps-'))
+    try:
+        (tmp / 'precedent.json').write_text(json.dumps(
+            {'sources': [{'level': 'shared', 'name': 'x', 'path': '../x'}]}),
+            encoding='utf-8')
+        lines = '\n'.join(pu.source_steps_lines(tmp))
+        (tmp / 'precedent.json').write_text(json.dumps({}), encoding='utf-8')
+        none = '\n'.join(pu.source_steps_lines(tmp))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    done_ok = ('precedent_source_names.py' in lines
+               and 'precedent_source_survey.py' in lines
+               and '--candidate' in lines
+               and 'not applicable: this repo declares no sources' in none
+               and 'precedent_source_survey.py' in none)
+    check('steps 7, 8 and 9\'s tools are in the shared ENGINE_FILES, so a '
+          'practice set vendors them, and DONE names each step\'s command '
+          '(step 8 not applicable only where no source is declared)',
+          not missing and not twice and done_ok,
+          f'not in ENGINE_FILES: {missing}; not once in CONSUMER_ENGINE_FILES: '
+          f'{twice}; DONE lines: {lines!r} / {none!r}')
+
+
 def _raw_level_comparisons(text):
     """-> [line numbers] of raw level comparisons in Python `text`."""
     import ast

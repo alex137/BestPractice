@@ -105,8 +105,8 @@ sys.path.insert(0, str(HERE))
 
 try:
     import precedent_resolve as pr                           # noqa: E402
-except Exception as _e:                 # a SOURCE set does not vendor it and
-    pr = None                           # has no multi-source config to check
+except Exception as _e:                 # an engine tree too old to carry it
+    pr = None
     _resolve_err = f'{type(_e).__name__}: {_e}'
 else:
     _resolve_err = None
@@ -299,9 +299,9 @@ def sources_to_check(repo, user_config=None):
     if pr is None:
         raise RuntimeError(
             f'precedent_resolve is not available here ({_resolve_err}), so the '
-            f'declared sources could not be read. That module is vendored into '
-            f'CONSUMING repos only -- a practice SET resolves no catalogue and '
-            f'has no separate source repository to check.')
+            f'declared sources could not be read. Every kind of repository '
+            f'vendors it since 2026-09-13, so this engine copy predates that: '
+            f'run Update Vendors, or run this from the BestPractice clone.')
     root = pathlib.Path(repo).resolve()
     out = []
     # user_config is threaded through rather than left to the default,

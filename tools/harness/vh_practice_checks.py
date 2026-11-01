@@ -3858,6 +3858,315 @@ def check_deep_check_keeps_a_test_of_a_tool():
           '; '.join(f'{n} ({d})' for n, d in failed))
 
 
+def check_deep_check_skips_a_repo_with_no_check_scripts():
+    """deep-check skips a repository with no tools/checks/check_*.py, and
+    still reports one that has check scripts but no run_all.sh.
+
+    On 2026-11-01 Update Vendors moved a shared practice set whose only
+    audit is a script under tools/ onto an engine that resolves
+    deep-check from universal; it reported "run_all.sh is missing" in a repo
+    with nothing to run together. Two directions, each asserting the printed
+    text: no check scripts at all reads SKIPPED (not applicable) with the
+    reason; check scripts with no run_all.sh is still a violation naming
+    run_all.sh (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='deep-check-no-checks-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md',
+                    fx / 'practices' / 'deep-check.md')
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        (fx / 'tools' / 'fixture_audit.py').write_text('', encoding='utf-8')
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main'}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+
+        def run():
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only', 'deep-check'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        none = run()
+        cases.append(("no tools/checks/ at all is skipped as not applicable, "
+                      "with the reason",
+                      none.returncode == 0
+                      and 'nothing to run together' in none.stdout
+                      and 'VIOLATION' not in none.stdout,
+                      f'rc={none.returncode} ' + failure_detail(none.stdout, 400)))
+        (fx / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        empty = run()
+        cases.append(("a tools/checks/ holding no check_*.py is skipped too",
+                      empty.returncode == 0
+                      and 'nothing to run together' in empty.stdout
+                      and 'VIOLATION' not in empty.stdout,
+                      f'rc={empty.returncode} ' + failure_detail(empty.stdout, 400)))
+        (fx / 'tools' / 'checks' / 'check_fixture.py').write_text(
+            'SOURCE_ROOT = None\n', encoding='utf-8')
+        broken = run()
+        cases.append(("check scripts with no run_all.sh are still a violation "
+                      "naming run_all.sh",
+                      broken.returncode != 0
+                      and 'run_all.sh: is missing' in broken.stdout
+                      and 'nothing to run together' not in broken.stdout,
+                      f'rc={broken.returncode} ' + failure_detail(broken.stdout, 400)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'deep-check skips a repo with no check scripts and still reports '
+          f'one missing run_all.sh ({len(cases)} stated cases, each asserting '
+          f'the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
+def check_stale_exemption_is_named():
+    """An exemption whose check would now pass or skip without it is named
+    as no longer needed -- by --stale-exemptions, by an --only run, and in
+    Update Vendors' warnings -- and one that still suppresses a finding is
+    not.
+
+    2026-11-01: a shared set exempted deep-check over a false alarm; the
+    engine was fixed that day, and nothing would have told its next update
+    the entry could come out, since an exempted check never runs. The
+    control direction asserts the printed text too (practice:
+    control-asserts-which-failure).
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='stale-exemption-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md',
+                    fx / 'practices' / 'deep-check.md')
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main',
+             'not_binding': [{'slug': 'deep-check',
+                              'reason': 'fixture: no check family'}]}),
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def run(*args):
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', *args],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        flag = run('--stale-exemptions')
+        cases.append(("--stale-exemptions names an exemption whose check now "
+                      "skips",
+                      flag.returncode == 0
+                      and 'STALE EXEMPTION  deep-check' in flag.stdout
+                      and '1 stale exemption(s)' in flag.stdout,
+                      f'rc={flag.returncode} ' + failure_detail(flag.stdout, 400)))
+        only = run('--only', 'deep-check')
+        cases.append(("an --only run prints it beside the EXEMPT line",
+                      'EXEMPT     deep-check' in only.stdout
+                      and 'STALE EXEMPTION  deep-check' in only.stdout,
+                      f'rc={only.returncode} ' + failure_detail(only.stdout, 400)))
+        warned = pu.stale_exemption_warnings(fx)
+        cases.append(("Update Vendors carries it as a warning",
+                      len(warned) == 1 and warned[0].startswith('deep-check')
+                      and 'remove it from not_binding' in warned[0],
+                      repr(warned)[:300]))
+        (fx / 'tools' / 'checks').mkdir()
+        (fx / 'tools' / 'checks' / 'check_fixture.py').write_text(
+            'SOURCE_ROOT = None\n', encoding='utf-8')
+        kept = run('--stale-exemptions')
+        cases.append(("an exemption that still suppresses a violation is not "
+                      "named",
+                      kept.returncode == 0
+                      and 'STALE EXEMPTION' not in kept.stdout
+                      and '0 stale exemption(s)' in kept.stdout,
+                      f'rc={kept.returncode} ' + failure_detail(kept.stdout, 400)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an exemption no longer needed is named, one still needed is not '
+          f'({len(cases)} stated cases, each asserting the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
+# Checks a freshly made repository of a given kind fails ON PURPOSE, each with
+# the reason. Anything else that violates in a fresh repo is a false alarm.
+_FRESH_REPO_EXPECTED_FINDINGS = {
+    'budget-within-approval': (
+        'a new repository\'s session-load budget waits for its owner to '
+        'approve it: the finding is the question the check exists to ask'),
+}
+
+
+def check_tree_checks_hold_on_every_kind_of_fresh_repo():
+    """The full sweep finds nothing wrong in a repository of each kind that
+    the engine's own tools have just made, apart from the findings
+    _FRESH_REPO_EXPECTED_FINDINGS names with a reason.
+
+    On 2026-11-01 deep-check, ported into universal on 2026-10-05, reached a
+    shared practice set with no check scripts for the first time and
+    reported a missing run_all.sh there: the move had exempted only the one
+    repository that broke at the time, the engine's origin. Each check is
+    tested where it was written; nothing ran it against the other kinds of
+    repository a move into universal makes it reach. This does, with
+    fixtures made the way real ones are (practice: fixture-owns-its-state):
+
+      - a shared practice set from precedent_bootstrap_source.py, which has
+        no tools/checks/, the shape of a set whose only audit lives in tools/;
+      - the same set given a check family: a check script, its test, and a
+        run_all.sh that runs the tests;
+      - a consuming project from precedent_install.py.
+
+    Each declares this tree as its universal source and runs this tree's
+    precedent_check.py, so a check changed or newly reaching a kind is
+    judged before it lands. The engine's origin is this repository itself,
+    swept by the full check, so it is not rebuilt here.
+
+    Negative control, measured 2026-11-01: with _deep_check as it was
+    before 5a0db092b, the first fixture reports deep-check VIOLATION
+    (run_all.sh is missing) and this test fails.
+    """
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='vh-every-kind-'))
+    (tmp / 'home').mkdir()
+    env = dict(_isolated_env(os.environ, tmp / 'home'),
+               GIT_AUTHOR_NAME='F', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='F', GIT_COMMITTER_EMAIL='f@example.com',
+               GIT_CONFIG_GLOBAL=empty_gitconfig(),
+               PRECEDENT_SEED_OFF_MAIN='1', PRECEDENT_NO_SELF_HEAL='1',
+               PRECEDENT_ALLOW_ANY_AUTHOR='1')
+    results = []
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), '-c',
+                               'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+
+    def point_universal_here(repo):
+        cfg_path = repo / 'precedent.json'
+        cfg = json.loads(cfg_path.read_text(encoding='utf-8'))
+        for s in cfg.get('sources') or []:
+            if isinstance(s, dict) and s.get('level') == 'universal':
+                s['path'] = str(ROOT)
+        cfg_path.write_text(json.dumps(cfg, indent=2) + '\n', encoding='utf-8')
+
+    def sweep(kind, repo):
+        # The seed copies the engine as committed; the checks under test are
+        # this tree's, committed or not. The delivery record is re-pinned to
+        # the copy, or an uncommitted edit here reads as a local edit to a
+        # received file there (upstream-bug-stops-here) -- the fixture's
+        # state, not the code under test (practice: fixture-owns-its-state).
+        import hashlib
+        src = ROOT / 'tools' / 'precedent_check.py'
+        shutil.copy2(src, repo / 'tools' / 'precedent_check.py')
+        man_path = repo / 'tools' / 'ENGINE_MANIFEST.json'
+        if man_path.is_file():
+            man = json.loads(man_path.read_text(encoding='utf-8'))
+            if isinstance(man.get('sha256'), dict) and 'precedent_check.py' in man['sha256']:
+                man['sha256']['precedent_check.py'] = hashlib.sha256(
+                    src.read_bytes()).hexdigest()
+                man_path.write_text(json.dumps(man, indent=2) + '\n',
+                                    encoding='utf-8')
+        if not (repo / '.git').exists():
+            git(repo, 'init', '-q', '-b', 'main')
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'fixture')
+        r = subprocess.run([sys.executable, 'tools/precedent_check.py',
+                            '--full-sweep'], cwd=str(repo),
+                           capture_output=True, text=True, env=env, timeout=900)
+        found = sorted(set(re.findall(r'^(?:VIOLATION|ERROR(?:ED)?)\s+(\S+)',
+                                      r.stdout, re.M)))
+        unexpected = [s for s in found if s not in _FRESH_REPO_EXPECTED_FINDINGS]
+        tally = re.search(r'^precedent_check: .*$', r.stdout, re.M)
+        results.append((kind, unexpected,
+                        tally.group(0)[:160] if tally else
+                        f'rc={r.returncode} ' + failure_detail(r.stdout + r.stderr, 400),
+                        r.stdout))
+
+    try:
+        boot = str(ROOT / 'tools' / 'precedent_bootstrap_source.py')
+        for kind, with_checks in (('a shared set with no check scripts', False),
+                                  ('a shared set with a check family', True)):
+            repo = tmp / ('set-checks' if with_checks else 'set-bare')
+            r = subprocess.run([sys.executable, boot, '--level', 'shared',
+                                '--name', repo.name, '--dest', str(repo),
+                                '--off-main', 'true',
+                                '--approver', 'A Person:aperson'],
+                               capture_output=True, text=True, env=env, timeout=300)
+            if r.returncode != 0 or not (repo / 'precedent.json').is_file():
+                results.append((kind, ['(bootstrap failed)'],
+                                failure_detail(r.stdout + r.stderr, 400), ''))
+                continue
+            point_universal_here(repo)
+            if with_checks:
+                checks = repo / 'tools' / 'checks'
+                (checks / 'tests').mkdir(parents=True)
+                (checks / 'check_fixture_rule.py').write_text(
+                    '#!/usr/bin/env python3\n'
+                    '"""A fixture audit: passes everywhere."""\n'
+                    'import os, pathlib, sys\n'
+                    'SOURCE_ROOT = pathlib.Path(__file__).resolve().parents[2]\n'
+                    'ROOT = pathlib.Path(os.environ.get("PRECEDENT_CHECK_ROOT",'
+                    ' SOURCE_ROOT))\n'
+                    'RULE = SOURCE_ROOT / "practices" / "fixture-rule.md"\n'
+                    'sys.exit(0)\n', encoding='utf-8')
+                (checks / 'tests' / 'test_fixture_rule.sh').write_text(
+                    '#!/bin/bash\nset -euo pipefail\ncd "$(dirname "$0")/../../.."\n'
+                    'python3 tools/checks/check_fixture_rule.py\n',
+                    encoding='utf-8')
+                (checks / 'tests' / 'run_all.sh').write_text(
+                    '#!/bin/bash\nset -uo pipefail\ncd "$(dirname "$0")"\nstatus=0\n'
+                    'for t in test_*.sh; do\n  [ -e "$t" ] || continue\n'
+                    '  bash "$t" || status=1\ndone\nexit $status\n',
+                    encoding='utf-8')
+            sweep(kind, repo)
+
+        proj = tmp / 'project'
+        git_init = subprocess.run(['git', 'init', '-q', '-b', 'main', str(proj)],
+                                  capture_output=True, text=True, env=env)
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'precedent_install.py'),
+                            str(proj), '--project-name', 'Fixture',
+                            '--visibility', 'private', '--admin', 'fixture-admin'],
+                           capture_output=True, text=True, env=env, timeout=600)
+        if git_init.returncode or not (proj / 'precedent.json').is_file():
+            results.append(('a consuming project', ['(install failed)'],
+                            failure_detail(r.stdout + r.stderr, 400), ''))
+        else:
+            sweep('a consuming project', proj)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # A sweep that ran nothing would pass vacuously: each kind must have
+    # passed checks of its own, counted off the tally line.
+    ran = {k: int(m.group(1)) if (m := re.search(r' (\d+) passed', t)) else 0
+           for k, _u, t, _out in results}
+    bad = [(k, u, t) for k, u, t, _out in results if u]
+    idle = [k for k, n in ran.items() if n == 0]
+    check(f'the full sweep holds on every kind of freshly made repository '
+          f'({len(results)} kinds; {len(_FRESH_REPO_EXPECTED_FINDINGS)} '
+          f'finding(s) expected in a fresh repo, each with its reason)',
+          len(results) == 3 and not bad and not idle,
+          '; '.join([f'{k}: unexpected {", ".join(u)} ({t})' for k, u, t in bad]
+                    + [f'{k}: the sweep passed nothing' for k in idle])
+          or f'{len(results)} of 3 kinds ran')
+
+
 def check_practice_links_travel_skips_a_consumers_repo_local_practices():
     """A consumer's repo-local practice is never published, so
     practice-links-travel must not test its links -- and the repair it

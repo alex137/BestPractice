@@ -3767,6 +3767,52 @@ def update_vendors_note(root, before, after):
             'pushes nothing.')
 
 
+# A LANDED BRANCH SAYS IT IS DONE (2026-11-01). --land pushes staging
+# itself, so no pull request ever merges the work branch and GitHub's
+# auto-delete never sees it: every branch landed this way stayed on origin.
+# One practice set's origin held seventeen merged branches, beside older
+# update branches that still carried CI workflows main had deleted. Morgan, 2026-11-01: "All the
+# issues above - act, do the root fixes". So a landing ends by handing over
+# the landed branch's delete link, the one-click way a person deletes it
+# (practices: branch-delete-links, never-delete-a-remote-branch); the link
+# is precedent_stale_branches.link, the one builder every lister uses.
+def landed_branch_line(root, label, staging, landed):
+    """-> the line naming `label` (the branch just landed on `staging`, at
+    `landed`) as done, with its delete link; '' when it is not a branch on
+    origin, is a long-lived branch, or carries commits the landing did not
+    take (it moved after it was landed)."""
+    branch = label[len('origin/'):] if label.startswith('origin/') else label
+    if not branch or branch == 'HEAD' or re.fullmatch(r'[0-9a-f]{7,40}', branch):
+        return ''
+    keep = set(tier_branches(root)) | {LOCK_BRANCH, staging}
+    try:
+        keep.add(base_branch(root))
+    except Exception:                                            # noqa: BLE001
+        pass
+    if branch in keep:
+        return ''
+    tip = _remote_tip(root, branch)
+    if not tip or _run(root, 'merge-base', '--is-ancestor', tip,
+                       landed).returncode != 0:
+        return ''
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_stale_branches as psb
+        slug = psb._slug(root)
+        url = psb.link(*slug, branch) if slug else ''
+    except Exception:                                            # noqa: BLE001
+        url = ''
+    finally:
+        sys.path.pop(0)
+    if not url:
+        return ''
+    return (f'DONE WITH {branch}: everything on it is on {staging} now, and no '
+            f'pull request merged it, so GitHub will not delete it. It is safe '
+            f'to delete: {url} (the filtered page then reads "no branches '
+            f'matched"). Hand the link over; never delete it yourself '
+            f'(never-delete-a-remote-branch).')
+
+
 def land(root, work=None, say=print, fixing=None):
     """Land `work` (a branch or commit; HEAD when None) on staging for a
     person who lands there, and end with one LAND RESULT line.
@@ -3985,6 +4031,9 @@ def _land_composed(root, sha, label, staging, why, say, fixing=None,
     note = update_vendors_note(root, stip, new)
     if note:
         say(note)
+    done = landed_branch_line(root, label, staging, new)
+    if done:
+        say(done)
     return 0, f'LANDED at {new}'
 
 
@@ -4070,6 +4119,28 @@ def _write_reach(path, rec):
         pass
 
 
+def _fixes(fixing):
+    """-> the red landings `fixing` names: one commit, or several joined by
+    commas, for a fix that mends two red landings in a row (2026-11-01: two
+    landings went red one after the other, and a single --fixing for either
+    left the other refusing the fix)."""
+    return [f.strip() for f in str(fixing or '').split(',') if f.strip()]
+
+
+def _fixes_landing(fixing, landed):
+    return any(landed.startswith(f) for f in _fixes(fixing))
+
+
+def _earliest_base(root, a, b):
+    """-> whichever of two reached-run bases is the older, so a fix for
+    several red landings is tested from before the first of them."""
+    if not a or not b:
+        return a or b
+    r = subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor',
+                        a, b], capture_output=True)
+    return a if r.returncode == 0 else b
+
+
 def reach_gate(root, fixing=None):
     """-> (refusal or '', notes, base the next run should start from or None).
     Red records refuse a landing that does not name itself their fix."""
@@ -4078,8 +4149,8 @@ def reach_gate(root, fixing=None):
         landed = rec.get('landed') or ''
         st = rec.get('status')
         if st == 'failed':
-            if fixing and landed.startswith(fixing):
-                since = rec.get('since') or since
+            if _fixes_landing(fixing, landed):
+                since = _earliest_base(root, rec.get('since'), since)
                 notes.append(f'landing as the fix for {landed[:12]}, whose '
                              f'reached tests failed; its run starts from '
                              f'{(since or "?")[:12]}, so it covers both.')
@@ -4104,7 +4175,7 @@ def reach_gate(root, fixing=None):
         lines.append(f'  {rec.get("landed", "?")[:12]} ({rec.get("label")}): '
                      f'{len(cases)} failing, log {rec.get("log")}\n    '
                      + '\n    '.join(cases[:8]))
-    first = red[0].get('landed', '')[:12]
+    first = ','.join(r.get('landed', '')[:12] for r in red)
     return (f'LAND REFUSED, and staging did not move: the harness checks an '
             f'earlier landing reaches FAILED, so staging is red until that is '
             f'fixed:\n' + '\n'.join(lines) + f'\nFix it on a branch and land '
@@ -4117,15 +4188,17 @@ def start_reach_run(root, since, landed, label, fixing=None):
     background where this repository has the harness and REACH_RUN_ENV is
     not '0'; otherwise the printed command, as before."""
     if fixing:
+        red_base = None
         for f, rec in _reach_records(root):
             if rec.get('status') == 'failed' and \
-                    (rec.get('landed') or '').startswith(fixing):
+                    _fixes_landing(fixing, rec.get('landed') or ''):
                 # The fix's run starts from the red one's base, whichever
                 # route landed it (--land, or --land-confirm after a pull
-                # request), so it covers both.
-                since = rec.get('since') or since
+                # request), so it covers both; for several, the oldest base.
+                red_base = _earliest_base(root, rec.get('since'), red_base)
                 rec.update(status='fixed', fixed_by=landed)
                 _write_reach(f, rec)
+        since = red_base or since
     nxt = reached_checks_next(root, since, label)
     if not nxt or os.environ.get(REACH_RUN_ENV, '1') == '0' or not landed:
         return nxt

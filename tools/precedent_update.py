@@ -3501,6 +3501,193 @@ def live_line(repo):
             f"{landing}, so name what else goes live with the update.")
 
 
+# STEPS 7 TO 9, NAMED WHERE THE SESSION READS ITS NEXT STEP (2026-11-01).
+# DONE said "commit, then do steps 7 to 9" and left each command in the
+# runbook's prose, so a session in a practice set skipped step 8's tool as
+# not applicable and half-did step 9 (a repository it had no clone of was
+# reported unchecked). Each step is one command; DONE prints all three.
+def source_steps_lines(repo):
+    """-> the lines DONE prints naming the commands for runbook steps 7, 8
+    and 9 in `repo`; [] when it cannot be read."""
+    if repo is None:
+        return []
+    try:
+        import json as _json
+        cfg = _json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8'))
+        declares = bool(cfg.get('sources')) if isinstance(cfg, dict) else False
+    except (OSError, ValueError):
+        declares = False
+
+    def cmd(tool):
+        here = pathlib.Path(repo) / 'tools' / tool
+        return (f'python3 tools/{tool}' if here.is_file()
+                else f'python3 {HERE.parent / tool} --repo .')
+    out = ["STEPS 7 TO 9 (vendor-update-runbook), after the commit:",
+           f"  7. {cmd('precedent_source_credentials.py')}"]
+    if declares:
+        out.append(f"  8. {cmd('precedent_source_names.py')}   (attach each "
+                   f"source with push first, or pass --canonical OWNER/NAME "
+                   f"from list_repos)")
+    else:
+        out.append("  8. not applicable: this repo declares no sources")
+    out.append(f"  9. {cmd('precedent_source_survey.py')} --candidate "
+               f"OWNER/NAME ...   (every repository the account reaches, from "
+               f"list_repos; run it again until nothing is NOT ON DISK)")
+    return out
+
+
+# EARLIER UPDATE BRANCHES THIS ONE REPLACES (2026-11-01). An update that
+# was replaced before it landed stays on origin for good: nothing marks it
+# done, and the stale-branch lists offer only merged branches. One practice
+# set kept three, from August, September and October; two still carried CI
+# workflows its main had deleted, so a push to either would have run them
+# again. Morgan, 2026-11-01: "All the issues above - act, do the root
+# fixes". So DONE names every earlier update branch whose engine is already
+# in the one just taken, with its delete link (practices: branch-delete-links,
+# never-delete-a-remote-branch -- the person deletes, never the session).
+UPDATE_BRANCH_WORDS = ('update-vendors', 'vendor-update', 'vendor-updates',
+                       'engine-refresh')
+
+
+def _engine_record_at(repo, ref):
+    """-> the source commit `ref` records for its vendored engine
+    (tools/ENGINE_MANIFEST.json's source_commit), or for a classic install
+    its catalogue (process/manifest.json's upstream.commit); None."""
+    for path, read in (('tools/ENGINE_MANIFEST.json',
+                        lambda d: d.get('source_commit')),
+                       ('process/manifest.json',
+                        lambda d: (d.get('upstream') or {}).get('commit')
+                        if isinstance(d.get('upstream'), dict) else None)):
+        r = subprocess.run(['git', '-C', str(repo), 'show', f'{ref}:{path}'],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            continue
+        try:
+            commit = read(json.loads(r.stdout))
+        except (ValueError, AttributeError):
+            commit = None
+        if isinstance(commit, str) and commit:
+            return commit
+    return None
+
+
+def replaced_update_branches(repo, clone=None):
+    """-> (replaced, unplaced) for `repo`'s origin: `replaced` is a list of
+    (branch, engine_commit, workflows_main_lacks) for each update branch
+    whose engine is an ancestor of, or the same as, the one now in the
+    working tree; `unplaced` the update branches whose engine `clone` (the
+    BestPractice clone this run is) cannot place. An update branch is one
+    whose name carries UPDATE_BRANCH_WORDS. Long-lived branches and the
+    checkout's own are never listed. One ls-remote and one fetch."""
+    if repo is None:
+        return [], []
+    clone = pathlib.Path(clone or HERE.parent.parent)
+    new = None
+    try:
+        new = json.loads((pathlib.Path(repo) / 'tools' / 'ENGINE_MANIFEST.json')
+                         .read_text(encoding='utf-8')).get('source_commit')
+    except (OSError, ValueError, AttributeError):
+        pass
+    if not new:
+        return [], []
+
+    def git(*args):
+        return subprocess.run(['git', '-C', str(repo), *args],
+                              capture_output=True, text=True)
+
+    r = git('ls-remote', '--heads', 'origin')
+    if r.returncode != 0:
+        return [], []
+    names = [ln.partition('\t')[2][len('refs/heads/'):]
+             for ln in r.stdout.splitlines() if '\trefs/heads/' in ln]
+    keep = set(pb.tier_branches(repo)) | {pb.LOCK_BRANCH}
+    for read in (lambda: pb.landing_branch(repo)[0], lambda: pb.base_branch(repo)):
+        try:
+            keep.add(read())
+        except Exception:                                    # noqa: BLE001
+            pass
+    cur = git('rev-parse', '--abbrev-ref', 'HEAD').stdout.strip()
+    keep.add(cur)
+    cands = [n for n in names if n not in keep
+             and any(w in n.lower() for w in UPDATE_BRANCH_WORDS)]
+    if not cands:
+        return [], []
+    git('fetch', '-q', 'origin', *[f'+refs/heads/{n}:refs/remotes/origin/{n}'
+                                    for n in cands])
+    main_wf = set(git('ls-tree', '--name-only', f'origin/{pb.MAIN}',
+                      '.github/workflows/').stdout.split())
+    replaced, unplaced = [], []
+    for name in sorted(cands):
+        ref = f'refs/remotes/origin/{name}'
+        if git('rev-parse', '--verify', '-q', ref).returncode != 0:
+            continue
+        old = _engine_record_at(repo, ref)
+        known = old and subprocess.run(
+            ['git', '-C', str(clone), 'merge-base', '--is-ancestor', old, new],
+            capture_output=True).returncode
+        if not old or known not in (0, 1):
+            unplaced.append(name)
+            continue
+        if known != 0:
+            continue      # newer than what was taken, or off to the side
+        wf = sorted(set(git('ls-tree', '--name-only', ref,
+                            '.github/workflows/').stdout.split()) - main_wf)
+        replaced.append((name, old, wf))
+    return replaced, unplaced
+
+
+def replaced_update_lines(repo, clone=None):
+    """-> the lines DONE prints for replaced_update_branches, [] when there
+    is nothing to say. Each listed branch carries its delete link from
+    precedent_stale_branches.link, the one builder every lister uses; a name
+    that is a substring of another branch's is flagged, not linked, since
+    the filtered page would show both (branch-delete-links)."""
+    try:
+        replaced, unplaced = replaced_update_branches(repo, clone)
+    except Exception:                                        # noqa: BLE001
+        return []
+    if not (replaced or unplaced):
+        return []
+    try:
+        import precedent_stale_branches as psb
+        slug = psb._slug(repo)
+    except Exception:                                        # noqa: BLE001
+        psb, slug = None, None
+    r = subprocess.run(['git', '-C', str(repo), 'ls-remote', '--heads', 'origin'],
+                       capture_output=True, text=True)
+    every = [ln.partition('\trefs/heads/')[2] for ln in r.stdout.splitlines()]
+    out = []
+    if replaced:
+        out.append(f"\nREPLACED UPDATE BRANCHES -- earlier update branches "
+                   f"this one replaces: the engine each carries is already in "
+                   f"the one this update took, so none of them needs to reach "
+                   f"{pb.MAIN}. Each has done its job. Hand over each link; "
+                   f"never delete one yourself (never-delete-a-remote-branch):")
+        for name, old, wf in replaced:
+            clash = [o for o in every if o != name and name in o]
+            if clash:
+                where = (f"not linked: its filter would also show "
+                         f"{', '.join(clash[:3])}; delete it from GitHub's "
+                         f"branches page by name")
+            elif psb and slug:
+                where = psb.link(*slug, name)
+            else:
+                where = "delete it from GitHub's branches page"
+            out.append(f"  - {name} (engine {old[:12]}): {where}")
+            if wf:
+                out.append(f"    still carries {', '.join(wf)}, which "
+                           f"{pb.MAIN} no longer has: a push to this branch "
+                           f"would run it again")
+    if unplaced:
+        out.append(f"\nUPDATE BRANCHES NOT PLACED -- this clone cannot tell "
+                   f"whether the engine on these is older than the one just "
+                   f"taken (no engine record, or a commit the clone lacks); "
+                   f"look at each before calling it replaced: "
+                   + ', '.join(unplaced))
+    return out
+
+
 def _person_is_code_owner(repo):
     """True when the person running the update is one of `repo`'s code
     owners; False in doubt (precedent_audience)."""
@@ -3770,6 +3957,10 @@ class Report:
         live = live_line(self.pin_repo)
         if live:
             print(live)
+        for line in source_steps_lines(self.pin_repo):
+            print(line)
+        for line in replaced_update_lines(self.repo or self.pin_repo):
+            print(line)
         self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:
@@ -4609,6 +4800,97 @@ def regenerated_step(repo, rep):
         if 'failed' in line or 'NOT added' in line:
             rep.leave('generated files', line.split(': ', 1)[-1])
     return rebuilt
+
+
+# A COPY BUILT FROM ANOTHER COPY SAYS WHAT IT WAS BUILT FROM, AND THE
+# UPDATE CHECKS IT (Morgan, 2026-11-01, strength: decided: "Implement your
+# plan"; practice: built-from-is-checked). A source can export files it
+# compiles from a source of its own -- a voice repository's prompts carry a
+# writing-rules set inside them -- and a consumer that copies both gets the
+# second one by two routes of different length: straight from its source in
+# one hop, inside the compiled files in two. Update Vendors refreshed the
+# direct copy and said DONE while the compiled one still carried the old
+# text, and nothing could tell, because nothing recorded what the compiled
+# files were built from. The source now exports BUILT_FROM.json beside them:
+# every input with its git blob hash, and the source and path for an input
+# that sits inside a copied-in source. Content, not commits: most of a
+# source's commits never touch what a compiled file read.
+BUILT_FROM = 'BUILT_FROM.json'
+
+
+def git_blob_hash(data):
+    """-> the git blob hash of `data`, what `git hash-object` prints."""
+    import hashlib
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def built_from_differences(repo):
+    """-> [(copy entry, source entry, [paths])]: for each copy this
+    repository takes that carries a BUILT_FROM.json, each source it names
+    that this repository also copies in, with the files whose content in the
+    compiled files differs from this repository's own copy. A file this
+    repository does not hold is not compared: an exports-only copy may
+    narrow what it takes."""
+    try:
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    import precedent_resolve as pr
+    entries = [e for e in (cfg.get('sources') or []) if pr.is_vendored(e)
+               and e.get('name') and e.get('path')]
+    by_name = {e['name']: e for e in entries}
+    out = []
+    for e in entries:
+        try:
+            rec = json.loads((repo / str(e['path']) / BUILT_FROM).read_text(
+                encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        diffs = {}
+        outputs = rec.get('outputs') if isinstance(rec, dict) else None
+        for inputs in (outputs.values() if isinstance(outputs, dict) else []):
+            for i in inputs if isinstance(inputs, list) else []:
+                src, sp = (i.get('source'), i.get('source_path')) \
+                    if isinstance(i, dict) else (None, None)
+                if not src or not sp or src == e['name'] or src not in by_name:
+                    continue
+                here = repo / str(by_name[src]['path']) / sp
+                if not here.is_file():
+                    continue
+                if git_blob_hash(here.read_bytes()) != i.get('blob'):
+                    diffs.setdefault(src, set()).add(sp)
+        for src, paths in sorted(diffs.items()):
+            out.append((e, by_name[src], sorted(paths)))
+    return out
+
+
+def _repo_label(entry):
+    url = str(entry.get('repo') or '').rstrip('/')
+    if url.endswith('.git'):
+        url = url[:-4]
+    parts = url.split('/')
+    return '/'.join(parts[-2:]) if len(parts) >= 2 and parts[-2] else entry['name']
+
+
+def built_from_step(repo, rep):
+    """Refuse DONE while a copied-in source's compiled files were built from
+    different content than this repository's own copy of a source they name.
+    The fix is upstream of here: Update Vendors in the repository that
+    builds them, landed, then this update again. A copy this repository
+    holds on purpose is only reported, never left."""
+    for e, src, paths in built_from_differences(repo):
+        shown = ', '.join(paths[:6]) + (f' and {len(paths) - 6} more'
+                                         if paths[6:] else '')
+        held = [x['name'] for x in (e, src) if str(x.get('hold') or '').strip()]
+        what = (f'its compiled files were built from a different {src["name"]} '
+                f'than this repository\'s own copy of it ({shown})')
+        if held:
+            rep.step(f'copy of {e["name"]}', f'{what}; {" and ".join(held)} '
+                     f'is held here, so this is reported, not left')
+            continue
+        rep.leave(f'copy of {e["name"]}', f'{what}. Run Update Vendors in '
+                  f'{_repo_label(e)} first, so it rebuilds them from the current '
+                  f'{src["name"]}, land that on its main, then run this again')
 
 
 STAGED_RECORD = 'precedent-update-staged.json'
@@ -6370,6 +6652,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     record_copy_fingerprint(repo, rep)
     n = stage_update(repo, before)
     regenerated_step(repo, rep)
+    built_from_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', staged_line(n, before, rep.earlier))
     superseded_refresh_step(repo, rep)
@@ -6707,6 +6990,24 @@ def session_load_total_step(repo, rep):
             f'the total instead (practice: session-load-budget).')
 
 
+def stale_exemption_warnings(repo):
+    """One line per `not_binding` entry the repo's own precedent_check.py
+    finds it no longer needs (its --stale-exemptions), for the update's
+    closing WARNING list. Empty when the engine there predates the flag or
+    the run fails: a missing warning, never a failed update."""
+    tool = repo / 'tools' / 'precedent_check.py'
+    try:
+        if '--stale-exemptions' not in tool.read_text(encoding='utf-8'):
+            return []
+        r = subprocess.run([sys.executable, str(tool), '--stale-exemptions'],
+                           cwd=repo, capture_output=True, text=True,
+                           timeout=600)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [line.split('  ', 1)[1].strip() for line in r.stdout.splitlines()
+            if line.startswith('STALE EXEMPTION  ')]
+
+
 def full_check_after(repo):
     """precedent.json's `update_full_check` is "after": the update runs the
     basic check only, and the full one runs after the push, in the
@@ -6777,6 +7078,14 @@ def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
     session_load_total_step(repo, rep)
+    # An exemption whose reason went away: the update is the moment the
+    # engine a repo exempted itself from changes, and the check never runs
+    # an exempted rule, so nothing else would say so (2026-11-01: a shared
+    # set's deep-check entry, whose root fix landed the same day). Asked of
+    # the repo's own, just-updated engine; one vendored before the flag is
+    # not asked, since it would run its rotation instead.
+    rep.warnings.extend(stale_exemption_warnings(repo))
+
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full
