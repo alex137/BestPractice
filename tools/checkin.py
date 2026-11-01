@@ -133,12 +133,15 @@ MANIFEST = ROOT / 'process' / 'manifest.json'
 # sibling clone and are never vendored. With no --source the universal set
 # is mirrored whole, exactly as before.
 SOURCE = None
-SOURCE_MANIFEST = 'precedent-source.json'
-# Configs a tool reads from each source's own folder, by that source's path:
-# precedent_reply_check.CONFIG_NAME and precedent_close_detect.CONFIG_NAME.
-# A whole copy of a set carries each one the set has, or its requirements
-# never bind where the copy is the source (practice: vendor-update-runbook).
-SOURCE_CONFIGS = ('reply_check.json', 'close_detect.json')
+import precedent_set_files as _psf  # noqa: E402
+SOURCE_MANIFEST = _psf.set_file('source_manifest')
+# The files a tool reads from each source's own folder, by that source's
+# path, come from ONE registry, precedent_set_files.SET_FILES: a whole copy
+# of a set carries every `ship` entry the set has, or what it declares never
+# binds where the copy is the source (practice: vendor-update-runbook). Until
+# 2026-11-01 this was a hand-kept tuple of two names, and the day it was
+# written a third reader (the vocabulary list's our_language.json) was
+# already missing from every copy of the ladder set.
 CODE_DIRS = None
 # The folder inside the set's repository that IS the set, for a set that
 # shares its repository with other things -- a voice pack beside the
@@ -237,6 +240,7 @@ def _bind_source(clone):
                      f"alone, but neither its {SOURCE_MANIFEST} nor this "
                      f"repository's entry for it lists any `exports`. Nothing "
                      f"was copied.")
+        _refuse_nested_copies(clone, exports)
         CODE_DIRS = [SOURCE_MANIFEST] + [x for x in exports if x != SOURCE_MANIFEST]
         return
     if not dirs and not copied_in:
@@ -264,14 +268,16 @@ def _bind_source(clone):
     # code at all -- its practices are the point.
     if (own.get('upstream') or {}).get('vendor_practices') or copied_in:
         dirs += ['practices', SOURCE_MANIFEST]
-        # And the per-source configs the engine reads from a source's own
-        # folder (SOURCE_CONFIGS): with the copy as the source's path, a
-        # config left behind is a requirement that silently never binds.
-        # Found 2026-11-01: a voice repository copying the ladder set in got
-        # none of its six reply-gate requirements, and no note said so.
-        root = clone / SET_ROOT if SET_ROOT else clone
-        for rel in SOURCE_CONFIGS:
-            if (root / rel).is_file() and rel not in dirs:
+        # And every file the engine reads from a source's own folder
+        # (precedent_set_files.ship_files()): with the copy as the source's
+        # path, a file left behind is a declaration that silently never
+        # binds. Found 2026-11-01: a voice repository copying the ladder set
+        # in got none of its six reply-gate requirements, and none of its
+        # words, and no note said so. Every name, whether or not the clone's
+        # working tree holds it: the copy is taken from the commit, and a
+        # name the set lacks there copies nothing.
+        for rel in _psf.ship_files():
+            if rel not in dirs:
                 dirs.append(rel)
     # And every file its own rules point at: the check scripts in its
     # tools/checks/ (with their tests), and each file a practice ships, runs
@@ -296,7 +302,116 @@ def _bind_source(clone):
     for rel in exports:
         if rel not in dirs:
             dirs.append(rel)
+    if copied_in:
+        named = [str(d).strip().strip('/') for d in (m.get('code') or [])]
+        named += [str((i or {}).get('path') or '').strip().strip('/')
+                  for i in (m.get('carries') or []) if isinstance(i, dict)]
+        _refuse_nested_copies(clone, [r for r in named + exports if r])
     CODE_DIRS = dirs
+
+
+def set_files_in(tree):
+    """-> the registered ship files (precedent_set_files.ship_files) that
+    the set's tree at `tree` holds and a whole copy of it carries,
+    set-relative. [] for a copy taken for its exports alone: none of its
+    rules are in force there, so none of these files are either."""
+    if _declared_entry(SOURCE).get('exports_only') is True:
+        return []
+    tree = pathlib.Path(tree)
+    return [rel for rel in _psf.ship_files() if (tree / rel).is_file()]
+
+
+def _record_set_files(tree, commit):
+    """Write, into this copy's manifest, the registered files the copy now
+    carries and the set's commit they came from -- in the same step as the
+    copy, so an update that stops partway never leaves a short copy that
+    reads as one made before the registry (set-copy-complete compares a
+    copy against exactly this record)."""
+    if SOURCE is None or not MANIFEST.is_file():
+        return
+    if _declared_entry(SOURCE).get('exports_only') is True:
+        return
+    m = json.loads(MANIFEST.read_text(encoding='utf-8'))
+    up = m.setdefault('upstream', {})
+    up[_psf.RECORD_KEY] = set_files_in(tree)
+    up[_psf.RECORD_COMMIT_KEY] = commit
+    MANIFEST.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n",
+                        encoding='utf-8')
+
+
+def install_copy_in(root, rel):
+    """-> a sentence naming the install copy that set-relative entry `rel`
+    is, sits inside or holds, in the set at `root`, else ''. An install copy
+    is a repository's copy of another source: process/upstream/, a
+    process/<name>/ with its process/manifest_<name>.json, or a folder
+    holding tools/ENGINE_MANIFEST.json (an engine copy with its repo)."""
+    root = pathlib.Path(root)
+    parts = pathlib.PurePosixPath(rel).parts
+    if not parts:
+        return ''
+    # Is, or is inside, one.
+    if parts[:2] == ('process', 'upstream'):
+        return 'process/upstream/ is a copy of the universal catalogue'
+    if len(parts) >= 2 and parts[0] == 'process' and (
+            root / 'process' / f'manifest_{parts[1]}.json').is_file():
+        return (f'process/{parts[1]}/ is a copy of {parts[1]}, recorded in '
+                f'process/manifest_{parts[1]}.json')
+    for i in range(1, len(parts) + 1):
+        if (root.joinpath(*parts[:i]) / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+            return (f'{"/".join(parts[:i])}/ holds an engine copy '
+                    f'(tools/ENGINE_MANIFEST.json)')
+    # Holds one.
+    here = root.joinpath(*parts)
+    if here.is_dir():
+        if parts == ('process',) and (here / 'upstream').is_dir():
+            return 'it holds process/upstream/, a copy of the universal catalogue'
+        if parts == ('process',):
+            for mf in sorted(here.glob('manifest_*.json')):
+                name = mf.name[len('manifest_'):-len('.json')]
+                if (here / name).is_dir():
+                    return (f'it holds process/{name}/, a copy of {name}, '
+                            f'recorded in process/{mf.name}')
+        for em in sorted(here.rglob('ENGINE_MANIFEST.json')):
+            if em.parent.name == 'tools' and '.git' not in em.parts:
+                return (f'it holds {em.parent.parent.relative_to(root).as_posix()}/, '
+                        f'which holds an engine copy (tools/ENGINE_MANIFEST.json)')
+    return ''
+
+
+def _refuse_nested_copies(clone, entries):
+    """Exit when an `exports`, `code` or `carries` entry of the set about to
+    be copied resolves into an install copy (install_copy_in): the copy
+    would carry a nested, frozen second copy of another source at the
+    carrier's level (Morgan, 2026-11-01: the sets a repository copies in
+    must NOT be copied in again inside it when it is itself copied
+    elsewhere). One this repository's copy ALREADY holds is not stopped on:
+    it is named, with the two lines that remove it, and the copy carries on
+    as before -- an update never stops on the first run of a new rule
+    (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md, the review)."""
+    root = clone / SET_ROOT if SET_ROOT else clone
+    refused = []
+    for rel in dict.fromkeys(entries):
+        why = install_copy_in(root, rel)
+        if not why:
+            continue
+        here = UPSTREAM / rel
+        if here.exists():
+            print(f"checkin NOTICE: nested copy: {SOURCE}'s copy here holds "
+                  f"{UPSTREAM.relative_to(ROOT).as_posix()}/{rel}, which is "
+                  f"another source's copy ({why}). It stays this run. To remove "
+                  f"it: drop {rel!r} from {SOURCE}'s {SOURCE_MANIFEST} in its "
+                  f"own repository, then here run python3 "
+                  f"tools/precedent_decommission.py "
+                  f"{UPSTREAM.relative_to(ROOT).as_posix()}/{rel} --reason "
+                  f"\"a copy inside a copy\" --apply")
+            continue
+        refused.append(f'{rel} ({why})')
+    if refused:
+        sys.exit(f"checkin FAIL: {SOURCE} lists, among its exports, code or "
+                 f"carries, {'; '.join(refused)}. A copy never carries another "
+                 f"source's copy: this repository takes that source by "
+                 f"declaring it itself. Drop the entry from the set's "
+                 f"{SOURCE_MANIFEST}. Nothing was copied.")
 
 
 def _exports(clone, manifest):
@@ -324,51 +439,9 @@ def _exports(clone, manifest):
     return out
 
 
-def _files_rules_name(set_dir):
-    """-> the paths, relative to the set, that its own practices need
-    beside them: tools/checks/ when the set has one, and every file a
-    practice names in `ships`, `checked_by` or a hook's `run`. A hook script
-    in a folder of its own under tools/ (tools/<name>/x.py) brings that
-    folder, since such a script imports its neighbours."""
-    set_dir = pathlib.Path(set_dir)
-    out = []
-    if (set_dir / 'tools' / 'checks').is_dir():
-        out.append('tools/checks')
-    try:
-        import split_practices as _sp
-    except ImportError:
-        return out
-
-    def _list(raw):
-        if isinstance(raw, list):
-            return raw
-        try:
-            got = json.loads(raw) if isinstance(raw, str) and raw.strip() else None
-        except ValueError:
-            return []
-        return got if isinstance(got, list) else []
-
-    for f in sorted((set_dir / 'practices').glob('*.md')):
-        try:
-            fm, _sections = _sp._read_practice_file(f)
-        except Exception:                                    # noqa: BLE001
-            continue
-        named = [x for x in _list(fm.get('ships')) if isinstance(x, str)]
-        named += [h.get('run') for h in _list(fm.get('hooks'))
-                  if isinstance(h, dict) and isinstance(h.get('run'), str)]
-        cb = str(fm.get('checked_by') or '').strip().strip('"\'')
-        if cb and cb != 'null':
-            named.append(cb)
-        for rel in named:
-            parts = pathlib.PurePosixPath(rel.strip().strip('/')).parts
-            if not parts or '..' in parts or not (set_dir / rel).exists():
-                continue
-            if len(parts) > 2 and parts[0] == 'tools' and parts[1] != 'checks':
-                rel = '/'.join(parts[:2])
-            rel = pathlib.PurePosixPath(rel).as_posix()
-            if rel not in out and not any(rel.startswith(o + '/') for o in out):
-                out.append(rel)
-    return out
+# The one answer to "what does a set's own rules need beside them", shared
+# with precedent_check's set checks (precedent_set_files.files_rules_name).
+_files_rules_name = _psf.files_rules_name
 
 
 def _declared_entry(name):
@@ -1018,10 +1091,25 @@ def _files(base):
         # else -- never its manifest (a private set's manifest in a consumer's
         # tree is what the leak gate refuses), never its practices -- unless
         # the consumer opted in with `vendor_practices` (see _bind_source).
+        kept = _kept_in_copy()
         files = {f for f in files
                  if any(f.as_posix() == d or f.as_posix().startswith(d + '/')
-                        for d in CODE_DIRS)}
+                        for d in CODE_DIRS) and f.as_posix() not in kept}
     return files
+
+
+def _kept_in_copy():
+    """-> the copy-relative paths of a shared set's copy that precedent.json's
+    kept_template_divergences keeps on purpose, with a reason: never
+    overwritten, never counted as drift or as a difference at record, the
+    way Update Vendors keeps a received engine or catalogue file
+    (precedent_local_edits.py's `kept` rule). Without it a kept edit to a
+    copied set file stopped every update of that copy (2026-11-01)."""
+    if SOURCE is None:
+        return set()
+    prefix = UPSTREAM.relative_to(ROOT).as_posix().rstrip('/') + '/'
+    return {k[len(prefix):] for k, why in _psf.kept_paths(ROOT).items()
+            if k.startswith(prefix) and why}
 
 
 def _diff(clone):
@@ -1784,6 +1872,7 @@ def update(clone, force=False, allow_pinned=False, ref=None):
         dropped, kept = _drop_what_the_copy_no_longer_carries(clone, src)
         vendored_only, differing, src_only = _diff(src)
         if not (vendored_only or differing or src_only):
+            _record_set_files(src, src_ref)
             if dropped:
                 _stamp_synced_from(src_ref)
                 print(f"checkin update OK: removed {len(dropped)} file(s) the "
@@ -1802,7 +1891,12 @@ def update(clone, force=False, allow_pinned=False, ref=None):
         for p in differing + src_only:
             (UPSTREAM / p).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src / p, UPSTREAM / p)
+        _record_set_files(src, src_ref)
     _stamp_synced_from(src_ref)
+    for rel in sorted(_kept_in_copy()):
+        print(f"checkin update: kept {UPSTREAM.relative_to(ROOT).as_posix()}/"
+              f"{rel} as this repository changed it: precedent.json's "
+              f"kept_template_divergences keeps it on purpose")
     print(f"checkin update OK: mirrored {len(differing) + len(src_only)} file(s), "
           f"deleted {len(vendored_only)} from the vendored tree ({branch} @ "
           f"{src_ref[:12]})")

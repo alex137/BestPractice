@@ -692,6 +692,11 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The registry of files the engine reads from a set's own folder, which
+    # the reply check, close detection, the vocabulary list, the resolver and
+    # the set copier all take their names from (2026-11-01,
+    # spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md). Imports nothing.
+    'precedent_set_files.py',
     # The one predicate in that file that looks at the DISK rather than at
     # the reply (2026-09-22): does this container hold work that exists
     # nowhere else? It travels for the same reason the reply check itself
@@ -2532,6 +2537,19 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
                   "and refused without --force."),
     }
     manifest_path = dest_tools / MANIFEST_NAME
+    # A practice set's own record that its first Update Vendors with the
+    # set-files registry has run, after which set-file-decided is strict
+    # there (precedent_set_files.DECIDED_MARKER_KEY). Kept across a refresh:
+    # rewritten from scratch, the manifest dropped it, and the set's check
+    # went back to advisory on every update.
+    try:
+        import precedent_set_files as _psf
+        held = json.loads(manifest_path.read_text(encoding='utf-8')).get(
+            _psf.DECIDED_MARKER_KEY)
+        if held:
+            manifest[_psf.DECIDED_MARKER_KEY] = held
+    except (OSError, ValueError, AttributeError, ImportError):
+        pass
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
     written.append(manifest_path)

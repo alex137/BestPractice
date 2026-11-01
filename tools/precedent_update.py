@@ -445,7 +445,7 @@ def record_copy_in_budget(repo, today=None):
         if ans['answered_by'] not in words:
             words.append(ans['answered_by'])
         try:
-            v = json.loads((repo / str(e['path']) / 'precedent-source.json')
+            v = json.loads((repo / str(e['path']) / _set_file('source_manifest'))
                            .read_text(encoding='utf-8')).get('occasion_share_tokens')
         except (OSError, ValueError, AttributeError):
             v = None
@@ -1476,6 +1476,12 @@ def refresh_copies_step(repo, rep, take_sets=()):
         if rc != 0:
             rep.leave(f'copy of {name}', 'not refreshed: ' + tail(out, repo=repo))
             continue
+        # A copy that already holds another source's copy carries on, named
+        # once with the lines that remove it; only a new one is refused
+        # (checkin._refuse_nested_copies).
+        for line in out.splitlines():
+            if line.startswith('checkin NOTICE: nested copy: '):
+                rep.step(f'copy of {name}', line[len('checkin NOTICE: '):])
         rc, out = run(checkin + ['--source', name, 'record', str(clone),
                                  '--repo', str(repo), '--note', 'Update Vendors'],
                       repo)
@@ -1501,8 +1507,88 @@ def refresh_copies_step(repo, rep, take_sets=()):
             shown = changed[:20]
             rep.step(f'copy of {name}', 'changed: ' + ', '.join(shown) + (
                 f' and {len(changed) - len(shown)} more' if changed[20:] else ''))
+        if rc == 0:
+            set_copy_complete_step(repo, rep, e, clone, was, _copy_digest(here))
         refresh_installed_templates(repo, rep, e, clone, set_dir, man,
                                     up.get('commit'))
+
+
+def set_files_decided_step(repo, rep):
+    """In a shared practice set: the first Update Vendors with the set-files
+    registry notes each top-level file nothing decides (set-file-decided)
+    and writes the marker after which that check is strict here
+    (precedent_set_files.DECIDED_MARKER_KEY, in tools/ENGINE_MANIFEST.json).
+    That run's own closing check reads it as a note too, so a set's first
+    update never stops on a rule it has not had the chance to meet (plan,
+    second review, 3). An individual set is never copied, and is left out."""
+    import precedent_set_files as psf
+    import precedent_time
+    try:
+        manifest = json.loads((repo / psf.set_file('source_manifest')).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    level = str((manifest or {}).get('level') or '').strip()
+    if level not in ('shared', 'team'):
+        return
+    em = repo / 'tools' / 'ENGINE_MANIFEST.json'
+    try:
+        data = json.loads(em.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    if data.get(psf.DECIDED_MARKER_KEY):
+        return
+    undecided, adapters, loose = psf.set_file_decisions(repo)
+    for name in undecided:
+        rep.step('set files', f'{name} is a top-level file a copy of this set '
+                 f'does not carry and nothing decides: noted, not a stop. '
+                 f'Before the next Update Vendors, keep it home ("{name}": '
+                 f'"<why>" under "stays" in precedent-source.json) or ship it '
+                 f'(register it in BestPractice\'s tools/precedent_set_files.py)')
+    for line in loose:
+        rep.step('set files', f'precedent-source.json "stays" line {line}: noted')
+    if adapters:
+        rep.step('set files', 'precedent.json declares `adapters`, which a copy '
+                 'of this set never carries: noted. Move it to '
+                 'precedent-source.json before the next Update Vendors')
+    data[psf.DECIDED_MARKER_KEY] = precedent_time.today(repo)
+    em.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                  encoding='utf-8')
+    os.environ['PRECEDENT_SET_FILES_FIRST_RUN'] = '1'
+    rep.step('set files', 'set-file-decided is strict here from the next update'
+             + ('' if undecided or adapters or loose
+                else ': every top-level file is already decided'))
+
+
+def set_copy_complete_step(repo, rep, entry, clone, was, now):
+    """After a copied-in set is refreshed: every file the engine reads from
+    a set's folder (precedent_set_files.SET_FILES) that the set held at the
+    copied commit is in the copy, byte for byte, or the update is not DONE
+    (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md, D).
+
+    The first update with this engine fills what an older copy lacked, and
+    says so once per file, with what the file carries: "added
+    our_language.json, the set's own words for the vocabulary list". A file
+    precedent.json's kept_template_divergences keeps is reported as kept,
+    never as a difference."""
+    import precedent_set_files as psf
+    name = entry.get('name')
+    got = psf.copy_completeness(repo, entry, clone)
+    if got['state'] == 'exports_only':
+        return
+    for rel in psf.ship_files():
+        if rel in now and rel not in was and was:
+            what = (psf.by_name(rel) or {}).get('why', '')
+            rep.step(f'copy of {name}', f'added {rel}, {what}: copies of '
+                     f'shared sets now carry every file the engine reads '
+                     f'from them')
+    for rel, why in got['kept']:
+        rep.step(f'copy of {name}', f'{rel} kept as this repository changed '
+                 f'it ({why})')
+    if got['state'] == 'incomplete':
+        rep.leave(f'copy of {name}', got['note'])
+    elif got['state'] in ('unverified', 'predates'):
+        rep.step(f'copy of {name}', got['note'])
 
 
 # WHAT A SOURCE SHIPS TO BE INSTALLED IS REFRESHED TOO (Morgan, 2026-10-30,
@@ -4888,7 +4974,8 @@ def regenerated_step(repo, rep):
 # every input with its git blob hash, and the source and path for an input
 # that sits inside a copied-in source. Content, not commits: most of a
 # source's commits never touch what a compiled file read.
-BUILT_FROM = 'BUILT_FROM.json'
+from precedent_set_files import set_file as _set_file  # noqa: E402
+BUILT_FROM = _set_file('built_from')
 
 
 def git_blob_hash(data):
@@ -6542,6 +6629,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     # catalogue is (spec/VENDORED_SHARED_SETS.md). Before the views, which
     # render their rules.
     refresh_copies_step(repo, rep, take_sets)
+    set_files_decided_step(repo, rep)
 
     # 4. The views. A refresh changes what the loader renders.
     #

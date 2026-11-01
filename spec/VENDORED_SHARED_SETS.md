@@ -42,7 +42,8 @@ Nothing changes in a repository that does not say this.
 |---|---|---|
 | The resolver | Loads the copy from `path` like any declared set. A set a person brings with the same name is left out: the repository's copy wins, so everyone in the repository runs the same version. | `load_config` and `is_vendored` in [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
 | The list of clones | `declared_source_paths` leaves a copy out, because it is part of this checkout and nothing may fetch it, ask git for its branch or test it as a clone. `vendored_source_paths` lists the copies for the callers that want every set on disk. | [tools/precedent_resolve.py](../tools/precedent_resolve.py) |
-| Update Vendors' copy | `checkin.py --source <name>` mirrors the set's `practices/` and `precedent-source.json` (and its `code` directories, if any), and records the commit it took, where the copy lives (`vendored_at`) and where it came from (`repo`) in `process/manifest_<name>.json`. | [tools/checkin.py](../tools/checkin.py) |
+| Update Vendors' copy | `checkin.py --source <name>` mirrors the set's `practices/` and `precedent-source.json`, every file the engine reads from a set's folder that the set has (the `ship` entries of `SET_FILES`: `reply_check.json`, `close_detect.json`, `our_language.json`, `BUILT_FROM.json`), the files its rules name, the sets it carries, its exports and its `code` directories, and records the commit it took, where the copy lives (`vendored_at`), where it came from (`repo`), and which registered files it carries and from which commit (`set_files`, `set_files_commit`) in `process/manifest_<name>.json`. | [tools/checkin.py](../tools/checkin.py), [tools/precedent_set_files.py](../tools/precedent_set_files.py) |
+| Completeness | After each refresh, every registered file the set held at the recorded commit must be in the copy, byte for byte, or the update is not DONE; the first update with this engine fills what an older copy lacked and says so once per file. The `set-copy-complete` check makes the same comparison between updates: a note while a copy has no `set_files` record yet, a finding after; a file `kept_template_divergences` keeps is named as kept. | `set_copy_complete_step` in [tools/precedent_update.py](../tools/precedent_update.py); `copy_completeness` in [tools/precedent_set_files.py](../tools/precedent_set_files.py) |
 | The hand-edit guard | The same byte-identical check `process/upstream/` has. A change to a rule is made in the set's own repository, then taken by Update Vendors. | `copy_drift` in [tools/checkin.py](../tools/checkin.py), run by the `vendored-copy-matches-record` check |
 | Freshness | A copy whose origin has moved is reported `BEHIND UPSTREAM`, like the universal catalogue. | [tools/precedent_engine_freshness.py](../tools/precedent_engine_freshness.py) |
 | Private sets | A private set is copied only into a repository whose `precedent.json` says `"visibility": "private"`. Update Vendors refuses the copy otherwise, and the `copied-in-set-fits-visibility` check refuses one made another way. A public set's copy is not mistaken for a leak by its folder name. | `_refuse_private_into_public` in [tools/checkin.py](../tools/checkin.py); [tools/precedent_check.py](../tools/precedent_check.py); `private_set_names` in [tools/leak_gate.py](../tools/leak_gate.py) |
@@ -51,6 +52,40 @@ Nothing changes in a repository that does not say this.
 The test is `check_copied_in_shared_sets` in
 [tools/verify_harness.py](../tools/verify_harness.py), with the guard's
 negative control (a rule edited in the copy is found).
+
+### What a whole copy carries, and how that list stays true
+
+**One registry, `SET_FILES` in
+[tools/precedent_set_files.py](../tools/precedent_set_files.py), lists every
+file the engine reads from a set's own folder**, and says what a copy does
+with each: ships it, keeps it home (`precedent.json`), or never meets it
+(an individual set's `identity.json`; universal's `CATALOGUE_SYNC.json`).
+The readers take their names from it and the copier copies what it marks
+`ship`. Until 2026-11-01 the copier kept its own list of two names, and the
+vocabulary list's `our_language.json` was missing from every copy of the
+ladder set that day ([the plan](SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md)).
+Three checks keep it true:
+
+- `set-file-registered`, in BestPractice: a tools/*.py read from a source's
+  folder whose name the registry does not list. A harness case also runs
+  the readers against a fixture set under an audit hook, for reads a scan
+  cannot see.
+- `set-copy-complete`, in a consumer: the comparison above.
+- `set-file-decided`, in a shared practice set: every top-level file is
+  registered, named by a rule, exported, one every set repository keeps for
+  itself (`AGENTS.md`, `approvers.json`, `precedent.json`, `spec/`, `todo/`
+  and the rest of the built-in list), or kept home under a `stays` key in
+  `precedent-source.json` with a reason; and the set's `precedent.json`
+  declares no `adapters`, which a copy never carries. It is a note until the
+  set's own first Update Vendors with this engine has run, which writes
+  `set_files_decided` into its `tools/ENGINE_MANIFEST.json`.
+
+**A copy never carries another source's copy.** An `exports`, `code` or
+`carries` entry that is, sits inside or holds an install copy --
+`process/upstream/`, a `process/<name>/` with its
+`process/manifest_<name>.json`, a folder holding `tools/ENGINE_MANIFEST.json`
+-- is refused, nothing copied. One a consumer's copy already holds is named
+on a DONE update with the line that removes it, never a stop.
 
 ## A set that lives in a folder of its repository
 

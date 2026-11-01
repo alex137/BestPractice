@@ -96,7 +96,12 @@ what it wrote.
   you made after the failure is refused until you commit it.
 
 Every copied-in set and every file a source exports is refreshed; a
-repository freezes one only by its own `"hold": "<why>"`. **A new copy
+repository freezes one only by its own `"hold": "<why>"`. **A whole copy
+carries every file the engine reads from a set's folder** (the registry in
+[tools/precedent_set_files.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_set_files.py)):
+one missing or different from the set at the copied commit is left for
+you, never DONE, and the first update with that engine adds what an older
+copy lacked, one line per file (2026-11-01). **A new copy
 between repositories is added only as a declared source**, never by a sync
 script. Where `precedent.json` says `"update_full_check": "after"`, start
 the [precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
