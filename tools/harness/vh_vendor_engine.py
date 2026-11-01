@@ -5092,6 +5092,56 @@ def check_retired_template_sections_migrate_into_practices():
                       'empty Story) does not refuse it',
                       bool(story) and 'Administrator requests' in story
                       and 'administrator-requests' in story, story or secs))
+        # A reduction pass had moved a section word for word to docs/,
+        # leaving a stub in AGENTS.md: the full text is what moves into the
+        # add-on, links rebased from docs/, and both copies go (2026-11-01,
+        # a voice repository: only the stub's index lines moved).
+        stubbed = fx.consumer('stubbed')
+        st = pve._instantiate(old_tpl, pve._agents_md_subs(stubbed))
+        head = '## Working in parallel (multi-member repos)'
+        i = st.index(head)
+        j = st.index('\n## ', i + len(head))
+        full = st[i:j].rstrip('\n')
+        mine = ('- **Pair on the welcome page.** Two people review it, as '
+                '[the open items](../TODO.md) records.')
+        st = (st[:i] + head + '\n**Moved word for word to [docs/agents-detail.md]'
+              '(docs/agents-detail.md#working-in-parallel-multi-member-repos)** '
+              '(reduction pass). Its entries:\n\n- Claim before you start.\n'
+              + st[j:])
+        (stubbed / 'AGENTS.md').write_text(st, encoding='utf-8')
+        # The repository's own line sits in the section itself, before any
+        # ### subsection, which is a section of its own.
+        moved_text = pve._rebase_links(full, stubbed, stubbed / 'docs')
+        cut = moved_text.find('\n### ')
+        body_with_mine = (moved_text + '\n' + mine if cut < 0 else
+                          moved_text[:cut].rstrip('\n') + '\n' + mine + '\n'
+                          + moved_text[cut:])
+        (stubbed / 'docs').mkdir(exist_ok=True)
+        (stubbed / 'docs' / 'agents-detail.md').write_text(
+            # Written from docs/, as the reduction pass leaves it.
+            '# Detail\n\n' + body_with_mine + '\n\n## Conventions\n\n- Kept here.\n',
+            encoding='utf-8')
+        scfg = json.loads((stubbed / 'precedent.json').read_text(encoding='utf-8'))
+        scfg['sources'].append({'level': 'repo-local', 'name': 'local', 'path': 'local'})
+        fx.write_config(stubbed, scfg)
+        (stubbed / 'local' / 'practices').mkdir(parents=True)
+        splan = [r for r in pve._retired_agents_md_plan(stubbed, 'consumer', ROOT)
+                 if r[0] == head]
+        pve._apply_retired_agents_md(stubbed, splan)
+        sadd = stubbed / 'local' / 'practices' / 'working-in-parallel-in-this-repo.md'
+        stext = sadd.read_text(encoding='utf-8') if sadd.is_file() else ''
+        sdoc = (stubbed / 'docs' / 'agents-detail.md').read_text(encoding='utf-8')
+        sagents = (stubbed / 'AGENTS.md').read_text(encoding='utf-8')
+        cases.append(('THE CASE: a stub that says its section moved word for word '
+                      'to docs/ is followed: the full text\'s own lines go into the '
+                      'add-on with their links rebased from docs/, and the stub and '
+                      'the docs copy both go',
+                      'Pair on the welcome page' in stext
+                      and '](../../TODO.md)' in stext
+                      and 'Its entries:' not in stext
+                      and head not in sdoc and 'Kept here.' in sdoc
+                      and head not in sagents,
+                      (failure_detail(stext, 600), failure_detail(sdoc, 200), [r[2] for r in splan])))
         bare = fx.consumer('no-local')
         (bare / 'AGENTS.md').write_text(
             pve._instantiate(old_tpl, pve._agents_md_subs(bare)).replace(

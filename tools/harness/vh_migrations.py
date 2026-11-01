@@ -1258,6 +1258,46 @@ def check_main_test_pass_leaves_a_git_marker():
     return (not bad, f'{len(cases)} stated cases', '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_acronym_expanded_after_or_listed_in_the_glossary():
+    """An acronym is glossed when its expansion follows it -- "QZ [Quick
+    Zebra]", "QZ (Quick Zebra)" -- with the expansion's capitals spelling
+    its letters, and when the glossary lists it in a plain table cell, as a
+    practice's defines: field writes it. 2026-11-01: a quotation saying
+    "BP [BestPractice]" failed a Produce; the fix that stuck was a repository
+    adding BP to its own glossary by hand. CONTROL: "QZ (see below)" is no
+    expansion, and an acronym nowhere is still flagged."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    toks = lambda t, known=frozenset(): [
+        tok for _i, tok in dl.scan_unglossed(t, set(known), 'x.md') if tok == 'QZ']
+    cases = [
+        ('"QZ [Quick Zebra]" is glossed', toks('Ask QZ [Quick Zebra] first.\n') == []),
+        ('"QZ (Quick Zebra)" is glossed', toks('Ask QZ (Quick Zebra) first.\n') == []),
+        ('a CamelCase expansion counts: "QZ [QuickZebra]"',
+         toks('Ask QZ [QuickZebra] first.\n') == []),
+        ('CONTROL: "QZ (see below)" is no expansion', toks('Ask QZ (see below).\n') == ['QZ']),
+        ('CONTROL: an acronym with no expansion is flagged', toks('Ask QZ first.\n') == ['QZ']),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        g = pathlib.Path(tmp) / 'GLOSSARY.md'
+        g.write_text('| Term | Defined in |\n|---|---|\n| QZ | [x](x.md) |\n')
+        old = dl.GLOSSARY_PATH
+        try:
+            dl.GLOSSARY_PATH = g
+            known = dl.load_known_acronyms() or set()
+        finally:
+            dl.GLOSSARY_PATH = old
+    cases.append(('a term a practice defines, listed as a plain glossary cell, is known',
+                  'QZ' in known))
+    bad = [n for n, ok in cases if not ok]
+    check(f'an acronym is glossed by an expansion after it, or by a glossary row '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_acronym_scan_skips_wrapped_code_spans():
     """doc_lint's acronym scan -- the one detector the acronyms-glossary gate
     shares -- skips a code span that wraps onto the next line, as it skips

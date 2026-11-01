@@ -8101,6 +8101,42 @@ def _repo_local_practices_dir(dest_root):
     return None
 
 
+_MOVED_STUB_RE = re.compile(
+    r'Moved word for word to \[[^\]]*\]\(([^)#\s]+)(?:#[^)\s]*)?\)')
+
+
+def _moved_word_for_word(dest_root, section_text, key):
+    """-> (repo-relative path, first, end, text) of the section a stub
+    points at, or None. A reduction pass leaves a retired AGENTS.md section
+    as a stub, "**Moved word for word to [docs/x.md](docs/x.md#anchor)**"
+    and an index of its entries, with the full text in that file under the
+    same heading at any level.
+
+    WHY (2026-11-01, a voice repository's update). The retirement took the
+    stub for the section: it moved the one-line index into the add-on
+    practice and left the full text in docs/, reported but never moved, so
+    the add-on carried an index of entries that were no longer anywhere it
+    pointed. It now follows the stub."""
+    m = _MOVED_STUB_RE.search(section_text)
+    if not m:
+        return None
+    rel = m.group(1)
+    target = (dest_root / rel).resolve()
+    if dest_root.resolve() not in target.parents or not target.is_file():
+        return None
+    try:
+        text = target.read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return None
+    want = _heading_key(key.lstrip('#'))
+    lines = text.split('\n')
+    for k, first, end in _md_sections(text):
+        if _heading_key(k.lstrip('#')) == want:
+            return (target.relative_to(dest_root.resolve()).as_posix(), first, end,
+                    _section_text(lines, first, end))
+    return None
+
+
 def _retired_agents_md_plan(dest_root, kind, templates_dir):
     """-> [(key, slug, action, span, own_blocks, where)] for each retired
     template section this repository still carries; see the block above."""
@@ -8134,7 +8170,11 @@ def _retired_agents_md_plan(dest_root, kind, templates_dir):
         if len(spans) > 1:
             continue
         span = spans[0]
-        own = _own_blocks(_section_text(lines, *span), versions)
+        moved = _moved_word_for_word(dest_root, _section_text(lines, *span), key)
+        # A stub's index lines summarize the moved text; the text itself is
+        # what the repository wrote (_moved_word_for_word).
+        own = _own_blocks(moved[3] if moved else _section_text(lines, *span),
+                          versions)
         if not own:
             action = 'remove'
         elif key in _RETIRED_KEEP_IF_OWN:
@@ -8268,13 +8308,19 @@ def _apply_retired_agents_md(dest_root, plan):
         today = str(precedent_time.today())
     except Exception:                                           # noqa: BLE001
         today = None
+    moved_copies = []
     for key, slug, action, (first, end), own, _w in sorted(rows, key=lambda r: -r[3][0]):
+        moved = _moved_word_for_word(dest_root, _section_text(lines, first, end), key)
+        if moved:
+            moved_copies.append(moved)
         if action == 'addon':
             d = _repo_local_practices_dir(dest_root)
             target = d / f'{slug}-in-this-repo.md'
             # The lines were written from AGENTS.md's folder, the repository
-            # root; the add-on sits in the repo-local source's practices/.
-            body = _rebase_links('\n\n'.join(own), dest_root.resolve(),
+            # root, or from the file a stub points at; the add-on sits in the
+            # repo-local source's practices/.
+            src_dir = (dest_root / moved[0]).parent if moved else dest_root
+            body = _rebase_links('\n\n'.join(own), src_dir.resolve(),
                                  target.parent.resolve())
             if target.is_file():
                 prior = target.read_text(encoding='utf-8')
@@ -8312,6 +8358,20 @@ def _apply_retired_agents_md(dest_root, plan):
             end += 1
         del lines[first:end]
     path.write_text('\n'.join(lines), encoding='utf-8')
+    # The full text a stub pointed at is in the add-on now, or was all
+    # template text: its copy goes too, bottom-up within each file.
+    by_file = collections.defaultdict(list)
+    for rel, first, end, _t in moved_copies:
+        by_file[rel].append((first, end))
+    for rel, spans in by_file.items():
+        other = dest_root / rel
+        olines = other.read_text(encoding='utf-8').split('\n')
+        for first, end in sorted(spans, reverse=True):
+            while end < len(olines) and not olines[end].strip():
+                end += 1
+            del olines[first:end]
+        other.write_text('\n'.join(olines).rstrip('\n') + '\n', encoding='utf-8')
+        written.append(other)
     return [path] + written
 
 

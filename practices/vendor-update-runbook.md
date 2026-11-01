@@ -10,7 +10,7 @@ gates:       ["merge"]
 gates_why:   "An update lands as a merge, and the merge is the last moment the sequence can still be checked before it is someone else's committed history."
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
-defines:     ["Update Vendors"]
+defines:     ["Update Vendors", "BP"]
 command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase. Say it as \"Update Vendors and merge\": Claude Code's auto mode lets a merge through only when your own words name it."}
 status:      active
 in_force_at: null
@@ -260,6 +260,13 @@ investigate** ("A refusal naming a file upstream no longer has").
 
 ## Detail
 Everything under the headings below was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+**BP is BestPractice**, the repository this update copies the engine and the
+universal catalogue from, and the short name people use for it in every
+repository. It is defined here, once, so every repository's generated
+glossary carries it and nobody has to spell it out in each document
+(2026-11-01: a quotation that said "BP [BestPractice]" failed a Produce, and
+one repository had added BP to its own glossary by hand).
 
 ### The phrase, the merge and auto mode
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the

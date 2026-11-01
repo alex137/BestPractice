@@ -328,7 +328,14 @@ def load_known_acronyms():
     if not GLOSSARY_PATH.exists():
         return None
     known = set(ACRONYM_STOP)
-    for m in re.finditer(r'\*\*([^*]+)\*\*', GLOSSARY_PATH.read_text(encoding='utf-8', errors='ignore')):
+    gloss = GLOSSARY_PATH.read_text(encoding='utf-8', errors='ignore')
+    # A term a practice defines is listed by the generated glossary as a
+    # plain table cell, not in bold, and is just as documented: BP, the
+    # universal source's name, is defined once upstream for every repository
+    # (2026-11-01).
+    for m in re.finditer(r'^\|\s*([A-Z][A-Z0-9]{1,5})\s*\|', gloss, re.M):
+        known.add(m.group(1))
+    for m in re.finditer(r'\*\*([^*]+)\*\*', gloss):
         for tok in re.split(r'[/\s,]+', m.group(1)):
             tok = tok.strip(' .…-').upper()
             if tok:
@@ -872,8 +879,30 @@ def scan_unglossed(text, known, path=None):
             seen.add(tok)
             if f'({tok})' in clean:
                 continue
+            if expanded_after(tok, clean, m.end()):
+                continue
             out.append((i, tok))
     return out
+
+
+# "BP [BestPractice]" or "BP (BestPractice)": the expansion right after the
+# acronym, its words' capitals spelling the acronym's letters in order, so
+# "BP (see below)" is never taken for one. The check knew only the other
+# order, "BestPractice (BP)", and a quotation that glossed the acronym this
+# way failed a Produce (2026-11-01); quoted words keep their form, so the
+# check has to read them as they are.  (practice: acronyms-glossary)
+_TRAILING_EXPANSION_RE = re.compile(r'\s*[(\[]([^)\]\n]{2,80})[)\]]')
+
+
+def expanded_after(tok, line, pos):
+    m = _TRAILING_EXPANSION_RE.match(line, pos)
+    if not m:
+        return False
+    caps = ''.join(c for w in re.findall(r"[A-Za-z][A-Za-z']*", m.group(1))
+                   for c in (w[0].upper() + ''.join(x for x in w[1:] if x.isupper())))
+    letters = [c for c in tok if c.isalpha()]
+    it = iter(caps)
+    return bool(letters) and all(c in it for c in letters) and caps[:1] == letters[0]
 
 
 def _decontent(line):
