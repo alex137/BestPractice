@@ -4439,13 +4439,23 @@ def _against_main(root, wt, branch, mtip, say):
         return []
     out = (p.stdout + p.stderr).splitlines()
     found = []
+    # EVERY FINDING, WHOLE (2026-10-31). This kept only the first line under
+    # a violation, cut at 200 characters: a Produce refused over
+    # routing-reason showed one of its two practices, with the half of the
+    # sentence that said what to do cut off, so the fix took two rounds of
+    # the quick checks. A violation's findings are the indented lines under
+    # it, up to its "  the rule:" block, which is the rule, not a finding
+    # (practice: control-asserts-which-failure, "the failure report names
+    # what failed").
     for i, line in enumerate(out):
         m = _VIOLATION_LINE.match(line)
-        if m:
-            first = next((l.strip() for l in out[i + 1:i + 2]
-                          if l.startswith('    ')), '')
+        if not m:
+            continue
+        for l in out[i + 1:]:
+            if not l.startswith('    '):
+                break
             found.append({'check': f'{m.group(1)} (against {MAIN})',
-                          'line': first[:200]})
+                          'line': l.strip()})
     if not found:
         last = next((l.strip() for l in reversed(out) if l.strip()), 'no output')
         found.append({'check': f'checks against {MAIN}', 'line': last[:200]})
