@@ -808,6 +808,47 @@ def _install_retrying_tempdir_cleanup():
     _tempfile.TemporaryDirectory._rmtree = classmethod(_rmtree)
 
 
+def _drop_foreign_engine_modules(path_before):
+    """After a check: forget any engine module it left loaded from outside
+    this repository's tools/, and any import path it added outside this
+    repository, so the next check imports this tree's engine.
+
+    WHY (2026-10-31). A landing's background run went red on
+    check_repo_reference_allowlist: "module 'leak_gate' has no attribute
+    '_ref_key'". The leak_gate that process held was a practice set's older
+    vendored copy: an earlier check had run that set's ladder tools in this
+    process, and they put the set's tools/ first on sys.path while
+    importing. The set no longer does that (precedent-shared-ladder #167);
+    this keeps any other copy, an adopter's older one included, from
+    reaching the next check. -> the names dropped."""
+    tools = (ROOT / 'tools').resolve()
+    names = {f.stem for f in tools.glob('*.py')}
+    dropped = []
+    for n in list(sys.modules):
+        if n not in names:
+            continue
+        f = getattr(sys.modules.get(n), '__file__', None)
+        try:
+            foreign = bool(f) and pathlib.Path(f).resolve().parent != tools
+        except (OSError, ValueError):
+            foreign = False
+        if foreign:
+            del sys.modules[n]
+            dropped.append(n)
+    before, root = set(path_before), ROOT.resolve()
+
+    def _ours(entry):
+        if entry in before or not entry:
+            return True
+        try:
+            pathlib.Path(entry).resolve().relative_to(root)
+            return True
+        except (ValueError, OSError):
+            return False
+    sys.path[:] = [e for e in sys.path if _ours(e)]
+    return dropped
+
+
 def _install_fixture_error_guard():
     """Turn a FixtureSetupError into a FAILED check instead of a dead run.
 
@@ -822,6 +863,7 @@ def _install_fixture_error_guard():
     def _wrap(name, fn):
         def wrapper(*args, **kwargs):
             _CURRENT_CHECK.append(name)
+            path_before = list(sys.path)
             try:
                 return fn(*args, **kwargs)
             except FixtureSetupError as exc:
@@ -831,6 +873,7 @@ def _install_fixture_error_guard():
                 return (_CHECK_ALREADY_REPORTED, '', '')
             finally:
                 _CURRENT_CHECK.pop()
+                _drop_foreign_engine_modules(path_before)
         return wrapper
 
     for name in names:
@@ -4119,6 +4162,7 @@ def main():
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
     check_harness_drops_inherited_git_repository_variables()
+    check_a_check_leaves_no_foreign_engine_module_behind()
     check_harness_fixtures_run_no_background_maintenance()
     check_session_trailer_check_ships_with_the_engine()
     check_orphan_scan_reads_who_claims_a_script()

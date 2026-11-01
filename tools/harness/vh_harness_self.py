@@ -741,3 +741,55 @@ def check_as_ci_says_why_a_shard_failed():
           not failed, '; '.join(failed))
 
 
+
+
+def check_a_check_leaves_no_foreign_engine_module_behind():
+    """After every check the harness forgets any engine module the check
+    left loaded from outside this repository's tools/, and any import path
+    it added outside this repository (_drop_foreign_engine_modules, run by
+    the wrapper every check goes through).
+
+    2026-10-31: a landing's background run died on check_repo_reference_
+    allowlist, "module 'leak_gate' has no attribute '_ref_key'", because an
+    earlier check had run a practice set's ladder tools in this process and
+    they left the set's older vendored leak_gate in sys.modules. The fixture
+    plants a foreign tools/ holding its own leak_gate, imports it the way
+    those tools did, and calls the cleanup.
+
+    Negative control: before the cleanup the foreign module is what an
+    import of leak_gate returns -- the state the red run was in."""
+    import tempfile
+    name = 'a check leaves no foreign engine module behind for the next one'
+    cases = []
+    saved = sys.modules.get('leak_gate')
+    with tempfile.TemporaryDirectory() as td:
+        foreign = pathlib.Path(td) / 'tools'
+        foreign.mkdir()
+        (foreign / 'leak_gate.py').write_text('WHO = "a foreign copy"\n', encoding='utf-8')
+        path_before = list(sys.path)
+        sys.modules.pop('leak_gate', None)
+        sys.path.insert(0, str(foreign))
+        import importlib
+        planted = importlib.import_module('leak_gate')
+        cases.append(('NEGATIVE CONTROL: the foreign copy is what an import returns '
+                      'before the cleanup', getattr(planted, 'WHO', None) == 'a foreign copy'))
+        dropped = _drop_foreign_engine_modules(path_before)
+        cases.append(('the cleanup forgets it, by name',
+                      'leak_gate' in dropped and 'leak_gate' not in sys.modules))
+        cases.append(('...and takes the foreign tools/ off the import path',
+                      str(foreign) not in sys.path))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            again = importlib.import_module('leak_gate')
+        finally:
+            sys.path.remove(str(ROOT / 'tools'))
+        cases.append(("the next import is this repository's own",
+                      pathlib.Path(again.__file__).resolve().parent
+                      == (ROOT / 'tools').resolve()))
+        kept = _drop_foreign_engine_modules(list(sys.path))
+        cases.append(("this repository's own module is kept",
+                      'leak_gate' not in kept and 'leak_gate' in sys.modules))
+    if saved is not None:
+        sys.modules['leak_gate'] = saved
+    bad = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not bad, '; '.join(bad))

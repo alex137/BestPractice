@@ -8193,6 +8193,15 @@
       "seconds": 4.6,
       "leads": [],
       "importance": "high"
+    },
+    "check_a_check_leaves_no_foreign_engine_module_behind": {
+      "verdict": "keep",
+      "why": "After every check the harness forgets engine modules and import paths a check left from outside this repository; a set's older leak_gate left loaded once killed a whole shard of a landing's background run.",
+      "date": "2026-10-31",
+      "by": "agent",
+      "seconds": 0.0,
+      "leads": [],
+      "importance": "high"
     }
   }
 }
