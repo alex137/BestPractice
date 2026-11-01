@@ -565,6 +565,7 @@ _AGENT_STARTED_RE = re.compile(
     r'Async agent launched successfully.*?\bagentId:\s*([A-Za-z0-9_-]+)', re.S)
 _NOTIFICATION_RE = re.compile(r'<task-notification>(.*?)</task-notification>', re.S)
 _TAG_RE = r'<{0}>(.*?)</{0}>'
+_STOPPED_TASK_RE = re.compile(r'\(task ([A-Za-z0-9_-]+)\)')
 # A finished job counts as failed on a non-zero exit code; a progress event
 # counts as one when its text names a failure. Over-matching here only lets
 # the session speak, which is the safe direction.
@@ -794,8 +795,17 @@ def turn_wake(transcript):
             notices.append(d['content'])
         for t in notices:
             for block in _NOTIFICATION_RE.findall(t):
-                if tag('status', block) and tag('task-id', block):
+                if not tag('status', block):
+                    continue
+                if tag('task-id', block):
                     ended.add(tag('task-id', block))
+                else:
+                    # A container restart's notice carries a status and no
+                    # task-id: it names each job it stopped as "(task <id>)"
+                    # in its summary (2026-10-31: b56bp2nvb, killed by a
+                    # restart, was held "still running" for the rest of the
+                    # session, its old output file still on disk).
+                    ended.update(_STOPPED_TASK_RE.findall(tag('summary', block) or ''))
     running = [i for i in started if i not in ended]
 
     blocks = _NOTIFICATION_RE.findall(wake_text)
