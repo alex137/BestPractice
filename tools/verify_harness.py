@@ -4676,6 +4676,7 @@ def main():
     check_ledger_accepts_a_row_added_with_its_change()
     check_ci_fleet_audit_reads_github_not_the_clone()
     check_ci_fleet_audit_skips_deleted_sets()
+    check_ci_fleet_audit_names_when_a_workflow_left_main()
     check_session_start_warns_of_unapproved_workflow()
     check_workflow_write_gate_refuses_api_writes()
     check_very_deep_check_workflow_liveness_scan()
