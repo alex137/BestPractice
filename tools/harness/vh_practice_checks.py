@@ -8825,6 +8825,9 @@ def check_debut_judges_the_change_against_main_too():
             '    if "D\\tgone.py" in d:\n'
             '        print("VIOLATION  rename-updates-links")\n'
             '        print("    doc.md:1: still references \'gone.py\', which this branch deleted")\n'
+            '        print("    doc2.md:1: " + "x" * 220 + " SECOND-FINDING-END")\n'
+            '        print("  the rule:")\n'
+            '        print("    RULE-TEXT-NOT-A-FINDING")\n'
             '        print("precedent_check: 0 passed, 1 violated")\n'
             '        sys.exit(1)\n'
             'print("precedent_check: 3 passed, 0 violated")\n', encoding='utf-8')
@@ -8841,6 +8844,15 @@ def check_debut_judges_the_change_against_main_too():
         cases.append(('a Debut of staging that deleted a file main still has '
                       'fails, naming the check and main',
                       rc == 1 and 'rename-updates-links (against main)' in out,
+                      failure_detail(out, 300)))
+        # 2026-10-31: only the first finding was kept, cut at 200
+        # characters, so a Produce showed one of two practices to fix.
+        cases.append(('...every finding under it, whole: the second one, past '
+                      '200 characters, reaches its end',
+                      'SECOND-FINDING-END' in out.split('the full local suite FAILED')[-1],
+                      failure_detail(out, 300)))
+        cases.append(('...and the rule block under it is not a finding',
+                      'rename-updates-links (against main): RULE-TEXT' not in out,
                       failure_detail(out, 300)))
         cases.append(('...and the RUN TESTS RESULT line names it',
                       'RUN TESTS RESULT: staging: FAILED' in out
