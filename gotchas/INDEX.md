@@ -180,4 +180,6 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 
 - **Every Update Vendors run in a consuming repository lists the same engine line for judgment in the ladder set's upstream review, and the line says nothing is wrong: a repair that already finished, a hook wired on purpose, a file the person chose to undeclare.** [story](gotcha-2026-10-29-a-note-line-that-reports-a-state-lands-in-the-upstream-review.md)
 
+- **A commit's hook rebuilds `MAP.md` with rows for tools this repository does not track: `tools/landing_pr_guard.py`, `tools/branch_name_guard.py` and others a practice set delivers at session start. In this checkout, `build_views.py --check` is clean. In a fresh clone, and in the harness's planted-case run, the same `MAP.md` is stale and links to files that are not there.** [story](gotcha-2026-10-31-a-set-cloned-mid-session-puts-untracked-tools-into-map-md.md)
+
 - **`add_repo` with `owner: owner, repo: SomeSet` answers `Repo owner/someset added`, hands back a lowercase `clone_url`, and tells the session to call `register_repo_root` with `repo: "someset"`. A session that follows it clones from the lowercase URL, so the clone's origin, and anything copied from it, now spells a declared repository a second way.** [story](gotcha-2026-10-31-add-repo-answers-a-capitalized-repository-in-lowercase.md)

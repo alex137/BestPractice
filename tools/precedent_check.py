@@ -9111,7 +9111,7 @@ def _enforcement_lives_with_its_practice(ctx):
         if rel in shipped_here:
             continue
         hits = _set_names_in_strings(path, wanted, set_only, names)
-        test = rel == 'tools/verify_harness.py' or '/tests/' in rel \
+        test = _is_harness_file(rel) or '/tests/' in rel \
             or pathlib.PurePosixPath(rel).name.startswith('test_')
         for h in sorted(hits):
             what = (f'the set {h}' if h in names else
@@ -11702,7 +11702,7 @@ def _repo_retired_terms(cfg_path, _ol):
                                AGENT_WORKTREES.rstrip('/'))]
         for name in filenames:
             rel = f'{rel_dir}/{name}' if rel_dir else name
-            if rel in RETIRED_VOCAB_SKIP_FILES:
+            if rel in RETIRED_VOCAB_SKIP_FILES or _is_harness_file(rel):
                 continue
             if any(_exempt_matches(rel, e) for e in exempt_files):
                 continue
@@ -12961,9 +12961,22 @@ def _retired_term_re(term):
     return re.compile(r'(?<![\w-])' + re.escape(term) + r'(?![\w-])')
 
 
+def _is_harness_file(rel):
+    """True for tools/verify_harness.py and its area files
+    (tools/harness_parts.py). Imported here, not at the top: a tree that
+    copies this file without harness_parts.py, as many fixtures and older
+    vendored copies do, has no harness parts either."""
+    try:
+        import harness_parts
+    except ImportError:
+        return rel == 'tools/verify_harness.py'
+    return harness_parts.is_harness(rel)
+
+
 RETIRED_VOCAB_CONFIG = 'process/retired_vocabulary.json'
-# tools/verify_harness.py plants retired-term fixture text (to test this
-# very check) inside its own source, so scanning it for real violations
+# tools/verify_harness.py and its area files under tools/harness/
+# (_is_harness_file) plant retired-term fixture text (to test this
+# very check) inside their own source, so scanning it for real violations
 # would fail on its own planted fixtures every time it runs against a copy
 # of this repo -- the one file excluded, mechanically, not a content carve-out.
 RETIRED_VOCAB_SKIP_FILES = {'tools/verify_harness.py'}
@@ -13583,7 +13596,8 @@ def _todo_gotcha_stale_reference(ctx):
     mirrored = _mirrored(ctx.root)
     out = []
     for rel in sorted(tracked):
-        if rel in STALE_TODO_REF_EXEMPT_FILES or rel.startswith(mirrored):
+        if rel in STALE_TODO_REF_EXEMPT_FILES or _is_harness_file(rel) \
+                or rel.startswith(mirrored):
             continue
         text = ctx.read(rel)
         if not text:
@@ -15025,7 +15039,10 @@ def _github_api_budget(ctx):
                 if not k.startswith('_') and v}
     for rel in callers:
         text = (ROOT / rel).read_text(encoding='utf-8', errors='replace')
-        if 'import github_budget' in text or rel in declared:
+        # A key ending in "/" declares a folder: the harness's area files,
+        # tools/harness/, one entry for every file of them (2026-10-31).
+        if 'import github_budget' in text or rel in declared or any(
+                k.endswith('/') and rel.startswith(k) for k in declared):
             continue
         out.append(Finding(rel, 'calls the GitHub API directly. Route it '
                                 'through tools/github_budget.py so its calls '

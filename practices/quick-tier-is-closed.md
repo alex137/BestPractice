@@ -3,7 +3,7 @@ slug:        quick-tier-is-closed
 title:       "Nothing new runs before a push without the person's own words, and its time"
 tier:        on-demand
 severity:    default
-applies_to:  ["tools/precedent_push_check.py", "tools/verify_harness.py", "tools/checks/**", "local/tools/checks/**", "templates/hooks/**", ".claude/hooks/**"]
+applies_to:  ["tools/precedent_push_check.py", "tools/verify_harness.py", "tools/harness/**", "tools/checks/**", "local/tools/checks/**", "templates/hooks/**", ".claude/hooks/**"]
 applies_to_why: "Fires where a check or a test could be wired to run before a push: the push check itself, the harness, check scripts and their tests, and the hooks that start a check. Decided: 2026-10-16, when the practice landed."
 occasion:    "adding a test or a check, or wiring one to run before a push"
 gates:       ["review"]
