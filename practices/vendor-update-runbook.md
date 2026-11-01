@@ -45,7 +45,11 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   this repo\", and \"Let repin-kept re-pin repo-specific differences without
   asking me\"; amended 2026-10-20, Morgan (decided) -- the update ends with
   Root issues on the repository it updated, a plain summary in the chat and
-  one Prompt Please, as Update All Vendors does after each repository"
+  one Prompt Please, as Update All Vendors does after each repository;
+  amended 2026-11-01, Morgan (decided) -- \"All the issues above - act, do
+  the root fixes, and booked\": step 9 runs tools/precedent_source_survey.py,
+  and step 8 applies wherever a repo declares sources, practice sets
+  included"
 ---
 ## Rule
 **"Update Vendors" asks for the whole sequence below, merge included, with
@@ -176,15 +180,20 @@ Detail section.
    in a repo that declares sources. In a hosted session attach each source
    with access "push" first; if that attach is refused, pass
    `--canonical OWNER/NAME` from `list_repos`, and report a source still
-   `UNVERIFIED` as that. In a practice set, say "not applicable: this repo
-   declares no sources". If either step names a path inside `process/`,
-   pass `--repo .`.
-9. **Check whether a source should be added or dropped -- yourself.** List
-   the practice sets this account can reach, read each one's subject in its
-   `precedent-source.json`, and compare with `precedent.json`. **Never put
-   it to the person as an open question:** nothing found is one line;
-   something found is a finding with a recommendation. A retired set is
-   dropped by the update itself. When what this repo declares changes,
+   `UNVERIFIED` as that. In a repo whose `precedent.json` declares no
+   sources, say "not applicable: this repo declares no sources" -- a
+   practice set that declares some runs it like any other repo. If either
+   step names a path inside `process/`, pass `--repo .`.
+9. **Check whether a source should be added or dropped -- yourself,** with
+   [tools/precedent_source_survey.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_survey.py):
+   pass every repository the account reaches as `--candidate OWNER/NAME`
+   (in a hosted session, from `list_repos`), and it gives each one a
+   verdict. **`NOT ON DISK` means not checked:** attach it read-only, clone
+   it beside this repo and run it again until none is left -- never report
+   it as unchecked. **Never put it to the person as an open question:**
+   nothing found is one line; a `SHOULD ADD?` or `SHOULD DROP?` is a
+   finding with a recommendation. A retired set is dropped by the update
+   itself. When what this repo declares changes,
    `grep -n '<name>' AGENTS.md CLAUDE.md` for each source name and reword
    any standing enumeration outside a dated Story.
 10. **Retire legacy leftovers -- on every update, not only after a
@@ -897,17 +906,20 @@ comparison.
    you report it that way: it may have been renamed, or be out of the
    account's reach.
 
-   **In a practice SET this step is not applicable, and that is different
-   from skipped.** The tool reads a multi-source config a set does not
-   have, so it is in `CONSUMER_ENGINE_FILES` only and is deliberately not
-   vendored into a set at all — a session following this runbook there
-   finds no such file. Say "not applicable: this repo declares no sources"
-   and move on. Do not go looking for the file, and do not report a step
-   you could not run as one you skipped. Step 7 above is **not** in this
-   position and still applies everywhere: `precedent_source_credentials.py`
-   is in the shared `ENGINE_FILES`, because a session rooted in a practice
-   set needs the person's own individual set exactly as much as a consumer
-   does.
+   **In a repo that declares no sources this step is not applicable, and
+   that is different from skipped.** Say "not applicable: this repo
+   declares no sources" and move on. **Whether the repo is a practice set
+   does not decide it:** a set's `precedent.json` can declare sources like
+   any consumer's (a shared set whose subject is writing declares the
+   universal set and a shared one), and the tool is in the shared `ENGINE_FILES`, so every
+   kind of repo has it. Until 2026-11-01 it was in `CONSUMER_ENGINE_FILES`
+   only, on the reasoning that a set has no multi-source config, and this
+   paragraph told a session in a set to skip the step; that day a session
+   in a set that declares two sources found the tool missing and ran it
+   from the BestPractice clone. Step 7's
+   `precedent_source_credentials.py` has always been in `ENGINE_FILES`,
+   because a session rooted in a practice set needs the person's own
+   individual set exactly as much as a consumer does.
    **Read both tools' answers as answers about THIS repo, and check that
    they are.** Until 2026-09-14 they were not, on the commonest consuming
    layout of all: an engine vendored at `process/upstream/tools/` defaulted
@@ -935,11 +947,22 @@ comparison.
    it does.**
 
    So the session looks, and an update is when: somebody is already
-   looking at how this repo gets its practices. List the practice sets
+   looking at how this repo gets its practices. List the repositories
    this account can reach (in a hosted Claude Code session, `list_repos`;
-   elsewhere, the account's repositories or the clones beside this one),
-   read each one's subject in its `precedent-source.json`, and compare
-   them with what `precedent.json` declares. **Never put it to the person
+   elsewhere, the account's repositories or the clones beside this one)
+   and pass each to
+   [tools/precedent_source_survey.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_survey.py)
+   as `--candidate OWNER/NAME`. It finds each one's clone, reads its
+   `precedent-source.json` (no file: a project, `NOT A SET`), and compares
+   with every source in force here, the individual set and the sets it
+   brings included: `THIS REPO`, `DECLARED`, `IN FORCE`, `NOT A SET`,
+   `SHOULD ADD?` with the set's subject, `SHOULD DROP?`, or `NOT ON DISK`.
+   **`NOT ON DISK` is the one answer that is not a verdict.** The tool
+   exits 1 while any is left: attach that repository read-only, clone it
+   beside this repo, and run it again. On 2026-11-01 a session listed the
+   account's repositories, found one it had no clone of, and reported it as
+   "not on disk, so I didn't check whether it's a practice set"; the person
+   had to ask before it looked. **Never put it to the person
    as an open question** — "should any source be added or dropped?" is
    the question [the-boildown](the-boildown.md) forbids (Morgan,
    2026-09-28, strength: decided). Nothing found is said in one line.
