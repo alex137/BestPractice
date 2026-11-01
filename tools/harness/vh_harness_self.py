@@ -328,9 +328,29 @@ def check_seed_cache_copies_what_a_seed_writes():
                              cwd=real)
         cases.append(('CONTROL: with the cache off nothing is kept',
                       not (tmp / 'cache').exists(), ''))
-        first, second = dest('first'), dest('second')
-        rc1, out1 = _seed_fixture_engine(first, 'consumer', env, cwd=first)
-        rc2, out2 = _seed_fixture_engine(second, 'consumer', env, cwd=second)
+        # The key reads this checkout's refs, and a check running beside this
+        # one may move them: Update Vendors fetches origin/<branch> in its
+        # source clone, and in a CI checkout, which has no origin/main, that
+        # creates the ref partway through the run. A key that moved between
+        # the two seeds is a correct miss, not a broken cache, so the pair is
+        # tried again in a fresh cache, up to three times, and only a pair
+        # whose key held still is judged (2026-11-01, issue #1483: "the
+        # second is a copy" failed on main's GitHub test and on no local run).
+        moved = 0
+        for attempt in range(3):
+            cache_env = {**env, 'PRECEDENT_SEED_CACHE_DIR':
+                         str(tmp / ('cache' if attempt == 0 else f'cache{attempt}'))}
+            first, second = dest(f'first{attempt}'), dest(f'second{attempt}')
+            still = dest(f'still{attempt}')     # never seeded: the key's yardstick
+            k_before = _seed_cache_key(still, 'consumer', cache_env)
+            rc1, out1 = _seed_fixture_engine(first, 'consumer', cache_env, cwd=first)
+            rc2, out2 = _seed_fixture_engine(second, 'consumer', cache_env, cwd=second)
+            if _seed_cache_key(still, 'consumer', cache_env) == k_before:
+                break
+            moved += 1
+        cases.append(('the key held still for one first-and-second pair (a '
+                      'check beside this one moved it in '
+                      f'{moved} of {attempt + 1} tries)', moved < 3, ''))
         cases.append(('the first seed into an empty cache really runs',
                       rc1 == 0 and 'SEEDED' in out1, failure_detail(out1, 300)))
         cases.append(('the second is a copy, and says so',
