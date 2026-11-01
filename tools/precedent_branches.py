@@ -4119,6 +4119,28 @@ def _write_reach(path, rec):
         pass
 
 
+def _fixes(fixing):
+    """-> the red landings `fixing` names: one commit, or several joined by
+    commas, for a fix that mends two red landings in a row (2026-11-01: two
+    landings went red one after the other, and a single --fixing for either
+    left the other refusing the fix)."""
+    return [f.strip() for f in str(fixing or '').split(',') if f.strip()]
+
+
+def _fixes_landing(fixing, landed):
+    return any(landed.startswith(f) for f in _fixes(fixing))
+
+
+def _earliest_base(root, a, b):
+    """-> whichever of two reached-run bases is the older, so a fix for
+    several red landings is tested from before the first of them."""
+    if not a or not b:
+        return a or b
+    r = subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor',
+                        a, b], capture_output=True)
+    return a if r.returncode == 0 else b
+
+
 def reach_gate(root, fixing=None):
     """-> (refusal or '', notes, base the next run should start from or None).
     Red records refuse a landing that does not name itself their fix."""
@@ -4127,8 +4149,8 @@ def reach_gate(root, fixing=None):
         landed = rec.get('landed') or ''
         st = rec.get('status')
         if st == 'failed':
-            if fixing and landed.startswith(fixing):
-                since = rec.get('since') or since
+            if _fixes_landing(fixing, landed):
+                since = _earliest_base(root, rec.get('since'), since)
                 notes.append(f'landing as the fix for {landed[:12]}, whose '
                              f'reached tests failed; its run starts from '
                              f'{(since or "?")[:12]}, so it covers both.')
@@ -4153,7 +4175,7 @@ def reach_gate(root, fixing=None):
         lines.append(f'  {rec.get("landed", "?")[:12]} ({rec.get("label")}): '
                      f'{len(cases)} failing, log {rec.get("log")}\n    '
                      + '\n    '.join(cases[:8]))
-    first = red[0].get('landed', '')[:12]
+    first = ','.join(r.get('landed', '')[:12] for r in red)
     return (f'LAND REFUSED, and staging did not move: the harness checks an '
             f'earlier landing reaches FAILED, so staging is red until that is '
             f'fixed:\n' + '\n'.join(lines) + f'\nFix it on a branch and land '
@@ -4166,15 +4188,17 @@ def start_reach_run(root, since, landed, label, fixing=None):
     background where this repository has the harness and REACH_RUN_ENV is
     not '0'; otherwise the printed command, as before."""
     if fixing:
+        red_base = None
         for f, rec in _reach_records(root):
             if rec.get('status') == 'failed' and \
-                    (rec.get('landed') or '').startswith(fixing):
+                    _fixes_landing(fixing, rec.get('landed') or ''):
                 # The fix's run starts from the red one's base, whichever
                 # route landed it (--land, or --land-confirm after a pull
-                # request), so it covers both.
-                since = rec.get('since') or since
+                # request), so it covers both; for several, the oldest base.
+                red_base = _earliest_base(root, rec.get('since'), red_base)
                 rec.update(status='fixed', fixed_by=landed)
                 _write_reach(f, rec)
+        since = red_base or since
     nxt = reached_checks_next(root, since, label)
     if not nxt or os.environ.get(REACH_RUN_ENV, '1') == '0' or not landed:
         return nxt

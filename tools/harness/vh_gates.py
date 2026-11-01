@@ -3011,7 +3011,11 @@ def check_archive_line_is_refused_when_the_container_holds_only_copy_work():
             to have never run at all (2026-09-22).
             """
             d = tmp / f'engine{stub_rc}'
-            shutil.copytree(ROOT / 'tools', d / 'tools')
+            # Without __pycache__: a shard running beside this one writes
+            # .pyc temp files there, and copytree fails on one that is
+            # renamed away mid-copy (2026-11-01, a --as-ci run).
+            shutil.copytree(ROOT / 'tools', d / 'tools',
+                            ignore=shutil.ignore_patterns('__pycache__'))
             planted = d / 'tools' / 'precedent_container_safe.py'
             if stub_rc is None:
                 planted.unlink(missing_ok=True)

@@ -549,7 +549,13 @@ def check_very_deep_check_record_pass_partial_needs_what_and_who():
     import very_deep_check as vdc
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-partial-'))
-    green = '2026-11-01T10:00:00-03:00'
+    # The green run has to come after the pass this test records at the
+    # real clock, so it is read from the clock too: a fixed stamp here
+    # failed the CONTROL from 2026-11-01 10:00 on (practice:
+    # fixture-owns-its-state).
+    import datetime as _dt
+    green = (_dt.datetime.now(_dt.timezone(_dt.timedelta(hours=-3)))
+             + _dt.timedelta(days=1)).isoformat(timespec='seconds')
     try:
         repo, ledger = _vdc_guard_repo(tmp / 'a', green=green)
         rc, err, run = _vdc_record(vdc, '2=partial,findings=3,note=two helpers',

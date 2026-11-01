@@ -4906,6 +4906,61 @@ print(json.dumps(out))
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_one_fix_mends_two_red_landings_in_a_row():
+    """--fixing takes several red landings joined by commas, and the fix's
+    run starts from the oldest red base, so it covers all of them
+    (2026-11-01: two landings went red one after the other; --fixing for
+    either one left the other refusing the fix, with no way to name both)."""
+    import json, shutil, subprocess, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-two-reds-'))
+    cases = []
+    try:
+        repo = tmp / 'r'
+        repo.mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True).stdout.strip()
+        g('init', '-q')
+        shas = []
+        for n in range(4):
+            (repo / 'f').write_text(str(n))
+            g('add', 'f')
+            g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', str(n))
+            shas.append(g('rev-parse', 'HEAD'))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_branches as pb
+        finally:
+            sys.path.pop(0)
+        d = pb._reach_dir(repo)
+        d.mkdir(parents=True, exist_ok=True)
+        # Landing 1 (base shas[0]) went red, then landing 2 (base shas[1]).
+        for i, (landed, since) in enumerate(((shas[1], shas[0]),
+                                              (shas[2], shas[1]))):
+            (d / f'{landed[:12]}-{i}.json').write_text(json.dumps(
+                {'landed': landed, 'since': since, 'status': 'failed',
+                 'label': f'red {i}', 'failing': [f'case {i}']}))
+        one = pb.reach_gate(repo, shas[2][:12])
+        cases.append(('THE CASE: naming only the second red still refuses, '
+                      'and names the first',
+                      bool(one[0]) and shas[1][:12] in one[0], one[0]))
+        none = pb.reach_gate(repo, None)
+        cases.append(('the refusal hands over one --fixing for both',
+                      f'--fixing {shas[1][:12]},{shas[2][:12]}' in none[0]
+                      or f'--fixing {shas[2][:12]},{shas[1][:12]}' in none[0],
+                      none[0]))
+        both = pb.reach_gate(repo, f'{shas[2][:12]},{shas[1][:12]}')
+        cases.append(('CONTROL: naming both lets the fix through',
+                      both[0] == '', both[0]))
+        cases.append(("CONTROL: the fix's run starts from the oldest red base",
+                      both[2] == shas[0], str(both[2])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'one --fixing mends two red landings in a row ({len(cases)} '
+          f'stated cases)', not bad,
+          '; '.join(f'{n} -- {str(x)[:200]}' for n, x in bad))
+
+
 def check_land_holds_while_its_reached_tests_are_red():
     """--land starts the harness checks a landing reaches in the background
     and records the verdict; the next --land refuses while it is red unless
