@@ -3177,6 +3177,7 @@ def check_session_hooks_run_for_a_session_opened_above_the_repos():
                 'hooks': {'SessionStart': [{'hooks': [{
                     'type': 'command',
                     'command': 'echo "$CLAUDE_PROJECT_DIR" > "$CLAUDE_PROJECT_DIR/ran"; '
+                               'echo "$PRECEDENT_SESSION_ROOT" > "$CLAUDE_PROJECT_DIR/root"; '
                                'echo "context from ' + name + '"'}]}]}}),
                 encoding='utf-8')
         (root / 'not-a-repo').mkdir()
@@ -3190,6 +3191,11 @@ def check_session_hooks_run_for_a_session_opened_above_the_repos():
             cases.append((f'{name}\'s own hook ran, with its own project dir',
                           seen.is_file() and seen.read_text().strip()
                           == str((root / name).resolve()), repr(ran)))
+        cases.append(('each hook is told the folder the session was opened in '
+                      '(PRECEDENT_SESSION_ROOT, 2026-11-01)',
+                      (root / 'alpha' / 'root').is_file()
+                      and (root / 'alpha' / 'root').read_text().strip()
+                      == str(root.resolve()), repr(ran)))
         cases.append(('what each hook printed reaches the session as one '
                       'context block', 'context from alpha' in out
                       and 'context from beta' in out, out[:300]))

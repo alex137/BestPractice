@@ -1336,6 +1336,75 @@ def check_changed_files_fetches_a_base_a_single_branch_clone_lacks():
           '; '.join(failed) + ('' if not failed else f' -- {failure_detail(out, 400)} / {failure_detail(out2, 300)}'))
 
 
+def check_changed_files_asks_a_changed_glob_for_its_reason():
+    """The per-file step of a landing refuses a practice whose applies_to
+    changed while its applies_to_why did not, the comparison routing-reason
+    makes at the Debut and around Produce.
+
+    2026-10-31: a landing on staging added tools/harness/** to two
+    practices' globs and left both reasons as they were. Every landing
+    passed, and the move into main was refused for it. Morgan, 2026-11-01:
+    "Fix at the root". Planted both ways: the glob alone is refused, naming
+    the file; the glob with its reason passes; a practice new on the branch
+    has no old reason and passes."""
+    import contextlib, io, tempfile
+    name = 'the changed-files check asks a changed glob for its reason'
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), '-c',
+                               'core.hooksPath=/dev/null', *a],
+                              capture_output=True, text=True, env=env)
+    spec = importlib.util.spec_from_file_location(
+        'ppc_glob_reason', ROOT / 'tools' / 'precedent_push_check.py')
+    ppc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ppc)
+
+    def practice(glob, why):
+        return ('---\nslug:        zz\ntitle:       "zz"\ntier:        on-demand\n'
+                f'applies_to:  ["{glob}"]\napplies_to_why: "{why}"\n'
+                'status:      active\n---\n\n## Rule\n\nzz.\n')
+
+    def run(repo, since):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = ppc.changed_files_check(repo, since)
+        return rc, buf.getvalue()
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'r'
+        (repo / 'practices').mkdir(parents=True)
+        git(repo, 'init', '-q', '-b', 'main')
+        f = repo / 'practices' / 'zz.md'
+        f.write_text(practice('a/**', 'Where a lives.'), encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'base')
+        base = git(repo, 'rev-parse', 'HEAD').stdout.strip()
+        f.write_text(practice('b/**', 'Where a lives.'), encoding='utf-8')
+        git(repo, 'commit', '-qam', 'glob alone')
+        rc, out = run(repo, base)
+        f.write_text(practice('b/**', 'Where b lives, since a moved.'), encoding='utf-8')
+        git(repo, 'commit', '-qam', 'and its reason')
+        rc2, out2 = run(repo, base)
+        (repo / 'practices' / 'new.md').write_text(
+            practice('c/**', 'Where c lives.'), encoding='utf-8')
+        git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'a new practice')
+        rc3, out3 = run(repo, base)
+    cases = [
+        ('a glob changed with its reason left alone is refused, naming the '
+         'file and both globs',
+         rc == 1 and 'practices/zz.md: applies_to changed since' in out
+         and 'applies_to_why did not' in out and 'b/**' in out),
+        ('control: the same glob change with its reason updated passes',
+         rc2 == 0 and 'applies_to_why did not' not in out2),
+        ('a practice new on the branch has no old reason to compare, and '
+         'passes', rc3 == 0 and 'new.md' not in out3),
+    ]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(failed) + ('' if not failed else
+                               f' -- {failure_detail(out, 400)} / {failure_detail(out2, 300)}'))
+
+
 def check_changed_files_runs_one_copy_of_a_repo_local_test():
     """A repo-local test and its materialized copy change together, and only
     the materialized copy runs -- the one run_all.sh runs. Running both put
@@ -2185,7 +2254,7 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         a = repo('a', {
             'PreToolUse': [
                 {'matcher': 'Edit|Write', 'hooks': [{'type': 'command',
-                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR" >&2; exit 2'}]},
+                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR from $PRECEDENT_SESSION_ROOT" >&2; exit 2'}]},
                 {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'echo A-BASH'}]}],
             'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': 'echo A-PROMPT'}]}]})
         b = repo('b', {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command',
@@ -2203,6 +2272,11 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
                       'hook, as that repository, and the refusal comes through',
                       r.returncode == 2 and f'A refuses {a.resolve()}' in r.stderr
                       and 'A-BASH' not in r.stdout, (r.returncode, r.stdout, r.stderr)))
+        # 2026-11-01: the hook is told where the session was really opened,
+        # so the freshness guard can tell a source clone it was run for from
+        # the session's own folder.
+        cases.append(('...and is told the folder the session was opened in',
+                      f'from {root}' in r.stderr, r.stderr))
         r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
                                'tool_input': {'file_path': str(a / 'x.md')}}, project=a)
         cases.append(('negative control: opened inside the repository, nothing runs',

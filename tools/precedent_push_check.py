@@ -1956,6 +1956,28 @@ def changed_files_check(root, since):
                 f'changed, and the generated views were not regenerated with '
                 f'it -- run `python3 tools/build_views.py` and commit what it '
                 f'rewrites. ' + (r.stdout + r.stderr).strip().splitlines()[0][:300])
+    # A CHANGED GLOB BRINGS ITS REASON (2026-11-01). routing-reason's second
+    # rule -- a practice's applies_to changed while its applies_to_why did
+    # not -- ran only at the Debut and around Produce. A landing on staging
+    # added tools/harness/** to two practices' globs and left both reasons
+    # as they were; every landing passed, and the move into main was
+    # refused for it hours later. Asked here, on the change that makes the
+    # mistake, through the same comparison (Morgan, 2026-11-01, told it
+    # takes about 1.3 s over the whole catalogue and urged to leave it at
+    # the Debut: "Fix at the root"; here it reads only the changed practice
+    # files, in well under a second; practice: quick-tier-is-closed). The
+    # engine's origin only, as routing-reason is.
+    if practice and repo_kind(HERE) == 'upstream':
+        sys.path.insert(0, str(HERE))
+        try:
+            import precedent_check
+            for rel, msg in precedent_check.glob_changed_reason_did_not(
+                    root, since, practice):
+                problems.append(f'{rel}: {msg}')
+        except (ImportError, AttributeError):   # an older engine beside it
+            pass
+        finally:
+            sys.path.pop(0)
     # THE GENERATED COUNTS FOLLOW A NEW PRACTICE (2026-09-29). doc_sync's
     # blocks (the catalogue count in spec/LOADER.md, the enforced count,
     # the routing table) move when a practice is added or its front matter

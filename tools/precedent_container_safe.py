@@ -121,6 +121,37 @@ def refresh_only_branches(repo, base, merges_ok=False):
     return found
 
 
+def clear_refresh_only_branches(repo, base, keep=()):
+    """Delete every refresh_only_branches(repo, base) branch not in `keep`
+    and not checked out. -> the names deleted.
+
+    One place for both callers (2026-11-01): precedent_refresh_sources
+    clears the older ones after writing a newer refresh, and
+    precedent_update clears the ones session start left once the update
+    has staged the engine itself -- which the session-start refresh had
+    committed on a local branch nothing ever landed, so each Update Vendors
+    run left one more orphan behind. Strict reading (no merges passed
+    over): a merge can carry a conflict resolution
+    (practice: repair-cannot-discard-work)."""
+    try:
+        cur = subprocess.run(['git', '-C', str(repo), 'branch', '--show-current'],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return []
+    removed = []
+    for b in refresh_only_branches(repo, base):
+        if b in keep or b == cur:
+            continue
+        try:
+            r = subprocess.run(['git', '-C', str(repo), 'branch', '-D', b],
+                               capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if r.returncode == 0:
+            removed.append(b)
+    return removed
+
+
 try:
     import precedent_source_home as _psh  # one tree, many paths (2026-10-19)
 except Exception:                                           # noqa: BLE001

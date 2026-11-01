@@ -3422,6 +3422,129 @@ def check_freshness_guard_never_tells_a_tier_branch_to_merge():
           not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
 
 
+def check_freshness_guard_leaves_a_source_on_its_tier_when_opened_above():
+    """In a session opened above its repositories, a clone on its tier is a
+    source, and every block names its checkout with a `git -C` remedy.
+
+    Reported 2026-11-01 from an Update Vendors run opened in /home/user over
+    BestPractice and three practice sets, all on main. The switchboard
+    (precedent_run_repo_hooks.py) ran BestPractice's guard with BestPractice
+    as the project, so main was refused for lacking staging's commits, and
+    its remedy moved the clone onto a branch from origin/staging -- after
+    which the session check said the universal clone was "1 behind
+    origin/main". The block named only 'main', so it never said which of the
+    four clones it meant; its relative `$(python3 tools/...)` did not
+    resolve from the parent folder; and `cd <repo> && git switch ...` was
+    refused, since only a literal "git *" counted as git.
+
+    Cases, with PRECEDENT_SESSION_ROOT naming the folder above:
+      - main, current with origin/main, staging ahead: not blocked, not
+        moved, and the note names the clone and a literal `git -C` remedy;
+      - a working branch on a stale base: blocked, the block names the
+        clone and says `git -C <clone> merge origin/staging`;
+      - `cd <clone> && git ...` is let through a block; `cd <clone> && rm`
+        is not.
+    CONTROL: the same main with no PRECEDENT_SESSION_ROOT (a session rooted
+    in the clone) is still refused with the tier remedy."""
+    import tempfile
+    name = 'the freshness guard leaves a source on its tier when opened above'
+    guard = ROOT / '.claude' / 'hooks' / 'freshness-guard.sh'
+    if not guard.exists():
+        not_applicable(name, 'no .claude/hooks/freshness-guard.sh in this tree')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        env = dict(os.environ)
+        env.pop('CLAUDE_PROJECT_DIR', None)
+        env.pop('PRECEDENT_SESSION_ROOT', None)
+        env['TMPDIR'] = str(tmp / 'sentinels')
+        (tmp / 'sentinels').mkdir()
+        env['PRECEDENT_ALLOW_ANY_AUTHOR'] = '1'
+        env['GIT_CONFIG_GLOBAL'] = str(tmp / 'gitconfig')
+        (tmp / 'gitconfig').write_text('', encoding='utf-8')
+        env['GIT_AUTHOR_NAME'] = env['GIT_COMMITTER_NAME'] = 'Harness'
+        env['GIT_AUTHOR_EMAIL'] = env['GIT_COMMITTER_EMAIL'] = 'harness@example.com'
+
+        def _git(d, *a):
+            r = subprocess.run(['git', '-C', str(d), *a],
+                               capture_output=True, text=True, env=env)
+            if r.returncode != 0:
+                raise RuntimeError('opened-above fixture setup failed: git %s: %s'
+                                   % (' '.join(a), (r.stderr or r.stdout).strip()))
+            return r
+
+        origin = tmp / 'origin'
+        _git(tmp, 'init', '-q', '--bare', '-b', 'main', str(origin))
+        seed = tmp / 'seed'
+        _git(tmp, 'init', '-q', '-b', 'main', str(seed))
+        (seed / 'tools').mkdir()
+        (seed / 'tools' / 'precedent_branch_name.py').write_text(
+            'print("2026-11-01-x-work-from-staging-abcde")\n', encoding='utf-8')
+        _git(seed, 'add', '-A'); _git(seed, 'commit', '-qm', 'one')
+        _git(seed, 'remote', 'add', 'origin', str(origin))
+        _git(seed, 'push', '-q', 'origin', 'main', 'main:staging', 'main:feature')
+        _git(seed, 'commit', '-q', '--allow-empty', '-m', 'on staging only')
+        _git(seed, 'push', '-q', 'origin', 'main:staging')
+        above = tmp / 'home'
+        above.mkdir()
+
+        def _run(cwd, session, opened_above, tool='Write', command=None):
+            e = dict(env)
+            if opened_above:
+                e['PRECEDENT_SESSION_ROOT'] = str(above)
+            ti = {'command': command} if command else {'file_path': 'x'}
+            payload = json.dumps({'session_id': session, 'tool_name': tool,
+                                  'tool_input': ti})
+            return subprocess.run(['bash', str(guard), 'pre-write', 'staging'],
+                                  cwd=str(cwd), input=payload,
+                                  capture_output=True, text=True, env=e)
+
+        src = above / 'source'
+        _git(tmp, 'clone', '-q', str(origin), str(src))
+        before = _git(src, 'rev-parse', 'HEAD').stdout
+        r = _run(src, 'src-above', True)
+        cases.append(('opened above: main, current with origin/main, is not blocked',
+                      r.returncode == 0, failure_detail(r.stderr, 500)))
+        cases.append(('...and its note names the clone and a literal git -C remedy',
+                      str(src) in r.stderr and 'not moved or blocked' in r.stderr
+                      and f'git -C {src} switch --no-track -c '
+                          '2026-11-01-x-work-from-staging-abcde origin/staging' in r.stderr
+                      and '$(' not in r.stderr, failure_detail(r.stderr, 500)))
+        cases.append(('...and the clone did not move',
+                      _git(src, 'branch', '--show-current').stdout.strip() == 'main'
+                      and _git(src, 'rev-parse', 'HEAD').stdout == before, ''))
+
+        rooted = tmp / 'rooted'
+        _git(tmp, 'clone', '-q', str(origin), str(rooted))
+        r = _run(rooted, 'rooted', False)
+        cases.append(('CONTROL: rooted in the clone, main is still refused with '
+                      'the tier remedy', r.returncode == 2
+                      and 'is a tier branch' in r.stderr, failure_detail(r.stderr, 500)))
+
+        work = above / 'work'
+        _git(tmp, 'clone', '-q', str(origin), str(work))
+        _git(work, 'checkout', '-q', 'feature')
+        r = _run(work, 'work-above', True)
+        cases.append(('opened above: a stale working branch is blocked, naming '
+                      'its clone and a git -C merge', r.returncode == 2
+                      and f'in {work} (this session was opened in {above}' in r.stderr
+                      and f'git -C {work} merge origin/staging' in r.stderr,
+                      failure_detail(r.stderr, 500)))
+        r = _run(work, 'work-cd-git', True, tool='Bash',
+                 command=f'cd {work} && git merge origin/staging --no-edit')
+        cases.append(('`cd <clone> && git ...` is let through', r.returncode == 0,
+                      failure_detail(r.stderr, 500)))
+        r = _run(work, 'work-cd-rm', True, tool='Bash',
+                 command=f'cd {work} && rm -f x')
+        cases.append(('`cd <clone> && rm ...` is not', r.returncode == 2,
+                      failure_detail(r.stderr, 500)))
+
+    bad = [(n, e) for n, ok, e in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)',
+          not bad, '; '.join(f'{n} -- {e}' for n, e in bad))
+
+
 def check_tier_branches_are_never_a_pull_requests_source():
     """No tier branch is ever the SOURCE of a merged pull request, and a
     missing staging is rebuilt.

@@ -1135,7 +1135,8 @@ def apply_to(entry, commit=False, branch=None):
 # everywhere this one is not, so every copy of that scan can tell a
 # refresh branch from work (2026-10-29).
 from precedent_container_safe import (  # noqa: E402
-    REFRESH_BRANCH_WORDS, REFRESH_SUBJECT, refresh_only_branches)
+    REFRESH_BRANCH_WORDS, REFRESH_SUBJECT, refresh_only_branches,
+    clear_refresh_only_branches)
 
 
 def _refresh_branch_for(repo, tip):
@@ -1224,11 +1225,7 @@ def apply_on_its_own_branch(entry, base):
     # lose (practice: repair-cannot-discard-work).
     # Said, not done silently (2026-10-17, a consuming repo's Update Vendors:
     # a session saw the branches vanish and could not tell why).
-    removed = []
-    if ok:
-        for old in refresh_only_branches(repo, base):
-            if old != name and _git('branch', '-D', old, cwd=repo)[0]:
-                removed.append(old)
+    removed = clear_refresh_only_branches(repo, base, keep=(name,)) if ok else []
     if removed:
         steps.append(('superseded', True,
                       f'removed {len(removed)} older local refresh branch(es), '
