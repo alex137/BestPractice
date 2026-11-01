@@ -133,6 +133,18 @@ BASE_ARG="${2:-}"
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 ROOT="$PROJECT_ROOT"
 
+# WHERE THE SESSION WAS OPENED, when that is not the project (2026-11-01). A
+# session opened above its repositories (/home/user) runs each repository's
+# hooks through tools/precedent_run_repo_hooks.py and
+# precedent_run_session_hooks.py, which set CLAUDE_PROJECT_DIR to the
+# repository the action is about and PRECEDENT_SESSION_ROOT to the folder the
+# session was really opened in. There, the "project" may be nothing but a
+# practice source another repository reads -- BestPractice at main, for an
+# Update Vendors run -- and every message must name its checkout and give a
+# remedy that runs from the session's own folder. Unset, or the same folder:
+# a session rooted in this repository, as before.
+SESSION_ROOT="${PRECEDENT_SESSION_ROOT:-}"
+
 _git() { git -C "$ROOT" "$@"; }
 
 # WHY AN ENV VAR, AND NOT MORE HOOK WIRING. A hook fires for the project dir
@@ -332,6 +344,16 @@ _git_as_person() {
 
 _in_git() { _git rev-parse --git-dir >/dev/null 2>&1; }
 
+# True when this session was opened somewhere other than the checkout in hand,
+# so a remedy must say `git -C <checkout>` and cannot lean on a relative path.
+_opened_elsewhere() {
+  [ -n "$SESSION_ROOT" ] || return 1
+  local here there
+  here="$(cd "$ROOT" 2>/dev/null && pwd -P)" || here="$ROOT"
+  there="$(cd "$SESSION_ROOT" 2>/dev/null && pwd -P)" || there="$SESSION_ROOT"
+  [ "$here" != "$there" ]
+}
+
 # Is this branch simply absent from origin, rather than origin being
 # unreachable? `git fetch origin <branch>` exits non-zero for BOTH, and
 # treating them the same is what made pre-write refuse the first write of
@@ -463,7 +485,21 @@ _is_tier_branch() {
 # naming tool where this checkout has it, so a hand-made name is not first
 # refused at push time.
 _new_branch_cmd() {
-  local base="$1"
+  local base="$1" literal=""
+  # OPENED ELSEWHERE: a literal name and `git -C` (2026-11-01). From the
+  # folder above, the relative `$(python3 tools/precedent_branch_name.py ...)`
+  # does not resolve, and a `cd <repo> && ...` form was refused; only
+  # `git -C <repo> switch ... <literal name>` got through. So the guard asks
+  # the naming tool itself and prints the name it gave.
+  if _opened_elsewhere; then
+    if [ -f "$ROOT/tools/precedent_branch_name.py" ] && command -v python3 >/dev/null 2>&1; then
+      literal="$(cd "$ROOT" && python3 tools/precedent_branch_name.py --repo "$ROOT" --no-check work from "$base" 2>/dev/null | head -n1)"
+    fi
+    case "$literal" in ''|*[!A-Za-z0-9._/-]*) literal="<date>-<what-the-work-is>-<session-id>-<random>" ;; esac
+    printf 'git -C %s switch --no-track -c %s origin/%s (rename it to say what the work is with git -C %s branch -m <new name>)' \
+      "$ROOT" "$literal" "$base" "$ROOT"
+    return 0
+  fi
   if [ -f "$ROOT/tools/precedent_branch_name.py" ]; then
     printf 'git switch --no-track -c "$(python3 tools/precedent_branch_name.py <a few words for the work>)" origin/%s' "$base"
   else
@@ -477,9 +513,43 @@ _stale_base_remedy() {
   if _is_tier_branch "$branch"; then
     printf "'%s' is a tier branch, so do NOT merge origin/%s into it -- that makes the local %s diverge from origin/%s. Start a working branch from origin/%s instead, untracked so a bare push cannot reach a tier: %s" \
       "$branch" "$base" "$branch" "$branch" "$base" "$(_new_branch_cmd "$base")"
+  elif _opened_elsewhere; then
+    printf 'Bring it up to date deliberately: git -C %s merge origin/%s' "$ROOT" "$base"
   else
     printf 'Bring it up to date deliberately: git merge origin/%s' "$base"
   fi
+}
+
+# A SOURCE CLONE ON ITS TIER IS WHERE IT SHOULD BE (2026-11-01). In a session
+# opened above its repositories, the switchboard runs this guard with the
+# repository the action is about as the project, so a practice source sitting
+# on main -- current with origin/main, which is where every consumer reads it
+# and where precedent_session_check.py's "each practice source clone is
+# current with its own origin" row holds it -- was refused for lacking
+# commits that only its landing branch has. Its remedy moved the clone onto a
+# branch cut from origin/staging, and the session check then reported the
+# guarantee NOT in effect ("1 behind origin/main ... checked out off main"),
+# and precedent_update.py had to run main's code from a temporary checkout.
+# Two parts each owned where the clone sits. The session check owns it: a
+# source clone sits on the branch its consumers read it at. So here, opened
+# elsewhere, a tier branch that is current with its own origin is not
+# blocked or moved; the note says where a write into it belongs instead.
+# Nothing is lost by not blocking: a write on a tier never reaches origin,
+# since a push to a tier is refused by the push gate (promote-only).
+# Same fight as gotchas/gotcha-2026-09-26-the-freshness-guard-held-attached-
+# source-clones-to-pre-stagin.md, whose fix covered an ATTACHED repository's
+# declared base and so missed a source clone the switchboard makes the
+# project (precedent_run_repo_hooks.py arrived 2026-10-19).
+_source_on_its_tier() {
+  _opened_elsewhere || return 1
+  [ "${BASE_DECLARED:-0}" = "1" ] && return 1
+  _is_tier_branch "$1"
+}
+
+_source_on_its_tier_note() {
+  local branch="$1" base="$2" n="$3"
+  printf "NOTE: freshness-guard: %s is on '%s', current with origin/%s, and this session was opened in %s, above it -- so it is read here as a practice source, at the branch its consumers read, and is not moved or blocked (origin/%s has %s commit(s) it lacks, which is that tier waiting on a Promote). To write in this repository, start a branch for it: %s" \
+    "$ROOT" "$branch" "$branch" "$SESSION_ROOT" "$base" "$n" "$(_new_branch_cmd "$base")"
 }
 
 _is_shallow() {
@@ -784,7 +854,11 @@ _session_start_one() {
           local n caveat=""
           n="$(_behind_base_count "$base")"
           _is_shallow && caveat=" (shallow clone -- the count may be approximate, but the answer is not: fetch deeper if you need the exact number)"
-          echo "WARN: freshness-guard: '$branch' is missing $n commit(s) from origin/$base$caveat. This is the stale-base case: the branch can be perfectly in sync with its own remote and still be built on an old base. $(_stale_base_remedy "$branch" "$base")" >&2
+          if _source_on_its_tier "$branch" && _contains_base "$branch"; then
+            echo "$(_source_on_its_tier_note "$branch" "$base" "$n")" >&2
+          else
+            echo "WARN: freshness-guard: $(_which_checkout)'$branch' is missing $n commit(s) from origin/$base$caveat. This is the stale-base case: the branch can be perfectly in sync with its own remote and still be built on an old base. $(_stale_base_remedy "$branch" "$base")" >&2
+          fi
         fi
       fi
     fi
@@ -845,7 +919,14 @@ _which_checkout() {
   local here project
   here="$(cd "$ROOT" 2>/dev/null && pwd -P)" || here="$ROOT"
   project="$(cd "$PROJECT_ROOT" 2>/dev/null && pwd -P)" || project="$PROJECT_ROOT"
-  [ "$here" = "$project" ] && return 0
+  if [ "$here" = "$project" ]; then
+    # The project itself -- but in a session opened above it, the block must
+    # still say which checkout it is about: "'main' is missing 4 commit(s)"
+    # with four clones all on main named none of them (2026-11-01).
+    _opened_elsewhere || return 0
+    printf 'in %s (this session was opened in %s, above it; run the git command below as git -C %s ...): ' "$ROOT" "$SESSION_ROOT" "$ROOT"
+    return 0
+  fi
   printf 'in %s -- an attached repository, NOT this project (%s); run the git command below there, as git -C %s ... : ' "$ROOT" "$PROJECT_ROOT" "$ROOT"
 }
 
@@ -889,6 +970,31 @@ _read_only_command() {
     esac
   done < <(printf '%s\n' "$cmd" | sed -E 's/(\|\||&&|\||;)/\n/g')
   return 0
+}
+
+# -> 0 when the command is `cd DIR` followed only by git commands, joined by
+# && or ;, with nothing that could write outside git.
+_cd_then_git() {
+  local cmd="$1" seg first=1 word
+  case "$cmd" in
+    cd\ *) ;;
+    *) return 1 ;;
+  esac
+  case "$cmd" in
+    *'$('*|*'`'*|*'<('*|*'>'*|*'|'*|*$'\n'*) return 1 ;;
+  esac
+  while IFS= read -r seg; do
+    seg="$(printf '%s' "$seg" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -n "$seg" ] || return 1
+    word="${seg%%[[:space:]]*}"
+    if [ "$first" = 1 ]; then
+      [ "$word" = cd ] || return 1
+      first=0
+      continue
+    fi
+    [ "$word" = git ] || return 1
+  done < <(printf '%s\n' "$cmd" | sed -E 's/(&&|;)/\n/g')
+  [ "$first" = 0 ]
 }
 
 mode_pre_write() {
@@ -941,6 +1047,13 @@ print((d.get("tool_input") or {}).get("command") or "")' 2>/dev/null || true)"
   case "$bare" in
     git\ *|git) exit 0 ;;
   esac
+  # `cd <path> && git ...` is a git command too (2026-11-01): from a session
+  # opened above its repositories it is the natural way to run a remedy, and
+  # the literal "git *" match refused it. Only a leading cd followed by git
+  # commands, with no pipe, redirection or substitution, counts.
+  if _cd_then_git "$bare"; then
+    exit 0
+  fi
 
   # A Bash command that only reads is let through, and leaves the sentinel
   # unwritten, so the check still runs at this session's first write
@@ -1099,6 +1212,10 @@ _pre_write_one() {
     if _have_ref "origin/$base" && ! _contains_base "$base"; then
       local n
       n="$(_behind_base_count "$base")"
+      if _source_on_its_tier "$branch" && _contains_base "$branch"; then
+        echo "$(_source_on_its_tier_note "$branch" "$base" "$n")" >&2
+        return 0
+      fi
       _pw_block "'$branch' is missing $n commit(s) from origin/$base -- it is in sync with its own remote and still built on a stale base, which is the case that keeps producing work against code that moved. $(_stale_base_remedy "$branch" "$base")"
     fi
   fi

@@ -4020,6 +4020,7 @@ def main():
     check_freshness_guard_waves_through_a_branch_origin_never_saw()
     check_freshness_guard_lets_a_read_through_on_a_stale_branch()
     check_freshness_guard_never_tells_a_tier_branch_to_merge()
+    check_freshness_guard_leaves_a_source_on_its_tier_when_opened_above()
     check_session_deepen_stays_narrow()
     check_stale_branches_lists_one_repository_once()
     check_branch_cleanup_button()

@@ -321,8 +321,12 @@ def run(root, log=None, say=None, user_settings=None):
     except OSError:
         fh = None
     for repo in repos_under(root):
+        # PRECEDENT_SESSION_ROOT: where the session was really opened, so a
+        # hook can tell a repository it was run for from the session's own
+        # folder (tools/freshness-guard.sh, 2026-11-01).
         env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo),
-                   PRECEDENT_PROJECT_DIR=str(repo))
+                   PRECEDENT_PROJECT_DIR=str(repo),
+                   PRECEDENT_SESSION_ROOT=str(root))
         for cmd in session_start_commands(repo):
             try:
                 r = subprocess.run(['bash', '-c', cmd], cwd=str(repo), env=env,

@@ -2254,7 +2254,7 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
         a = repo('a', {
             'PreToolUse': [
                 {'matcher': 'Edit|Write', 'hooks': [{'type': 'command',
-                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR" >&2; exit 2'}]},
+                 'command': 'echo "A refuses $CLAUDE_PROJECT_DIR from $PRECEDENT_SESSION_ROOT" >&2; exit 2'}]},
                 {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'echo A-BASH'}]}],
             'UserPromptSubmit': [{'hooks': [{'type': 'command', 'command': 'echo A-PROMPT'}]}]})
         b = repo('b', {'PreToolUse': [{'matcher': 'Bash', 'hooks': [{'type': 'command',
@@ -2272,6 +2272,11 @@ def check_switchboard_runs_the_hooks_of_the_repo_an_action_is_about():
                       'hook, as that repository, and the refusal comes through',
                       r.returncode == 2 and f'A refuses {a.resolve()}' in r.stderr
                       and 'A-BASH' not in r.stdout, (r.returncode, r.stdout, r.stderr)))
+        # 2026-11-01: the hook is told where the session was really opened,
+        # so the freshness guard can tell a source clone it was run for from
+        # the session's own folder.
+        cases.append(('...and is told the folder the session was opened in',
+                      f'from {root}' in r.stderr, r.stderr))
         r = run('PreToolUse', {'cwd': str(root), 'tool_name': 'Edit',
                                'tool_input': {'file_path': str(a / 'x.md')}}, project=a)
         cases.append(('negative control: opened inside the repository, nothing runs',
