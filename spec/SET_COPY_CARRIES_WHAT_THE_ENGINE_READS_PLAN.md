@@ -226,9 +226,9 @@ next check. Those two commits go in the same sitting as the engine change.
 
 1. Is `precedent_resolve.py` the right home for `SET_FILES`, or should it be
    its own small module, so the readers import nothing heavier than a
-   table? (needs: review -- the reviewing session, then the building one)
+   table? (needs: decision -- the reviewing session, then Morgan if it is a close call)
 2. Should `set-copy-complete` compare bytes, or only presence? Bytes catches
-   a hand edit; presence avoids a finding while an update is mid-flight. (needs: review -- the reviewing session)
+   a hand edit; presence avoids a finding while an update is mid-flight. (needs: decision -- the reviewing session, then Morgan if it is a close call)
 3. Is refusing an undecided top-level set file too strict for a set author
    working on a branch? An alternative is an advisory finding on a branch
-   and a refusal only at the Produce. (needs: review -- the reviewing session)
+   and a refusal only at the Produce. (needs: decision -- the reviewing session, then Morgan if it is a close call)
