@@ -2974,6 +2974,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_deep_check_skips_a_repo_with_no_check_scripts": {
+      "verdict": "keep",
+      "why": "Added 2026-11-01: deep-check reported a missing run_all.sh in a shared set with no check scripts at all; without it that false alarm returns and every check-less set carries its own exemption.",
+      "date": "2026-11-01",
+      "by": "agent",
+      "seconds": 0.8,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_vendored_container_scan_knows_a_refresh_branch": {
       "verdict": "keep",
       "why": "Added 2026-10-29: a vendored precedent_container_safe.py called containers NOT SAFE TO LOSE over engine-refresh branches; a wrong verdict here misleads the archive decision.",
