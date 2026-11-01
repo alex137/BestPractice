@@ -52,6 +52,32 @@ REGISTRY = 'tools/generated_files.json'
 VENDORED_TREES = ('process/upstream/',)
 
 
+def vendored_trees(root):
+    """-> VENDORED_TREES plus the folder of every copied-in source the
+    repository's precedent.json declares (`"vendored": true`): each holds
+    another repository's files, so a generated file there is that
+    repository's to list, never this one's.
+
+    WHY (2026-11-01). A voice repository's compiled prompts began to carry
+    the label naming their generator, so its own list could rebuild them; a
+    repository that copies those prompts in then held labelled files no list
+    of its own names, and its check refused them. Only the catalogue mirror
+    counted as another repository's files; every copied-in source is one."""
+    out = list(VENDORED_TREES)
+    try:
+        cfg = json.loads((pathlib.Path(root) / 'precedent.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        cfg = {}
+    for e in (cfg.get('sources') or []) if isinstance(cfg, dict) else []:
+        if isinstance(e, dict) and e.get('vendored') is True:
+            p = str(e.get('path') or '').strip().strip('/')
+            if p and p != '.' and not p.startswith('..') \
+                    and not pathlib.PurePosixPath(p).is_absolute():
+                out.append(p + '/')
+    return tuple(dict.fromkeys(out))
+
+
 # What a git hook's environment carries that points every git command at the
 # repository being committed. The rebuilds this runs read OTHER repositories
 # too -- build_views asks each declared source's own clone what it is -- and
@@ -123,8 +149,9 @@ def labelled_entries(repo, engine_rel, listed=(), known=None):
     source. A generator outside this engine is listed as it is named."""
     repo = pathlib.Path(repo)
     out = []
+    trees = vendored_trees(repo)
     for rel in _git(repo, 'ls-files', '*.md').stdout.splitlines():
-        if rel in listed or rel.startswith(VENDORED_TREES):
+        if rel in listed or rel.startswith(trees):
             continue
         try:
             lab = _label((repo / rel).read_text(encoding='utf-8', errors='ignore'))

@@ -549,7 +549,13 @@ def check_very_deep_check_record_pass_partial_needs_what_and_who():
     import very_deep_check as vdc
     cases = []
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='vdc-partial-'))
-    green = '2026-11-01T10:00:00-03:00'
+    # The green run has to come after the pass this test records at the
+    # real clock, so it is read from the clock too: a fixed stamp here
+    # failed the CONTROL from 2026-11-01 10:00 on (practice:
+    # fixture-owns-its-state).
+    import datetime as _dt
+    green = (_dt.datetime.now(_dt.timezone(_dt.timedelta(hours=-3)))
+             + _dt.timedelta(days=1)).isoformat(timespec='seconds')
     try:
         repo, ledger = _vdc_guard_repo(tmp / 'a', green=green)
         rc, err, run = _vdc_record(vdc, '2=partial,findings=3,note=two helpers',
@@ -1582,6 +1588,108 @@ def check_ci_fleet_audit_reads_github_not_the_clone():
           f'findings, schedules show as triggers, the unreachable is named '
           f'({len(cases)} stated cases)',
           not bad, '; '.join(bad) + ' -- ' + failure_detail(out, 1500))
+
+
+def check_ci_fleet_audit_names_when_a_workflow_left_main():
+    """practice: ci-workflow-approved, 2026-11-01. A workflow GitHub ran
+    that is not on the default branch now was reported as "not on main, yet
+    GitHub ran it", even when it had been deleted from main on purpose and
+    every run came before the deletion (a practice set's light-check.yml,
+    deleted 2026-10-19, last run 2026-10-17). The note now asks main's
+    history for the commit that took it off, says when, and names the side
+    branches that still carry it. Planted against a fake GitHub."""
+    import base64, datetime
+    import ci_fleet_audit as cfa
+
+    def b64(t):
+        return base64.b64encode(t.encode()).decode()
+
+    push = 'name: x\non:\n  push:\n'
+    calls = []
+
+    def fake(path):
+        calls.append(path)
+        o = 'repos/o/r'
+        routes = {
+            f'{o}': {'default_branch': 'main', 'private': True},
+            f'{o}/actions/workflows?per_page=100': {'workflows': []},
+            f'{o}/contents/precedent.json?ref=main':
+                {'content': b64(json.dumps({}))},
+            f'{o}/contents/.github/workflows?ref=main': [],
+            f'{o}/branches?per_page=100':
+                [{'name': 'main'}, {'name': 'side'}, {'name': 'old'}],
+            f'{o}/branches/side': {'commit': {'commit': {'committer':
+                {'date': '2026-10-31T10:00:00Z'}}}},
+            f'{o}/branches/old': {'commit': {'commit': {'committer':
+                {'date': '2026-08-20T10:00:00Z'}}}},
+            f'{o}/contents/.github/workflows?ref=side':
+                [{'name': 'carried.yml', 'type': 'file', 'sha': 'b-push'}],
+            # deleted.yml left main on 2026-10-19, after its last run.
+            f'{o}/commits?path=.github/workflows/deleted.yml&sha=main'
+            f'&per_page=1': [{'sha': '1ae858b0000', 'commit': {'committer':
+                {'date': '2026-10-19T12:00:00Z'}}}],
+            # never.yml was never on main: no commit there touched it.
+            f'{o}/commits?path=.github/workflows/never.yml&sha=main'
+            f'&per_page=1': [],
+            # carried.yml left main on 2026-10-10 and ran after that, from
+            # the side branch that still has it.
+            f'{o}/commits?path=.github/workflows/carried.yml&sha=main'
+            f'&per_page=1': [{'sha': 'abc1234ffff', 'commit': {'committer':
+                {'date': '2026-10-10T12:00:00Z'}}}],
+        }
+        if path.startswith(f'{o}/actions/runs'):
+            return {'total_count': 4, 'workflow_runs': [
+                {'path': '.github/workflows/deleted.yml', 'event': 'push',
+                 'created_at': '2026-10-17T10:00:00Z'},
+                {'path': '.github/workflows/deleted.yml', 'event': 'push',
+                 'created_at': '2026-10-15T10:00:00Z'},
+                {'path': '.github/workflows/never.yml', 'event': 'push',
+                 'created_at': '2026-10-30T10:00:00Z'},
+                {'path': '.github/workflows/carried.yml', 'event': 'push',
+                 'created_at': '2026-10-31T10:00:00Z'}]}, None
+        if path.startswith(f'{o}/git/blobs/'):
+            return {'content': b64(push)}, None
+        if path in routes:
+            return routes[path], None
+        return {'message': 'Not Found'}, None
+
+    r = cfa.audit_repo('o/r', call=fake, today=datetime.date(2026, 11, 1))
+    rows = r['rows']
+    text = '\n'.join(f'{v} {t}' for v, t in rows)
+
+    def row(name):
+        return [(v, t) for v, t in rows if t.startswith(
+            f'.github/workflows/{name}.yml:')]
+
+    deleted, never, carried = row('deleted'), row('never'), row('carried')
+    commit_calls = [c for c in calls if '/commits?' in c]
+    cases = [
+        ('a workflow deleted from main after its last run names the date and '
+         'commit, says every run came before it, and is only a NOTE',
+         len(deleted) == 1 and deleted[0][0] == 'NOTE'
+         and 'removed from main on 2026-10-19 (1ae858b)' in deleted[0][1]
+         and 'came before that' in deleted[0][1]
+         and 'yet GitHub ran it' not in deleted[0][1]),
+        ('it says the stale branch not read may still carry it',
+         len(deleted) == 1
+         and 'the 1 side branch(es) not read may still carry it'
+         in deleted[0][1]),
+        ('CONTROL: a workflow never on main keeps the old wording, and says '
+         'it never was',
+         len(never) == 1 and never[0][0] == 'FINDING'
+         and 'not on main and never was, yet GitHub ran it' in never[0][1]),
+        ('a workflow removed from main that ran after, from a side branch '
+         'that still has it, names that branch and stays a FINDING',
+         len(carried) == 1 and carried[0][0] == 'FINDING'
+         and 'removed from main on 2026-10-10 (abc1234), yet GitHub ran it '
+         'after that' in carried[0][1]
+         and 'still on side branch(es) side' in carried[0][1]),
+        ('one extra call per such workflow, no more', len(commit_calls) == 3),
+    ]
+    bad = [c[0] for c in cases if not c[1]]
+    check(f'ci_fleet_audit names when a workflow left main, and the side '
+          f'branches still carrying it ({len(cases)} stated cases)',
+          not bad, '; '.join(bad) + ' -- ' + failure_detail(text, 1500))
 
 
 def check_very_deep_check_workflow_liveness_scan():

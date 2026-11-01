@@ -3986,6 +3986,103 @@ def check_update_decommission_fits_the_vendored_sync():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_built_from_record_is_compared_and_orders_the_updates():
+    """A copied-in source exports BUILT_FROM.json -- what its compiled files
+    were built from, by git blob hash, naming the source a file came from.
+    Update Vendors compares each named file with this repository's own copy
+    of that source and refuses DONE on a difference (held copies are only
+    reported); a copied-in source's folder counts as another repository's
+    files for the generated-files list; Update All Vendors runs a repository
+    after the ones it copies from (2026-11-01: a consumer got a writing-rules
+    set by two routes, and the copy inside compiled prompts lagged the
+    direct one with nothing saying so)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+        import precedent_update_all as pua
+        import precedent_regenerate as preg
+    finally:
+        sys.path.pop(0)
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp)
+        subprocess.run(['git', 'init', '-q'], cwd=repo, check=True)
+        (repo / 'process' / 'rules').mkdir(parents=True)
+        (repo / 'process' / 'voice').mkdir(parents=True)
+        rules = repo / 'process' / 'rules' / 'RULES.md'
+        rules.write_text('Write plainly.\n')
+        (repo / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'rules', 'path': 'process/rules',
+             'vendored': True, 'repo': 'https://github.com/o/Rules'},
+            {'level': 'shared', 'name': 'voice', 'path': 'process/voice',
+             'vendored': True, 'exports_only': True,
+             'repo': 'https://github.com/o/Voice'}]}))
+        want = subprocess.run(['git', 'hash-object', str(rules)],
+                              capture_output=True, text=True).stdout.strip()
+        cases.append(('the blob hash is what git hash-object prints',
+                      pu.git_blob_hash(rules.read_bytes()) == want))
+
+        def record(blob):
+            (repo / 'process' / 'voice' / 'BUILT_FROM.json').write_text(json.dumps(
+                {'_generated_by': 'x', 'outputs': {'PROMPT.md': [
+                    {'path': 'voicepack.json', 'blob': '0' * 40},
+                    {'path': 'process/rules/RULES.md', 'blob': blob,
+                     'source': 'rules', 'source_path': 'RULES.md'},
+                    {'path': 'process/rules/GONE.md', 'blob': '1' * 40,
+                     'source': 'rules', 'source_path': 'GONE.md'}]}}))
+
+        class Rep:
+            def __init__(self):
+                self.left, self.steps = [], []
+
+            def leave(self, what, why):
+                self.left.append((what, why))
+
+            def step(self, what, why):
+                self.steps.append((what, why))
+
+        record(want)
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('the same content: nothing left, and a file this repo '
+                      'does not hold is not compared', not rep.left))
+        record('2' * 40)
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('different content: LEFT, naming the file and the repo '
+                      'to update first', len(rep.left) == 1
+                      and 'RULES.md' in rep.left[0][1]
+                      and 'o/Voice' in rep.left[0][1]
+                      and 'GONE.md' not in rep.left[0][1]))
+        cfg = json.loads((repo / 'precedent.json').read_text())
+        cfg['sources'][0]['hold'] = 'on purpose'
+        (repo / 'precedent.json').write_text(json.dumps(cfg))
+        rep = Rep()
+        pu.built_from_step(repo, rep)
+        cases.append(('a held source is reported, never left',
+                      not rep.left and any('held' in w for _, w in rep.steps)))
+        trees = preg.vendored_trees(repo)
+        cases.append(('every copied-in folder is another repository\'s files',
+                      {'process/upstream/', 'process/rules/', 'process/voice/'}
+                      <= set(trees)))
+    order = pua.dependency_order(
+        ['o/consumer', 'o/voice', 'o/rules', 'o/other'],
+        {'o/consumer': {'o/voice', 'o/rules'}, 'o/voice': {'o/rules'}})
+    cases.append(('a repository runs after the ones it copies from',
+                  order.index('o/rules') < order.index('o/voice')
+                  < order.index('o/consumer') and len(order) == 4))
+    cases.append(('a cycle keeps the order given',
+                  pua.dependency_order(['o/a', 'o/b'],
+                                       {'o/a': {'o/b'}, 'o/b': {'o/a'}})
+                  == ['o/a', 'o/b']))
+    cases.append(('a source URL reads as owner/repo',
+                  pua._repo_of('https://github.com/O/Voice.git') == 'o/voice'))
+    bad = [n for n, ok in cases if not ok]
+    check(f'a built-from record is compared, and orders the updates '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_update_all_vendors_skips_its_own_source():
     """precedent_update_all.py never updates the BestPractice repository it
     runs from -- that repository has a precedent.json too -- and refuses to
@@ -4553,6 +4650,132 @@ def check_update_done_names_the_branch_to_commit_on():
     check(f'Update Vendors names the branch to commit on from a tier branch '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_update_done_names_the_update_branches_it_replaces():
+    """DONE lists every earlier update branch whose engine is already in
+    the one just taken, each with its delete link, and flags any that still
+    carries a CI workflow main deleted; an update branch it cannot place is
+    named apart, and a newer one is left alone.
+
+    2026-11-01: a practice set kept three update branches from August,
+    September and October that later updates had replaced; nothing ever said
+    so, and two still carried workflows its main had deleted, so a push to
+    either would have run them again. Morgan, 2026-11-01: "All the issues
+    above - act, do the root fixes". The fixture plants a source clone with
+    commits A <- B <- C, a checkout that just took B, and one origin branch
+    for each state the listing tells apart.
+
+    Negative control, measured 2026-11-01: with the call in Report.close
+    removed, the DONE case fails; with the ancestor test dropped (every
+    update branch listed), the newer-branch case fails."""
+    import tempfile, inspect, json as _json
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    import precedent_stale_branches as _psb
+    cases = []
+    saved = _psb._slug
+    try:
+        _psb._slug = lambda repo: ('o', 'r')
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@example.com',
+                       GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@example.com',
+                       GIT_CONFIG_GLOBAL=str(td / 'gc'))
+            (td / 'gc').write_text('', encoding='utf-8')
+
+            def git(where, *a):
+                return subprocess.run(['git', '-C', str(where), *a], env=env,
+                                      capture_output=True, text=True)
+            clone = td / 'bp'
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(clone)], env=env)
+            shas = []
+            for n in 'ABC':
+                git(clone, 'commit', '-q', '--allow-empty', '-m', n)
+                shas.append(git(clone, 'rev-parse', 'HEAD').stdout.strip())
+            a, b, c = shas
+            origin, repo = td / 'o.git', td / 'w'
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                           env=env)
+            subprocess.run(['git', 'clone', '-q', str(origin), str(repo)], env=env,
+                           capture_output=True)
+            git(repo, 'checkout', '-q', '-B', 'main')
+            (repo / 'precedent.json').write_text('{"landing_branch": "staging"}\n',
+                                                 encoding='utf-8')
+            (repo / 'tools').mkdir()
+
+            def manifest(commit):
+                (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(
+                    _json.dumps({'source_commit': commit}), encoding='utf-8')
+            manifest(a)
+            git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'base')
+            git(repo, 'push', '-q', 'origin', 'main', 'main:staging')
+
+            def branch(name, commit=None, workflow=False, classic=None):
+                git(repo, 'checkout', '-q', '-B', name, 'main')
+                if commit:
+                    manifest(commit)
+                if classic:
+                    (repo / 'tools' / 'ENGINE_MANIFEST.json').unlink()
+                    (repo / 'process').mkdir(exist_ok=True)
+                    (repo / 'process' / 'manifest.json').write_text(
+                        _json.dumps({'upstream': {'commit': classic}}),
+                        encoding='utf-8')
+                if workflow:
+                    (repo / '.github' / 'workflows').mkdir(parents=True,
+                                                           exist_ok=True)
+                    (repo / '.github' / 'workflows' / 'old.yml').write_text(
+                        'on: push\n', encoding='utf-8')
+                git(repo, 'add', '-A')
+                git(repo, 'commit', '-qm', name, '--allow-empty')
+                git(repo, 'push', '-q', 'origin', name)
+            branch('2026-10-01-x-update-vendors-aaaaa-bbbbb', a, workflow=True)
+            branch('claude/repo-vendor-updates-kkkkk', classic=a)
+            branch('2026-10-30-x-engine-refresh-ccccc-ddddd', c)
+            branch('update-vendors-unknown', '0' * 40)
+            branch('update-vendors-short', a)
+            branch('update-vendors-short-2', a)
+            branch('some-feature-work', a)
+            # This run's own checkout, which just took B.
+            git(repo, 'checkout', '-q', '-B',
+                '2026-11-01-x-update-vendors-eeeee-fffff', 'main')
+            manifest(b)
+            git(repo, 'add', '-A'); git(repo, 'commit', '-qm', 'this update')
+            git(repo, 'push', '-q', 'origin', 'HEAD')
+            out = '\n'.join(_pu.replaced_update_lines(repo, clone))
+        link = 'https://github.com/o/r/branches/all?query='
+        cases.append(('THE DISCRIMINATING CASE: an older update branch is '
+                      'listed as replaced, with its delete link',
+                      'REPLACED UPDATE BRANCHES' in out and
+                      link + '2026-10-01-x-update-vendors-aaaaa-bbbbb' in out, out))
+        cases.append(('...and flagged for the workflow main no longer has',
+                      'still carries .github/workflows/old.yml' in out, out))
+        cases.append(('a classic install\'s catalogue record places it too',
+                      link + 'claude%2Frepo-vendor-updates-kkkkk' in out, out))
+        cases.append(('an update branch newer than what was taken is left alone',
+                      'engine-refresh-ccccc' not in out, out))
+        cases.append(('an engine the clone cannot place is named apart, unlinked',
+                      'UPDATE BRANCHES NOT PLACED' in out and
+                      link + 'update-vendors-unknown' not in out and
+                      'update-vendors-unknown' in out, out))
+        cases.append(('a name inside another branch\'s is flagged, not linked',
+                      link + 'update-vendors-short\n' not in out + '\n' and
+                      'not linked: its filter would also show update-vendors-short-2'
+                      in out, out))
+        cases.append(('a branch that is not an update is never listed',
+                      'some-feature-work' not in out, out))
+        cases.append(('this run\'s own branch is never listed',
+                      'eeeee-fffff' not in out, out))
+        done = inspect.getsource(_pu.Report.close)
+        cases.append(('DONE prints the listing',
+                      'replaced_update_lines(' in done, ''))
+    finally:
+        _psb._slug = saved
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'Update Vendors names the update branches it replaces '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:400]}' for n, d in bad))
 
 
 def check_update_seeds_an_upstream_budget_for_a_vendored_tool():

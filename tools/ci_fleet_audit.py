@@ -318,6 +318,30 @@ def _branch_date(call, slug, name):
     return str(when)[:10] if when else None
 
 
+def _left_default(call, slug, path, default):
+    """-> (date, short_sha) of the newest commit on `default` that touched
+    `path`, ('', '') when no commit there ever did, or None when GitHub
+    could not be asked. One call, per_page=1.
+
+    Asked only for a workflow GitHub ran that is NOT on the default branch
+    now, so that newest commit is the one that took it off (a delete or a
+    rename). Without it the note read as though a workflow had gone
+    missing, when it was deleted on purpose and every run came before the
+    deletion (2026-11-01: a practice set's light-check.yml, deleted from
+    main on 2026-10-19, reported as "not on main, yet GitHub ran it")."""
+    data, err = call(f'repos/{slug}/commits?path={path}&sha={default}'
+                     f'&per_page=1')
+    if err or not isinstance(data, list):
+        return None
+    if not data:
+        return '', ''
+    top = data[0] if isinstance(data[0], dict) else {}
+    c = top.get('commit') or {}
+    when = (c.get('committer') or {}).get('date') or \
+        (c.get('author') or {}).get('date') or ''
+    return str(when)[:10], str(top.get('sha') or '')[:7]
+
+
 def audit_repo(slug, call=_default_call, days=DAYS,
                max_branches=MAX_BRANCHES, today=None,
                active_days=ACTIVE_DAYS):
@@ -441,6 +465,9 @@ def audit_repo(slug, call=_default_call, days=DAYS,
                                    f'{len(others)} side branches not read '
                                    f'(--max-branches {max_branches})'))
     quiet, quiet_files = set(), 0
+    # Which side branches still carry a file that is not on the default
+    # branch: a push to one of them can start it again.
+    carriers = {}
     for name in others[:max_branches]:
         listing = _workflow_listing(call, slug, name)
         if listing is None:
@@ -448,6 +475,8 @@ def audit_repo(slug, call=_default_call, days=DAYS,
                                        f'{WF_DIR}'))
             continue
         for path, sha in sorted(listing.items()):
+            if path not in base:
+                carriers.setdefault(path, []).append(name)
             if base.get(path) == sha:
                 continue
             text = _blob_text(call, slug, sha, blobs)
@@ -475,16 +504,48 @@ def audit_repo(slug, call=_default_call, days=DAYS,
         recent = (today - datetime.timedelta(days=7)).isoformat()
         for path, by_event in sorted(runs.items()):
             if path and path not in base:
+                last = str(by_event.get('_last', ''))
                 # Still running this week is spending now; a file retired
                 # earlier in the window is history, and says so.
-                live = str(by_event.get('_last', '')) >= recent
+                live = last >= recent
+                words = _runs_words(by_event, complete=complete)
+                left = (_left_default(call, slug, path, default)
+                        if path.startswith(WF_DIR + '/') else None)
+                where = carriers.get(path) or []
+                tail = ''
+                if where:
+                    tail = (f'; still on side branch(es) '
+                            f'{", ".join(sorted(where))}, so a push to one '
+                            f'would run it again')
+                elif stale:
+                    tail = (f'; the {stale} side branch(es) not read may '
+                            f'still carry it')
+                if left and left[0]:
+                    when, by = left
+                    if last and last <= when:
+                        # Every run came while it was still on the default
+                        # branch: history, not spending.
+                        rows.append(('NOTE', f'{path}: removed from '
+                                             f'{default} on {when} ({by}); '
+                                             f'its {words}, in the last '
+                                             f'{days} days, all came before '
+                                             f'that' + tail))
+                    else:
+                        rows.append((bad if live else 'NOTE',
+                                     f'{path}: removed from {default} on '
+                                     f'{when} ({by}), yet GitHub ran it after '
+                                     f'that -- {words}, in the last {days} '
+                                     f'days' + ('' if live else
+                                                ' (none in the last 7, so '
+                                                'it has stopped)') + tail))
+                    continue
+                never = (' and never was' if left == ('', '') else '')
                 rows.append((bad if live else 'NOTE',
-                             f'{path}: not on {default}, yet GitHub ran it -- '
-                             f'{_runs_words(by_event, complete=complete)}, '
-                             f'in the last {days} '
+                             f'{path}: not on {default}{never}, yet GitHub '
+                             f'ran it -- {words}, in the last {days} '
                              f'days' + ('' if live else
                                         ' (none in the last 7, so it has '
-                                        'stopped)')))
+                                        'stopped)') + tail))
         if not complete:
             capped = total >= LISTING_CAP
             rows.append(('NOTE', f'{"at least " if capped else ""}{total} '

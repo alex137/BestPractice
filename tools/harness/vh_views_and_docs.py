@@ -4195,7 +4195,8 @@ def check_doc_lint_exempts_links_in_a_mirrored_tree():
     try:
         repo = tmp / 'repo'
         repo.mkdir()
-        shutil.copytree(ROOT / 'tools', repo / 'tools')
+        shutil.copytree(ROOT / 'tools', repo / 'tools',
+                        ignore=shutil.ignore_patterns('__pycache__'))
         (repo / 'precedent.json').write_text(_json.dumps({
             'format_version': 1, 'visibility': 'private',
             'sources': [{'level': 'universal', 'name': 'precedent',

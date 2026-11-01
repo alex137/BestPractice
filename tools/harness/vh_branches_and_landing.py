@@ -4447,6 +4447,92 @@ print(json.dumps(dict(rc=rc, verdict=verdict, said='\\n'.join(said)[-400:],
     check(f'--land tells the push\'s hooks what it lands ({len(cases)} stated cases)',
           not bad, '; '.join(f'{n} ({d})' for n, d in bad))
 
+def check_land_hands_over_the_landed_branchs_delete_link():
+    """A --land ends by naming the branch it landed as done, with the
+    one-click delete link (branch-delete-links): no pull request merged it,
+    so GitHub's auto-delete never will.
+
+    2026-11-01: one practice set's origin held seventeen merged branches,
+    every one landed by --land or Produce, and nothing ever said any of them
+    was done. Morgan, 2026-11-01: "All the issues above - act, do the root
+    fixes". The fixture lands a pushed branch through _land_composed, then
+    asks landed_branch_line about three branches it must stay quiet on.
+
+    Negative control, measured 2026-11-01: with the call in _land_composed
+    removed, the first case fails."""
+    import tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-land-done-'))
+    cases = []
+    try:
+        script = tmp / 'run.py'
+        script.write_text(f"""
+import json, os, pathlib, subprocess, sys
+sys.path.insert(0, {str(ROOT / 'tools')!r})
+os.environ.update(GIT_AUTHOR_NAME='T', GIT_AUTHOR_EMAIL='t@example.com',
+                  GIT_COMMITTER_NAME='T', GIT_COMMITTER_EMAIL='t@example.com',
+                  PRECEDENT_USER_CONFIG={str(tmp / 'no-config.json')!r},
+                  GIT_CONFIG_GLOBAL={str(tmp / 'gitconfig')!r})
+pathlib.Path({str(tmp / 'gitconfig')!r}).write_text('')
+import precedent_branches as pb
+import precedent_stale_branches as psb
+psb._slug = lambda repo: ('o', 'r')
+td = pathlib.Path({str(tmp)!r})
+origin, work = td / 'o.git', td / 'w'
+g = lambda *a: subprocess.run(['git', '-C', str(work), *a], capture_output=True, text=True)
+subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)])
+subprocess.run(['git', 'clone', '-q', str(origin), str(work)], capture_output=True)
+g('checkout', '-q', '-B', 'main')
+(work / 'precedent.json').write_text('{{"landing_branch": "staging"}}\\n')
+g('add', '-A'); g('commit', '-qm', 'base')
+g('push', '-q', 'origin', 'main', 'main:staging')
+g('checkout', '-q', '-b', 'claude/demo-work-abcdef')
+(work / 'x.md').write_text('x\\n'); g('add', '-A'); g('commit', '-qm', 'work')
+g('push', '-q', 'origin', 'claude/demo-work-abcdef')
+pb._check = lambda *a, **k: (True, 'stub check')
+said = []
+rc, verdict = pb._land_composed(work, g('rev-parse', 'HEAD').stdout.strip(),
+                                'claude/demo-work-abcdef', 'staging', 'the fixture',
+                                said.append)
+g('fetch', '-q', 'origin')
+landed = g('rev-parse', 'origin/staging').stdout.strip()
+# Moved after it was landed: origin's branch carries a commit staging lacks.
+(work / 'y.md').write_text('y\\n'); g('add', '-A'); g('commit', '-qm', 'more')
+g('push', '-q', 'origin', 'claude/demo-work-abcdef')
+moved = pb.landed_branch_line(work, 'claude/demo-work-abcdef', 'staging', landed)
+g('checkout', '-q', '-b', 'never-pushed')
+unpushed = pb.landed_branch_line(work, 'never-pushed', 'staging', landed)
+tier = pb.landed_branch_line(work, 'main', 'staging', landed)
+print(json.dumps(dict(rc=rc, said='\\n'.join(said), moved=moved,
+                      unpushed=unpushed, tier=tier)))
+""", encoding='utf-8')
+        p = subprocess.run([sys.executable, str(script)], capture_output=True,
+                           text=True, cwd=str(tmp), timeout=300)
+        try:
+            out = json.loads(p.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            out = {}
+        why = (p.stdout + p.stderr)[-600:]
+        said = out.get('said', '')
+        url = 'https://github.com/o/r/branches/all?query=claude%2Fdemo-work-abcdef'
+        cases.append(('THE DISCRIMINATING CASE: the landing names the landed '
+                      'branch as done, with its filtered delete link',
+                      out.get('rc') == 0 and 'DONE WITH claude/demo-work-abcdef'
+                      in said and url in said, said[-500:] or why))
+        cases.append(('...and says never to delete it yourself',
+                      'never-delete-a-remote-branch' in said, said[-300:] or why))
+        cases.append(('a branch that moved after it was landed is not offered',
+                      out.get('moved') == '', str(out.get('moved')) or why))
+        cases.append(('a branch origin does not have is not offered',
+                      out.get('unpushed') == '', str(out.get('unpushed')) or why))
+        cases.append(('a tier branch is never offered',
+                      out.get('tier') == '', str(out.get('tier')) or why))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    check(f'--land hands over the landed branch\'s delete link ({len(cases)} '
+          f'stated cases)', not bad, '; '.join(f'{n} ({d})' for n, d in bad))
+
+
 def check_land_confirm_says_whether_what_landed_was_checked():
     """--land-confirm COMMIT, after a landing's pull request was merged by
     hand, says whether staging took the checked composition as it was, and
@@ -4819,6 +4905,61 @@ print(json.dumps(out))
     check(f'--land skips a push the pull-request guard would refuse '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} ({d})' for n, d in bad))
+
+def check_one_fix_mends_two_red_landings_in_a_row():
+    """--fixing takes several red landings joined by commas, and the fix's
+    run starts from the oldest red base, so it covers all of them
+    (2026-11-01: two landings went red one after the other; --fixing for
+    either one left the other refusing the fix, with no way to name both)."""
+    import json, shutil, subprocess, tempfile
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-two-reds-'))
+    cases = []
+    try:
+        repo = tmp / 'r'
+        repo.mkdir()
+        g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                      capture_output=True, text=True).stdout.strip()
+        g('init', '-q')
+        shas = []
+        for n in range(4):
+            (repo / 'f').write_text(str(n))
+            g('add', 'f')
+            g('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', str(n))
+            shas.append(g('rev-parse', 'HEAD'))
+        sys.path.insert(0, str(ROOT / 'tools'))
+        try:
+            import precedent_branches as pb
+        finally:
+            sys.path.pop(0)
+        d = pb._reach_dir(repo)
+        d.mkdir(parents=True, exist_ok=True)
+        # Landing 1 (base shas[0]) went red, then landing 2 (base shas[1]).
+        for i, (landed, since) in enumerate(((shas[1], shas[0]),
+                                              (shas[2], shas[1]))):
+            (d / f'{landed[:12]}-{i}.json').write_text(json.dumps(
+                {'landed': landed, 'since': since, 'status': 'failed',
+                 'label': f'red {i}', 'failing': [f'case {i}']}))
+        one = pb.reach_gate(repo, shas[2][:12])
+        cases.append(('THE CASE: naming only the second red still refuses, '
+                      'and names the first',
+                      bool(one[0]) and shas[1][:12] in one[0], one[0]))
+        none = pb.reach_gate(repo, None)
+        cases.append(('the refusal hands over one --fixing for both',
+                      f'--fixing {shas[1][:12]},{shas[2][:12]}' in none[0]
+                      or f'--fixing {shas[2][:12]},{shas[1][:12]}' in none[0],
+                      none[0]))
+        both = pb.reach_gate(repo, f'{shas[2][:12]},{shas[1][:12]}')
+        cases.append(('CONTROL: naming both lets the fix through',
+                      both[0] == '', both[0]))
+        cases.append(("CONTROL: the fix's run starts from the oldest red base",
+                      both[2] == shas[0], str(both[2])))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'one --fixing mends two red landings in a row ({len(cases)} '
+          f'stated cases)', not bad,
+          '; '.join(f'{n} -- {str(x)[:200]}' for n, x in bad))
+
 
 def check_land_holds_while_its_reached_tests_are_red():
     """--land starts the harness checks a landing reaches in the background

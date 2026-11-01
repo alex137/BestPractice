@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 179 practice files (6 resident, 173 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 180 practice files (6 resident, 174 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -26,6 +26,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [bold-key-phrases](practices/bold-key-phrases.md) | on-demand | writing any document meant to be read |
 | [branch-delete-links](practices/branch-delete-links.md) | on-demand | telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's |
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
+| [built-from-is-checked](practices/built-from-is-checked.md) | on-demand | a source exports files it compiles from a source of its own, or a repository copies in both |
 | [capture-gate](practices/capture-gate.md) | on-demand | finishing substantial work, or merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
 | [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism some document describes, or finding a document that no longer matches what is true |
@@ -323,6 +324,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_source_home.py](tools/precedent_source_home.py) | Where a practice source's real tree lives, and whether two paths are one tree. |
 | [tools/precedent_source_names.py](tools/precedent_source_names.py) | Whether each declared source repository is still CALLED what this repo calls it -- a rename redirects forever, so only the GitHub API can answer it |
 | [tools/precedent_source_pins.py](tools/precedent_source_pins.py) | Which commit of each live practice source a consumer's views were built |
+| [tools/precedent_source_survey.py](tools/precedent_source_survey.py) | Should this repo declare a practice set it doesn't, or drop one it does? -- every repository the session can reach, read and given a verdict |
 | [tools/precedent_stale_branches.py](tools/precedent_stale_branches.py) | precedent_stale_branches.py -- the remote branches you can delete, across |
 | [tools/precedent_sync_views.py](tools/precedent_sync_views.py) | One command for a consuming repo: precedent_materialize.py + build_views.py --agents-only, glued together |
 | [tools/precedent_time.py](tools/precedent_time.py) | The ONE emitter for every date and time this repo writes down — resolves whose zone, always carries the offset; run it bare to see which rung answered |
