@@ -299,3 +299,89 @@ The rehearsal's output goes in the pull request.
 3. Is refusing an undecided top-level set file too strict for a set author
    working on a branch? An alternative is an advisory finding on a branch
    and a refusal only at the Produce. (needs: decision -- the reviewing session, then Morgan if it is a close call)
+
+## The review, and what it changed
+
+Reviewed 2026-11-01 by a second Opus 5.5 session ("BP: review the
+set-copy plan"), which checked the plan's claims against the code. Each of
+its points, with the verdict this plan now follows:
+
+1. **The table missed readers (must-fix, taken).**
+   - `tools/precedent_materialize.py` reads `adapters` from each source's
+     `precedent.json`.
+   - `tools/precedent_update.py` (`built_from_differences`) reads
+     `BUILT_FROM.json` from each copy.
+   - `tools/precedent_materialize.py` reads `identity.json` from an
+     individual source.
+
+   Checked: today only the individual set declares `adapters`, and an
+   individual set is never copied, so nothing is lost today. The registry
+   now lists all three:
+   - `BUILT_FROM.json` ships.
+   - `identity.json` is recorded as an individual-only read.
+   - `precedent.json` stays home.
+
+   And `set-file-decided` refuses a shared set whose `precedent.json`
+   declares `adapters`: a declaration a copy must carry belongs in
+   `precedent-source.json`, which always ships.
+2. **The scan as written would miss the bug it exists for (must-fix,
+   taken).** `precedent_reply_check.py` binds `root = Path(s['path'])` and
+   joins the file name a line later. The scan now flags every name bound
+   from a source path (`X['path']`, `_declared_path(...)`) and every literal
+   join on that name in the same function. The run-time refusal in a
+   `read_set_file` helper is dropped. In its place a harness case runs the
+   reader tools against a fixture set under an audit hook
+   (`sys.addaudithook`), records every file opened under the set's folder,
+   and fails on one the registry does not list. That catches reads the
+   scan cannot see.
+3. **The nested-copy refusal would break `carries` (must-fix, taken).** A
+   voice pack carries a writing set written by someone else, and usually
+   also declares it as a source (spec/VENDORED_SHARED_SETS.md; harness case
+   `check_copied_set_carries_another`). The refusal is narrowed to what
+   Morgan asked: an `exports`, `code` or `carries` entry that resolves into
+   an install copy is refused. That means `process/upstream/`, a
+   `process/<name>/` with a `process/manifest_<name>.json`, or a folder
+   holding `tools/ENGINE_MANIFEST.json`.
+   - `carries` paths are already confined inside `set_root`, and a voice
+     repository's `process/` sits outside `voice-set/`. So the real gap is a
+     set with an empty `set_root`, or one exporting a path under `process/`.
+   - A new harness case proves a carried writing set that is also a
+     declared source of the carrier still copies.
+4. **Invert the copier: ship everything under `set_root` except `stays`
+   (suggestion, not taken).**
+   - The sets' top levels hold `spec/`, `todo/`, `record/`, `CODEOWNERS`,
+     `leak-blocklist.txt` and more. Default-ship would carry all of that into
+     every consumer, and each would need a `stays` line.
+   - Default-ship stops only one kind of loss: a file the engine reads that
+     nobody registered. With the audit-hook case (point 2), that file fails
+     BestPractice's own harness before it lands.
+   - So the registry stays the copy mechanism, and the loss is caught at
+     the source instead of being papered over by copying everything.
+5. **Copy-completeness compares against the commit the manifest records
+   (suggestion, taken).** It uses `git show <recorded commit>:<file>`, not
+   the clone's working tree, which moves after an update. Presence alone
+   only when that commit cannot be reached, and then it is a
+   could-not-verify.
+6. **A bridge commit now (suggestion, not taken separately).** It would add
+   `our_language.json` and `BUILT_FROM.json` to today's tuple. The build
+   itself lands in the same sitting, and the bridge would need its own
+   Produce to reach anyone sooner. So the build carries it.
+
+**The open questions, settled.**
+- Q1: `SET_FILES` lives in its own small module with no imports,
+  `tools/precedent_set_files.py`. The reply check runs on every stop, and
+  must not import the resolver eagerly.
+- Q2: bytes, against the recorded commit.
+- Q3: strict at a set's own push check, one decision per file, as
+  `vendoring-decided` is for BestPractice.
+
+**Rollout, adjusted.** The engine already knows the standard files of a
+set repository. Its built-in list now also covers what the ladder and
+writing sets actually hold at their top level:
+- files: `AGENTS.md`, `CLAUDE.md`, `CODEOWNERS`, `GLOSSARY.md`, `MAP.md`,
+  `README.md`, `TODO.md`, `approvers.json`, `leak-blocklist.txt`,
+  `precedent.json`;
+- folders: `record/`, `spec/`, `todo/`, `tools/`.
+
+So neither set needs a commit before the engine reaches it, and the
+rehearsal checks that.
