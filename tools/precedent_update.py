@@ -1562,6 +1562,7 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
     sha = lambda b: hashlib.sha256(b).hexdigest()               # noqa: E731
     kept = pve.kept_template_divergences(repo)
     root = str(entry.get('set_root') or '').strip('/')
+    rebaseline = []
     for frm, to in installs:
         what = f'{to} (from {name}\'s {frm})'
         src = pathlib.Path(set_dir) / frm
@@ -1592,12 +1593,10 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
             dest.write_bytes(new)
             installed[to] = sha(new)
             repinned = _repin_installed_workflow(repo, to, sha(cur), sha(new), name)
-            rebased = _rebaseline_installed_entries(repo, to, sha(cur), sha(new))
+            rebaseline.append((to, sha(cur), sha(new), what))
             rep.step(f'copy of {name}', f'{what}: refreshed to the template\'s '
                      f'new text' + ('; its workflow approval moved to the new '
-                                    'text with it' if repinned else '')
-                     + (f'; its drift baseline in {", ".join(rebased)} moved too'
-                        if rebased else ''))
+                                    'text with it' if repinned else ''))
             continue
         reason = (kept.get(to) or {}).get('reason')
         if reason:
@@ -1613,6 +1612,15 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
         record[INSTALLED_KEY] = installed
         mpath.parent.mkdir(parents=True, exist_ok=True)
         mpath.write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+    # After the write above, never before it: `record` is this source's own
+    # manifest, read at the top, and a baseline moved in that file earlier
+    # was overwritten by this stale copy (2026-11-01, the first version of
+    # this fix, on a voice repository's update).
+    for to, old, new, what in rebaseline:
+        rebased = _rebaseline_installed_entries(repo, to, old, new)
+        if rebased:
+            rep.step(f'copy of {name}', f'{what}: its drift baseline in '
+                     f'{", ".join(rebased)} moved to the new text too')
 
 
 def _rebaseline_installed_entries(repo, rel, old_sha, new_sha):
