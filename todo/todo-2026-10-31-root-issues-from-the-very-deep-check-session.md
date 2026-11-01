@@ -3,7 +3,7 @@ slug:              todo-2026-10-31-root-issues-from-the-very-deep-check-session
 kind:              analysis
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       wait
 remind_on:         null
 blocked_on:        "the harness split, running in a session of its own"
@@ -12,7 +12,7 @@ decision:          "all four picks taken"
 decision_strength: assented
 waiting_on:        "the harness-split session"
 noted:             2026-10-31
-closed:            null
+closed:            2026-10-31
 ---
 ## What
 
@@ -129,3 +129,11 @@ four, then booked". What each became:
   back when it lands. This item closes when it does.
 - **The ladder set's `/dev/null` lines:** fixed there and on its staging
   (precedent-shared-ladder #164).
+
+2026-10-31, closed on its condition: the harness split landed on staging
+(#1466, from its own session), and with it the last thing open here. Its
+two loose ends were taken up here: the ladder set's landing guard now
+treats `tools/harness/` and [tools/harness_parts.py](../tools/harness_parts.py) as code other work is
+judged by (precedent-shared-ladder #166), and a stale example in
+`reply_check.json`'s requirement 13, left by #1465, now carries the
+What's blocking line that rule asks for.
