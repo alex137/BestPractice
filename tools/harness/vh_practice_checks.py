@@ -3858,6 +3858,76 @@ def check_deep_check_keeps_a_test_of_a_tool():
           '; '.join(f'{n} ({d})' for n, d in failed))
 
 
+def check_deep_check_skips_a_repo_with_no_check_scripts():
+    """deep-check skips a repository with no tools/checks/check_*.py, and
+    still reports one that has check scripts but no run_all.sh.
+
+    On 2026-11-01 Update Vendors moved a shared practice set whose only
+    audit is a script under tools/ onto an engine that resolves
+    deep-check from universal; it reported "run_all.sh is missing" in a repo
+    with nothing to run together. Two directions, each asserting the printed
+    text: no check scripts at all reads SKIPPED (not applicable) with the
+    reason; check scripts with no run_all.sh is still a violation naming
+    run_all.sh (practice: control-asserts-which-failure).
+    """
+    import tempfile
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='deep-check-no-checks-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md',
+                    fx / 'practices' / 'deep-check.md')
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        (fx / 'tools' / 'fixture_audit.py').write_text('', encoding='utf-8')
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main'}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+
+        def run():
+            env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', '--only', 'deep-check'],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        none = run()
+        cases.append(("no tools/checks/ at all is skipped as not applicable, "
+                      "with the reason",
+                      none.returncode == 0
+                      and 'nothing to run together' in none.stdout
+                      and 'VIOLATION' not in none.stdout,
+                      f'rc={none.returncode} ' + failure_detail(none.stdout, 400)))
+        (fx / 'tools' / 'checks' / 'tests').mkdir(parents=True)
+        empty = run()
+        cases.append(("a tools/checks/ holding no check_*.py is skipped too",
+                      empty.returncode == 0
+                      and 'nothing to run together' in empty.stdout
+                      and 'VIOLATION' not in empty.stdout,
+                      f'rc={empty.returncode} ' + failure_detail(empty.stdout, 400)))
+        (fx / 'tools' / 'checks' / 'check_fixture.py').write_text(
+            'SOURCE_ROOT = None\n', encoding='utf-8')
+        broken = run()
+        cases.append(("check scripts with no run_all.sh are still a violation "
+                      "naming run_all.sh",
+                      broken.returncode != 0
+                      and 'run_all.sh: is missing' in broken.stdout
+                      and 'nothing to run together' not in broken.stdout,
+                      f'rc={broken.returncode} ' + failure_detail(broken.stdout, 400)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'deep-check skips a repo with no check scripts and still reports '
+          f'one missing run_all.sh ({len(cases)} stated cases, each asserting '
+          f'the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
 def check_practice_links_travel_skips_a_consumers_repo_local_practices():
     """A consumer's repo-local practice is never published, so
     practice-links-travel must not test its links -- and the repair it

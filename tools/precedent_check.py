@@ -9450,7 +9450,9 @@ def _declares_itself(root):
        'which the practice names a judgment call, run only when a person asks '
        'for a deep check by name. Whether a test is any GOOD is not checked, '
        'only that it exists and names its script. Skipped in the engine\'s own '
-       'origin, which has no materialized check family to run together.')
+       'origin, which has no materialized check family to run together, and in '
+       'a repository with no tools/checks/check_*.py at all (a practice set '
+       'whose audits live elsewhere), where there is nothing to run together.')
 def _deep_check(ctx):
     # Ported 2026-10-05 from the repo-maintenance set's check_deep_check.py,
     # when the practice moved into universal. A check script added without a
@@ -9466,6 +9468,16 @@ def _deep_check(ctx):
                 'tools/checks/tests/run_all.sh is missing, and this repo '
                 'declares itself as a practice source: the engine\'s origin '
                 'runs its tests through its own harness')
+        # A repository with no check scripts has nothing for "every audit
+        # script, run together" to run, so a missing run_all.sh there is not
+        # drift. Found 2026-11-01 in a shared set whose one audit lives in
+        # tools/, after deep-check moved to universal and began resolving in
+        # every repository. A repo WITH check scripts and no run_all.sh is
+        # still reported: those scripts really do never run together.
+        if not any(checks_dir.glob('check_*.py')):
+            raise NotApplicable(
+                'there are no check scripts here (no tools/checks/check_*.py), '
+                'so there is nothing to run together')
         return [Finding('tools/checks/tests/run_all.sh', 'is missing -- there '
                         "is no 'every audit script, run together' entry point")]
     out = []

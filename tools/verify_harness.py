@@ -4483,6 +4483,7 @@ def main():
     check_publisher_bound_checks_run_in_a_source_set()
     check_a_set_runs_the_checks_its_declared_sources_put_in_force()
     check_deep_check_keeps_a_test_of_a_tool()
+    check_deep_check_skips_a_repo_with_no_check_scripts()
     check_practice_links_travel_skips_a_consumers_repo_local_practices()
     check_practice_links_travel_holds_a_set_to_its_copy_in()
     check_gate_channel()
