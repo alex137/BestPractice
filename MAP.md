@@ -220,6 +220,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/answer_first_gate.py](tools/answer_first_gate.py) | Refuses a change while the person's latest message asks something the |
 | [tools/artifact_publish_gate.py](tools/artifact_publish_gate.py) | The publish gate: a page reaches a link only as a fresh render of a |
 | [tools/behavioral_replay.py](tools/behavioral_replay.py) | Measures the path-triggered loader against this repo's own commit history |
+| [tools/branch_name_guard.py](tools/branch_name_guard.py) | Refuses a push under a branch name the ladder's act practice does not allow -- the harness's own name, or one typed by hand -- from git's pre-push, in every session shape |
 | [tools/branch_store.py](tools/branch_store.py) | Small records on a dedicated branch of a shared remote, with the push as the lock: the git plumbing shared by the lease board and the result cache |
 | [tools/build_codeowners.py](tools/build_codeowners.py) | CODEOWNERS, generated -- a practice set's from its approvers.json, a project's from the maintainers and owned_paths in its precedent.json |
 | [tools/build_gotcha_index.py](tools/build_gotcha_index.py) | gotchas/INDEX.md, generated from gotchas/*.md's frontmatter and Symptom sections -- not loaded by AGENTS.md |
@@ -232,6 +233,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/ci_fleet_audit.py](tools/ci_fleet_audit.py) | Every GitHub Actions workflow on every branch of every reachable repo, asked of GitHub: approval, triggers, schedules, 30 days of runs |
 | [tools/commit_checks_common.py](tools/commit_checks_common.py) | What the two commit-identity checks share: the identity module, the grandfather list, the log reader, the Rule text |
 | [tools/content_record.py](tools/content_record.py) | Hash a set of inputs now and say later whether they still hold and which moved, under frozen schemes: the hashing shared by the fact ledger and any drift check |
+| [tools/create_word_doc.py](tools/create_word_doc.py) | create_word_doc.py -- convert a book-*/MANUSCRIPT.md into a .docx, |
+| [tools/dated_name.py](tools/dated_name.py) | dated_name.py -- a document handed over for download carries its date at |
 | [tools/declared_base_branch.py](tools/declared_base_branch.py) | The branch a repository declares its work is measured against: precedent.json's base_branch |
 | [tools/doc_html.py](tools/doc_html.py) | The one sortable-table HTML renderer for repo documents |
 | [tools/doc_lifecycle.py](tools/doc_lifecycle.py) | The document status header — kind, status, supersession — checked across spec/ and record/ |
@@ -243,11 +246,13 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
 | [tools/generated_blocks.py](tools/generated_blocks.py) | Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses |
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
+| [tools/harness_parts.py](tools/harness_parts.py) | Where the harness's tests live -- the one answer every reader of them uses |
 | [tools/harness_reach.py](tools/harness_reach.py) | Change-scoped harness runs: which verify_harness checks a change can reach, from a ledger a full run records |
 | [tools/harness_reach_hook.py](tools/harness_reach_hook.py) | Records what each verify_harness check reaches: the code it runs and the files it reads (engine for harness_reach.py) |
 | [tools/harness_times_merge.py](tools/harness_times_merge.py) | Git merge driver for tools/harness_check_times.json: a three-way merge of |
 | [tools/land_next.py](tools/land_next.py) | The lander as one command: land every queued branch on the trunk, oldest first, or say exactly why not |
 | [tools/land_queue.py](tools/land_queue.py) | The landing queue: branches waiting for the lander to merge them into the trunk, one record per branch on the coord branch |
+| [tools/landing_pr_guard.py](tools/landing_pr_guard.py) | Refuses a push straight to the landing branch that changes a CI workflow or the code other work is judged by, from git's pre-push, and prints the pull-request route -- go-update's high-risk line, enforced where landings happen |
 | [tools/leak_gate.py](tools/leak_gate.py) | The push-time leak gate — structural rules always, private-term blocklist when configured |
 | [tools/lease_board.py](tools/lease_board.py) | The lease board -- work in flight across sessions, one JSON file per lease on a coordination branch, push as the lock |
 | [tools/migration_retire_pre_staging.py](tools/migration_retire_pre_staging.py) | Update Vendors' migration off a retired branch tier: brings work still waiting there into staging, rewords this repository's instructions and links to it, and offers the old branch for deletion |
@@ -268,6 +273,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_bootstrap_source.py](tools/precedent_bootstrap_source.py) | Instantiates a brand-new individual or shared practice set from a skeleton, for an adopter who has neither yet |
 | [tools/precedent_boundary_check.py](tools/precedent_boundary_check.py) | Whether a document project's contributor boundary is actually ON -- branch protection shaped as spec/CONTRIBUTOR_ACCESS.md needs, read from the GitHub API; UNVERIFIED when it could not ask, which is not a pass |
 | [tools/precedent_branch_name.py](tools/precedent_branch_name.py) | The name for a session's feature branch, built the same way every time -- `<date>-<username>-<slug>-<session>-<random>`, the session part being the end of the session's ID |
+| [tools/precedent_branch_rules.py](tools/precedent_branch_rules.py) | Reports whether each repository has the GitHub ruleset that refuses creating a harness-named branch (claude/**, session/**), and applies it only when asked, repository by repository |
 | [tools/precedent_branches.py](tools/precedent_branches.py) | Where a person's work lands here (spec/LADDER_OPT_IN_PLAN.md D3) and whether a push to a branch gets the basic or the full push check; the branch tiers and their moves for a person whose set provides them (spec/BRANCH_TIERS_PLAN.md) |
 | [tools/precedent_candidate.py](tools/precedent_candidate.py) | Stage 2 (phase 5) — raise, list and expire creation-pipeline candidates |
 | [tools/precedent_check.py](tools/precedent_check.py) | The ENFORCED loading channel — runs every practice's `checked_by` script |
@@ -343,6 +349,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/session_load_trend.py](tools/session_load_trend.py) | How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print |
 | [tools/set_words.py](tools/set_words.py) | The one matcher for a practice set's own words -- the ones a set declares in its precedent-source.json `owned_words`, which belong in that set and nowhere a person who does not bring it reads -- used by the check that holds every other set to them and by the tests that hold engine output to the same (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3) |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
+| [tools/split_verify_harness.py](tools/split_verify_harness.py) | Split the one-file harness into a runner and one file per area |
 | [tools/summary_text.py](tools/summary_text.py) | Turns prose into a summary field: links out first, then the cut — run bare to self-check |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/test_review.py](tools/test_review.py) | Every test a repository runs, with what it costs and whether it still |
