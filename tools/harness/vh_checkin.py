@@ -1811,6 +1811,117 @@ def check_hosted_sessions_resolve_without_attaching_a_repo():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_copied_in_set_carries_its_reply_rules():
+    """A whole copy of a shared set carries the set's reply_check.json (and
+    close_detect.json), so the set's reply-gate requirements bind where the
+    copy is the source; a copy taken for its exports alone does not, since
+    none of its rules are in force there.
+
+    THE INCIDENT (2026-11-01). A voice repository copies the ladder set in
+    at process/precedent-shared-ladder/. The copy held practices/,
+    precedent-source.json and the files its rules name, never
+    reply_check.json, and the reply check reads each source's file from the
+    source's path -- the copy. Measured in a copy of that repository with no
+    individual set: universal's requirements only, none of the set's six,
+    and no note saying so. The fixture owns its user config, so this
+    machine's sets never resolve into it (practice: fixture-owns-its-state)."""
+    import shutil, tempfile, importlib
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='copied-in-reply-'))
+    cases = []
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+    (tmp / 'no-config.json').write_text('{}', encoding='utf-8')
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True)
+
+    try:
+        origin = tmp / 'zz-reply.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=env, check=True)
+        clone = tmp / 'zz-reply'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=env, capture_output=True, check=True)
+        (clone / 'practices').mkdir()
+        (clone / 'practices' / 'zz-rule.md').write_text(
+            '---\nslug: zz-rule\n---\n# zz\n\n## Rule\n\nx\n', encoding='utf-8')
+        (clone / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-reply', 'level': 'shared', 'visibility': 'public',
+             'exports': ['RULES.md']}), encoding='utf-8')
+        (clone / 'RULES.md').write_text('rules\n', encoding='utf-8')
+        (clone / 'reply_check.json').write_text(json.dumps(
+            [{'id': 'zz-reply-says-zz', 'require_any': ['ZZ-MARKER'],
+              'why': 'fixture'}]), encoding='utf-8')
+        (clone / 'close_detect.json').write_text(json.dumps(
+            [{'id': 'zz-close', 'why': 'fixture'}]), encoding='utf-8')
+        git(clone, 'checkout', '-q', '-b', 'main')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+
+        def host(hname, **entry):
+            h = tmp / hname
+            (h / 'process').mkdir(parents=True)
+            (h / 'precedent.json').write_text(json.dumps({
+                'format_version': 1, 'visibility': 'private', 'sources': [
+                    {'name': 'zz-reply', 'level': 'shared',
+                     'path': 'process/zz-reply', 'vendored': True, **entry}]}),
+                encoding='utf-8')
+            (h / 'process' / 'manifest_zz-reply.json').write_text(json.dumps(
+                {'upstream': {'branch': 'main'}}), encoding='utf-8')
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(h)],
+                           env=env, check=True)
+            git(h, 'add', '-A')
+            git(h, 'commit', '-qm', 'init')
+            r = subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'checkin.py'), '--source',
+                 'zz-reply', '--repo', str(h), 'update', str(clone), '--force'],
+                env=env, capture_output=True, text=True)
+            return h, r
+
+        whole, r1 = host('whole')
+        copy = whole / 'process' / 'zz-reply'
+        cases.append(('THE CASE: a whole copy carries the set\'s reply_check.json',
+                      (copy / 'reply_check.json').is_file(),
+                      failure_detail(r1.stdout + r1.stderr, 300)))
+        cases.append(('...and its close_detect.json',
+                      (copy / 'close_detect.json').is_file(), ''))
+        real_env = os.environ.get('PRECEDENT_USER_CONFIG')
+        os.environ['PRECEDENT_USER_CONFIG'] = env['PRECEDENT_USER_CONFIG']
+        try:
+            import precedent_reply_check as rc
+            importlib.reload(rc)
+            reqs, _notes = rc.declared_requirements(str(whole))
+        finally:
+            if real_env is None:
+                os.environ.pop('PRECEDENT_USER_CONFIG', None)
+            else:
+                os.environ['PRECEDENT_USER_CONFIG'] = real_env
+        cases.append(('THE CASE: the reply check then holds the copy\'s '
+                      'requirement, from shared/zz-reply',
+                      any(r.get('id') == 'zz-reply-says-zz'
+                          and r.get('_source') == 'shared/zz-reply'
+                          for r in reqs),
+                      repr([(r.get('_source'), r.get('id')) for r in reqs])))
+        only, r2 = host('only', exports_only=True)
+        ocopy = only / 'process' / 'zz-reply'
+        cases.append(('CONTROL: a copy taken for its exports alone takes the '
+                      'export and no reply_check.json -- none of its rules '
+                      'are in force there',
+                      (ocopy / 'RULES.md').is_file()
+                      and not (ocopy / 'reply_check.json').exists(),
+                      failure_detail(r2.stdout + r2.stderr, 300)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a whole copy of a set carries its reply and close-detect rules '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d}' for n, d in bad))
+
+
 def check_copied_in_shared_sets():
     """A shared set copied into a repository, the way the universal catalogue
     is at process/upstream/ (spec/VENDORED_SHARED_SETS.md, 2026-10-19). The

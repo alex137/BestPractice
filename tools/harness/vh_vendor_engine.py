@@ -5043,7 +5043,13 @@ def check_retired_template_sections_migrate_into_practices():
         repo = fx.consumer('old')
         agents = pve._instantiate(old_tpl, pve._agents_md_subs(repo))
         own = ('- **"Ship it"** -- this repository\'s own phrase for a release: '
-               'build the site and post the link in the team channel.')
+               'build the site and post the link in the team channel, as '
+               '[GETTING_STARTED.md](GETTING_STARTED.md) says.')
+        # The add-on lives in local/practices/, so the link it carries is
+        # rebased from the repository root (2026-11-01: a voice repository's
+        # 22 moved links pointed at nothing).
+        own_written = own.replace('](GETTING_STARTED.md)',
+                                  '](../../GETTING_STARTED.md)')
         agents = agents.replace('- **"Add project members"**', own + '\n- **"Add project members"**', 1)
         agents = agents.replace("- `<member>`: `<what to flag — e.g. tone changes to member-facing\n  pages>` — `<incident that showed it, date>`",
                                 '- Dana: flag tone changes to the welcome page -- reverted 2026-09-02.')
@@ -5067,9 +5073,41 @@ def check_retired_template_sections_migrate_into_practices():
         cases.append(('the own bullet moved word for word into a local add-on '
                       'practice that adds to administrator-requests, and the section went',
                       'adds_to:     administrator-requests' in text
-                      and ' '.join(own.split()) in ' '.join(text.split())
+                      and ' '.join(own_written.split()) in ' '.join(text.split())
                       and '## Administrator requests' not in after,
                       (text[:600], failure_detail(out, 800))))
+        cases.append(('THE CASE: a relative link in the moved lines is rebased '
+                      'for the add-on\'s folder, so it still reaches its file',
+                      '](../../GETTING_STARTED.md)' in text
+                      and '](GETTING_STARTED.md)' not in text, text[:900]))
+        try:
+            import split_practices as _sp
+            _fm, secs = _sp._read_practice_file(addon)
+            story = secs.get('story', '').strip()
+        except Exception as e:                                  # noqa: BLE001
+            story = ''
+            secs = {'error': repr(e)}
+        cases.append(('THE CASE: the add-on carries a ## Story saying where its '
+                      'lines came from, so cite-the-incident (a new Rule with an '
+                      'empty Story) does not refuse it',
+                      bool(story) and 'Administrator requests' in story
+                      and 'administrator-requests' in story, story or secs))
+        bare = fx.consumer('no-local')
+        (bare / 'AGENTS.md').write_text(
+            pve._instantiate(old_tpl, pve._agents_md_subs(bare)).replace(
+                '- **"Add project members"**', own + '\n- **"Add project members"**', 1),
+            encoding='utf-8')
+        fx.sh('git', 'add', '-A', cwd=bare)
+        fx.sh('git', 'commit', '-qm', 'installed from the old template', cwd=bare)
+        _rc2, out2 = fx.update(bare)
+        left = out2.split('LEFT FOR YOU', 1)[-1] if 'LEFT FOR YOU' in out2 else ''
+        item = left.split('## Administrator requests', 1)[-1][:2500]
+        cases.append(('THE CASE: with no repo-local source the section is left '
+                      'for the person, and the update shows its own lines under '
+                      'that item, never an empty "listed above"',
+                      'Ship it' in item and '(listed below)' in item
+                      and '(listed above)' not in item[:600],
+                      failure_detail(out2, 1500)))
         cases.append(('the review-sensitivities list with a real entry stays',
                       '### Review sensitivities (accumulated)' in after and 'Dana:' in after,
                       failure_detail(after, 800)))

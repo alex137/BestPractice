@@ -8203,6 +8203,57 @@ def _addon_rel(dest_root, slug):
     return (d / f'{slug}-in-this-repo.md').relative_to(dest_root.resolve()).as_posix()
 
 
+def _rebase_links(text, from_dir, to_dir):
+    """-> `text` with every relative Markdown link target rewritten from
+    `from_dir` (where the text was) to `to_dir` (where it now lives).
+    Links with a scheme, an absolute path or only a fragment are left as
+    they are. 2026-11-01: a voice repository's retired merge runbook moved
+    word for word from AGENTS.md into local/practices/, and all 22 of its
+    links, written from the repository root, pointed at nothing there."""
+    from_dir, to_dir = pathlib.Path(from_dir), pathlib.Path(to_dir)
+
+    def fix(m):
+        label, target = m.group(1), m.group(2)
+        if re.match(r'([a-z][a-z0-9+.-]*:|#|/)', target, re.I):
+            return m.group(0)
+        path, sep, frag = target.partition('#')
+        if not path:
+            return m.group(0)
+        new = pathlib.PurePath(os.path.relpath(
+            os.path.normpath(from_dir / path), to_dir)).as_posix()
+        if path.endswith('/') and not new.endswith('/'):
+            new += '/'
+        return f'{label}({new}{sep}{frag})'
+    return re.sub(r'(!?\[[^\]]*\])\(([^)\s]+)\)', fix, text)
+
+
+def _addon_story(key, slug, today):
+    """-> the ## Story a written add-on carries: where its lines came from,
+    never an incident nobody recorded. 2026-11-01: an add-on with a Rule and
+    no Story was refused by cite-the-incident at the Produce's check against
+    main, in the first repository the move ran in."""
+    when = f' on {today}' if today else ''
+    return (f"These lines were this repository's own in its AGENTS.md section "
+            f"\"{key.lstrip('# ')}\". When that section moved upstream into "
+            f"practice `{slug}`, Update Vendors moved them here{when}, word for "
+            f"word, so that nothing of this repository's was lost. No incident "
+            f"was recorded with them there; each guards against the failure "
+            f"its own words name.")
+
+
+def _insert_at_end_of_rule(text, body):
+    """-> `text` with `body` added as the last paragraphs of its ## Rule,
+    ahead of any section after it, so an appended line never lands inside
+    the Story."""
+    m = re.search(r'^## Rule\n', text, re.M)
+    if not m:
+        return text.rstrip('\n') + '\n\n' + body + '\n'
+    nxt = re.search(r'^## ', text[m.end():], re.M)
+    cut = m.end() + nxt.start() if nxt else len(text)
+    head, tail = text[:cut].rstrip('\n'), text[cut:]
+    return head + '\n\n' + body + '\n' + ('\n' + tail if tail else '')
+
+
 def _apply_retired_agents_md(dest_root, plan):
     """Write the add-ons and delete the retired sections, bottom-up.
     -> the paths written."""
@@ -8221,10 +8272,14 @@ def _apply_retired_agents_md(dest_root, plan):
         if action == 'addon':
             d = _repo_local_practices_dir(dest_root)
             target = d / f'{slug}-in-this-repo.md'
-            body = '\n\n'.join(own)
+            # The lines were written from AGENTS.md's folder, the repository
+            # root; the add-on sits in the repo-local source's practices/.
+            body = _rebase_links('\n\n'.join(own), dest_root.resolve(),
+                                 target.parent.resolve())
             if target.is_file():
-                prior = target.read_text(encoding='utf-8').rstrip('\n')
-                target.write_text(prior + '\n\n' + body + '\n', encoding='utf-8')
+                prior = target.read_text(encoding='utf-8')
+                target.write_text(_insert_at_end_of_rule(prior, body),
+                                  encoding='utf-8')
             else:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(
@@ -8250,7 +8305,8 @@ def _apply_retired_agents_md(dest_root, plan):
                     f'repository\'s own lines in AGENTS.md {key.lstrip("# ")}, when that '
                     f'section moved upstream into practice {slug} (Morgan, 2026-10-31, '
                     f'strength: decided)"\n'
-                    '---\n## Rule\n' + body + '\n', encoding='utf-8')
+                    '---\n## Rule\n' + body + '\n\n## Story\n'
+                    + _addon_story(key, slug, today) + '\n', encoding='utf-8')
             written.append(target)
         while end < len(lines) and not lines[end].strip():
             end += 1

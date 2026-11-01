@@ -998,6 +998,48 @@ def check_source_survey_gives_every_repository_a_verdict():
                       and 'an unchecked repository is not a passing one' in out,
                       out))
 
+        # A repository whose sets are vendored copies inside it, the way a
+        # voice repository holds them (2026-11-01: all four came back
+        # SHOULD ADD?, because git asked inside a vendored folder answers
+        # with the surveyed repository's own origin).
+        vend = clone('vendoring', 'example/vendoring')
+        (vend / 'process' / 'upstream' / 'practices').mkdir(parents=True)
+        (vend / 'process' / 'manifest.json').write_text(json.dumps(
+            {'upstream': {'repo': 'https://github.com/example/BestPracticeFixture',
+                          'vendored_at': 'process/upstream'}}), encoding='utf-8')
+        (vend / 'process' / 'precedent-shared-fixture' / 'practices').mkdir(parents=True)
+        (vend / 'process' / 'precedent-shared-other').mkdir(parents=True)
+        (vend / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
+            'sources': [
+                {'level': 'universal', 'name': 'precedent',
+                 'path': 'process/upstream'},
+                {'level': 'shared', 'name': 'precedent-shared-fixture',
+                 'path': 'process/precedent-shared-fixture', 'vendored': True,
+                 'repo': 'https://github.com/example/precedent-shared-fixture'},
+                {'level': 'shared', 'name': 'precedent-shared-other',
+                 'path': 'process/precedent-shared-other', 'vendored': True,
+                 'exports_only': True,
+                 'repo': 'https://github.com/example/precedent-shared-other'}]}),
+            encoding='utf-8')
+        vrows = pss.survey(str(vend), ['example/BestPracticeFixture',
+                                       'example/precedent-shared-fixture',
+                                       'example/precedent-shared-other'],
+                           user_config=str(user_cfg))
+        vv = {r['repo']: r['verdict'] for r in vrows}
+        cases.append(('a vendored universal copy is matched by the upstream its '
+                      'manifest records: DECLARED, never SHOULD ADD?',
+                      vv.get('example/BestPracticeFixture') == 'DECLARED',
+                      repr(vrows)))
+        cases.append(('a vendored shared copy is matched by its repo key, not by '
+                      "git inside its folder: DECLARED",
+                      vv.get('example/precedent-shared-fixture') == 'DECLARED',
+                      repr(vrows)))
+        cases.append(('a set declared for its exported files alone is DECLARED, '
+                      'files only, never SHOULD ADD?',
+                      vv.get('example/precedent-shared-other') == 'DECLARED'
+                      and 'files only' in str(vrows), repr(vrows)))
+
         def exit_of(argv):
             real = sys.stdout
             sys.stdout = io.StringIO()
