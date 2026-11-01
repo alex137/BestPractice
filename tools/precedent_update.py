@@ -6707,6 +6707,24 @@ def session_load_total_step(repo, rep):
             f'the total instead (practice: session-load-budget).')
 
 
+def stale_exemption_warnings(repo):
+    """One line per `not_binding` entry the repo's own precedent_check.py
+    finds it no longer needs (its --stale-exemptions), for the update's
+    closing WARNING list. Empty when the engine there predates the flag or
+    the run fails: a missing warning, never a failed update."""
+    tool = repo / 'tools' / 'precedent_check.py'
+    try:
+        if '--stale-exemptions' not in tool.read_text(encoding='utf-8'):
+            return []
+        r = subprocess.run([sys.executable, str(tool), '--stale-exemptions'],
+                           cwd=repo, capture_output=True, text=True,
+                           timeout=600)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [line.split('  ', 1)[1].strip() for line in r.stdout.splitlines()
+            if line.startswith('STALE EXEMPTION  ')]
+
+
 def full_check_after(repo):
     """precedent.json's `update_full_check` is "after": the update runs the
     basic check only, and the full one runs after the push, in the
@@ -6777,6 +6795,14 @@ def closing_check(repo, rep, skip_check=False):
     """Step 5, and the report's close: -> the exit code."""
     seed_budgets_step(repo, rep)
     session_load_total_step(repo, rep)
+    # An exemption whose reason went away: the update is the moment the
+    # engine a repo exempted itself from changes, and the check never runs
+    # an exempted rule, so nothing else would say so (2026-11-01: a shared
+    # set's deep-check entry, whose root fix landed the same day). Asked of
+    # the repo's own, just-updated engine; one vendored before the flag is
+    # not asked, since it would run its rotation instead.
+    rep.warnings.extend(stale_exemption_warnings(repo))
+
     # 5. The repo's own check, at the tier of the branch the update lands
     # on -- the gate before any push. Into staging, for a person who lands
     # there, that is the quick checks on what the update changed; the full

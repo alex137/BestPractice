@@ -2983,6 +2983,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_stale_exemption_is_named": {
+      "verdict": "keep",
+      "why": "Added 2026-11-01: an exempted check never runs, so nothing said when an exemption's reason went away; without this a band-aid entry switches a rule off for good.",
+      "date": "2026-11-01",
+      "by": "agent",
+      "seconds": 1.0,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_vendored_container_scan_knows_a_refresh_branch": {
       "verdict": "keep",
       "why": "Added 2026-10-29: a vendored precedent_container_safe.py called containers NOT SAFE TO LOSE over engine-refresh branches; a wrong verdict here misleads the archive decision.",

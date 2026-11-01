@@ -111,6 +111,9 @@ Run:
   python3 tools/precedent_check.py --full-sweep     # every tree-scope check,
                                                     # not just this commit's
                                                     # touched + rotation slice
+  python3 tools/precedent_check.py --stale-exemptions  # not_binding entries
+                                                    # whose check would now
+                                                    # pass or skip without them
   python3 tools/precedent_check.py --list           # what is registered
   python3 tools/precedent_check.py --explain        # what each check does NOT check
   python3 tools/precedent_check.py --strict         # a SKIP, or a thing a
@@ -15558,6 +15561,43 @@ def run(slugs, ctx, scopes, exempt=None):
     return results
 
 
+def stale_exemptions(exempt, scopes=('tree', 'change')):
+    """Each `not_binding` entry whose check would now PASS or be SKIPPED
+    here without it, as (slug, status, why): an exemption the repository no
+    longer needs.
+
+    An exempted check is never run (see run()), so nothing used to notice
+    when the reason for an exemption went away. On 2026-11-01 a shared set
+    exempted deep-check over a false alarm, with a root_fix naming the
+    engine; the engine was fixed the same day, and nothing would have told
+    the next Update Vendors session there that the entry could come out --
+    it would have stayed, switching the rule off for good. Run on purpose
+    (--stale-exemptions, a full sweep, --only, and Update Vendors), never
+    on the bare rotation, since it runs checks the repo chose not to pay
+    for. A VIOLATION or ERROR means the exemption still does its job, and
+    is not reported."""
+    out = []
+    for slug in sorted(exempt):
+        if slug not in CHECKS or CHECKS[slug]['scope'] not in scopes:
+            continue
+        # The whole tree, as --all: a change-scope check with nothing
+        # changed skips, and that says nothing about whether the exemption
+        # is needed (headline-capitalization read as stale this way on the
+        # same set, on a clean checkout, the first time this ran).
+        for r in run([slug], Ctx(whole_tree=True), set(scopes)):
+            if r[1] in ('PASS', 'SKIPPED'):
+                out.append((slug, r[1], r[3]))
+    return out
+
+
+def print_stale_exemptions(stale):
+    for slug, status, why in stale:
+        said = 'passes' if status == 'PASS' else f'is skipped ({why})'
+        print(f'STALE EXEMPTION  {slug} — declared not-binding in this '
+              f"repo's precedent.json, but run without that entry it {said}, "
+              f'so the entry is no longer needed: remove it from not_binding.')
+
+
 SWEEP_FAILED = 'precedent_check --full-sweep'
 
 
@@ -15637,6 +15677,12 @@ def main():
             print(f"  {slug}  [{c['scope']}]")
             print(f"    checks:   {c['what']}")
             print(f"    blind to: {c['blind_to']}\n")
+        return 0
+
+    if '--stale-exemptions' in flags:
+        stale = stale_exemptions(load_exemptions()[0])
+        print_stale_exemptions(stale)
+        print(f'precedent_check: {len(stale)} stale exemption(s).')
         return 0
 
     only = None
@@ -15839,6 +15885,9 @@ def main():
     for slug, _st, _f, why, _uv in exempted:
         print(f'EXEMPT     {slug} — declared not-binding in this repo\'s '
               f'precedent.json: {why}')
+    if exempted and (only or '--full-sweep' in flags or '--all' in flags):
+        print_stale_exemptions(stale_exemptions(
+            {r[0]: r[3] for r in exempted}, scopes))
     for slug, why in sorted(refused_exemptions.items()):
         print(f'\nNOTE       {slug} is declared not-binding here, but it is '
               f'`severity: blocking` — a blocking practice is exactly the one '
