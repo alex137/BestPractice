@@ -132,9 +132,11 @@ def check_set_file_readers_open_only_registered_files():
     which records every file opened under the set's folder. A static scan
     cannot see a name built at run time; this can.
 
-    THE CASE: every file opened is registered. NEGATIVE CONTROL: a planted
-    reader that opens an unregistered zz_extra.json is caught, by name.
-    Fails on the engine before 2026-11-01: there is no registry to ask."""
+    THE CASE: every file opened is registered, and every one the registry
+    ships is in a whole copy of the set. NEGATIVE CONTROL: a planted reader
+    that opens an unregistered zz_extra.json is caught, by name. Fails on
+    the engine before 2026-11-01: its copy lacks our_language.json and
+    BUILT_FROM.json, which the readers open."""
     import shutil, tempfile
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='set-files-audit-'))
     cases = []
@@ -204,6 +206,22 @@ def check_set_file_readers_open_only_registered_files():
         cases.append(('NEGATIVE CONTROL: a planted reader of zz_extra.json is '
                       'caught by name', got == ['zz_extra.json'],
                       repr(got) + ' ' + failure_detail(r.stdout + r.stderr, 400)))
+        # And the property the registry exists for, end to end: what the
+        # readers open in a set is in a whole copy of it -- except what the
+        # registry keeps home (precedent.json). On the engine before
+        # 2026-11-01 our_language.json and BUILT_FROM.json never arrived.
+        files = dict(_SF_ALL_FILES, **{'precedent.json': '{}'})
+        clone, _c = _sf_make_set(tmp, env, 'zz-live', files)
+        host2 = _sf_make_host(tmp, env, 'host2', [_sf_entry('zz-live')])
+        rc2 = _sf_checkin(env, host2, 'zz-live', 'update', clone, '--force')
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_set_files as psf
+        stays = {e['name'] for e in psf.SET_FILES if e['copy'] != 'ship'}
+        lacking = sorted(rel for rel in want - stays
+                         if not (host2 / 'process' / 'zz-live' / rel).is_file())
+        cases.append(('THE CASE, end to end: every file the readers open in a set '
+                      'is in a whole copy of it', lacking == [],
+                      repr(lacking) + ' ' + failure_detail(rc2.stdout + rc2.stderr, 300)))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
@@ -567,7 +585,7 @@ def check_a_copy_never_carries_a_copy():
                       r.returncode != 0 and 'universal catalogue' in out,
                       failure_detail(out, 400)))
         held = host / 'process' / 'zz-nest' / 'process' / 'zz-other'
-        held.mkdir(parents=True)
+        held.mkdir(parents=True, exist_ok=True)
         (held / 'precedent-source.json').write_text('{"name": "zz-other"}',
                                                     encoding='utf-8')
         r = _sf_checkin(env, host, 'zz-nest', 'update', clone, '--force')
