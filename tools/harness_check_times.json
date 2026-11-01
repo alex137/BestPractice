@@ -727,6 +727,7 @@
   "check_todo_progress_discriminates": 0.0,
   "check_tools_answer_help_without_writing": 10.5,
   "check_tracked_views_read_the_same_whoever_regenerates": 0.0,
+  "check_tree_checks_hold_on_every_kind_of_fresh_repo": 65.0,
   "check_trivial_checkin_exempts_the_boildown_gate": 0.2,
   "check_turn_start_names_what_the_last_reply_left_out": 0.0,
   "check_typography_finishes_outward_text_and_every_engine_page": 0.1,
