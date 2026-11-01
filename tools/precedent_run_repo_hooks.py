@@ -185,7 +185,12 @@ def run(event, raw, project):
     finally:
         sys.path.pop(0)
     _set_merge_drivers(repo)
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo))
+    # PRECEDENT_SESSION_ROOT: the folder the session was opened in, so a hook
+    # run for `repo` knows the session is not rooted there -- the freshness
+    # guard then names its checkout, prints `git -C` remedies, and leaves a
+    # practice source on its tier where consumers read it (2026-11-01).
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(repo),
+               PRECEDENT_SESSION_ROOT=str(project))
     cwd = os.getcwd()
     os.chdir(repo)          # each hook runs from its repository, as natively
     try:
