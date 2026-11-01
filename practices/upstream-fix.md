@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "About whatever fix is in front of the session, in any file -- no path narrows it, and whether a file is a copy is a fact about its history that no glob can see. Its work (finding the cause, choosing where the fix lives, fixing the origin and the copies) happens inline. Reached through the occasion index and the `review` and `reply` gates. Decided: 2026-09-24, when the practice landed; checked again 2026-10-01, when durable-fix and fix-the-original merged into it, and the glob still holds."
-occasion:    "fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption"
+occasion:    "fixing anything -- a bug, a stale or copied file, a broken environment -- adding a check or exemption, or a check flagging text that already does what its rule asks"
 gates:       ["review", "reply"]
 gates_why:   "`review` catches it while the fix is being chosen, the only moment the origin and the durable home are cheap to pick. `reply` catches the reporting half: a band-aid called one, every copy named, a check-only fix or a new exemption not presented as done."
 index_clause: "fix the cause where it lives, and the origin and copies; name a band-aid"
@@ -66,7 +66,10 @@ back over a whole session for causes upstream is
    only for the part that cannot be removed, and say which part.
 6. **Any new exemption is a sign the root fix has not been made.** Teach
    the check if it can learn. Only when it cannot, add the exemption with a
-   `root_fix`, hand off the root fix, and tell the person.
+   `root_fix`, hand off the root fix, and tell the person. **Rewording
+   text a check flagged is an exemption too, when the text already does
+   what the check's rule asks**: fix the check, never the text, and name
+   any rewording made meanwhile as a band-aid.
 
 **Where the fix lives:**
 
@@ -205,6 +208,15 @@ the one it already made, or the one it is about to make.
    `not_binding` check that would now pass or skip without its entry is
    printed as `STALE EXEMPTION` by `precedent_check.py --stale-exemptions`,
    by a full sweep or `--only` run, and in Update Vendors' warnings.
+
+   **Rewording correct text to get past a check is the same move, made
+   where nothing records it.** When a check flags text, first ask whether
+   the text already does what the check's rule is for. If it does, the
+   check is wrong: teach it, in the repository that owns it, in this
+   session where you can reach it, or hand it off. A rewording made so
+   the work can move meanwhile is a band-aid, said as one, with the
+   check's fix filed in the same turn. A quotation is never reworded for
+   a check at all: its words are the person's.
 
 ### Point 7 in full
 
@@ -356,6 +368,16 @@ workaround to an engine file is allowed with a saved Prompt Please beside
 it. Strength: decided.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 1,006 words; it now holds the nine points, each in a sentence or two, in 523 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-11-01: rewording for a check is an exemption.** The acronym check
+accepted only the rule's own example form, *long form (ACRONYM)*, from the
+day it was written. For three months every session it flagged reworded
+the text instead: five documents here came to say "BestPractice (BP)",
+one session glossed an abbreviation beside Morgan's quoted words in an
+approval record, and a consumer added the term to its own glossary by
+hand. None of it read as "fixing", so this practice never loaded. Asked
+why the mistake happened and how to stop it, Morgan approved the fix:
+*"Also, act on the plan, including booked."* Strength: decided.
 
 ## Install
 **Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,

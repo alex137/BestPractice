@@ -10339,7 +10339,8 @@ def _acronyms_glossary(ctx):
                 continue
             out.append(Finding(f'{f}:{i}',
                                 f'{tok} used without expansion on first '
-                                f'use or a GLOSSARY.md entry'))
+                                f'use or a GLOSSARY.md entry -- '
+                                f'{dl.ACRONYM_FALSE_ALARM_HINT}'))
     return out
 
 

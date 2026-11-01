@@ -1293,6 +1293,16 @@ def check_acronym_expanded_after_or_listed_in_the_glossary():
             dl.GLOSSARY_PATH = old
     cases.append(('a term a practice defines, listed as a plain glossary cell, is known',
                   'QZ' in known))
+    # The finding itself asks whether the check is the thing that is wrong
+    # (practice: upstream-fix, point 6; 2026-11-01).
+    hint = getattr(dl, 'ACRONYM_FALSE_ALARM_HINT', '')
+    lint_src = (ROOT / 'tools' / 'doc_lint.py').read_text(encoding='utf-8')
+    check_src = (ROOT / 'tools' / 'precedent_check.py').read_text(encoding='utf-8')
+    cases.append(('the acronym finding says the check may be wrong, and where '
+                  'to fix it, in both tools that report it',
+                  'the check is wrong' in hint and 'tools/doc_lint.py' in hint
+                  and '{ACRONYM_FALSE_ALARM_HINT}' in lint_src
+                  and '{dl.ACRONYM_FALSE_ALARM_HINT}' in check_src))
     bad = [n for n, ok in cases if not ok]
     check(f'an acronym is glossed by an expansion after it, or by a glossary row '
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))

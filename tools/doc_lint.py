@@ -241,6 +241,13 @@ FILENAME_STEM_RE = re.compile(r'\.[a-z][a-z0-9]{0,4}\b')
 HTML_COMMENT_RE = re.compile(r'<!--.*?-->', re.S)
 GLOSSARY_PATH = ROOT / 'GLOSSARY.md'
 ACRONYM_SKIP_FILES = {'GLOSSARY.md'}
+# Said beside every acronym finding: rewording correct text to get past
+# this check is an exemption nobody records (2026-11-01: three months of
+# sessions reworded glossed text before the check learned the other
+# order).  (practice: upstream-fix)
+ACRONYM_FALSE_ALARM_HINT = ('if the text already expands it, or quotes '
+                            'someone, the check is wrong: fix tools/doc_lint.py, '
+                            'never the text')
 # Generated summary indexes whose generators drop every link from the copied
 # prose on purpose (tools/summary_text.py -- a cut could land inside one, and
 # each row already links its full item). A bare file name in one of their
@@ -2151,7 +2158,7 @@ def main():
             print(f"  … and {total_unlinked - 40} more")
     if unglossed_lines:
         print(f"\nUNGLOSSED ACRONYMS — {total_unglossed} (warning; expand on first use or add to "
-              f"GLOSSARY.md):")
+              f"GLOSSARY.md; {ACRONYM_FALSE_ALARM_HINT}):")
         print('\n'.join(unglossed_lines[:40]))
         if total_unglossed > 40:
             print(f"  … and {total_unglossed - 40} more")
