@@ -119,6 +119,7 @@
   "check_checkin_update_never_mutates_the_clone": 1.0,
   "check_checks_read_what_their_rules_name": 0.1,
   "check_ci_fleet_audit_counts_each_workflow_past_the_sample": 0.0,
+  "check_ci_fleet_audit_names_when_a_workflow_left_main": 0.0,
   "check_ci_fleet_audit_reads_github_not_the_clone": 0.0,
   "check_ci_fleet_audit_skips_deleted_sets": 0.1,
   "check_ci_templates_install_pyyaml_before_the_checks": 0.0,
