@@ -672,6 +672,7 @@
   "check_staging_tier_is_never_main_where_origin_has_staging": 0.4,
   "check_stale_branches_lists_one_repository_once": 0.1,
   "check_stale_branches_skip_a_reverted_merge": 0.6,
+  "check_stale_exemption_is_named": 1.1,
   "check_stale_freshness_also_says_delete_it": 1.6,
   "check_stale_render_heal_never_overwrites_with_less": 0.5,
   "check_stale_render_self_heals": 0.1,

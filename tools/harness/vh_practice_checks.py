@@ -3928,6 +3928,83 @@ def check_deep_check_skips_a_repo_with_no_check_scripts():
           '; '.join(f'{n} ({d})' for n, d in failed))
 
 
+def check_stale_exemption_is_named():
+    """An exemption whose check would now pass or skip without it is named
+    as no longer needed -- by --stale-exemptions, by an --only run, and in
+    Update Vendors' warnings -- and one that still suppresses a finding is
+    not.
+
+    2026-11-01: a shared set exempted deep-check over a false alarm; the
+    engine was fixed that day, and nothing would have told its next update
+    the entry could come out, since an exempted check never runs. The
+    control direction asserts the printed text too (practice:
+    control-asserts-which-failure).
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='stale-exemption-'))
+    try:
+        fx = tmp / 'repo'
+        (fx / 'tools').mkdir(parents=True)
+        (fx / 'practices').mkdir()
+        shutil.copy(ROOT / 'practices' / 'deep-check.md',
+                    fx / 'practices' / 'deep-check.md')
+        for name in _source_kind_engine_files():
+            e = ROOT / 'tools' / name
+            if e.is_file():
+                shutil.copy(e, fx / 'tools' / name)
+        (fx / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'base_branch': 'main',
+             'not_binding': [{'slug': 'deep-check',
+                              'reason': 'fixture: no check family'}]}),
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q'], cwd=fx, capture_output=True)
+        env = dict(os.environ, PRECEDENT_ALLOW_ANY_AUTHOR='1')
+
+        def run(*args):
+            return subprocess.run(
+                [sys.executable, 'tools/precedent_check.py', *args],
+                cwd=fx, capture_output=True, text=True, env=env)
+
+        flag = run('--stale-exemptions')
+        cases.append(("--stale-exemptions names an exemption whose check now "
+                      "skips",
+                      flag.returncode == 0
+                      and 'STALE EXEMPTION  deep-check' in flag.stdout
+                      and '1 stale exemption(s)' in flag.stdout,
+                      f'rc={flag.returncode} ' + failure_detail(flag.stdout, 400)))
+        only = run('--only', 'deep-check')
+        cases.append(("an --only run prints it beside the EXEMPT line",
+                      'EXEMPT     deep-check' in only.stdout
+                      and 'STALE EXEMPTION  deep-check' in only.stdout,
+                      f'rc={only.returncode} ' + failure_detail(only.stdout, 400)))
+        warned = pu.stale_exemption_warnings(fx)
+        cases.append(("Update Vendors carries it as a warning",
+                      len(warned) == 1 and warned[0].startswith('deep-check')
+                      and 'remove it from not_binding' in warned[0],
+                      repr(warned)[:300]))
+        (fx / 'tools' / 'checks').mkdir()
+        (fx / 'tools' / 'checks' / 'check_fixture.py').write_text(
+            'SOURCE_ROOT = None\n', encoding='utf-8')
+        kept = run('--stale-exemptions')
+        cases.append(("an exemption that still suppresses a violation is not "
+                      "named",
+                      kept.returncode == 0
+                      and 'STALE EXEMPTION' not in kept.stdout
+                      and '0 stale exemption(s)' in kept.stdout,
+                      f'rc={kept.returncode} ' + failure_detail(kept.stdout, 400)))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    failed = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'an exemption no longer needed is named, one still needed is not '
+          f'({len(cases)} stated cases, each asserting the printed text)',
+          not failed,
+          '; '.join(f'{n} ({d})' for n, d in failed))
+
+
 def check_practice_links_travel_skips_a_consumers_repo_local_practices():
     """A consumer's repo-local practice is never published, so
     practice-links-travel must not test its links -- and the repair it
