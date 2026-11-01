@@ -4811,6 +4811,7 @@ def main():
     check_hosted_sessions_resolve_without_attaching_a_repo()
     check_a_set_exports_only_its_own_rules()
     check_copied_in_shared_sets()
+    check_copied_in_set_carries_its_reply_rules()
     check_copied_set_carries_another()
     check_copy_in_is_asked_once()
     check_declared_exports_are_copied()
