@@ -1573,10 +1573,41 @@ def _clone_behind(path, fetch=True, branch=None):
         return 'current', (f'at or past origin/{landing}, the branch its '
                            f'work lands on; ' + ' and '.join(bits)
                            + (f'; {held}' if held else ''))
+    if bits and unpushed == '0':
+        # A LANDED BRANCH LEFT CHECKED OUT (2026-11-01). After an Update
+        # Vendors landed, a set's clone stayed on the feature branch it was
+        # built on, and this row kept saying "5 commit(s) behind origin/main"
+        # even once the local main had been fast-forwarded. The verdict
+        # stands -- the practices are read from the working tree, and that
+        # tree lacks main's newer commits -- but the phrase now says what it
+        # is and the one move that ends it: everything on the branch is
+        # already in origin/<branch>, so the clone goes back to <branch>.
+        landed = _landed_branch(path, branch)
+        if landed:
+            return 'behind', (' and '.join(bits) + f', checked out on {landed}, '
+                              f'which has landed (everything on it is in '
+                              f'origin/{branch}); put the clone back on its '
+                              f'base: `git -C {path} switch {branch} && git -C '
+                              f'{path} merge --ff-only origin/{branch}`')
     if bits:
         # True even off a stale ref: behind an old origin is behind.
         return 'behind', ' and '.join(bits) + (f'; {held}' if held else '')
     return ('current', held) if fetched else ('unverified', why)
+
+
+def _landed_branch(path, branch):
+    """-> the name of the branch checked out in `path` when it is not
+    `branch` and every commit on it is already in origin/<branch>; else ''."""
+    try:
+        cur = subprocess.run(['git', '-C', str(path), 'branch', '--show-current'],
+                             capture_output=True, text=True).stdout.strip()
+        if not cur or cur == branch:
+            return ''
+        r = subprocess.run(['git', '-C', str(path), 'merge-base', '--is-ancestor',
+                            'HEAD', f'origin/{branch}'], capture_output=True, text=True)
+    except OSError:
+        return ''
+    return cur if r.returncode == 0 else ''
 
 
 def _holds_landing(path, landing, branch, fetch):

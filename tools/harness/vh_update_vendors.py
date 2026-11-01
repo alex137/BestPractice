@@ -155,6 +155,80 @@ def check_update_runs_a_set_s_own_tests_after_an_engine_refresh():
           f'({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_update_clears_the_refresh_branch_session_start_left():
+    """Update Vendors, once it has staged the engine, deletes the local
+    branches holding nothing but session start's engine refresh, and says
+    so (precedent_update.superseded_refresh_step, 2026-11-01).
+
+    Reported from an Update Vendors run over three practice sets: session
+    start's precedent_refresh_sources.py committed the refresh on a local
+    branch in each set, Update Vendors wrote the same engine again on a
+    branch of its own, and every run left the session-start branch orphaned.
+    CONTROLS: a branch with "engine-refresh" in its name that also holds a
+    real commit is kept; the branch checked out is kept; a second call
+    removes nothing and says nothing."""
+    import tempfile, subprocess as _sp
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_update as pu
+    finally:
+        sys.path.pop(0)
+
+    class Rep:
+        def __init__(self):
+            self.steps = []
+
+        def step(self, name, outcome):
+            self.steps.append((name, outcome))
+    cases = []
+    env = _fixture_git_env()
+    with tempfile.TemporaryDirectory() as td:
+        origin, repo = pathlib.Path(td) / 'origin.git', pathlib.Path(td) / 'set'
+        g = lambda *a: _sp.run(['git', '-C', str(repo), *a], env=env,
+                               capture_output=True, text=True)
+        _sp.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)],
+                env=env, capture_output=True)
+        _sp.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env,
+                capture_output=True)
+        (repo / 'a.txt').write_text('a\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'base')
+        g('remote', 'add', 'origin', str(origin)); g('push', '-q', 'origin', 'main')
+        refresh = '2026-11-01-x-engine-refresh-a8d0e17c-aaaaa-bbbbb'
+        g('checkout', '-qb', refresh)
+        (repo / 'engine.py').write_text('e\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'Refresh the vendored engine to BestPractice a8d0e17c598b')
+        mixed = '2026-11-01-x-engine-refresh-0000aaaa-ccccc-ddddd'
+        g('checkout', '-qb', mixed)
+        (repo / 'b.txt').write_text('b\n', encoding='utf-8')
+        g('add', '-A'); g('commit', '-qm', 'A real change')
+        g('checkout', '-q', 'main')
+        rep = Rep()
+        removed = pu.superseded_refresh_step(repo, rep)
+        heads = g('for-each-ref', '--format=%(refname:short)', 'refs/heads').stdout.split()
+        cases.append(('THE DISCRIMINATING CASE: the refresh-only branch is gone',
+                      refresh not in heads and removed == [refresh]))
+        cases.append(('...and the run says which', any(
+            n == 'superseded refresh' and refresh in o for n, o in rep.steps)))
+        cases.append(('CONTROL: a refresh-named branch with a real commit is kept',
+                      mixed in heads))
+        rep = Rep()
+        cases.append(('CONTROL: a second call removes nothing and says nothing',
+                      pu.superseded_refresh_step(repo, rep) == [] and not rep.steps))
+        g('checkout', '-qb', refresh)
+        (repo / 'engine.py').write_text('f\n', encoding='utf-8')
+        g('add', '-A')
+        g('commit', '-qm', 'Refresh the vendored engine to BestPractice a8d0e17c598b')
+        rep = Rep()
+        cases.append(('CONTROL: the branch checked out is kept',
+                      pu.superseded_refresh_step(repo, rep) == []
+                      and refresh in g('for-each-ref', '--format=%(refname:short)',
+                                       'refs/heads').stdout.split()))
+    failed = [n for n, ok in cases if not ok]
+    check(f'Update Vendors clears the refresh branch session start left '
+          f'({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_update_drops_the_dead_blank_blocklist_link():
     """Update Vendors drops the retired install pack's dead link to
     personal/README.md#blank-blocklist from a repository's process/ files,

@@ -1613,6 +1613,18 @@ def check_session_check_never_calls_an_unfetched_clone_current():
         v_m, phrase = psc._clone_behind(str(clone), fetch=True, branch='main')
         cases.append(('the same clone read at a caller-named main is behind',
                       v_m == 'behind', f'{v_m}: {phrase}'))
+        cases.append(('CONTROL: a branch carrying what main lacks is not '
+                      'called landed', 'has landed' not in phrase, phrase))
+        # A LANDED BRANCH LEFT CHECKED OUT (2026-11-01): still behind, and
+        # the phrase says it landed and gives the one move back to base.
+        g(clone, 'fetch', '-q', 'origin', '+refs/heads/main:refs/remotes/origin/main')
+        g(clone, 'checkout', '-q', '-B', 'landed', 'origin/main~1')
+        v_d, phrase = psc._clone_behind(str(clone), fetch=True, branch='main')
+        cases.append(('a landed branch left checked out is behind, and says it '
+                      'landed and how to go back',
+                      v_d == 'behind' and 'checked out on landed, which has '
+                      'landed' in phrase and f'git -C {clone} switch main' in phrase,
+                      f'{v_d}: {phrase}'))
         g(clone, 'checkout', '-q', '-B', 'work', 'origin/staging~1')
         v_b, phrase = psc._clone_behind(str(clone), fetch=True)
         cases.append(('a clone behind its own landing branch is still behind',

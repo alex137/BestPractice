@@ -5003,6 +5003,32 @@ def realign_catalogue_record(repo, wrote, back):
     return head['commit']
 
 
+# THE SESSION-START REFRESH BRANCH IS THIS UPDATE'S TO CLEAR (2026-11-01).
+# In a practice set, session start's precedent_refresh_sources.py commits the
+# engine refresh on a local branch of its own and leaves the set's base clean,
+# for "Update Vendors in this set" to land. This command then wrote the same
+# engine again and staged it on the base, so the refresh branch was never
+# landed and never removed: every run left one more local branch, never
+# pushed, which every archive check then had to reason about. Once the update
+# has staged the engine, each branch carrying nothing but a refresh commit
+# (precedent_container_safe.refresh_only_branches, strict) holds engine
+# output this update has just written again, so it goes, and is said.
+def superseded_refresh_step(repo, rep):
+    """Clear the local refresh-only branches the update supersedes; one
+    step line when any went."""
+    try:
+        import precedent_container_safe as pcs
+        removed = pcs.clear_refresh_only_branches(repo, 'HEAD')
+    except Exception:                                        # noqa: BLE001
+        return []
+    if removed:
+        rep.step('superseded refresh', f'removed {len(removed)} local '
+                 f'branch(es) holding only the engine refresh session start '
+                 f'committed, which this update has just staged again: '
+                 + ', '.join(removed))
+    return removed
+
+
 def adopt_engine_output(repo, before, pinned):
     """-> the paths in `before` that are this update's own output, written
     ahead of it, to stage as the update's; [] when any is not.
@@ -6346,6 +6372,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     regenerated_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
     rep.step('staged', staged_line(n, before, rep.earlier))
+    superseded_refresh_step(repo, rep)
 
     # Hooks and settings: said before the commit, never found at it
     # (2026-10-06). Claude Code's auto mode holds a commit that changes
