@@ -7734,13 +7734,25 @@ def check_installed_templates_follow_their_source():
              'local_sha256': sha(v1)},
             {'practice': 'edited-elsewhere', 'local_path': wf, 'status': 'synced',
              'local_sha256': sha(b'not the old text')}]}))
+        # The source's own manifest too, which the refresh itself rewrites
+        # with what it installed: the first fix moved the baseline there and
+        # the refresh's own write put the old one back (2026-11-01).
+        own = json.loads((r / 'process' / 'manifest_voice-x.json').read_text())
+        own['entries'] = [{'practice': 'prompt-check-workflow', 'local_path': wf,
+                           'status': 'synced', 'local_sha256': sha(v1)}]
+        (r / 'process' / 'manifest_voice-x.json').write_text(json.dumps(own))
         rep = run(r)
         base = json.loads((r / 'process' / 'manifest_other.json').read_text())['entries']
+        mine = json.loads((r / 'process' / 'manifest_voice-x.json').read_text())
         cases.append(('7. the drift baseline that recorded the old text moves to '
                       'the new (2026-11-01); one recording other text is left',
                       base[0]['local_sha256'] == sha(v2)
                       and base[1]['local_sha256'] == sha(b'not the old text')
                       and any('drift baseline' in s for s in rep.steps)))
+        cases.append(('7. ...in the source\'s own manifest as well, which the '
+                      'refresh writes, beside what it installed',
+                      mine['entries'][0]['local_sha256'] == sha(v2)
+                      and mine.get('installed', {}).get(wf) == sha(v2)))
         cfg = json.loads((r / 'precedent.json').read_text())
         appr = cfg['github_ci_approved'][wf]
         rec = json.loads((r / 'process' / 'manifest_voice-x.json').read_text())
