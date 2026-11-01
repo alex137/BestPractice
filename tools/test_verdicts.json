@@ -2983,6 +2983,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_tree_checks_hold_on_every_kind_of_fresh_repo": {
+      "verdict": "keep",
+      "why": "Added 2026-11-01: deep-check reached a practice set with no check scripts and false-alarmed there, because nothing ran checks against every kind of repository a move into universal makes them reach; this sweeps a fresh set without checks, one with, and a consuming project.",
+      "date": "2026-11-01",
+      "by": "agent",
+      "seconds": 86.0,
+      "leads": [],
+      "importance": "high"
+    },
     "check_stale_exemption_is_named": {
       "verdict": "keep",
       "why": "Added 2026-11-01: an exempted check never runs, so nothing said when an exemption's reason went away; without this a band-aid entry switches a rule off for good.",
