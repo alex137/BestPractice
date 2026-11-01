@@ -1592,9 +1592,12 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
             dest.write_bytes(new)
             installed[to] = sha(new)
             repinned = _repin_installed_workflow(repo, to, sha(cur), sha(new), name)
+            rebased = _rebaseline_installed_entries(repo, to, sha(cur), sha(new))
             rep.step(f'copy of {name}', f'{what}: refreshed to the template\'s '
                      f'new text' + ('; its workflow approval moved to the new '
-                                    'text with it' if repinned else ''))
+                                    'text with it' if repinned else '')
+                     + (f'; its drift baseline in {", ".join(rebased)} moved too'
+                        if rebased else ''))
             continue
         reason = (kept.get(to) or {}).get('reason')
         if reason:
@@ -1610,6 +1613,36 @@ def refresh_installed_templates(repo, rep, entry, clone, set_dir, man, prev):
         record[INSTALLED_KEY] = installed
         mpath.parent.mkdir(parents=True, exist_ok=True)
         mpath.write_text(json.dumps(record, indent=2) + '\n', encoding='utf-8')
+
+
+def _rebaseline_installed_entries(repo, rel, old_sha, new_sha):
+    """Move the local_sha256 baseline of every process/manifest*.json entry
+    for `rel` from `old_sha` to `new_sha`. -> the manifests changed.
+
+    WHY (2026-11-01, a voice repository's Update Vendors). The refresh above
+    rewrote an installed workflow to its template's new text and moved its
+    approval pin, but the copied-in source's manifest still recorded the old text's
+    hash for the same file as 'synced', so practice-export-loop failed the
+    update's own check with a DRIFT nobody made. An entry whose baseline is
+    anything but the old text is left alone: that difference is real, and
+    the drift check is right to judge it."""
+    changed = []
+    for mpath in sorted((repo / 'process').glob('manifest*.json')):
+        try:
+            data = json.loads(mpath.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        moved = False
+        for e in (data.get('entries') or []) if isinstance(data, dict) else []:
+            if isinstance(e, dict) and e.get('local_path') == rel \
+                    and e.get('local_sha256') == old_sha:
+                e['local_sha256'] = new_sha
+                moved = True
+        if moved:
+            mpath.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+            changed.append(mpath.relative_to(repo).as_posix())
+    return changed
 
 
 def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
