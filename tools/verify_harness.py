@@ -4876,6 +4876,7 @@ def main():
     check_land_sent_to_a_pull_request_carries_mains_work()
     check_land_skips_a_push_the_pull_request_guard_would_refuse()
     check_land_holds_while_its_reached_tests_are_red()
+    check_one_fix_mends_two_red_landings_in_a_row()
     check_land_confirm_says_whether_what_landed_was_checked()
     check_leak_gate_reads_other_clones_as_themselves_inside_a_hook()
     check_one_list_declares_a_record()
