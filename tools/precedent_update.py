@@ -4203,6 +4203,38 @@ def diverged_details(out):
     return {k: v for k, v in details.items() if v}
 
 
+_RETIRED_OWN_RE = re.compile(
+    r'RETIRED: (\S+) "(.+?)" moved upstream into practice \S+?'
+    r'(?:, and this repository carries a copy in (\S+), which|, and \d+ line)')
+
+
+def retired_details(out):
+    """-> {what: [own line, ...]} for each retired AGENTS.md section the
+    engine left for the person: the lines of it that are this repository's
+    own, which the engine prints as `    own: "..."` under its RETIRED line
+    and names in Left-for-you as "(listed above)". `what` is the item's
+    own name there: `AGENTS.md "<section>"`, or `<file> "<section>"` for a
+    copy a reduction pass moved into another file.
+
+    2026-11-01, a voice repository's Update Vendors: this command kept the
+    RETIRED line and the Left-for-you item but dropped the own lines, so
+    "move its own lines (listed above)" listed nothing, and the session had
+    to call the engine's plan by hand to see them -- the same gap
+    diverged_details closed for DIVERGED blocks on 2026-09-28."""
+    details, key = {}, None
+    for line in out.splitlines():
+        m = _RETIRED_OWN_RE.match(line.strip()) if line.startswith('RETIRED: ') else None
+        if m:
+            key = f'{m.group(3) or m.group(1)} "{m.group(2)}"'
+            details[key] = []           # a second pass's list is the one that stands
+            continue
+        if key is not None and line.startswith('    own: '):
+            details[key].append(line.rstrip())
+        elif line.strip():
+            key = None
+    return {k: v for k, v in details.items() if v}
+
+
 def in_force_nowhere(out):
     """-> the view sync's IN FORCE NOWHERE warnings, each 'slug (source):
     why'. The sync prints them and still passes, and until 2026-09-28 this
@@ -6251,6 +6283,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
         return rep.close(f"the engine refresh failed:\n{tail(out, repo=repo)}")
     engine_out = out
     details = diverged_details(out)
+    details.update(retired_details(out))
     for item in left_block(out):
         what, _, why = item.partition(': ')
         why = why or item
