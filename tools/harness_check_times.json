@@ -99,6 +99,7 @@
   "check_build_views_refuses_a_long_index_clause": 0.7,
   "check_build_views_says_what_it_decides": 0.1,
   "check_build_views_summary_matches_what_it_wrote": 8.4,
+  "check_built_from_record_is_compared_and_orders_the_updates": 0.0,
   "check_carry_check_never_counts_upstream_deletions": 2.4,
   "check_carry_check_never_invents_lost_content": 1.4,
   "check_catalogue_anchors": 0.6,

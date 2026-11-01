@@ -8238,6 +8238,15 @@
       "seconds": 0.0,
       "leads": [],
       "importance": "high"
+    },
+    "check_built_from_record_is_compared_and_orders_the_updates": {
+      "verdict": "keep",
+      "why": "A consumer that copies compiled files and their source both must not be told DONE while the two disagree, and Update All Vendors must update a source before what copies from it.",
+      "date": "2026-11-01",
+      "by": "agent",
+      "seconds": 0.2,
+      "leads": [],
+      "importance": "high"
     }
   }
 }

@@ -119,6 +119,71 @@ The test is `check_declared_exports_are_copied` in
 [tools/verify_harness.py](../tools/verify_harness.py), with a passing
 control for each refusal.
 
+## Whole, or files only
+
+**`"exports_only"` is for a source whose rules should not govern work in
+the repository that copies it**: a voice's compiled prompts, read as an
+ingredient, never a set of working rules. A source whose rules apply
+wherever its people write is taken whole in every repository that copies
+it, so its practices and their hooks run there too. The choice is the
+consuming repository's to make, but it is made by this test, never by
+copying whatever an older mechanism did: on 2026-11-01 a set of writing
+rules sat in some repositories whole and in others as files only, because
+the files-only copies reproduced a retired sync script, and nobody had
+decided that its check should not run there (Morgan, 2026-11-01, strength:
+decided: "Implement your plan").
+
+## A source built from another source
+
+A source can export files it compiles from a source of its own, and a
+repository can copy in both: the compiled files, and the source they were
+built from, directly. The direct copy then arrives in one hop and the one
+inside the compiled files in two, and an update that refreshes the first
+can say DONE while the second still carries old text.
+
+**The source records what its compiled files were built from.** Beside them
+it exports `BUILT_FROM.json`:
+
+```json
+{"_generated_by": "<the tool that builds them>",
+ "outputs": {"<compiled file>": [
+   {"path": "<input, relative to the building repository>",
+    "blob": "<its git blob hash>",
+    "source": "<the copied-in source it sits in, if any>",
+    "source_path": "<its path inside that source>"}]}}
+```
+
+Content, not commits: a source's commits mostly change files no compiled
+file reads, and a commit-based record would refuse DONE for nothing.
+
+**Update Vendors compares it** (`built_from_step` in
+[tools/precedent_update.py](../tools/precedent_update.py)). For each copy
+that carries a `BUILT_FROM.json`, each named source this repository also
+copies in is compared file by file with its own copy. A difference is LEFT
+FOR YOU, naming the repository to update first; a copy held with `"hold"`
+is only reported. A file this repository does not hold is not compared.
+
+**The repository that builds them lists them as generated**, with the
+inputs it read, in its `tools/generated_files.json`, so its own Update
+Vendors rebuilds them when an input changes (`regenerated_step`), and its
+push check says when they are stale. The building tool writes those
+entries; nobody types them.
+
+**A copied-in source's folder holds another repository's files**
+(`vendored_trees` in [tools/precedent_regenerate.py](../tools/precedent_regenerate.py)):
+a labelled generated file there is its source's to list, never the
+consuming repository's.
+
+**Update All Vendors runs repositories in dependency order**, read from
+each one's declared `repo` links: a repository runs after every one in the
+list it copies from, and one whose source was pushed earlier in the same
+run WAITS until that is merged
+([tools/precedent_update_all.py](../tools/precedent_update_all.py)).
+
+The test is `check_built_from_record_is_compared_and_orders_the_updates` in
+[tools/verify_harness.py](../tools/verify_harness.py). The practice is
+[built-from-is-checked](../practices/built-from-is-checked.md).
+
 ## Templates a source installs
 
 A source can also ship a template that a repository installs outside its

@@ -3390,12 +3390,13 @@ def _vendoring_decided(ctx):
 
 
 def _vendored_trees():
-    """-> the path prefixes that hold copies of another repository's files
-    (precedent_regenerate.VENDORED_TREES, its one definition)."""
+    """-> the path prefixes that hold copies of another repository's files:
+    the catalogue mirror and every copied-in source
+    (precedent_regenerate.vendored_trees, its one definition)."""
     try:
         sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
         import precedent_regenerate
-        return tuple(precedent_regenerate.VENDORED_TREES)
+        return tuple(precedent_regenerate.vendored_trees(ROOT))
     except Exception:
         return ()
     finally:
