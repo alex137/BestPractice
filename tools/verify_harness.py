@@ -4103,6 +4103,7 @@ def main():
     check_sync_does_not_call_a_held_back_check_an_orphan()
     check_sync_carries_a_test_helper_with_its_test()
     check_update_runs_a_set_s_own_tests_after_an_engine_refresh()
+    check_update_clears_the_refresh_branch_session_start_left()
     check_sync_says_which_copy_of_a_claimed_check_runs()
     check_no_duplication_refuses_a_sets_copy_of_a_universal_rule()
     check_source_directory_splits_and_assembles()
