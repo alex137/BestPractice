@@ -157,7 +157,7 @@ def in_force_sources(repo, user_config=None):
         s = dict(s)
         s['declared'] = any(rid.same_name(s.get('name'), n)
                             for n in declared_names) and \
-            s.get('level') != 'individual' and not s.get('brought')
+            pr.declared_level(s) != 'individual' and not s.get('brought')
         out.append(s)
     return out
 
@@ -269,7 +269,7 @@ def _row_for_source(spec, s):
            else f'brought by {s["brought"]}' if s.get('brought') and
            isinstance(s.get('brought'), str)
            else 'brought by the individual set' if s.get('brought')
-           else 'the person\'s individual set' if s.get('level') == 'individual'
+           else 'the person\'s individual set' if pr.declared_level(s) == 'individual'
            else f'in force ({s.get("level")})')
     if not p.is_dir():
         if s.get('declared'):
