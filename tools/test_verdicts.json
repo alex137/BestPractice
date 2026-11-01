@@ -5170,6 +5170,15 @@
       "leads": [],
       "importance": "high"
     },
+    "check_changed_files_asks_a_changed_glob_for_its_reason": {
+      "verdict": "keep",
+      "why": "Found 2026-10-31: two practices' globs changed with their reasons untouched, every landing passed, and the move into main was refused; the landing must ask.",
+      "date": "2026-11-01",
+      "by": "agent",
+      "seconds": 0.2,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_changed_files_runs_one_copy_of_a_repo_local_test": {
       "verdict": "keep",
       "why": "Runs only the materialized copy of a repo-local test, the one run_all.sh runs, so a test is not failed from the wrong root.",
