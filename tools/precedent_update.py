@@ -3501,6 +3501,42 @@ def live_line(repo):
             f"{landing}, so name what else goes live with the update.")
 
 
+# STEPS 7 TO 9, NAMED WHERE THE SESSION READS ITS NEXT STEP (2026-11-01).
+# DONE said "commit, then do steps 7 to 9" and left each command in the
+# runbook's prose, so a session in a practice set skipped step 8's tool as
+# not applicable and half-did step 9 (a repository it had no clone of was
+# reported unchecked). Each step is one command; DONE prints all three.
+def source_steps_lines(repo):
+    """-> the lines DONE prints naming the commands for runbook steps 7, 8
+    and 9 in `repo`; [] when it cannot be read."""
+    if repo is None:
+        return []
+    try:
+        import json as _json
+        cfg = _json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8'))
+        declares = bool(cfg.get('sources')) if isinstance(cfg, dict) else False
+    except (OSError, ValueError):
+        declares = False
+
+    def cmd(tool):
+        here = pathlib.Path(repo) / 'tools' / tool
+        return (f'python3 tools/{tool}' if here.is_file()
+                else f'python3 {HERE.parent / tool} --repo .')
+    out = ["STEPS 7 TO 9 (vendor-update-runbook), after the commit:",
+           f"  7. {cmd('precedent_source_credentials.py')}"]
+    if declares:
+        out.append(f"  8. {cmd('precedent_source_names.py')}   (attach each "
+                   f"source with push first, or pass --canonical OWNER/NAME "
+                   f"from list_repos)")
+    else:
+        out.append("  8. not applicable: this repo declares no sources")
+    out.append(f"  9. {cmd('precedent_source_survey.py')} --candidate "
+               f"OWNER/NAME ...   (every repository the account reaches, from "
+               f"list_repos; run it again until nothing is NOT ON DISK)")
+    return out
+
+
 def _person_is_code_owner(repo):
     """True when the person running the update is one of `repo`'s code
     owners; False in doubt (precedent_audience)."""
@@ -3770,6 +3806,8 @@ class Report:
         live = live_line(self.pin_repo)
         if live:
             print(live)
+        for line in source_steps_lines(self.pin_repo):
+            print(line)
         self._commit_note()
         print(MERGE_HEAD_NOTE)
         if self.not_run:

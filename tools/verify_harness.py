@@ -4117,6 +4117,8 @@ def main():
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()
     check_source_names_detects_a_rename()
+    check_source_survey_gives_every_repository_a_verdict()
+    check_steps_8_and_9_tools_ship_to_every_kind_of_repo()
     check_owned_paths_previews_the_boundary()
     check_boundary_check_never_passes_unread()
     check_very_deep_check_boundary_audit_reads_the_setting()
