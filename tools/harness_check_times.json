@@ -5,6 +5,7 @@
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.4,
   "check_a_changed_glob_needs_its_reason_looked_at": 0.9,
+  "check_a_check_leaves_no_foreign_engine_module_behind": 0.0,
   "check_a_consumer_may_declare_a_ci_workflow_its_own": 0.0,
   "check_a_failure_item_lists_the_index_it_creates": 10.6,
   "check_a_gap_names_its_reason": 1.4,

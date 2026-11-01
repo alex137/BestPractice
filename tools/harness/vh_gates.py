@@ -2319,6 +2319,21 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
         cases.append(('a job whose output file is gone (an earlier container) '
                       'is not running: the last live job\'s report passes',
                       r9.returncode == 0, f'exit {r9.returncode}: {r9.stderr[:300]}'))
+        # 2026-10-31: a restart's notice names the job it stopped only as
+        # "(task <id>)" in its summary, with no task-id; the old output file
+        # was still on disk, and the job was held running for good.
+        restart = ('<task-notification>\n<status>stopped</status>\n<summary>The '
+                   'container running this session was restarted before background '
+                   'work reported back: "a" (task old). That work is lost.</summary>\n'
+                   '</task-notification>')
+        r9b = run(transcript('restarted.jsonl', [
+            human('Debut all four'), said(''), started('old'), started('aaa'),
+            said('Both running.\n\n## Boildown\n- x\n'), wake(restart),
+            said('Lost in a restart; running it again.\n\n## Boildown\n- x\n'),
+            wake(notice('aaa', 'completed', done_ok)), said(report)]))
+        cases.append(("a job a restart's notice names as stopped is not running: "
+                      "the last live job's report passes",
+                      r9b.returncode == 0, f'exit {r9b.returncode}: {r9b.stderr[:300]}'))
         helpers = [human('check it'), said(''), helper('agone'), helper('agtwo'),
                    said('Two helpers on it.\n\n## Boildown\n- x\n')]
         r10 = run(transcript('helpers.jsonl', helpers + [
