@@ -3514,8 +3514,9 @@ def _set_file_registered(ctx):
     repository's copy of the ladder set never carried the set's words.
     Only the engine's own repository writes readers; a consumer runs a
     vendored engine and has nothing to register."""
-    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file() \
-            or not (ROOT / 'tools' / 'verify_harness.py').is_file():
+    # A vendored engine (tools/ENGINE_MANIFEST.json) is every repository but
+    # the engine's own, as vendoring-decided reads it.
+    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
         raise NotApplicable('only the engine\'s own repository writes readers')
     out = []
     for f in sorted((ROOT / 'tools').glob('*.py')):
