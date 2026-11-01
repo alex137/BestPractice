@@ -2,10 +2,10 @@
  "about": "What each verify_harness check took, read by --as-ci to deal the suite into parts the same way on every machine. Regenerate with: python3 tools/verify_harness.py --as-ci --record-times --because '<why>'. A check missing here counts as default_seconds. green_full_run is when the last green --all --record-times run finished.",
  "measured": "2026-10-31, 4 cores, --as-ci",
  "default_seconds": 0.23,
- "green_full_run": "2026-10-31T15:31:25-03:00",
  "seconds": {
   "check_a_brought_sets_spoken_trigger_reaches_the_session_at_start": 0.4,
   "check_a_changed_glob_needs_its_reason_looked_at": 0.9,
+  "check_a_check_leaves_no_foreign_engine_module_behind": 0.0,
   "check_a_consumer_may_declare_a_ci_workflow_its_own": 0.0,
   "check_a_failure_item_lists_the_index_it_creates": 10.6,
   "check_a_gap_names_its_reason": 1.4,
@@ -330,6 +330,7 @@
   "check_ladder_opt_in_loader": 6.6,
   "check_ladder_test_session_and_the_two_ladder_checks": 1.1,
   "check_land_confirm_says_whether_what_landed_was_checked": 0.7,
+  "check_land_holds_while_its_reached_tests_are_red": 4.6,
   "check_land_rebuilds_generated_content_without_a_header": 3.8,
   "check_land_refusal_says_whether_a_pull_request_gets_checks": 0.0,
   "check_land_sent_to_a_pull_request_carries_mains_work": 1.3,
@@ -427,6 +428,7 @@
   "check_no_cross_practice_duplication": 0.1,
   "check_no_duplication_refuses_a_sets_copy_of_a_universal_rule": 2.3,
   "check_no_engine_tool_hardcodes_a_mirror_path": 0.1,
+  "check_no_fixture_points_git_config_at_dev_null": 0.3,
   "check_no_invented_content": 0.0,
   "check_no_lost_content": 0.0,
   "check_no_tool_defines_a_function_twice": 0.3,
@@ -898,5 +900,6 @@
   "check_worktree_resolves_sources_beside_its_main_checkout": 0.4,
   "check_worktree_snapshot_needs_no_git_identity": 0.2,
   "check_writing_checks_leave_a_declared_record_as_filed": 0.0
- }
+ },
+ "green_full_run": "2026-10-31T15:31:25-03:00"
 }

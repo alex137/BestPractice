@@ -62,6 +62,7 @@ LOCAL_LEDGER = ROOT / '.precedent' / LEDGER_NAME
 # What a change to forces the whole suite: the recording and selection
 # machinery, and the workflow that runs it.
 MACHINERY = ('tools/harness_reach.py', 'tools/harness_reach_hook.py',
+             'tools/harness_parts.py',
              '.github/workflows/deep-check.yml')
 HARNESS = 'tools/verify_harness.py'
 # Above this share of the suite, a scoped run saves too little to be worth
@@ -325,8 +326,10 @@ def select(ledger, base, head=None, names=None, root=ROOT):
                                               (root / p).read_text(encoding='utf-8', errors='replace')
                                               if (root / p).is_file() else None)
             cu = changed_units(old or '', new or '')
-            if p == HARNESS and (cu is None or '<module>' in cu):
-                return set(), {}, f'{HARNESS}\'s own top level changed'
+            # The area files' top level is the harness's too: they are
+            # executed into its namespace while it loads (harness_parts).
+            if _is_harness(p) and (cu is None or '<module>' in cu):
+                return set(), {}, f'{p}\'s own top level changed'
             for n, r in rec.items():
                 ran = set(r.get('c', {}).get(p, ()))
                 if not ran:
@@ -420,11 +423,27 @@ def plan(names, head=None, fetch=True):
                  f'reaches since {base[:12]}')
 
 
-def _names():
+def _harness_parts():
+    """-> tools/harness_parts.py, or None in a tree copied without it,
+    which then has tools/verify_harness.py alone."""
     sys.path.insert(0, str(ROOT / 'tools'))
-    src = (ROOT / HARNESS).read_text(encoding='utf-8')
+    try:
+        import harness_parts
+    except ImportError:
+        return None
+    return harness_parts
+
+
+def _names():
+    hp = _harness_parts()
+    src = hp.read_all(ROOT) if hp else (ROOT / HARNESS).read_text(encoding='utf-8')
     return sorted({ln[4:].split('(', 1)[0] for ln in src.splitlines()
                    if ln.startswith('def check_')})
+
+
+def _is_harness(rel):
+    hp = _harness_parts()
+    return hp.is_harness(rel) if hp else rel == HARNESS
 
 
 def main(argv):

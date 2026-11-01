@@ -92,9 +92,10 @@ in ENGINE_FILES, and the set reads universal out of an UNTRACKED
 .precedent/SESSION_PRACTICES.md rather than a committed copy
 (spec/SOURCE_SET_PROSE_GAP.md, shape 3, approved 2026-09-13).
 
-WHAT IS DELIBERATELY IN NEITHER LIST: verify_harness.py, and only it. It is
-this repo's own harness for this repo's own engine; a consumer has nothing
-for it to verify.
+WHAT IS DELIBERATELY IN NEITHER LIST: verify_harness.py, its area files
+under tools/harness/ (2026-10-31), and split_verify_harness.py, which made
+them. They are this repo's own harness for this repo's own engine; a
+consumer has nothing for them to verify.
 
 THIS PARAGRAPH USED TO NAME leak_gate.py AND very_deep_check.py TOO, and
 that stopped being true on 2026-09-20/21 -- both are vendored now, in
@@ -862,6 +863,11 @@ ENGINE_FILES = [
     # owns, its time and its leads, against its own tools/test_verdicts.json,
     # which a consumer starts without.
     'test_review.py',
+    # Which files are the harness (2026-10-31, the split into
+    # tools/harness/vh_<area>.py): test_review, very_deep_check, the push
+    # check and precedent_check read the harness through it. In a consumer,
+    # which has no harness, it answers "none".
+    'harness_parts.py',
     'parse_check.py',
     'precedent_bootstrap_source.py',
     # THE ONE CHECK THAT LOOKS OUTWARD (2026-09-21). Every other check in

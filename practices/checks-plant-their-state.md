@@ -4,8 +4,8 @@ title:       A check plants every state it asserts about
 tier:        on-demand
 severity:    default
 scope:       any-adopter
-applies_to:  ["tools/verify_harness.py", "tools/precedent_check.py", "tools/checks/**", "**/test_*.py", "**/*_test.py", "**/tests/**"]
-applies_to_why: "The distinguishing condition is that a CHECK is being written or changed, and these paths are where checks live -- this repo's own harness and registry, plus the ordinary test layouts an adopter uses. Not left at '**': the occasion is a file being edited, not a moment somebody reaches, so the path channel is the one that actually delivers it. Decided: 2026-09-22."
+applies_to:  ["tools/verify_harness.py", "tools/harness/**", "tools/precedent_check.py", "tools/checks/**", "**/test_*.py", "**/*_test.py", "**/tests/**"]
+applies_to_why: "The distinguishing condition is that a CHECK is being written or changed, and these paths are where checks live -- this repo's own harness (verify_harness.py and, since its split into area files, tools/harness/**) and registry, plus the ordinary test layouts an adopter uses. Not left at '**': the occasion is a file being edited, not a moment somebody reaches, so the path channel is the one that actually delivers it. Decided: 2026-09-22."
 occasion:    "writing or changing a check, test or gate whose result could depend on the machine it runs on"
 gates:       []
 index_clause: "plant every state a check asserts -- a verdict that moves on its own is not one"

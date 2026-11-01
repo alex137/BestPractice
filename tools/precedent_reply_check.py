@@ -556,8 +556,16 @@ def assistant_timeline(transcript):
 # events arrive the same way but carry no <status>: an event is progress,
 # never the end of anything.
 _BG_STARTED_RE = re.compile(r'Command running in background with ID:\s*([A-Za-z0-9_-]+)')
+# Where the harness says that job's output goes, on the same line.
+_BG_OUTPUT_RE = re.compile(r'Output is being written to:\s*(\S+?)\.?(?:\s|$)')
+# A helper launched with the Agent tool answers "Async agent launched
+# successfully" and names its agentId; its end is a <task-notification>
+# carrying that id as the task-id, the same as a command's.
+_AGENT_STARTED_RE = re.compile(
+    r'Async agent launched successfully.*?\bagentId:\s*([A-Za-z0-9_-]+)', re.S)
 _NOTIFICATION_RE = re.compile(r'<task-notification>(.*?)</task-notification>', re.S)
 _TAG_RE = r'<{0}>(.*?)</{0}>'
+_STOPPED_TASK_RE = re.compile(r'\(task ([A-Za-z0-9_-]+)\)')
 # A finished job counts as failed on a non-zero exit code; a progress event
 # counts as one when its text names a failure. Over-matching here only lets
 # the session speak, which is the safe direction.
@@ -675,6 +683,25 @@ def last_prompt_text(transcript):
     return last
 
 
+def _output_is_gone(started_text):
+    """True when the started line names an output file this machine does
+    not have: the job ran in a container that has since been replaced (a
+    worker restart, a resumed session), so it is not running here and its
+    end will never be reported.
+
+    WHY (2026-10-31, the 2026-10-30 very deep check's session). Its first
+    full test run started at 01:19 UTC; the worker restarted in the first
+    hour, the job died with the old container, and no notification ever
+    came. The gate counted it as running for the rest of the day and
+    refused about fifteen turns, over eight hours, for one waiting line.
+    A started line with no output path is counted as before."""
+    m = _BG_OUTPUT_RE.search(started_text)
+    if not m:
+        return False
+    path = m.group(1)
+    return path.startswith('/') and not os.path.exists(path)
+
+
 def turn_wake(transcript):
     """What started this turn, when a background job did -> dict, else None.
 
@@ -702,10 +729,15 @@ def turn_wake(transcript):
     assistant text in the file: a turn that said nothing must not be judged
     by the previous turn's words.
 
-    Blind spot, said rather than hidden: only a Bash command's own "running
-    in background" line marks a job as started. A job launched some other
-    way is not counted as running, so its batch is judged done early -- the
-    session may then speak, which is the old behavior, never a wrong refusal.
+    What marks a job as started: a Bash command's own "running in
+    background" line, and a helper's "Async agent launched successfully"
+    with its agentId (2026-10-31: four helpers running and no shell job,
+    and a "(Waiting on four helpers.)" line was refused for want of a
+    Boildown). A command whose output file this machine does not have is
+    not counted: it died with an earlier container (`_output_is_gone`).
+    A job launched any other way is not counted as running, so its batch
+    is judged done early -- the session may then speak, which is the old
+    behavior, never a wrong refusal.
     """
     try:
         rows = [json.loads(l) for l in
@@ -747,6 +779,10 @@ def turn_wake(transcript):
                         x.get('text', '') for x in (c or [])
                         if isinstance(x, dict) and isinstance(x.get('text'), str))
                     m = _BG_STARTED_RE.match(c.lstrip())
+                    if m and m.group(1) not in started \
+                            and not _output_is_gone(c):
+                        started.append(m.group(1))
+                    m = _AGENT_STARTED_RE.match(c.lstrip())
                     if m and m.group(1) not in started:
                         started.append(m.group(1))
             if _is_prompt_row(d):
@@ -759,8 +795,17 @@ def turn_wake(transcript):
             notices.append(d['content'])
         for t in notices:
             for block in _NOTIFICATION_RE.findall(t):
-                if tag('status', block) and tag('task-id', block):
+                if not tag('status', block):
+                    continue
+                if tag('task-id', block):
                     ended.add(tag('task-id', block))
+                else:
+                    # A container restart's notice carries a status and no
+                    # task-id: it names each job it stopped as "(task <id>)"
+                    # in its summary (2026-10-31: b56bp2nvb, killed by a
+                    # restart, was held "still running" for the rest of the
+                    # session, its old output file still on disk).
+                    ended.update(_STOPPED_TASK_RE.findall(tag('summary', block) or ''))
     running = [i for i in started if i not in ended]
 
     blocks = _NOTIFICATION_RE.findall(wake_text)
@@ -2059,6 +2104,38 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                         + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
+            # ANY HOLD NAMES ITS BLOCKER (Morgan, 2026-10-31, strength:
+            # decided: "you shouldn't tell me 'not to archive' if the only
+            # that remains to do is to 'produce' something not urgent"). The
+            # case above caught a hold with nothing for him to do; a hold
+            # beside a go-ahead that could wait went through, because Your
+            # next steps was not empty. So every "Don't archive" carries a
+            # What's blocking line naming one of the closed list's five
+            # blockers (`blockers`, each a regex); a next step any session
+            # can start later is not one. practice: the-boildown
+            blockers = hold.get('blockers') or {}
+            if blockers and not nothing:
+                lines = [b for b in (section_bullets(text, heading) or [])
+                         if re.search(hold['line'], _strip_markdown_emphasis(b), re.I)]
+                # The action the person owes (blocker 3) is said once, in
+                # the Your next steps bullet that asks for it (item 2 never
+                # repeats the person's items), so both are read.
+                plain = ' '.join(_strip_markdown_emphasis(b) for b in lines + steps)
+                if not any(re.search(rx, plain, re.I) for rx in blockers.values()):
+                    out.append({'kind': 'hold_without_blocker', 'advisory': advisory,
+                                'message': (
+                        f"[{r.get('_source', '?')}] this reply says "
+                        f"\"{hold['if_says']}\" and "
+                        + ('has no line opening "What\'s blocking" naming a'
+                           if not lines else 'its What\'s blocking line names no')
+                        + f" blocker from the closed list: {'; '.join(blockers)}. "
+                        f"A go-ahead for a next step any session can start later "
+                        f"(a Produce, an Update Vendors, a rollout) is not one -- "
+                        f"name the blocker on that line, or say \"You can archive "
+                        f"this session\""
+                        + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                        + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
         # require_paired_with: when the reply contains X, it must also
         # contain Y. The mirror of require_no_contradiction -- that one
         # forbids a pairing, this one compels it.
@@ -2910,6 +2987,10 @@ def main():
                             f'that says nothing for the person needs a '
                             f'What\'s blocking line with: '
                             + ', '.join(_hold.get('must_also_match') or {}))
+            if _hold.get('if_says') and _hold.get('blockers'):
+                bits.append(f'"{_hold["if_says"]}" in any reply needs a What\'s '
+                            f'blocking line naming one of: '
+                            + '; '.join(_hold['blockers']))
             _ask = r.get('require_ask_states_its_question') or {}
             if _ask.get('heading') and _ask.get('item'):
                 bits.append(f"a bullet under /{_ask['heading']}/i's "

@@ -243,6 +243,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/full_practice_audit.py](tools/full_practice_audit.py) | The full practice audit — on-demand, whole-catalogue sweep across every source |
 | [tools/generated_blocks.py](tools/generated_blocks.py) | Whether a line is inside a generated block, in both marker styles, closing marker required -- the one answer every scan that skips generated text uses |
 | [tools/github_budget.py](tools/github_budget.py) | What this account has left of GitHub's API allowances and what each tool spent -- read off the X-RateLimit headers of calls already being made, because /rate_limit answers a pristine window from inside a session |
+| [tools/harness_parts.py](tools/harness_parts.py) | Where the harness's tests live -- the one answer every reader of them uses |
 | [tools/harness_reach.py](tools/harness_reach.py) | Change-scoped harness runs: which verify_harness checks a change can reach, from a ledger a full run records |
 | [tools/harness_reach_hook.py](tools/harness_reach_hook.py) | Records what each verify_harness check reaches: the code it runs and the files it reads (engine for harness_reach.py) |
 | [tools/harness_times_merge.py](tools/harness_times_merge.py) | Git merge driver for tools/harness_check_times.json: a three-way merge of |
@@ -343,6 +344,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/session_load_trend.py](tools/session_load_trend.py) | How much room every always-loaded surface has left and how fast it is going -- headroom, the hand-written/generated split, and the growth rate; its headroom_notice() is what the merge and push gates print |
 | [tools/set_words.py](tools/set_words.py) | The one matcher for a practice set's own words -- the ones a set declares in its precedent-source.json `owned_words`, which belong in that set and nowhere a person who does not bring it reads -- used by the check that holds every other set to them and by the tests that hold engine output to the same (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md part 3) |
 | [tools/split_practices.py](tools/split_practices.py) | PRACTICES.md ↔ practices/ converter |
+| [tools/split_verify_harness.py](tools/split_verify_harness.py) | Split the one-file harness into a runner and one file per area |
 | [tools/summary_text.py](tools/summary_text.py) | Turns prose into a summary field: links out first, then the cut — run bare to self-check |
 | [tools/table_fmt.py](tools/table_fmt.py) | One formatter per quantity kind — the engine |
 | [tools/test_review.py](tools/test_review.py) | Every test a repository runs, with what it costs and whether it still |
