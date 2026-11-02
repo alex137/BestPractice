@@ -1131,6 +1131,54 @@ def _seed_consumer_engine(dest_tools, extra=(), only=None):
     return copied
 
 
+def _with_engine_imports(*names):
+    """-> `names` (tools/ file names) plus every engine module they import
+    at their top level, followed to the end, in a stable order: what a
+    fixture copying a few tools on their own must copy so each of them
+    loads. Read from the tools' own import lines, never listed by hand.
+
+    THE INCIDENT (2026-11-01). tools/precedent_set_files.py, the registry
+    of the files a set's copy carries, became a top-level import of
+    checkin.py and precedent_check.py. Seven fixtures that copied those two
+    beside a hand-kept list of their companions failed with "No module
+    named 'precedent_set_files'" in the run after the landing, and none of
+    them had been reached by the change's own tests before it.
+    _seed_consumer_engine is the answer for a fixture that wants a whole
+    consumer; this is the one for a fixture that copies a few tools on
+    purpose."""
+    import ast as _ast
+    tools = ROOT / 'tools'
+    out, todo = [], list(names)
+    while todo:
+        name = todo.pop(0)
+        if name in out:
+            continue
+        out.append(name)
+        f = tools / name
+        if not name.endswith('.py') or not f.is_file():
+            continue
+        try:
+            tree = _ast.parse(f.read_text(encoding='utf-8'))
+        except (SyntaxError, OSError):
+            continue
+        body = []
+        for node in tree.body:
+            body.append(node)
+            if isinstance(node, _ast.Try):       # try: import x / except ImportError
+                body += node.body
+        for node in body:
+            mods = []
+            if isinstance(node, _ast.Import):
+                mods = [a.name for a in node.names]
+            elif isinstance(node, _ast.ImportFrom) and node.module and not node.level:
+                mods = [node.module]
+            for m in mods:
+                dep = m.split('.')[0] + '.py'
+                if (tools / dep).is_file() and dep not in out:
+                    todo.append(dep)
+    return out
+
+
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     return r.returncode, r.stdout, r.stderr
