@@ -122,9 +122,10 @@ say. Pass that sentence on before committing, and never ask it as a
 yes-or-no question ("Hook and settings changes need the person's own
 words").
 
-**The allow-list change leads the reply.** When the update prints ALLOW-LIST
-CHANGE WAITING ON THE PERSON, the reply opens with it, before anything
-else: what it does and the exact sentence, never among the other questions.
+**The allow-list change leads the reply.** When the update prints "Waiting
+for you to say one sentence to stop getting permission requests", the reply
+opens with that line in bold, then what the change does and the exact
+sentence, before anything else and never among the other questions.
 His yes, given through the rerun with his words, is recorded in
 `precedent.json`'s `allow_list_answer` and stands for every later
 allow-list-only change; a no is recorded with `--allow-list no
