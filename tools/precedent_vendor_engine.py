@@ -1879,6 +1879,92 @@ READ_ONLY_ALLOW_TOOLS = ('precedent_show.py', 'precedent_paths.py',
                          'precedent_session_check.py', 'doc_lint.py',
                          'routing_audit.py', 'practice_audit.py')
 DECLINED_ALLOW_KEY = 'declined_allow_rules'
+# THE ALLOW-LIST ANSWER IS KEPT IN THE REPOSITORY (Morgan, 2026-11-02: "I
+# should get a reminder with update vendors to say that for any BP repo that
+# I didn't say that for previously"). Update Vendors offered the allow-list
+# change once per run among its other questions, and in one repository it
+# went unanswered for over two weeks without his noticing. His answer is
+# recorded here, the way a copy-in answer is: a yes is never asked again, a
+# no stops the refresh adding the rules and is never raised again.
+ALLOW_LIST_KEY = 'allow_list_answer'
+ALLOW_LIST_SENTENCE = 'Commit the .claude/settings.json allow-list change'
+
+
+def allow_list_answer(dest_root):
+    """-> 'yes', 'no' or None: the person's recorded answer to the
+    allow-list change in precedent.json's ALLOW_LIST_KEY."""
+    try:
+        cfg = json.loads((pathlib.Path(dest_root) / 'precedent.json')
+                         .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    rec = cfg.get(ALLOW_LIST_KEY) if isinstance(cfg, dict) else None
+    answer = rec.get('answer') if isinstance(rec, dict) else None
+    return answer if answer in ('yes', 'no') else None
+
+
+def record_allow_list_answer(dest_root, answer, answered_by):
+    """Record the person's answer to the allow-list change. -> (changed,
+    what happened or why not). `answered_by` carries a date and their words
+    in quotes, as a copy-in answer does; the name may be left out when the
+    run does not know it."""
+    answer = str(answer).strip().lower()
+    if answer not in ('yes', 'no'):
+        return False, f'the allow-list answer must be yes or no, not {answer!r}'
+    if not _ANSWER_DATE.search(answered_by or '') \
+            or not _ANSWER_QUOTE.search(answered_by or ''):
+        return False, ('the allow-list answer needs a date and the person\'s '
+                       'words in quotes ("Name, YYYY-MM-DD: \\"...\\"")')
+    path = pathlib.Path(dest_root) / 'precedent.json'
+    try:
+        cfg = json.loads(path.read_text(encoding='utf-8'),
+                         object_pairs_hook=collections.OrderedDict)
+    except (OSError, ValueError):
+        return False, 'there is no readable precedent.json'
+    want = {'answer': answer, 'answered_by': answered_by}
+    if cfg.get(ALLOW_LIST_KEY) == want:
+        return False, f'"{answer}" was already recorded'
+    cfg[ALLOW_LIST_KEY] = want
+    path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + '\n',
+                    encoding='utf-8')
+    return True, f'recorded "{answer}" in precedent.json\'s {ALLOW_LIST_KEY}'
+
+
+def strip_refresh_allow_rules(dest_root, head_text):
+    """Take back out of .claude/settings.json every allow or ask rule the
+    refresh adds (is_read_only_allow_rule, _is_engine_ask_rule) that
+    `head_text`, the committed settings, does not have: what a recorded no
+    leaves behind from this run or an earlier one. Nothing else in the file
+    is touched. -> [rules removed]."""
+    path = pathlib.Path(dest_root) / '.claude' / 'settings.json'
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'),
+                          object_pairs_hook=collections.OrderedDict)
+        head = json.loads(head_text) if head_text else {}
+    except (OSError, ValueError):
+        return []
+    perms = data.get('permissions') if isinstance(data, dict) else None
+    if not isinstance(perms, dict):
+        return []
+    hp = (head.get('permissions') if isinstance(head, dict) else None) or {}
+    removed = []
+    for key, ours in (('allow', is_read_only_allow_rule), ('ask', _is_engine_ask_rule)):
+        had = set(hp.get(key) or []) if isinstance(hp, dict) else set()
+        rules = perms.get(key)
+        if not isinstance(rules, list):
+            continue
+        keep = [r for r in rules if r in had or not ours(r)]
+        removed += [r for r in rules if r not in keep]
+        if keep or key in hp:
+            perms[key] = keep
+        else:
+            perms.pop(key)
+    if not perms and 'permissions' not in (head if isinstance(head, dict) else {}):
+        data.pop('permissions')
+    if removed:
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                        encoding='utf-8')
+    return removed
 _ALLOW_RULE_RE = re.compile(r'^Bash\(python3 tools/([\w.-]+)( \*)?\)$')
 # EVERY ENGINE TOOL IS ALLOWED (Morgan, 2026-10-17: "why not include all on
 # that list"). One allow rule covers every tools/precedent_*.py, so a new
@@ -2058,6 +2144,8 @@ def _read_only_allow_missing(dest_root, rules, ask=()):
     if not isinstance(data, dict) or (perms is not None and not isinstance(perms, dict)):
         return []
     declined = set(cfg.get(DECLINED_ALLOW_KEY) or []) if isinstance(cfg, dict) else set()
+    if allow_list_answer(dest_root) == 'no':
+        return []           # the person said no (ALLOW_LIST_KEY): never offered again
 
     def here(rule):
         m = _ALLOW_RULE_RE.match(rule)

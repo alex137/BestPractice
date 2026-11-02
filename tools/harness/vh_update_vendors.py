@@ -8079,3 +8079,84 @@ def check_sync_keeps_the_map_and_links_after_a_removal():
           not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
 
 
+
+
+def check_allow_list_answer_is_recorded_and_reminded():
+    """The allow-list change is a reminder at the top of every Update Vendors
+    reply until the person answers it, and the answer is kept in
+    precedent.json (Morgan, 2026-11-02: "I should get a reminder with update
+    vendors to say that for any BP repo that I didn't say that for
+    previously"). In one repository the offer sat among the other questions
+    for over two weeks without his seeing it.
+    THE DISCRIMINATING CASES: a recorded no stops the refresh offering the
+    rules at all, and takes back out what an earlier run added while leaving
+    the person's own rules; the reminder prints before the report and after
+    it; Update All gathers every waiting repository in one list."""
+    import contextlib, io, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_vendor_engine as pve
+        import precedent_update as pu
+        import precedent_update_all as pua
+    finally:
+        sys.path.pop(0)
+    cases = []
+    broad = pve.ENGINE_ALLOW_RULE
+    with tempfile.TemporaryDirectory() as td:
+        dest = pathlib.Path(td)
+        (dest / '.claude').mkdir()
+        sp = dest / '.claude' / 'settings.json'
+        head = {'permissions': {'allow': ['Bash(make test)']}}
+        sp.write_text(json.dumps(head), encoding='utf-8')
+        (dest / 'precedent.json').write_text('{}', encoding='utf-8')
+        cases.append(('no answer: the rule is offered',
+                      pve._read_only_allow_missing(dest, [broad]) == [('allow', broad)]))
+        ok, what = pve.record_allow_list_answer(dest, 'no', 'no date, no quote')
+        cases.append(('an answer without a date and words is refused', not ok, what))
+        ok, what = pve.record_allow_list_answer(
+            dest, 'no', 'Morgan, 2026-11-02: "no allow-list here"')
+        cases.append(('a no is recorded', ok and pve.allow_list_answer(dest) == 'no', what))
+        cases.append(('THE DISCRIMINATING CASE: a recorded no is never offered again',
+                      pve._read_only_allow_missing(dest, [broad]) == []
+                      and pve._apply_read_only_allow(dest, [broad]) == []))
+        sp.write_text(json.dumps({'permissions': {'allow': ['Bash(make test)', broad]}}),
+                      encoding='utf-8')
+        removed = pve.strip_refresh_allow_rules(dest, json.dumps(head))
+        left = json.loads(sp.read_text(encoding='utf-8'))['permissions']['allow']
+        cases.append(('a no takes out what the refresh added, and only that',
+                      removed == [broad] and left == ['Bash(make test)'], (removed, left)))
+        pve.record_allow_list_answer(dest, 'yes', 'Morgan, 2026-11-02: "'
+                                     + pve.ALLOW_LIST_SENTENCE + '"')
+        cases.append(('a yes is recorded, with the words it was given in',
+                      pve.allow_list_answer(dest) == 'yes'
+                      and pu.allow_list_words(dest) == pve.ALLOW_LIST_SENTENCE))
+    allow_case = f'settings.json allows 1 more Precedent tool command(s): {broad}'
+    cases.append(('an allow-list-only change can stand on a recorded yes',
+                  pu.allow_list_only([allow_case])))
+    cases.append(('a change that also wires a hook cannot',
+                  not pu.allow_list_only([allow_case,
+                                          'settings.json gains an entry for x.sh (Stop)'])))
+    rep = pu.Report()
+    say = pu.harness_approval(['.claude/settings.json'], cases=[allow_case])
+    cases.append(('the sentence is the one Morgan said',
+                  say == pve.ALLOW_LIST_SENTENCE, say))
+    rep.allow_list = (pu.allow_list_what([allow_case]), say)
+    rep.ask('hooks and settings', 'the long question')
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rep.close()
+    out = buf.getvalue()
+    first = out.find(pu.ALLOW_LIST_MARK)
+    cases.append(('the reminder comes before the report and again after it',
+                  0 <= first < out.find('== Update Vendors ==')
+                  < out.rfind(pu.ALLOW_LIST_MARK), out[:300]))
+    cases.append(('it says what the change does and the exact sentence',
+                  broad in out and f'"{say}"' in out))
+    cases.append(('Update All reads the sentence from the update\'s output',
+                  pua._allow_list_sentence(out) == say, pua._allow_list_sentence(out)))
+    src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
+    cases.append(('Update All prints every waiting repository in one list',
+                  'for repo, say in allow_waiting:' in src))
+    bad = [c[0] + (f': {c[2]}' if len(c) > 2 else '') for c in cases if not c[1]]
+    check(f'the allow-list answer is recorded and reminded ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))

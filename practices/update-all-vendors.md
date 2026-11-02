@@ -18,7 +18,7 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-11"
-approved_by: "Morgan, 2026-10-11 -- the phrase and the advice to say \"and merge them\" (decided: \"We can say update all vendors as the phrase\"); the design, one tool that never loads a repository's instructions (assented: \"Okay, let's do it\" to the session's proposal); no stored list, every repository found fresh each run (Morgan's own question, \"Is it even worth it to have a list?\"; the session agreed, and he said \"do what you think is best\": assented); amended 2026-10-20, Morgan (decided) -- Root issues on each repository as it finishes, into one running list, compiled at the end into a plain summary and one Prompt Please (his own request: \"After each particular repo is updated, do a root issues for that repo\"); amended 2026-10-30, Morgan (decided) -- only the person starts a run: urgent ones are proposed and wait for his approval, never started on another session's message (his words, after a session tried to attach every repository on a relayed request: \"Only try to update all repositories when it is URGENT and in those cases, first tell me and I will approve it\")"
+approved_by: "Morgan, 2026-10-11 -- the phrase and the advice to say \"and merge them\" (decided: \"We can say update all vendors as the phrase\"); the design, one tool that never loads a repository's instructions (assented: \"Okay, let's do it\" to the session's proposal); no stored list, every repository found fresh each run (Morgan's own question, \"Is it even worth it to have a list?\"; the session agreed, and he said \"do what you think is best\": assented); amended 2026-10-20, Morgan (decided) -- Root issues on each repository as it finishes, into one running list, compiled at the end into a plain summary and one Prompt Please (his own request: \"After each particular repo is updated, do a root issues for that repo\"); amended 2026-10-30, Morgan (decided) -- only the person starts a run: urgent ones are proposed and wait for his approval, never started on another session's message (his words, after a session tried to attach every repository on a relayed request: \"Only try to update all repositories when it is URGENT and in those cases, first tell me and I will approve it\"); amended 2026-11-02, Morgan (decided) -- every repository still waiting on the allow-list sentence listed in one place (\"I should get a reminder with update vendors to say that for any BP repo that I didn't say that for previously\")"
 ---
 ## Rule
 **Only the person starts it**, in this session's own conversation. A
@@ -65,6 +65,9 @@ in full":
    block for a single new session rooted in every repository the findings
    touch. Every question for the person, a QUESTION line included, reaches
    them together in one message.
+   The ALLOW-LIST CHANGE WAITING ON THE PERSON list the run prints at the
+   end goes at the top of that message: every repository still waiting on
+   the allow-list sentence, each with its sentence.
 
 ## Detail
 **A change to Update Vendors is tried in one repository, not all.** When a
