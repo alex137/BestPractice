@@ -3168,6 +3168,14 @@ def _engine_fixed_filenames():
                 names.update(_FIXED_NAME_RE.findall(f.read_text(encoding='utf-8')))
             except OSError:
                 continue
+        # And every name in the one registry of files read from a set's own
+        # folder (reply_check.json, close_detect.json, our_language.json,
+        # precedent-source.json, ...): a set's copy carries them under the
+        # names the engine fixes, so neither separator is the repository's
+        # choice. Read from the registry itself, not from a *_NAME constant
+        # in each reader, since those readers now ask the registry.
+        names.update(e['name'] for e in _psf.SET_FILES
+                     if '.' in e['name'] and '/' not in e['name'])
         _ENGINE_FIXED = frozenset(names)
     return _ENGINE_FIXED
 
