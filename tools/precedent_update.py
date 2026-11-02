@@ -3664,6 +3664,11 @@ def live_line(repo):
 # runbook's prose, so a session in a practice set skipped step 8's tool as
 # not applicable and half-did step 9 (a repository it had no clone of was
 # reported unchecked). Each step is one command; DONE prints all three.
+# 2026-11-02: step 9's line said "every repository the account reaches, from
+# list_repos; run it again until nothing is NOT ON DISK", and a session took
+# it at its word and tried to attach most of the account. Morgan: "When I
+# update vendors it should just be for the repo that the session is rooted
+# in or that I explicitly ask to be updated." Steps 8 and 9 attach nothing.
 def source_steps_lines(repo):
     """-> the lines DONE prints naming the commands for runbook steps 7, 8
     and 9 in `repo`; [] when it cannot be read."""
@@ -3684,14 +3689,15 @@ def source_steps_lines(repo):
     out = ["STEPS 7 TO 9 (vendor-update-runbook), after the commit:",
            f"  7. {cmd('precedent_source_credentials.py')}"]
     if declares:
-        out.append(f"  8. {cmd('precedent_source_names.py')}   (attach each "
-                   f"source with push first, or pass --canonical OWNER/NAME "
-                   f"from list_repos)")
+        out.append(f"  8. {cmd('precedent_source_names.py')}   (pass "
+                   f"--canonical OWNER/NAME per declared source, read from "
+                   f"list_repos; attach nothing)")
     else:
         out.append("  8. not applicable: this repo declares no sources")
-    out.append(f"  9. {cmd('precedent_source_survey.py')} --candidate "
-               f"OWNER/NAME ...   (every repository the account reaches, from "
-               f"list_repos; run it again until nothing is NOT ON DISK)")
+    out.append(f"  9. {cmd('precedent_source_survey.py')}   (this repo's "
+               f"sources and the clones already beside it; add --candidate "
+               f"OWNER/NAME only for a repository the person named. Never "
+               f"attach, clone or survey another repository on your own)")
     return out
 
 

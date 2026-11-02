@@ -258,14 +258,13 @@ def api_full_name(owner, name, env=None):
                    f'hosted session\'s proxy refuses the API, and github.com '
                    f'itself, for any repository it has not attached -- public '
                    f'ones too -- and git cannot show a rename because it '
-                   f'follows redirects silently. To verify, attach it '
-                   f'(add_repo; a public repository attaches only with access '
-                   f'"push", since read access is already served) and run this '
-                   f'again. If that attach is refused, list the account\'s '
-                   f'repositories (list_repos) and pass each full_name it '
-                   f'gives with --canonical OWNER/NAME; or run it from a '
-                   f'machine with a GitHub token, or open '
-                   f'https://github.com/{owner}/{name} in a browser')
+                   f'follows redirects silently. To verify without attaching '
+                   f'anything, list the account\'s repositories (list_repos) '
+                   f'and pass this source\'s full_name with --canonical '
+                   f'OWNER/NAME; or run it from a machine with a GitHub '
+                   f'token, or open https://github.com/{owner}/{name} in a '
+                   f'browser. Update Vendors does not attach a source for '
+                   f'this check (vendor-update-runbook, 2026-11-02)')
         return None, why, False
     except Exception as e:                                   # noqa: BLE001
         return None, f'the API could not be reached ({type(e).__name__}: {e})', False
