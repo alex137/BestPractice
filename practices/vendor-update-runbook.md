@@ -185,12 +185,16 @@ Detail section.
 8. **Check that every source repository is still CALLED what this repo
    calls it**, with
    [tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py),
-   in a repo that declares sources. In a hosted session pass
-   `--canonical OWNER/NAME` for each declared source, read from
-   `list_repos`, which attaches nothing; report a source still
-   `UNVERIFIED` as that. In a repo whose `precedent.json` declares no
-   sources, say "not applicable: this repo declares no sources" -- a
-   practice set that declares some runs it like any other repo. If either
+   wherever a source in force is a separate repository. In a hosted
+   session pass `--canonical OWNER/NAME` for **each source in force**
+   (every source the tool lists, the individual set and what it brings in
+   included, not only the declared ones), each confirmed against
+   `list_repos`, which attaches nothing; Update Vendors' DONE output
+   prints the command with every name filled in. Report a source still
+   `UNVERIFIED` as that. Where no source in force is a separate
+   repository, say "not applicable: no source in force here is a separate
+   repository" -- a practice set with sources runs it like any other
+   repo. If either
    step names a path inside `process/`, pass `--repo .`.
 9. **Check whether a source should be added or dropped -- yourself, and
    only from what is already here,** with
@@ -909,8 +913,15 @@ comparison.
    `UNVERIFIED` means the name was not checked, which is not the same as
    checked and current.
    **In a hosted session, take each source's name from `list_repos` and
-   pass it as `--canonical OWNER/NAME`, once per declared source; attach
-   nothing for this step.** The session's proxy answers GitHub's API only
+   pass it as `--canonical OWNER/NAME`, once for each source in force --
+   every source the tool lists, which takes in the person's individual
+   set and the sets it brings, not only those `precedent.json` declares;
+   attach nothing for this step.** Update Vendors' DONE output prints the
+   command with each name filled in from the clones' remotes; check those
+   names against `list_repos` before running it. Until 2026-11-02 both
+   that line and this step said "each declared source", and a session that
+   followed them exactly in a consuming repo saw the individual source
+   and its shared set come back `UNVERIFIED`. The session's proxy answers GitHub's API only
    for attached repositories, and read access does not attach a public
    one, because git can already read it, so the tool alone leaves a public
    set `UNVERIFIED` (measured 2026-09-28 and 2026-09-30). `list_repos`
@@ -925,9 +936,11 @@ comparison.
    name check was always more reach than the question needed, and Update
    Vendors no longer widens what a session can touch (Story, 2026-11-02).
 
-   **In a repo that declares no sources this step is not applicable, and
-   that is different from skipped.** Say "not applicable: this repo
-   declares no sources" and move on. **Whether the repo is a practice set
+   **Where no source in force is a separate repository this step is not
+   applicable, and that is different from skipped.** Say "not applicable:
+   no source in force here is a separate repository" and move on. A repo
+   that declares no sources still has one when the person's individual
+   set is in force. **Whether the repo is a practice set
    does not decide it:** a set's `precedent.json` can declare sources like
    any consumer's (a shared set whose subject is writing declares the
    universal set and a shared one), and the tool is in the shared `ENGINE_FILES`, so every
