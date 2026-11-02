@@ -215,7 +215,10 @@ def dependency_order(repos, upstreams):
 QUESTIONS_MARK = 'QUESTIONS FOR THE PERSON -- '
 OPTIONAL_MARK = 'the update is complete without these'
 # precedent_update.ALLOW_LIST_MARK and the line under it naming the sentence.
-ALLOW_LIST_MARK = 'ALLOW-LIST CHANGE WAITING ON THE PERSON'
+# Calm on purpose (Morgan, 2026-11-02: the capitals "sound like there's a
+# huge emergency"); the session puts it in bold at the top of its reply.
+ALLOW_LIST_MARK = ('Waiting for you to say one sentence to stop getting '
+                   'permission requests (the allow-list change)')
 ALLOW_LIST_SAYS = 'To approve it, the person says, in these words: '
 
 
@@ -485,10 +488,11 @@ def main(argv=None):
     if allow_waiting:
         # Every repository still waiting on the allow-list sentence, in one
         # place (Morgan, 2026-11-02), never only under each one's line.
-        print(f'\n{ALLOW_LIST_MARK} in {len(allow_waiting)} repositor'
-              f'{"y" if len(allow_waiting) == 1 else "ies"} -- put this list at '
-              f'the TOP of your reply. Each one waits for the person to say its '
-              f'sentence there (or no, recorded with --allow-list no):')
+        print(f'\n{ALLOW_LIST_MARK}, in {len(allow_waiting)} repositor'
+              f'{"y" if len(allow_waiting) == 1 else "ies"}. (For the session: '
+              f'open your reply with this line in bold and the list under it. '
+              f'Each repository waits for the person to say its sentence there, '
+              f'or no, recorded with --allow-list no.)')
         for repo, say in allow_waiting:
             print(f'  {repo}: "{say}"')
     fine = {'SKIPPED', 'NOT USED', 'CURRENT', 'PUSHED', 'READY'}

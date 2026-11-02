@@ -65,9 +65,10 @@ in full":
    block for a single new session rooted in every repository the findings
    touch. Every question for the person, a QUESTION line included, reaches
    them together in one message.
-   The ALLOW-LIST CHANGE WAITING ON THE PERSON list the run prints at the
-   end goes at the top of that message: every repository still waiting on
-   the allow-list sentence, each with its sentence.
+   The list the run prints at the end, headed "Waiting for you to say one
+   sentence to stop getting permission requests", goes at the top of that
+   message, the heading in bold: every repository still waiting on the
+   allow-list sentence, each with its sentence.
 
 ## Detail
 **A change to Update Vendors is tried in one repository, not all.** When a

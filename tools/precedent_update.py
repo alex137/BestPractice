@@ -4046,9 +4046,11 @@ class Report:
         if not self.allow_list:
             return
         what, say = self.allow_list
-        bar = '*' * 72
-        print(f"\n{bar}\n{ALLOW_LIST_MARK} -- put this at the TOP of your "
-              f"reply, before anything else, never among other questions:")
+        bar = '-' * 72
+        print(f"\n{bar}\n{ALLOW_LIST_MARK}")
+        print("  (For the session: open your reply with the line above in "
+              "bold, then what it does and the sentence -- before anything "
+              "else, never among the other questions.)")
         print(f"  What it does: {what}")
         print(f"  To approve it, the person says, in these words: \"{say}\"")
         print(f"  Then run this update again with {HARNESS_GO_AHEAD}=\"<their "
@@ -4842,7 +4844,10 @@ def harness_approval(paths, last=False, cases=None):
     return f'Commit the {files} {kind} change'
 
 
-ALLOW_LIST_MARK = 'ALLOW-LIST CHANGE WAITING ON THE PERSON'
+# Calm on purpose (Morgan, 2026-11-02: the capitals "sound like there's a
+# huge emergency"); the session puts it in bold at the top of its reply.
+ALLOW_LIST_MARK = ('Waiting for you to say one sentence to stop getting '
+                   'permission requests (the allow-list change)')
 
 
 def allow_list_only(cases):
