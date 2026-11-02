@@ -118,7 +118,37 @@ def _children(d, name):
         return []
 
 
+# THE UNIVERSAL SOURCE IS ALWAYS ONE REPOSITORY (2026-11-02). A consumer
+# that vendors it with neither a `repo` key nor a manifest recording its
+# upstream -- {"level": "universal", "name": "precedent", "path":
+# "precedent/universal"} -- gave the survey nothing to match it by, so
+# alex137/BestPractice came back SHOULD ADD? in a repository that already
+# declares it (reported from a consumer's Update Vendors). There is only
+# one universal source, so its identity never depends on the declaration
+# carrying it.
+try:
+    from precedent_vendor_engine import SOURCE_REPO as UNIVERSAL_REPO  # noqa: E402
+except Exception:                                            # noqa: BLE001
+    UNIVERSAL_REPO = 'https://github.com/alex137/BestPractice'
+
+
+def _is_universal(src):
+    try:
+        level = pr.declared_level(src) if pr is not None else src.get('level')
+    except Exception:                                        # noqa: BLE001
+        level = src.get('level')
+    return level == 'universal'
+
+
 def source_origin(root, src):
+    """-> the repository a source in force came from (see
+    _source_origin); for the universal source, alex137/BestPractice when
+    nothing else names it."""
+    return _source_origin(root, src) or (UNIVERSAL_REPO if _is_universal(src)
+                                         else '')
+
+
+def _source_origin(root, src):
     """-> the repository a source in force came from: its clone's origin,
     or, for a copy vendored inside `root`, its `repo` key or the upstream
     repo its manifest records. A vendored copy's folder is part of the
