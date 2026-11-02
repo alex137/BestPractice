@@ -2502,7 +2502,8 @@ def check_source_names_explains_a_proxy_refusal():
     """A hosted session's proxy answers 403 for any repository the session has
     not attached, public ones included. precedent_source_names reports that as
     UNVERIFIED with the reason and the remedy -- attach it, with push access
-    for a public repo -- rather than a bare status code a reader takes for
+    for a public repo until 2026-11-02, list_repos and --canonical since --
+    rather than a bare status code a reader takes for
     GitHub's own answer (2026-09-28: all three public shared sets). The API
     call is replaced with the proxy's real refusal; no network is used."""
     import io, urllib.error
@@ -2532,8 +2533,11 @@ def check_source_names_explains_a_proxy_refusal():
     cases = [
         ("the proxy's refusal is explained, not relayed as GitHub's answer",
          full is None and not renamed and 'proxy' in (why or '')),
-        ('...and names the remedy: attach it, with push access for a public repo',
-         'add_repo' in (why or '') and '"push"' in (why or '')),
+        # 2026-11-02: the remedy no longer attaches anything. Update Vendors
+        # stays in its own repository, so the name comes from list_repos.
+        ('...and names the remedy without attaching: list_repos and --canonical',
+         'list_repos' in (why or '') and '--canonical' in (why or '')
+         and 'add_repo' not in (why or '')),
         ('any other 403 is still reported in GitHub\'s own words',
          'rate limited' in (why2 or '') and 'proxy' not in (why2 or '')),
     ]
