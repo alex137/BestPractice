@@ -10,7 +10,7 @@ audience:      contributor
 summary:       "Update Vendors with the set-copy engine, run on scratch copies of a voice repository, the ladder and writing sets, a private rules set and a planning repository: every whole copy now carries the files the engine reads, each repository reaches DONE or only its own earlier calls, no new check turns red, and a second run reports nothing new."
 ---
 
-# Rehearsal of the set-copy change, 2026-11-01
+# Rehearsal of the set-copy change on the repositories at hand
 
 What [the plan](SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md) asked the
 build to show before it lands: the new Update Vendors, run with this
