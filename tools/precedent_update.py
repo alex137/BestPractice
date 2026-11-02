@@ -3850,8 +3850,9 @@ def replaced_update_lines(repo, clone=None):
         out.append(f"\nREPLACED UPDATE BRANCHES -- earlier update branches "
                    f"this one replaces: the engine each carries is already in "
                    f"the one this update took, so none of them needs to reach "
-                   f"{pb.MAIN}. Each has done its job. Hand over each link; "
-                   f"never delete one yourself (never-delete-a-remote-branch):")
+                   f"{pb.MAIN}. Each has done its job. The branch cleanup page "
+                   f"lists them, so name none in the reply, and never delete one "
+                   f"yourself (the-boildown item 6; never-delete-a-remote-branch):")
         for name, old, wf in replaced:
             clash = [o for o in every if o != name and name in o]
             if clash:
