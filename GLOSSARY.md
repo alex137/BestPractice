@@ -19,6 +19,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | assented | [decision-strength](practices/decision-strength.md) |
 | bet-relevant | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
 | Boildown | [the-boildown](practices/the-boildown.md) |
+| BP | [vendor-update-runbook](practices/vendor-update-runbook.md) |
 | capture gate | [capture-gate](practices/capture-gate.md) |
 | capture sweep | [capture-gate](practices/capture-gate.md) |
 | code owner | [inner-workings-for-code-owners](practices/inner-workings-for-code-owners.md) |

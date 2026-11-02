@@ -1131,6 +1131,54 @@ def _seed_consumer_engine(dest_tools, extra=(), only=None):
     return copied
 
 
+def _with_engine_imports(*names):
+    """-> `names` (tools/ file names) plus every engine module they import
+    at their top level, followed to the end, in a stable order: what a
+    fixture copying a few tools on their own must copy so each of them
+    loads. Read from the tools' own import lines, never listed by hand.
+
+    THE INCIDENT (2026-11-01). tools/precedent_set_files.py, the registry
+    of the files a set's copy carries, became a top-level import of
+    checkin.py and precedent_check.py. Seven fixtures that copied those two
+    beside a hand-kept list of their companions failed with "No module
+    named 'precedent_set_files'" in the run after the landing, and none of
+    them had been reached by the change's own tests before it.
+    _seed_consumer_engine is the answer for a fixture that wants a whole
+    consumer; this is the one for a fixture that copies a few tools on
+    purpose."""
+    import ast as _ast
+    tools = ROOT / 'tools'
+    out, todo = [], list(names)
+    while todo:
+        name = todo.pop(0)
+        if name in out:
+            continue
+        out.append(name)
+        f = tools / name
+        if not name.endswith('.py') or not f.is_file():
+            continue
+        try:
+            tree = _ast.parse(f.read_text(encoding='utf-8'))
+        except (SyntaxError, OSError):
+            continue
+        body = []
+        for node in tree.body:
+            body.append(node)
+            if isinstance(node, _ast.Try):       # try: import x / except ImportError
+                body += node.body
+        for node in body:
+            mods = []
+            if isinstance(node, _ast.Import):
+                mods = [a.name for a in node.names]
+            elif isinstance(node, _ast.ImportFrom) and node.module and not node.level:
+                mods = [node.module]
+            for m in mods:
+                dep = m.split('.')[0] + '.py'
+                if (tools / dep).is_file() and dep not in out:
+                    todo.append(dep)
+    return out
+
+
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     return r.returncode, r.stdout, r.stderr
@@ -4541,6 +4589,7 @@ def main():
     check_global_backstop_runs_person_fixer()
     check_update_judges_the_committed_tree()
     check_update_adopts_engine_written_ahead()
+    check_acronym_expanded_after_or_listed_in_the_glossary()
     check_acronym_scan_skips_wrapped_code_spans()
     check_lint_flags_a_table_with_no_render()
     check_lint_runs_the_hosts_shim()
@@ -4813,6 +4862,12 @@ def main():
     check_copied_in_shared_sets()
     check_copied_in_set_carries_its_reply_rules()
     check_copied_set_carries_another()
+    check_set_file_readers_open_only_registered_files()
+    check_copy_fills_what_an_older_copy_lacks()
+    check_set_copy_complete_advisory_then_finding()
+    check_set_file_registered_catches_bind_and_join()
+    check_set_file_decided_in_a_practice_set()
+    check_a_copy_never_carries_a_copy()
     check_copy_in_is_asked_once()
     check_declared_exports_are_copied()
     check_exports_only_copy_resolves()

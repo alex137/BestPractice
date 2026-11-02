@@ -3731,6 +3731,8 @@ UPDATE_VENDORS_PATHS = (
     'tools/precedent_vendor_engine.py', 'tools/checkin.py',
     'tools/precedent_sync_views.py', 'tools/precedent_materialize.py',
     'tools/precedent_install.py', 'tools/precedent_resolve.py',
+    # What a copy of a shared set carries (2026-11-01).
+    'tools/precedent_set_files.py',
     'templates/',
 )
 

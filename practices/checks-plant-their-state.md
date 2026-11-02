@@ -31,6 +31,10 @@ and the one where it should stay quiet. **Silence is a behaviour**, so the
 quiet case gets its own assertion; a check that only ever asserts the loud
 half passes vacuously wherever the loud half happens to be true anyway.
 
+**When a check enforces a written rule, its quiet world is every form the
+rule's purpose allows, not only the example the rule happens to show.**
+Plant each ordinary way a person meets the rule and assert none is flagged.
+
 ## Detail
 **Ambient state is anything the check did not set itself** — the real
 filesystem outside its fixture, `$HOME`, the working directory, the clock,
@@ -108,6 +112,14 @@ an unplanted check misleads twice**: first by failing for a reason that is
 not its subject, and then by inviting a diagnosis aimed at whatever
 environment difference is most visible. A day was pointed at `git`
 versions because the check had never said what it actually depended on.
+
+**2026-11-01: the example is not the rule.** The acronym check was built
+from the acronym rule's one example, *long form (ACRONYM)*, and its tests
+planted only that form as the quiet case. "ACRONYM [long form]" and
+"ACRONYM (long form)" meet the rule just as well and were flagged for
+three months, until a quotation that used one failed a release. Morgan
+approved planting every allowed form: *"Also, act on the plan, including
+booked."* Strength: decided.
 
 ## Install
 **`checked_by: null`, and the reason is specific rather than "too hard"**

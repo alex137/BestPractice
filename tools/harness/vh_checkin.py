@@ -221,8 +221,7 @@ def check_update_vendors_declined_catalogue_copy_is_upstreams():
         fx.sh('git', 'push', '-q', 'origin', 'HEAD:main', cwd=repo)
         aud = repo / '.audit' / 'tools'
         aud.mkdir(parents=True)
-        for n in ('practice_audit.py', 'generated_blocks.py', 'checkin.py',
-                  'precedent_time.py', 'declared_base_branch.py'):
+        for n in _with_engine_imports('practice_audit.py', 'checkin.py'):
             shutil.copy(ROOT / 'tools' / n, aud / n)
         with open(repo / '.git' / 'info' / 'exclude', 'a', encoding='utf-8') as f:
             f.write('.audit/\n')
@@ -1037,14 +1036,13 @@ def check_update_refuses_while_a_branch_is_pinned():
             _json.dumps({'upstream': up, 'practices': []}), encoding='utf-8')
         _git(repo, 'init', '-q')
         _shutil.copy2(src, repo / 'process' / 'upstream' / 'tools' / 'checkin.py')
-        # fixture-owns-its-state: checkin.py imports precedent_time at module
-        # scope (practice: timestamps-carry-offset). Without the sibling the
-        # fixture dies on the import, and every case here reads as "the tool
-        # did not say what it should have" rather than "the tool never ran".
-        _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
-                      repo / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
-        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
-                      repo / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
+        # fixture-owns-its-state: checkin.py imports its companions at module
+        # scope. Without them the fixture dies on the import, and every case
+        # here reads as "the tool did not say what it should have" rather
+        # than "the tool never ran". Read from its imports, never listed.
+        for n in _with_engine_imports('checkin.py')[1:]:
+            _shutil.copy2(ROOT / 'tools' / n,
+                          repo / 'process' / 'upstream' / 'tools' / n)
         return repo
 
     def _run(repo, clone, override=False, flag=False):
@@ -1149,8 +1147,7 @@ def check_carry_check_never_counts_upstream_deletions():
         _git(d, 'config', 'commit.gpgsign', 'false')
 
     tools = {n: (ROOT / 'tools' / n).read_text(encoding='utf-8')
-             for n in ('checkin.py', 'precedent_time.py',
-                       'declared_base_branch.py')}
+             for n in _with_engine_imports('checkin.py')}
     # Upstream history: A, then B ADDS "gamma", then C DELETES "beta" and
     # "gamma" -- upstream's own deletions -- and adds "delta".
     history = [
@@ -1193,8 +1190,7 @@ def check_carry_check_never_counts_upstream_deletions():
             if vend.exists():
                 _shutil.rmtree(vend)
             (vend / 'tools').mkdir(parents=True)
-            for rel in ('notes.md', 'tools/checkin.py', 'tools/precedent_time.py',
-                        'tools/declared_base_branch.py'):
+            for rel in ['notes.md'] + [f'tools/{n}' for n in tools]:
                 (vend / rel).write_text(_git(clone, 'show', f'{ref}:{rel}').stdout,
                                         encoding='utf-8')
 
@@ -1392,15 +1388,13 @@ def check_checkin_update_never_mutates_the_clone():
         (consumer / 'process' / 'upstream' / 'tools').mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / 'tools' / 'checkin.py',
                      consumer / 'process' / 'upstream' / 'tools' / 'checkin.py')
-        # checkin.py imports it at module scope (practice:
-        # timestamps-carry-offset). The real vendored tree carries it --
-        # it is in precedent_vendor_engine.py's ENGINE_FILES -- so this
-        # minimal mock of that tree has to as well, or it tests an install
-        # shape that never ships.
-        shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
-                     consumer / 'process' / 'upstream' / 'tools' / 'precedent_time.py')
-        shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
-                     consumer / 'process' / 'upstream' / 'tools' / 'declared_base_branch.py')
+        # checkin.py imports its companions at module scope. The real
+        # vendored tree carries them -- they are in precedent_vendor_engine.py's
+        # ENGINE_FILES -- so this minimal mock of that tree has to as well, or
+        # it tests an install shape that never ships. Read from its imports.
+        for n in _with_engine_imports('checkin.py')[1:]:
+            shutil.copy2(ROOT / 'tools' / n,
+                         consumer / 'process' / 'upstream' / 'tools' / n)
         # push hands its work to send (2026-09-29); the real vendored tree
         # carries both, since the mirror brings the whole tools/ at once.
         shutil.copy2(ROOT / 'tools' / 'precedent_local_edits.py',
@@ -1520,11 +1514,8 @@ def check_checkin_ignores_files_git_does_not_track_in_the_clone():
         'practices/marker.txt': 'upstream content\n',
         'practices/retired.txt': 'upstream stops vendoring this in the push case\n',
         '.gitignore': '.claude/settings.local.json\n.precedent/\n',
-        'tools/checkin.py': (ROOT / 'tools' / 'checkin.py').read_text(encoding='utf-8'),
-        'tools/precedent_time.py': (ROOT / 'tools' / 'precedent_time.py'
-                                    ).read_text(encoding='utf-8'),
-        'tools/declared_base_branch.py': (ROOT / 'tools' / 'declared_base_branch.py'
-                                          ).read_text(encoding='utf-8'),
+        **{f'tools/{n}': (ROOT / 'tools' / n).read_text(encoding='utf-8')
+           for n in _with_engine_imports('checkin.py')},
         # push hands the work to send (2026-09-29), from the same directory.
         'tools/precedent_local_edits.py': (ROOT / 'tools' / 'precedent_local_edits.py'
                                            ).read_text(encoding='utf-8'),

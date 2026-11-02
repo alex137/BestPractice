@@ -68,7 +68,10 @@ import sys
 _ENGINE_DIR = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(_ENGINE_DIR))
 
-CONFIG_NAME = 'close_detect.json'
+# From the registry of per-set files a copy of a set is built from
+# (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md).
+from precedent_set_files import set_file as _set_file  # noqa: E402
+CONFIG_NAME = _set_file('close_detect')
 DEFAULT_MARKER = 'Practice candidate'
 DEFAULT_HEADING = 'next step'
 
