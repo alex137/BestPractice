@@ -4082,6 +4082,30 @@ def reached_checks_next(root, since, label):
 # own: another checkout's landings are not seen here.
 REACH_DIR = 'precedent-reach'
 REACH_RUN_ENV = 'PRECEDENT_LAND_REACH_RUN'      # '0': print the command only
+#                                               # '1': start it detached
+#                                               # 'session': hand it to the session
+#
+# IN A CLAUDE CODE SESSION THE RUN IS HANDED TO THE SESSION, NOT DETACHED
+# (Morgan, 2026-11-02, strength: decided: "yes act and booked", to the pick
+# of handing it over). A detached run never appears in the person's
+# background-tasks panel and never wakes the session when it ends. That
+# day a session said "still waiting on the background test run"; the
+# person looked, found no background task, and asked whether anything was
+# running. The run had found a failure the session only learned of from
+# GitHub's test of main, after the Produce. So where CLAUDECODE is set and
+# REACH_RUN_ENV is not, --land records the run as `handed` and prints the
+# one command for the session to start with its own background-task tool:
+# the panel shows it, and its end wakes the session, pass or fail.
+# Elsewhere, nobody watches a panel, and the run starts detached as before.
+REACH_HANDED = 'handed'
+
+
+def reach_run_mode():
+    """-> '0', '1' or 'session': how --land starts the reached-tests run."""
+    v = os.environ.get(REACH_RUN_ENV)
+    if v in ('0', '1', 'session'):
+        return v
+    return 'session' if os.environ.get('CLAUDECODE') == '1' else '1'
 
 
 def _reach_dir(root):
@@ -4162,6 +4186,12 @@ def reach_gate(root, fixing=None):
             notes.append(f'NOTE: the reached-tests run of the landing '
                          f'{landed[:12]} is still running ({rec.get("log")}); '
                          f'a red result will hold the landing after it.')
+        elif st == REACH_HANDED:
+            notes.append(f'NOTE: the reached-tests run of the landing '
+                         f'{landed[:12]} was handed to a session and never '
+                         f'started, so nothing is known about it. Start it as '
+                         f'a background task: python3 tools/precedent_branches.py '
+                         f'--reach-run {_f}')
         elif st == 'lost':
             notes.append(f'NOTE: the reached-tests run of the landing '
                          f'{landed[:12]} was lost (its process is gone, a '
@@ -4202,7 +4232,8 @@ def start_reach_run(root, since, landed, label, fixing=None):
                 _write_reach(f, rec)
         since = red_base or since
     nxt = reached_checks_next(root, since, label)
-    if not nxt or os.environ.get(REACH_RUN_ENV, '1') == '0' or not landed:
+    mode = reach_run_mode()
+    if not nxt or mode == '0' or not landed:
         return nxt
     d = _reach_dir(root)
     try:
@@ -4214,6 +4245,18 @@ def start_reach_run(root, since, landed, label, fixing=None):
     log = d / f'{landed[:12]}-{stamp}.log'
     rec = {'landed': landed, 'since': since, 'label': label,
            'status': 'running', 'started': stamp, 'log': str(log)}
+    if mode == 'session':
+        rec['status'] = REACH_HANDED
+        _write_reach(rec_path, rec)
+        return (f'HANDED TO THIS SESSION by this landing: the harness checks it '
+                f'reaches (since {(since or "")[:12]}), on a worktree of exactly '
+                f'what landed. Start it now with your own background-task tool '
+                f'(Bash with run_in_background), never detached, so it shows in '
+                f'the person\'s background-tasks panel and its end wakes you:\n'
+                f'  python3 tools/precedent_branches.py --reach-run {rec_path}\n'
+                f'It logs to {log}. Do not wait on it to reply. When it ends, '
+                f'say how it went; a red one holds the next --land until a fix '
+                f'lands with --land BRANCH --fixing {landed[:12]}.')
     _write_reach(rec_path, rec)
     try:
         proc = subprocess.Popen(
@@ -4241,6 +4284,10 @@ def reach_run(root, rec_path):
         rec = json.loads(rec_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return 2
+    # Started by the session (a handed run) or detached: either way the
+    # record names this process, so a restart that kills it reads as lost.
+    rec.update(status='running', pid=os.getpid())
+    _write_reach(rec_path, rec)
     import tempfile
     failures = pathlib.Path(tempfile.mkstemp(prefix='precedent-reach-fail-')[1])
     status, failing = 'lost', []
