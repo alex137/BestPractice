@@ -4961,6 +4961,74 @@ def check_one_fix_mends_two_red_landings_in_a_row():
           '; '.join(f'{n} -- {str(x)[:200]}' for n, x in bad))
 
 
+def check_reach_run_is_handed_to_a_claude_code_session():
+    """In a Claude Code session --land hands its reached-tests run to the
+    session instead of starting it detached, so the run shows in the
+    person's background-tasks panel and its end wakes the session.
+
+    Morgan, 2026-11-02 (strength: decided, "yes act and booked"): a session
+    said it was still waiting on a background test run, and the person
+    found no background task in the panel. The run was detached, so nothing
+    showed it and nothing woke the session when it failed.
+
+    Negative controls: with CLAUDECODE unset the mode is detached ('1'), and
+    an explicit '0' or '1' wins over CLAUDECODE."""
+    import subprocess as sp, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_branches as pb
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-reach-handed-'))
+    saved = {k: os.environ.get(k) for k in ('CLAUDECODE', pb.REACH_RUN_ENV)}
+    cases = []
+
+    def mode(cc, env):
+        for k, v in (('CLAUDECODE', cc), (pb.REACH_RUN_ENV, env)):
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return pb.reach_run_mode()
+    try:
+        cases.append(('in Claude Code the default is to hand it to the session',
+                      mode('1', None) == 'session'))
+        cases.append(('elsewhere the default is detached, as before',
+                      mode(None, None) == '1'))
+        cases.append(("an explicit '1' still starts it detached",
+                      mode('1', '1') == '1'))
+        cases.append(("an explicit '0' still only prints the command",
+                      mode('1', '0') == '0'))
+
+        sp.run(['git', 'init', '-q', str(tmp)], capture_output=True)
+        (tmp / 'tools').mkdir()
+        for f in ('verify_harness.py', 'harness_reach.py'):
+            (tmp / 'tools' / f).write_text('', encoding='utf-8')
+        mode('1', None)
+        said = pb.start_reach_run(tmp, 'b' * 40, 'a' * 40, 'fixture')
+        recs = pb._reach_records(tmp)
+        rec = recs[0][1] if recs else {}
+        cases.append(('the landing says the run is handed over and gives the '
+                      'one command to start as a background task',
+                      'HANDED TO THIS SESSION' in said and '--reach-run' in said
+                      and 'run_in_background' in said))
+        cases.append(('the record says handed, with no process behind it, so '
+                      'nothing was started detached',
+                      rec.get('status') == pb.REACH_HANDED and not rec.get('pid')))
+        _refusal, notes, _since = pb.reach_gate(tmp)
+        cases.append(('a handed run never started is a note naming the command '
+                      'at the next landing, never a refusal',
+                      not _refusal and any('never started' in n and '--reach-run'
+                                           in n for n in notes)))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [n for n, ok in cases if not ok]
+    check(f'--land hands its reached-tests run to a Claude Code session '
+          f'({len(cases)} stated cases)', not bad, '; '.join(bad))
+
+
 def check_land_holds_while_its_reached_tests_are_red():
     """--land starts the harness checks a landing reaches in the background
     and records the verdict; the next --land refuses while it is red unless
