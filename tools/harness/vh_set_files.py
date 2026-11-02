@@ -527,13 +527,21 @@ def check_set_file_decided_in_a_practice_set():
         kind, got = _sf_run(pc, 'set-file-decided')
         rep3 = _SfRep()
         pu.set_files_decided_step(s, rep3)
-        cases.append(('6b. the next update makes it strict, and the third does '
-                      'nothing', any('strict here from now on' in o
-                                     for _n, o in rep2.steps)
+        cases.append(('6b. the next update makes it strict and leaves NOTES.md for '
+                      'the person; every later one leaves it until decided',
+                      any('strict here from now on' in o for _n, o in rep2.steps)
                       and not str(marked).startswith(psf.DECIDED_NOTED)
                       and kind == 'findings' and got and got[0].startswith('NOTES.md')
-                      and not rep3.steps,
-                      repr(rep2.steps) + repr(marked) + repr((kind, got)) + repr(rep3.steps)))
+                      and [w for w, _y in rep2.left] == ['set files: NOTES.md']
+                      and not rep3.steps
+                      and [w for w, _y in rep3.left] == ['set files: NOTES.md'],
+                      repr(rep2.steps) + repr(rep2.left) + repr(marked)
+                      + repr((kind, got)) + repr(rep3.steps) + repr(rep3.left)))
+        write_manifest(stays={'NOTES.md': 'fixture'})
+        rep4 = _SfRep()
+        pu.set_files_decided_step(s, rep4)
+        cases.append(('6c. once decided, nothing is left', not rep4.left
+                      and not rep4.steps, repr(rep4.left) + repr(rep4.steps)))
         write_manifest(level='individual')
         kind, got = _sf_run(pc, 'set-file-decided')
         cases.append(('7. NEGATIVE CONTROL: an individual set is left out',

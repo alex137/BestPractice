@@ -1544,18 +1544,28 @@ def set_files_decided_step(repo, rep):
     except (OSError, ValueError):
         return
     held = str(data.get(psf.DECIDED_MARKER_KEY) or '')
-    if held and not held.startswith(psf.DECIDED_NOTED):
-        return
     today = precedent_time.today(repo)
     undecided, adapters, loose = psf.set_file_decisions(repo)
     if held:
-        data[psf.DECIDED_MARKER_KEY] = today
-        em.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
-                      encoding='utf-8')
-        rep.step('set files', 'set-file-decided is strict here from now on'
-                 + (f': {len(undecided) + len(loose) + bool(adapters)} '
-                    f'undecided item(s) are refused by this run\'s check'
-                    if undecided or adapters or loose else ''))
+        if held.startswith(psf.DECIDED_NOTED):
+            data[psf.DECIDED_MARKER_KEY] = today
+            em.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                          encoding='utf-8')
+            rep.step('set files', 'set-file-decided is strict here from now on')
+        # Strict: each one is the set's call, on every update until made --
+        # the basic tier of the push check does not always reach the check.
+        for name in undecided:
+            rep.leave(f'set files: {name}',
+                      f'a top-level file of this set that nothing decides. Keep '
+                      f'it home: add "{name}": "<why>" under "stays" in '
+                      f'precedent-source.json; or ship it: register it in '
+                      f'BestPractice\'s tools/precedent_set_files.py')
+        for line in loose:
+            rep.leave('set files: stays', f'precedent-source.json "stays" line {line}')
+        if adapters:
+            rep.leave('set files: precedent.json',
+                      'declares `adapters`, which a copy of this set never '
+                      'carries: move the declaration to precedent-source.json')
         return
     for name in undecided:
         rep.step('set files', f'{name} is a top-level file a copy of this set '
