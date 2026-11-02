@@ -4626,7 +4626,10 @@ def check_update_done_names_the_branch_to_commit_on():
         cases.append(('the command makes a <date>-...-<session>-<random> name',
                       bool(re.fullmatch(r'\d{4}-\d{2}-\d{2}-[a-z0-9-]+-[a-z0-9]{5}-[a-z0-9]{5}',
                                         name)), name))
-        done = inspect.getsource(_pu.Report.close)
+        # close() wraps _close() since 2026-11-02 (the allow-list reminder
+        # prints before and after it), so DONE's text is read from both.
+        done = (inspect.getsource(_pu.Report.close)
+                + inspect.getsource(getattr(_pu.Report, '_close', _pu.Report.close)))
         cases.append(('DONE calls it, and says nothing of "Go update"',
                       'feature_branch_line(' in done and 'Go update' not in done, ''))
         # 2026-10-28: on the ladder, landing below main is not the end --
@@ -4772,7 +4775,10 @@ def check_update_done_names_the_update_branches_it_replaces():
                       'some-feature-work' not in out, out))
         cases.append(('this run\'s own branch is never listed',
                       'eeeee-fffff' not in out, out))
-        done = inspect.getsource(_pu.Report.close)
+        # close() wraps _close() since 2026-11-02 (the allow-list reminder
+        # prints before and after it), so DONE's text is read from both.
+        done = (inspect.getsource(_pu.Report.close)
+                + inspect.getsource(getattr(_pu.Report, '_close', _pu.Report.close)))
         cases.append(('DONE prints the listing',
                       'replaced_update_lines(' in done, ''))
     finally:
