@@ -346,38 +346,73 @@ def check_reply_check_names_what_it_cannot_evaluate():
 
 
 def check_declared_loss_unblocks_the_archive_line():
-    """The exception Morgan's rule always carried, and the code never had --
-    plus the marker route added after the phrase list turned out to be the
-    same bug in a different shape.
+    """Work a session has read and given up is recorded by the scanner, not
+    written in the reply, and releases the archive line only while it is
+    unchanged.
 
-    `require_container_safe_if_says` blocks "You can archive this session"
-    whenever any checkout in the container holds work no remote has. Its own
-    stated rule ends "(unless the work is intended to be lost!)", and its
-    refusal text tells the reader to "say in the reply that it is meant to
-    be lost" -- neither of which the code implemented. On 2026-09-23 a
-    session said precisely that, in those words, in three consecutive
-    replies, and was refused all three times; each one therefore closed by
-    telling Morgan NOT to archive a session he could safely archive.
+    2026-09-22 to 2026-11-02 the loss was declared in the reply, on a
+    `**Checkout disposition:** NAME -- discard (why)` line the reply gate
+    read. Morgan, 2026-11-02 (strength: decided): "check that internally to
+    make sure the checkout disposition is great, but to NOT print it". So
+    `precedent_container_safe.py --discard NAME --why ...` writes a ledger
+    outside every repository, pinned to a fingerprint of what it judged, and
+    the scan reads it. Asserted: the scan is unsafe before; a discard with
+    no reason or an unknown name is refused (a session cannot give up what
+    it never looked at); after a discard the scan is safe; one more edit
+    makes it unsafe again (it cannot give up work that arrives later); and
+    the reply gate no longer honours a disposition line in the reply."""
+    import json as _json, tempfile
+    scanner = ROOT / 'tools' / 'precedent_container_safe.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        repo = pathlib.Path(td) / 'planted'
+        repo.mkdir()
+        _g = lambda *a: subprocess.run(['git', '-C', str(repo), *a],
+                                       capture_output=True, text=True)
+        _g('init', '-q')
+        (repo / 'a.txt').write_text('one\n', encoding='utf-8')
+        _g('add', 'a.txt')
+        _g('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit',
+           '-q', '-m', 'first')
+        (repo / 'a.txt').write_text('two\n', encoding='utf-8')
+        env = dict(os.environ, PRECEDENT_DISPOSITION_LEDGER=str(
+            pathlib.Path(td) / 'ledger.json'))
 
-    A gate that forces a false statement has stopped being a safety
-    mechanism, so the escape is real now -- and deliberately not a password.
-    The reply must ALSO name every unsafe checkout, which is what keeps the
-    2026-09-22 case that built the rule caught: a session that had never
-    looked at the clone holding six unpushed commits could not have named
-    it. Both halves are asserted here, and so is the failure of each half
-    alone (practice: control-asserts-which-failure).
+        def run(*extra):
+            return subprocess.run([sys.executable, str(scanner), '--only',
+                                   str(repo), '--no-processes', *extra],
+                                  capture_output=True, text=True, env=env)
+        r = run()
+        cases.append(('a planted edit is unsafe', r.returncode == 1
+                      and 'planted --' in r.stdout, r.stdout[:300]))
+        r = run('--discard', 'planted')
+        cases.append(('a discard with no reason is refused', r.returncode == 2,
+                      r.stdout + r.stderr))
+        r = run('--discard', 'elsewhere', '--why', 'x')
+        cases.append(('a discard naming nothing unsafe is refused',
+                      r.returncode == 2, r.stdout + r.stderr))
+        r = run('--discard', 'planted', '--why', 'a fixture nobody needs')
+        cases.append(('a discard by the name shown is recorded',
+                      r.returncode == 0, r.stdout + r.stderr))
+        r = run('--json')
+        try:
+            payload = _json.loads(r.stdout)
+        except ValueError:
+            payload = {}
+        cases.append(('...and the scan is then safe, naming it given up',
+                      r.returncode == 0 and payload.get('safe') is True
+                      and [g.get('name') for g in payload.get('given_up') or []]
+                      == ['planted'], r.stdout[:400]))
+        (repo / 'a.txt').write_text('three\n', encoding='utf-8')
+        r = run()
+        cases.append(('an edit after the discard makes it unsafe again',
+                      r.returncode == 1, r.stdout[:300]))
+        (repo / 'a.txt').write_text('two\n', encoding='utf-8')
+        (repo / 'new.txt').write_text('later work\n', encoding='utf-8')
+        r = run()
+        cases.append(('...and so does a new file', r.returncode == 1,
+                      r.stdout[:300]))
 
-    THE MARKER ROUTE, ADDED LATER THE SAME DAY. The phrase list still made a
-    session guess an exact string: a later session said the same substance
-    ("safe to let the container reclaim them") in its own words, twice, and
-    was refused both times for matching none of the four fixed phrases.
-    Morgan: "That rule, as you read it, it makes no sense... if there's some
-    way to force it to fire, that would be great." `unless_reply_declares_
-    loss.marker` is a `**Checkout disposition:** NAME -- discard` line
-    checked PER CHECKOUT, which is also strictly narrower than the phrase
-    route's "name them all somewhere in the reply": a reply naming two
-    checkouts and giving only one a disposition line must still fail, which
-    the cases below assert as its own negative control."""
     import importlib.util as _ilu
     spec = _ilu.spec_from_file_location(
         '_rc_loss', ROOT / 'tools' / 'precedent_reply_check.py')
@@ -386,75 +421,32 @@ def check_declared_loss_unblocks_the_archive_line():
         spec.loader.exec_module(rc)
     except Exception as exc:                     # noqa: BLE001
         return (False, '', f'precedent_reply_check.py would not import: {exc}')
-
-    rule = None
-    for r, _n in [(x, None) for x in (rc.declared_requirements(str(ROOT))[0] or [])]:
-        if r.get('require_container_safe_if_says'):
-            rule = r
-            break
+    rule = next((x for x in (rc.declared_requirements(str(ROOT))[0] or [])
+                 if x.get('require_container_safe_if_says')), None)
     if rule is None:
         return (False, '', 'no rule declares require_container_safe_if_says')
-
-    cases = [('the rule declares the escape phrases',
-              bool((rule.get('unless_reply_declares_loss') or {}).get('phrases')),
-              str(rule.get('unless_reply_declares_loss'))),
-             ('the rule declares the marker template',
-              bool((rule.get('unless_reply_declares_loss') or {}).get('marker')),
-              str(rule.get('unless_reply_declares_loss'))),
-             ('the key is known to the predicate reader',
-              'unless_reply_declares_loss' in rc.KNOWN_REQUIREMENT_KEYS, '')]
-
-    # Stub the scanner so this asserts the PREDICATE, not this container's
-    # current disk -- which changes between runs and would make the case
-    # pass or fail for reasons that have nothing to do with the logic.
-    real = rc._unsafe_checkout_names
+    cases.append(('the rule no longer declares an escape in the reply',
+                  'unless_reply_declares_loss' not in rule, str(rule)[:300]))
+    real = rc._container_verdict
     try:
-        rc._unsafe_checkout_names = lambda: ['precedent-individual', 'BestPractice']
-        for label, text, want in (
-            ('both named plus the phrase releases it',
-             'the commits in ~/precedent-individual and in BestPractice are '
-             'meant to be lost', True),
-            ('a different declared phrase also works',
-             '~/precedent-individual and BestPractice are intended to be '
-             'discarded', True),
-            ('naming only one of two does not',
-             '~/precedent-individual is meant to be lost', False),
-            ('the phrase alone, naming nothing, does not',
-             'it is all meant to be lost', False),
-            ('naming both without the phrase does not',
-             'there is work in ~/precedent-individual and in BestPractice',
-             False),
-            ('the marker route, both dispositioned, releases it',
-             '**Checkout disposition:** precedent-individual -- discard '
-             '(superseded)\n**Checkout disposition:** BestPractice -- '
-             'discard (test fixture)', True),
-            ('the marker with an em-dash and no parenthetical still works',
-             '**Checkout disposition:** precedent-individual — discard\n'
-             '**Checkout disposition:** BestPractice — discard', True),
-            ('the marker route is PER CHECKOUT -- one dispositioned line '
-             'does not cover a second unsafe checkout the reply never '
-             'mentions',
-             '**Checkout disposition:** precedent-individual -- discard '
-             '(superseded)', False),
-            ('a disposition line for the wrong checkout name does not '
-             'match the one that is actually unsafe',
-             '**Checkout disposition:** some-other-repo -- discard\n'
-             '**Checkout disposition:** BestPractice -- discard', False),
-        ):
-            got = rc._declares_loss(rule, text)
-            cases.append((label, got is want, f'got {got}'))
-
-        # A scanner that cannot say WHICH checkout leaves no way to verify
-        # the naming half, so the escape must not be available at all.
-        rc._unsafe_checkout_names = lambda: []
-        cases.append(('an unreadable scanner closes the escape',
-                      rc._declares_loss(rule, 'it is meant to be lost') is False,
-                      'the escape opened with no names to check'))
+        rc._container_verdict = lambda: (False, 'CONTAINER NOT SAFE TO LOSE -- '
+                                         'planted -- /x: uncommitted changes')
+        reply = ('**Checkout disposition:** planted -- discard (fixture)\n\n'
+                 'You can archive this session.')
+        kinds = [v.get('kind') for v in rc.violations(reply, [rule])]
+        cases.append(('a disposition line in the reply no longer releases it',
+                      'container' in kinds, repr(kinds)))
+        rc._container_verdict = lambda: (True, 'container safe')
+        kinds = [v.get('kind') for v in rc.violations(
+            'You can archive this session.', [rule])]
+        cases.append(('CONTROL: a safe scan (work given up in the ledger) '
+                      'lets the plain line through', 'container' not in kinds,
+                      repr(kinds)))
     finally:
-        rc._unsafe_checkout_names = real
+        rc._container_verdict = real
 
     bad = [(n, d) for n, ok, d in cases if not ok]
-    return (not bad, f'{len(cases)} stated cases, fail-closed among them',
+    return (not bad, f'{len(cases)} stated cases',
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
@@ -3849,9 +3841,9 @@ def check_reply_gate_trims_for_standing_sessions_and_one_line_forms():
 
 def check_archive_gate_keeps_inner_workings_from_non_owners():
     """When the container holds files found nowhere else, the reply gate
-    tells a session working for a person who is not a code owner to settle
-    them itself and say nothing about them; a code owner still gets the
-    named files and the disposition line.
+    tells a session to settle them itself and say nothing about them -- a
+    code owner too, since 2026-11-02; only the sentence for work that cannot
+    be settled differs by reader.
 
     WHY. Morgan, 2026-10-12 (strength: decided): "Anything on the inner
     works of how BP works including things like file management, dealing
@@ -3889,7 +3881,8 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
         out = gate(False)
         cases.append(('not a code owner: settle it and say nothing about it',
                       'SAY NOTHING ABOUT IT' in out
-                      and 'never write a disposition line' in out, failure_detail(out, 1500)))
+                      and 'Never write a disposition line' in out
+                      and 'never a folder, a file' in out, failure_detail(out, 1500)))
         cases.append(('...and the disposition line is never offered',
                       '**Checkout disposition:** <name>' not in out, failure_detail(out, 1500)))
         cases.append(('...and every turn opens with the plain-words instruction, '
@@ -3901,9 +3894,17 @@ def check_archive_gate_keeps_inner_workings_from_non_owners():
                                                  'reason a reply was refused')),
                       out[:1500]))
         out = gate(True)
-        cases.append(('CONTROL: a code owner still gets the files and the '
-                      'disposition line', 'SAY NOTHING ABOUT IT' not in out
-                      and '**Checkout disposition:** <name>' in out, failure_detail(out, 1500)))
+        cases.append(('a code owner is told to settle it silently too, '
+                      'through the scanner, never a line in the reply '
+                      '(Morgan, 2026-11-02)', 'SAY NOTHING ABOUT IT' in out
+                      and '--discard NAME' in out
+                      and '**Checkout disposition:** <name>' not in out,
+                      failure_detail(out, 1500)))
+        cases.append(('CONTROL: only a code owner is told the first line names '
+                      'unfiled work and where',
+                      'says what is unfiled and where' in out
+                      and 'says what is unfiled and where' not in gate(False),
+                      failure_detail(out, 1500)))
         cases.append(('...and no plain-words instruction',
                       "NOT one of this repository's code owners" not in out, ''))
     finally:

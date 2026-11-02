@@ -49,9 +49,10 @@ that has not authorized work yet writes nothing, and this clause does not
 make it. The archive line's container check in [the-boildown](the-boildown.md)
 still decides whether a session may be archived, and since 2026-10-11 it
 reads every scratch folder as well as every git checkout: a file left in
-one holds the archive line until it is filed in a repository or given up
-by name (`**Checkout disposition:** scratch:<session> -- discard
-(reason)`). That check only runs at the close; this clause is what covers
+one holds the archive line until it is filed in a repository, deleted as
+the session's own throwaway output, or given up silently through the
+scanner (`precedent_container_safe.py --discard scratch:<session> --why
+...`), never in the reply (Morgan, 2026-11-02). That check only runs at the close; this clause is what covers
 the hours before it, when the work is sitting there and the person cannot
 tell where it is.
 
