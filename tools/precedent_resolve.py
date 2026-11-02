@@ -552,7 +552,9 @@ DEFAULT_INDIVIDUAL_NAME = 'precedent-individual'
 # The file a source carries at its root to say what it is: {"name", "level",
 # "visibility", "subject", "code"}. A consumer declares the name; the
 # resolver checks the clone at that path calls itself the same thing.
-SOURCE_MANIFEST = 'precedent-source.json'
+# The registry of per-set files names it (precedent_set_files.SET_FILES).
+from precedent_set_files import set_file as _set_file  # noqa: E402
+SOURCE_MANIFEST = _set_file('source_manifest')
 
 
 def check_source_name(level, name, where):

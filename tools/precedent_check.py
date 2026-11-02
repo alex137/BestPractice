@@ -169,6 +169,9 @@ import split_practices as sp
 # offset. Never a bare datetime.date.today(): that is the container's UTC.
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
+# The one registry of files read from a set's own folder
+# (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md).
+import precedent_set_files as _psf  # noqa: E402
 import generated_blocks  # noqa: E402
 try:                                     # practice: upstream-fix
     from precedent_repo_id import same_repo  # noqa: E402
@@ -1753,7 +1756,7 @@ def _sets_beside(root):
             continue
         for d in kids:
             if (d.name.lower().startswith('precedent-') and (d / 'practices').is_dir()
-                    and (d / 'reply_check.json').is_file()):
+                    and (d / _psf.set_file('reply_check')).is_file()):
                 found.setdefault(d.resolve(), d.resolve())
     return sorted(found.values())
 
@@ -2756,8 +2759,7 @@ def _copy_in_level_and_files():
         return None, None
     level = pr.declared_level(manifest)
     try:
-        import checkin
-        return level, list(checkin._files_rules_name(ROOT))
+        return level, list(_psf.files_rules_name(ROOT))
     except Exception:                              # practice: fail-gracefully
         # An engine vendored before checkin.py travelled: still a set, so
         # still judged, counting only tools/checks/ -- a `ships:` file and
@@ -3387,6 +3389,285 @@ def _vendoring_decided(ctx):
                          'it, or read it to use Precedent?')
             for rel in r.stdout.splitlines()
             if rel and checkin.vendoring_rule(rel) is None]
+
+
+# ---------------------------------------------------------------------------
+# The set-files registry (tools/precedent_set_files.py) and its three checks
+# (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md, 2026-11-01). A copy
+# of a shared set carries every file the engine reads from a set's folder;
+# these keep that list true at the three places it can go wrong: a new
+# reader in the engine, a copy in a consumer, a new file in a set.
+# ---------------------------------------------------------------------------
+
+SET_FILE_ALLOW = re.compile(r'#\s*set-file:\s*ok\b')
+
+
+def set_file_reads(text):
+    """-> [(line, path)] for every file or folder `text` (Python source)
+    reads from a practice source's own folder: a path joined with a string
+    literal, or a module-level string constant, onto an expression that
+    names a source's folder -- `X['path']`, `Path(X['path'])`,
+    `_declared_path(...)`, `repo / str(e['path'])` -- or onto a name bound
+    from one earlier in the same function. Bound names matter: the reply
+    check bound `root = pathlib.Path(s['path'])` and joined its file name a
+    line later, which a scan for the join alone would miss (plan review, 2).
+    A line carrying `# set-file: ok -- <reason>` is left out; a dot-name
+    (.git) is a clone's machinery, never a set file."""
+    import ast
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    consts = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    consts[t.id] = node.value.value
+
+    def literal(n):
+        if isinstance(n, ast.Constant) and isinstance(n.value, str):
+            return n.value
+        if isinstance(n, ast.Name):
+            return consts.get(n.id)
+        return None
+
+    def is_src(n, bound):
+        if isinstance(n, ast.Subscript):
+            s = n.slice
+            return isinstance(s, ast.Constant) and s.value == 'path'
+        if isinstance(n, ast.Name):
+            return n.id in bound
+        if isinstance(n, ast.Call):
+            f = n.func
+            name = f.attr if isinstance(f, ast.Attribute) else getattr(f, 'id', '')
+            if name == '_declared_path':
+                return True
+            if name == 'resolve' and isinstance(f, ast.Attribute):
+                return is_src(f.value, bound)
+            if name in ('Path', 'PurePosixPath', 'str') and n.args:
+                return is_src(n.args[0], bound)
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div):
+            return literal(n.right) is None and is_src(n.right, bound)
+        return False
+
+    lines = text.splitlines()
+    found = set()
+    scopes = [tree] + [n for n in ast.walk(tree)
+                       if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    for scope in scopes:
+        if scope is tree:
+            nodes = [n for stmt in tree.body
+                     if not isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                              ast.ClassDef))
+                     for n in ast.walk(stmt)]
+        else:
+            nodes = list(ast.walk(scope))
+        bound = set()
+        for _ in range(3):          # a chain of bindings settles in a few passes
+            for n in nodes:
+                if isinstance(n, ast.Assign) and is_src(n.value, bound):
+                    bound |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+        lefts = {id(n.left) for n in nodes
+                 if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div)}
+        for n in nodes:
+            rel = None
+            if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div) \
+                    and id(n) not in lefts:
+                chain, cur = [], n
+                while isinstance(cur, ast.BinOp) and isinstance(cur.op, ast.Div) \
+                        and literal(cur.right) is not None:
+                    chain.append(literal(cur.right))
+                    cur = cur.left
+                if chain and is_src(cur, bound):
+                    rel = '/'.join(reversed(chain))
+                elif isinstance(cur, ast.BinOp) and isinstance(cur.op, ast.Div):
+                    # a non-literal step mid-chain: judge the inner join alone
+                    pass
+            elif isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) \
+                    and n.func.attr == 'joinpath' and n.args \
+                    and is_src(n.func.value, bound) and literal(n.args[0]) is not None:
+                rel = literal(n.args[0])
+            if not rel or rel.startswith('.'):
+                continue
+            ln = getattr(n, 'lineno', 0)
+            if 0 < ln <= len(lines) and SET_FILE_ALLOW.search(lines[ln - 1]):
+                continue
+            found.add((ln, rel))
+    # an inner join inside a chain whose base is not a source is not a read
+    return sorted(found)
+
+
+@check('set-file-registered', 'tree',
+       "every file an engine tool in tools/ reads from a practice source's "
+       "own folder is listed in tools/precedent_set_files.py's SET_FILES, so "
+       "a copy of a set carries it",
+       'a read built at run time from a computed name, or through a helper '
+       'several calls away; the audit-hook harness case runs the readers '
+       'against a fixture set for those',
+       practice_backed=False,
+       selects_on=('tools/*.py',))
+def _set_file_registered(ctx):
+    """2026-11-01: the copier's hand-kept list of two names missed a third
+    reader (our_language.json) the day it was written, and a voice
+    repository's copy of the ladder set never carried the set's words.
+    Only the engine's own repository writes readers; a consumer runs a
+    vendored engine and has nothing to register."""
+    # A vendored engine (tools/ENGINE_MANIFEST.json) is every repository but
+    # the engine's own, as vendoring-decided reads it.
+    if (ROOT / 'tools' / 'ENGINE_MANIFEST.json').is_file():
+        raise NotApplicable('only the engine\'s own repository writes readers')
+    out = []
+    for f in sorted((ROOT / 'tools').glob('*.py')):
+        if f.name.startswith('test_') or f.name == 'precedent_set_files.py':
+            continue
+        try:
+            text = f.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for ln, rel in set_file_reads(text):
+            if not _psf.registered(rel):
+                out.append(Finding(
+                    f'tools/{f.name}:{ln}',
+                    f'reads {rel!r} from a source\'s own folder, and '
+                    f'tools/precedent_set_files.py\'s SET_FILES does not list '
+                    f'it, so a copy of a set never carries it and what it '
+                    f'declares silently stops applying where the copy is the '
+                    f'source. Register it there (copy: ship, stays, '
+                    f'individual or universal, with why), and take the name '
+                    f'from set_file(); a join that is not a set file takes '
+                    f'`# set-file: ok -- <reason>` on its line'))
+    return out
+
+
+def _set_clone(entry):
+    """-> the set's own clone on this machine for a copied-in source
+    `entry`, or None: beside the individual set, then wherever sessions
+    clone to (the lookup Update Vendors' copy refresh makes)."""
+    try:
+        import precedent_resolve as pr
+        ind = pr.person_individual_path()
+        brought = {b['name']: pathlib.Path(b['path'])
+                   for b in (pr.brought_sources(ind, warn=False) if ind else [])}
+        clone = brought.get(entry.get('name'))
+        if clone is None or not (clone / '.git').exists():
+            clone = pr.clone_elsewhere(
+                entry.get('name'), str(ROOT / str(entry.get('path'))),
+                any_clone=True, repo=entry.get('repo'),
+                near=[ind.resolve().parent] if ind else ())
+    except Exception:                                         # noqa: BLE001
+        return None
+    if clone is None or not (pathlib.Path(clone) / '.git').exists():
+        return None
+    return pathlib.Path(clone)
+
+
+@check('set-copy-complete', 'tree',
+       "every whole copy of a shared set this repository keeps holds each "
+       "file tools/precedent_set_files.py registers that the set held at the "
+       "commit the copy records, byte for byte",
+       'a copy made before the registry (an advisory naming what the next '
+       'Update Vendors fills, never a finding), a copy taken for its exports '
+       'alone (it takes none of these by design), a file precedent.json\'s '
+       'kept_template_divergences keeps (named as kept), and a copy whose '
+       'recorded commit no clone here holds (checked for presence against '
+       'the record only, and said so)',
+       practice_backed=False,
+       selects_on=('process/manifest_*.json', 'process/*/*.json',
+                   'precedent.json'))
+def _set_copy_complete(ctx):
+    """2026-11-01: a voice repository's copy of the ladder set lacked the
+    set's reply rules and its words, and nothing said so. A copy made by an
+    older engine, or edited by hand, shows up here between updates."""
+    try:
+        cfg = json.loads((ROOT / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('no precedent.json here')
+    entries = [e for e in (cfg.get('sources') or [])
+               if isinstance(e, dict) and e.get('vendored') is True
+               and e.get('name') and e.get('path')
+               and e.get('exports_only') is not True]
+    if not entries:
+        raise NotApplicable('this repository keeps no whole copy of a set')
+    out, notes = [], []
+    for e in entries:
+        got = _psf.copy_completeness(ROOT, e, _set_clone(e))
+        where = f"process/manifest_{e['name']}.json"
+        if got['state'] == 'incomplete':
+            out.append(Finding(where, got['note']))
+        elif got['state'] in ('predates', 'unverified'):
+            notes.append(got['note'])
+        for rel, why in got['kept']:
+            notes.append(f"{e['path']}/{rel} is kept as this repository "
+                         f"changed it ({why})")
+    if not out and notes:
+        raise NotApplicable('; '.join(notes))
+    return out
+
+
+def _set_files_first_run():
+    """True until a practice set's Update Vendors with the set-files
+    registry has made set-file-decided strict there: before its first one,
+    and after a first one that only noted undecided files ("noted <date>"),
+    so neither that update nor the push landing it stops on the rule (plan,
+    second review, 3)."""
+    try:
+        m = json.loads((ROOT / 'tools' / 'ENGINE_MANIFEST.json').read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        return True
+    held = str(m.get(_psf.DECIDED_MARKER_KEY) or '')
+    return not held or held.startswith(_psf.DECIDED_NOTED)
+
+
+@check('set-file-decided', 'tree',
+       "every top-level file of a shared practice set is decided: a file the "
+       "engine reads (registered in tools/precedent_set_files.py), its "
+       "practices/ or precedent-source.json, a file a rule names or the set "
+       "exports, one every set repository keeps for itself, or kept home "
+       "under precedent-source.json's `stays` with a reason; and its "
+       "precedent.json declares no `adapters`, which a copy never carries",
+       'whether a decision is RIGHT; anything below the top level; an '
+       'individual set, which is never copied; the set\'s first Update '
+       'Vendors with this engine, where an undecided file is a note',
+       practice_backed=False,
+       selects_on=('*', 'precedent-source.json', 'precedent.json'))
+def _set_file_decided(ctx):
+    """The set-side twin of vendoring-decided (2026-11-01). A set author who
+    adds a new kind of file a copy ought to carry hears about it here,
+    before a consumer's copy silently lacks it."""
+    try:
+        manifest = json.loads((ROOT / _psf.set_file('source_manifest')).read_text(
+            encoding='utf-8'))
+    except (OSError, ValueError):
+        raise NotApplicable('not a practice set (no precedent-source.json)')
+    level = _declared_level(manifest)
+    if level != 'shared':
+        raise NotApplicable(f'a {level or "undeclared"} set: only a shared set is '
+                            f'copied into other repositories')
+    undecided, adapters, loose = _psf.set_file_decisions(ROOT)
+    out = [Finding(name, f'{name} is a top-level entry of this set that nothing '
+                         f'decides: does a copy of the set need it? Ship it '
+                         f'(register it in BestPractice\'s '
+                         f'tools/precedent_set_files.py, or name it from a '
+                         f'rule) or keep it home: add "{name}": "<why>" under '
+                         f'"stays" in precedent-source.json')
+           for name in undecided]
+    out += [Finding('precedent-source.json', f'"stays" line {line}')
+            for line in loose]
+    if adapters:
+        out.append(Finding('precedent.json',
+                           'declares `adapters`, and precedent.json stays home: '
+                           'a copy of this set never carries it, so the adapters '
+                           'reach nobody who copies the set in. Move the '
+                           'declaration to precedent-source.json, or drop it'))
+    if out and _set_files_first_run():
+        raise NotApplicable(
+            'Update Vendors with the set-files registry has not made this strict '
+            'here yet (the first one notes, the next one turns it on), so this is a note: ' + '; '.join(
+                f'{f.where}: {f.detail}' for f in out))
+    return out
 
 
 def _vendored_trees():

@@ -692,6 +692,11 @@ ENGINE_FILES = [
     # named 'precedent_reply_check')" on every single turn. Reproduced in a
     # stripped vendor tree before this line was added.
     'precedent_reply_check.py',
+    # The registry of files the engine reads from a set's own folder, which
+    # the reply check, close detection, the vocabulary list, the resolver and
+    # the set copier all take their names from (2026-11-01,
+    # spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md). Imports nothing.
+    'precedent_set_files.py',
     # The one predicate in that file that looks at the DISK rather than at
     # the reply (2026-09-22): does this container hold work that exists
     # nowhere else? It travels for the same reason the reply check itself
@@ -2532,6 +2537,19 @@ def _write_engine_files(dest_tools, engine_dir, source_commit, kind=DEFAULT_KIND
                   "and refused without --force."),
     }
     manifest_path = dest_tools / MANIFEST_NAME
+    # A practice set's own record that its first Update Vendors with the
+    # set-files registry has run, after which set-file-decided is strict
+    # there (precedent_set_files.DECIDED_MARKER_KEY). Kept across a refresh:
+    # rewritten from scratch, the manifest dropped it, and the set's check
+    # went back to advisory on every update.
+    try:
+        import precedent_set_files as _psf
+        held = json.loads(manifest_path.read_text(encoding='utf-8')).get(
+            _psf.DECIDED_MARKER_KEY)
+        if held:
+            manifest[_psf.DECIDED_MARKER_KEY] = held
+    except (OSError, ValueError, AttributeError, ImportError):
+        pass
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n',
                              encoding='utf-8')
     written.append(manifest_path)
@@ -10541,6 +10559,29 @@ def newest_passed_main(clone, tip, pb=None, window=PASSED_WINDOW):
     return None, len(commits)
 
 
+def _write_missing_engine_files(clone, kind, ref, dest_tools):
+    """Write each file of `kind`'s list that `dest_tools` lacks, from the
+    commit this refresh takes, and -> their names. Only a file that is not
+    there: one on disk is the later write's to judge (drift, a hand edit),
+    so nothing here can overwrite work."""
+    missing = [n for n in KINDS.get(kind, ()) if not (dest_tools / n).exists()]
+    if not missing:
+        return []
+    try:
+        _c, engine_dir = _source_tools_at(clone, kind, ref=ref, fetch=False)
+    except SystemExit:
+        return []
+    written = []
+    try:
+        for name in missing:
+            if (engine_dir / name).is_file():
+                shutil.copy2(engine_dir / name, dest_tools / name)
+                written.append(name)
+    finally:
+        shutil.rmtree(engine_dir, ignore_errors=True)
+    return written
+
+
 def refresh(clone, force=False, ref=None, take_anyway=False):
     """`ref`, when given, names the exact commit or ref inside `clone` to
     vendor from, instead of resolving FOLLOWED_BRANCH there.
@@ -10559,6 +10600,15 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
     kind = manifest.get('kind', DEFAULT_KIND)  # older manifests predate 'kind' -- 'source'
     # False only in a second pass whose first pass handed nothing over.
     handed_over = _take_carried_left() is not False
+    # In a second pass, what the new file list adds is written first: the
+    # first pass ran the older list, so a module the new engine imports may
+    # not be on disk yet, and the sweeps below import the engine's own
+    # modules (precedent_check, for an approved workflow). Rehearsed
+    # 2026-11-01: with tools/precedent_set_files.py new, precedent_check
+    # did not import there, every approved workflow read as unapproved, and
+    # a voice repository's update stopped on three it had approved.
+    if os.environ.get(_SECOND_PASS_ENV):
+        _write_missing_engine_files(clone, kind, ref, dest_tools)
 
     # Before anything else, including the drift check below: a retired CI
     # workflow entry is cleaned up unconditionally, --force or not, so its
