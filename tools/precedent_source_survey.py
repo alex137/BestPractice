@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Should this repo declare a practice set it doesn't, or drop one it does? -- every repository the session can reach, read and given a verdict
+"""Should this repo declare a practice set it doesn't, or drop one it does? -- the sources in force and the clones already here, read and given a verdict; nothing attached
 
 precedent_source_survey.py -- vendor-update-runbook step 9, as a tool.
 
+    python3 tools/precedent_source_survey.py
     python3 tools/precedent_source_survey.py --candidate OWNER/NAME [...]
-    python3 tools/precedent_source_survey.py --repo PATH --candidate ...
+    python3 tools/precedent_source_survey.py --repo PATH
 
 WHY IT EXISTS (2026-11-01). Step 9 was prose: "list the practice sets this
 account can reach, read each one's subject, and compare with precedent.json".
@@ -15,12 +16,21 @@ nothing said so. The person had to ask. A step a session can skip without
 anything noticing is a step that gets skipped (practice:
 checkable-gets-checked).
 
-THE CANDIDATES COME FROM THE SESSION. A hosted session learns which
-repositories its account reaches from the `list_repos` tool, which no script
-can call, so each one is passed in with `--candidate OWNER/NAME`. Every
-source this repo already has in force is surveyed too, candidate or not.
+WHAT IT LOOKS AT (2026-11-02). Only what is already here: every source in
+force in this repo, and every clone already sitting beside it (`../NAME`,
+or `../OWNER/NAME`), found by its origin. Until that day the runbook passed
+every repository the account reaches, from list_repos, and told the
+session to attach and clone each one the survey had no clone of. In one
+session that was most of the account; the auto-mode classifier and the
+reach-or-ask hook blocked the sweep, and Morgan: "When I update vendors it
+should just be for the repo that the session is rooted in or that I
+explicitly ask to be updated." So this tool takes no reach list. A
+repository the person names goes in with `--candidate OWNER/NAME`, and only
+that one is ever attached and cloned when it is missing. The last line of
+the report says what was not looked at, so a repository the survey never
+saw is never passed off as checked.
 
-WHAT IT READS. For each candidate, a clone on disk: the path of a source in
+WHAT IT READS. For each repository, a clone on disk: the path of a source in
 force whose origin is that repository, else `../NAME` or `../OWNER/NAME`
 beside this repo, in any capitalization, checked against the clone's origin
 (precedent_repo_id; case never decides). Inside it, `precedent-source.json`
@@ -36,16 +46,15 @@ ONE LINE PER REPOSITORY, each with its verdict:
     SHOULD ADD?      a practice set not in force here; its subject is printed,
                      for the session to judge against what this repo does
     SHOULD DROP?     a declared set that says it is retired (the update drops
-                     it itself once no rule would be lost), or one the
-                     candidate list -- the account's reach -- no longer holds
-    NOT ON DISK      no clone found, so it was NOT checked: attach it
-                     read-only, clone it beside this repo, run this again
+                     it itself once no rule would be lost)
+    NOT ON DISK      a repository the person named, or a source this repo
+                     declares, with no clone here, so it was NOT checked
 
-NOT ON DISK is the failure this exists to stop: an unchecked repository is
-not a passing one, so the exit status is 1 while any remain. A SHOULD ADD?
-or SHOULD DROP? is a finding with a recommendation, never an open question
-to the person (the-boildown); it exits 0, because it is judged, not fixed by
-running anything.
+The exit status is 1 while any NOT ON DISK row remains: each one is a
+repository somebody asked about, so an unchecked one is not a pass. A
+SHOULD ADD? or SHOULD DROP? is a finding with a recommendation, never an
+open question to the person (the-boildown); it exits 0, because it is
+judged, not fixed by running anything.
 """
 import argparse
 import json
@@ -212,14 +221,51 @@ def _declared_files_only(root, spec):
     return None
 
 
-def survey(repo, candidates=(), user_config=None):
-    """-> [row]: one per candidate and per source in force, each
-    {repo, verdict, detail}. Never raises on one repository's trouble: a
-    row says what could not be read."""
+def clones_beside(root):
+    """-> [(OWNER/NAME, path)] for every git clone already beside `root`:
+    `../NAME`, and `../OWNER/NAME` under a folder that is not itself a
+    clone. Read from disk only; nothing is listed, attached or cloned."""
+    root = pathlib.Path(root).resolve()
+    out = []
+
+    def take(d):
+        o = origin_of(d)
+        spec = rid.owner_repo(o) if o else ''
+        if spec:
+            out.append((spec, d))
+        return bool(o)
+    try:
+        kids = sorted(c for c in root.parent.iterdir() if c.is_dir())
+    except OSError:
+        return out
+    for c in kids:
+        if c.resolve() == root or c.name.startswith('.'):
+            continue
+        if (c / '.git').exists():
+            take(c)
+            continue
+        try:
+            for g in sorted(x for x in c.iterdir() if x.is_dir()):
+                if g.resolve() != root and (g / '.git').exists():
+                    take(g)
+        except OSError:
+            pass
+    return out
+
+
+def survey(repo, candidates=(), user_config=None, beside=True):
+    """-> [row]: one per source in force, per clone already beside this
+    repo (`beside`), and per repository the person named (`candidates`),
+    each {repo, verdict, detail}. Never raises on one repository's trouble:
+    a row says what could not be read. Reads disk only."""
     root = pathlib.Path(repo).resolve()
     here_origin = origin_of(root)
     sources = in_force_sources(root, user_config=user_config)
     rows, seen = [], []
+    on_disk = dict(clones_beside(root)) if beside else {}
+    candidates = list(candidates) + [s for s in on_disk
+                                     if not any(rid.same_repo(s, c)
+                                                for c in candidates)]
 
     def matches_source(spec):
         for s in sources:
@@ -257,7 +303,7 @@ def survey(repo, candidates=(), user_config=None):
                                    f'(exports_only): its exported files are '
                                    f'copied in, its rules are not in force here'})
             continue
-        clone = find_clone(spec, root)
+        clone = on_disk.get(spec) or find_clone(spec, root)
         name = rid.parse(spec).name if rid.parse(spec) else spec
         taken = [c for c in _children(root.parent, name) if origin_of(c)]
         if clone is None and taken:
@@ -270,9 +316,10 @@ def survey(repo, candidates=(), user_config=None):
             continue
         if clone is None:
             rows.append({'repo': spec, 'verdict': 'NOT ON DISK',
-                         'detail': f'no clone of it beside this repo, so it '
-                                   f'was NOT checked: attach it read-only, '
-                                   f'clone it to {root.parent}/'
+                         'detail': f'named, but there is no clone of it '
+                                   f'beside this repo, so it was NOT checked: '
+                                   f'because the person named it, attach it '
+                                   f'read-only, clone it to {root.parent}/'
                                    f'{rid.parse(spec).name if rid.parse(spec) else spec}, '
                                    f'and run this again'})
             continue
@@ -301,17 +348,12 @@ def survey(repo, candidates=(), user_config=None):
         if p.resolve() == root:
             continue
         label = rid.owner_repo(source_origin(root, s)) if p.is_dir() else ''
+        # A declared set with no clone stays NOT ON DISK, never SHOULD
+        # DROP? for being absent: that inference needed the account's whole
+        # reach as the candidate list, which this tool no longer takes
+        # (2026-11-02), and lost access to a private repository reads the
+        # same as a deleted one.
         row = _row_for_source(label or s.get('repo') or s['name'], s)
-        if candidates and s.get('declared') and not p.is_dir():
-            # Declared, no clone, and not among the repositories the account
-            # reaches: the one case the survey can call a drop. Lost access
-            # to a private repository reads the same, so it stays a question
-            # with a recommendation, never a removal.
-            row['verdict'] = 'SHOULD DROP?'
-            row['detail'] = (f'declared in precedent.json, but there is no '
-                             f'clone at {p} and the account\'s repositories '
-                             f'(--candidate) do not include it. Drop it if it '
-                             f'is gone; if access was lost, get it back first')
         rows.append(row)
     return rows
 
@@ -364,10 +406,11 @@ def report(rows, out=sys.stdout):
           f'{"y" if len(rows) == 1 else "ies"} surveyed, {len(finds)} '
           f'finding(s) to judge, {len(unchecked)} NOT checked (an unchecked '
           f'repository is not a passing one).', file=out)
-    if not rows:
-        print('precedent_source_survey: nothing to survey -- pass each '
-              'repository the account reaches with --candidate OWNER/NAME '
-              '(in a hosted session, from list_repos).', file=out)
+    print('precedent_source_survey: only this repo\'s sources and the clones '
+          'already beside it were surveyed; repositories not cloned here were '
+          'not looked at, and Update Vendors attaches none. Name one with '
+          '--candidate OWNER/NAME, or say "Update All Vendors", to reach '
+          'further.', file=out)
 
 
 def main(argv=None):
@@ -391,11 +434,6 @@ def main(argv=None):
               file=sys.stderr)
         return 2
     report(rows)
-    if not args.candidate:
-        print('precedent_source_survey: no --candidate given, so only the '
-              'sources already in force were read. Step 9 is not done until '
-              'every repository the account reaches is passed in.')
-        return 1
     return 1 if any(r['verdict'] == 'NOT ON DISK' for r in rows) else 0
 
 

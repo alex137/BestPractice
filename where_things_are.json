@@ -318,8 +318,8 @@
       "go_to": "[tools/precedent_source_names.py](tools/precedent_source_names.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 8; `UNVERIFIED` is not a pass"
     },
     {
-      "looking_for": "Whether a repository should declare a practice set it doesn't, or drop one it does — every repository the account reaches, read and given a verdict",
-      "go_to": "[tools/precedent_source_survey.py](tools/precedent_source_survey.py), run at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 9 with `--candidate OWNER/NAME` per repository; `NOT ON DISK` is not a pass"
+      "looking_for": "Whether a repository should declare a practice set it doesn't, or drop one it does — the sources in force and the clones already here, read and given a verdict",
+      "go_to": "[tools/precedent_source_survey.py](tools/precedent_source_survey.py), run bare at [vendor-update-runbook](practices/vendor-update-runbook.md)'s step 9: this repo's sources and the clones already beside it, nothing attached; `--candidate OWNER/NAME` only for a repository the person named"
     },
     {
       "looking_for": "Whether a document project's contributor boundary is actually ON — branch protection shaped as the plan needs, and a CODEOWNERS file to give it something to require; UNVERIFIED when it could not ask GitHub, which is not a pass",
