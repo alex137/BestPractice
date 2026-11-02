@@ -1133,12 +1133,30 @@ def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
     twice = [t for t in tools if pve.CONSUMER_ENGINE_FILES.count(t) != 1]
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-steps-'))
     try:
-        (tmp / 'precedent.json').write_text(json.dumps(
-            {'sources': [{'level': 'shared', 'name': 'x', 'path': '../x'}]}),
+        # The fixture owns its user config (practice: fixture-owns-its-state):
+        # one with no individual source, and one whose individual source is
+        # a separate repository, because step 8 checks every source IN FORCE,
+        # not only the declared ones (2026-11-02: a session passed only the
+        # declared names and two sources came back UNVERIFIED).
+        bare_user = tmp / 'user-none.json'
+        bare_user.write_text(json.dumps({'format_version': 1}), encoding='utf-8')
+        ind_user = tmp / 'user-ind.json'
+        ind_user.write_text(json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(tmp / 'ind'),
+            'repo_url': 'https://github.com/someone/precedent-individual'}}),
             encoding='utf-8')
-        lines = '\n'.join(pu.source_steps_lines(tmp))
-        (tmp / 'precedent.json').write_text(json.dumps({}), encoding='utf-8')
-        none = '\n'.join(pu.source_steps_lines(tmp))
+        (tmp / 'ind' / 'practices').mkdir(parents=True)
+        repo = tmp / 'repo'   # the individual clone sits beside it, not in it
+        repo.mkdir()
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'sources': [{'level': 'shared', 'name': 'x', 'path': '../x',
+                          'repo': 'https://github.com/someone/x'}]}),
+            encoding='utf-8')
+        lines = '\n'.join(pu.source_steps_lines(repo, user_config=bare_user))
+        with_ind = '\n'.join(pu.source_steps_lines(repo, user_config=ind_user))
+        (repo / 'precedent.json').write_text(json.dumps({}), encoding='utf-8')
+        none = '\n'.join(pu.source_steps_lines(repo, user_config=bare_user))
+        ind_only = '\n'.join(pu.source_steps_lines(repo, user_config=ind_user))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     step9 = [l for l in lines.splitlines() if l.strip().startswith('9.')]
@@ -1149,15 +1167,23 @@ def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
                # account's whole reach, or tells it to attach a source.
                and step9 and 'list_repos' not in step9[0]
                and 'account reaches' not in step9[0]
-               and step8 and 'attach nothing' in step8[0]
-               and 'not applicable: this repo declares no sources' in none
+               # step 8 runs to two lines now: the command, then its note
+               and step8 and 'attach nothing' in lines.split('  9.')[0]
+               and '--canonical someone/x' in step8[0]
+               and 'declared source' not in lines
+               and '--canonical someone/x' in with_ind
+               and '--canonical someone/precedent-individual' in with_ind
+               and '--canonical someone/precedent-individual' in ind_only
+               and 'not applicable: no source in force' in none
                and 'precedent_source_survey.py' in none)
     check('steps 7, 8 and 9\'s tools are in the shared ENGINE_FILES, so a '
           'practice set vendors them, and DONE names each step\'s command '
-          '(step 8 not applicable only where no source is declared)',
+          '(step 8 printed whole, one --canonical per source in force, the '
+          'individual set\'s included)',
           not missing and not twice and done_ok,
           f'not in ENGINE_FILES: {missing}; not once in CONSUMER_ENGINE_FILES: '
-          f'{twice}; DONE lines: {lines!r} / {none!r}')
+          f'{twice}; DONE lines: {lines!r} / {with_ind!r} / {none!r} / '
+          f'{ind_only!r}')
 
 
 def _raw_level_comparisons(text):

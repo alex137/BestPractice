@@ -3669,9 +3669,16 @@ def live_line(repo):
 # it at its word and tried to attach most of the account. Morgan: "When I
 # update vendors it should just be for the repo that the session is rooted
 # in or that I explicitly ask to be updated." Steps 8 and 9 attach nothing.
-def source_steps_lines(repo):
+def source_steps_lines(repo, user_config=None):
     """-> the lines DONE prints naming the commands for runbook steps 7, 8
-    and 9 in `repo`; [] when it cannot be read."""
+    and 9 in `repo`; [] when it cannot be read.
+
+    Step 8 is printed whole, one --canonical per source IN FORCE -- the
+    repo's declared sources plus what the person's individual set brings
+    in, which is what precedent_source_names.py checks. It used to say "per
+    declared source", and a session that took that at its word left the
+    individual source and its shared set UNVERIFIED (2026-11-02).
+    `user_config` exists for fixtures (practice: fixture-owns-its-state)."""
     if repo is None:
         return []
     try:
@@ -3681,6 +3688,12 @@ def source_steps_lines(repo):
         declares = bool(cfg.get('sources')) if isinstance(cfg, dict) else False
     except (OSError, ValueError):
         declares = False
+    try:
+        import precedent_source_names as _psn
+        names, unnamed = _psn.names_in_force(repo, user_config=user_config)
+        read = True
+    except Exception:                                        # noqa: BLE001
+        names, unnamed, read = [], [], False
 
     def cmd(tool):
         here = pathlib.Path(repo) / 'tools' / tool
@@ -3688,12 +3701,23 @@ def source_steps_lines(repo):
                 else f'python3 {HERE.parent / tool} --repo .')
     out = ["STEPS 7 TO 9 (vendor-update-runbook), after the commit:",
            f"  7. {cmd('precedent_source_credentials.py')}"]
-    if declares:
+    if names or unnamed:
+        flags = ''.join(f' --canonical {n}' for n in names)
+        out.append(f"  8. {cmd('precedent_source_names.py')}{flags}")
+        out.append("     (one --canonical per source in force, the individual "
+                   "set's included; confirm each name against list_repos "
+                   "first and pass GitHub's spelling; attach nothing)")
+        if unnamed:
+            out.append(f"     no GitHub name could be read for "
+                       f"{', '.join(unnamed)}: add it from list_repos")
+    elif declares or not read:
         out.append(f"  8. {cmd('precedent_source_names.py')}   (pass "
-                   f"--canonical OWNER/NAME per declared source, read from "
-                   f"list_repos; attach nothing)")
+                   f"--canonical OWNER/NAME for every source in force -- "
+                   f"every source the tool lists -- read from list_repos; "
+                   f"attach nothing)")
     else:
-        out.append("  8. not applicable: this repo declares no sources")
+        out.append("  8. not applicable: no source in force here is a "
+                   "separate repository")
     out.append(f"  9. {cmd('precedent_source_survey.py')}   (this repo's "
                f"sources and the clones already beside it; add --candidate "
                f"OWNER/NAME only for a repository the person named. Never "
