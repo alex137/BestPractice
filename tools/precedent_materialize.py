@@ -80,6 +80,9 @@ import precedent_resolve as pr  # noqa: E402
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import precedent_time  # noqa: E402
 import precedent_source_pins as psp  # noqa: E402
+# The files read from a source's own folder, by the one registry a copy of a
+# set is built from (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md).
+from precedent_set_files import set_file as _set_file  # noqa: E402
 
 
 
@@ -994,7 +997,7 @@ def _plan_adapters(sources):
     plan, missing = [], []
     for s in sources:
         root = pathlib.Path(s['path'])
-        cfg = root / 'precedent.json'
+        cfg = root / _set_file('precedent_json')
         if not cfg.is_file():
             continue
         try:
@@ -2230,7 +2233,7 @@ def _with_owner(entry, source, written):
     try:
         import precedent_identity as _pid
         ident = _pid.read_identity_file(
-            pathlib.Path(source['path']) / 'identity.json') or {}
+            pathlib.Path(source['path']) / _set_file('identity')) or {}
     except Exception:                                         # noqa: BLE001
         ident = {}
     if not ident.get('github'):

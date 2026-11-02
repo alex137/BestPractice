@@ -10,7 +10,7 @@ gates:       ["merge"]
 gates_why:   "An update lands as a merge, and the merge is the last moment the sequence can still be checked before it is someone else's committed history."
 index_clause: "source clone first, both layers move separately, then merge"
 checked_by:  null
-defines:     ["Update Vendors"]
+defines:     ["Update Vendors", "BP"]
 command:     {"Update Vendors": "Pull in the latest version of the shared rules from the project they come from, stopping only for the decisions that are yours to make, and publish the result -- the merge is part of the phrase. Say it as \"Update Vendors and merge\": Claude Code's auto mode lets a merge through only when your own words name it."}
 status:      active
 in_force_at: null
@@ -96,7 +96,12 @@ what it wrote.
   you made after the failure is refused until you commit it.
 
 Every copied-in set and every file a source exports is refreshed; a
-repository freezes one only by its own `"hold": "<why>"`. **A new copy
+repository freezes one only by its own `"hold": "<why>"`. **A whole copy
+carries every file the engine reads from a set's folder** (the registry in
+[tools/precedent_set_files.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_set_files.py)):
+one missing or different from the set at the copied commit is left for
+you, never DONE, and the first update with that engine adds what an older
+copy lacked, one line per file (2026-11-01). **A new copy
 between repositories is added only as a declared source**, never by a sync
 script. Where `precedent.json` says `"update_full_check": "after"`, start
 the [precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
@@ -260,6 +265,13 @@ investigate** ("A refusal naming a file upstream no longer has").
 
 ## Detail
 Everything under the headings below was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+
+**BP is BestPractice**, the repository this update copies the engine and the
+universal catalogue from, and the short name people use for it in every
+repository. It is defined here, once, so every repository's generated
+glossary carries it and nobody has to spell it out in each document
+(2026-11-01: a quotation that said "BP [BestPractice]" failed a Produce, and
+one repository had added BP to its own glossary by hand).
 
 ### The phrase, the merge and auto mode
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the

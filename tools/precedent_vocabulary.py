@@ -60,6 +60,9 @@ sys.path.insert(0, str(HERE))
 
 import split_practices as sp                                   # noqa: E402
 import build_views as bv                                       # noqa: E402
+# A set's own words file, by the registry a copy of the set is built from.
+from precedent_set_files import set_file as _set_file           # noqa: E402
+SET_WORDS = _set_file('our_language')
 
 try:
     import our_language as ol                                  # noqa: E402
@@ -128,14 +131,14 @@ def all_words(root=ROOT):
     for src in sources:
         if pr.declared_level(src) == 'universal':
             continue
-        reg = pathlib.Path(src['path']) / 'our_language.json'
+        reg = pathlib.Path(src['path']) / SET_WORDS
         if not reg.is_file():
             continue
         where = f"{src['level']}/{src['name']}"
         try:
             got = ol.load(reg) if ol is not None else []
         except (SystemExit, OSError, ValueError) as e:
-            notes.append(f"{where}'s our_language.json could not be read ({e})")
+            notes.append(f"{where}'s {SET_WORDS} could not be read ({e})")
             continue
         for word, meaning in got:
             k = word.lower()
