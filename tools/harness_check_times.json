@@ -42,6 +42,7 @@
   "check_agents_templates_repeat_no_practice_text": 0.3,
   "check_alerting_test_is_listed_as_a_test": 0.1,
   "check_all_workflows_disclosed": 0.0,
+  "check_allow_list_answer_is_recorded_and_reminded": 0.1,
   "check_answer_first_gate_holds_a_change_until_the_question_is_answered": 4.5,
   "check_archive_check_sees_work_left_in_a_scratch_folder": 5.6,
   "check_archive_gate_keeps_inner_workings_from_non_owners": 3.5,

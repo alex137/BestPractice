@@ -214,6 +214,21 @@ def dependency_order(repos, upstreams):
 
 QUESTIONS_MARK = 'QUESTIONS FOR THE PERSON -- '
 OPTIONAL_MARK = 'the update is complete without these'
+# precedent_update.ALLOW_LIST_MARK and the line under it naming the sentence.
+ALLOW_LIST_MARK = 'ALLOW-LIST CHANGE WAITING ON THE PERSON'
+ALLOW_LIST_SAYS = 'To approve it, the person says, in these words: '
+
+
+def _allow_list_sentence(out):
+    """-> the sentence an update's allow-list reminder asks the person to
+    say, or '' when it printed none."""
+    if ALLOW_LIST_MARK not in out:
+        return ''
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith(ALLOW_LIST_SAYS):
+            return line[len(ALLOW_LIST_SAYS):].strip().strip('"')
+    return ''
 NOTE_WORDS = 'COMMIT MESSAGE: say this in it, in these words: '
 NOTE_FILES = 'COMMIT MESSAGE: name each of these in it -- '
 
@@ -282,8 +297,10 @@ def _branch_name(clone_dir):
     return r.stdout.strip().splitlines()[-1]
 
 
-def run_one(repo, work, args):
-    """-> the outcome word, after printing one line for `repo`."""
+def run_one(repo, work, args, waiting_on_allow=None):
+    """-> the outcome word, after printing one line for `repo`. A repository
+    whose update offered the allow-list change and did not get it is added to
+    `waiting_on_allow` as (repo, sentence)."""
     dest = work / norm(repo).replace('/', '_')
     log = work / (dest.name + '.log')
     started = time.time()
@@ -320,6 +337,7 @@ def run_one(repo, work, args):
         out = r.stdout + r.stderr
         log.write_text(out, encoding='utf-8')
         result['moved'] = moved_off_pin(out)
+        result['allow_list'] = _allow_list_sentence(out)
         outcome = _outcome(r.returncode, out, dest)
         if outcome != 'ASK':
             result['questions'] = _questions(out)[0]
@@ -355,6 +373,8 @@ def run_one(repo, work, args):
     print(f'{outcome:8} {repo}{extra}{where}  ({secs}s)', flush=True)
     if result.get('moved'):
         print(f'         SOURCE for {repo}: {result["moved"]}', flush=True)
+    if result.get('allow_list') and waiting_on_allow is not None:
+        waiting_on_allow.append((repo, result['allow_list']))
     for question in result.get('questions', []):
         # Optional, so they held nothing back, and still the person's to
         # answer: the session passes them up.
@@ -438,6 +458,7 @@ def main(argv=None):
         print('ORDER    ' + ' -> '.join(repos) + '  (a repository runs after '
               'every one here it copies a source from)', flush=True)
     total, began, counts, pushed = len(repos), time.time(), {}, set()
+    allow_waiting = []
     for i, repo in enumerate(repos, 1):
         print(f'[{i}/{total}] {repo} ...', file=sys.stderr, flush=True)
         waiting = sorted(upstreams.get(norm(repo), set()) & pushed)
@@ -453,7 +474,7 @@ def main(argv=None):
                   f'then run this repository again)', flush=True)
             outcome = 'WAITS'
         else:
-            outcome = run_one(repo, work, args)
+            outcome = run_one(repo, work, args, allow_waiting)
         if outcome == 'PUSHED':
             pushed.add(norm(repo))
         counts[outcome] = counts.get(outcome, 0) + 1
@@ -461,6 +482,15 @@ def main(argv=None):
         print(f'    {int(done)}s so far, about {int(done / i * (total - i))}s '
               f'left', file=sys.stderr, flush=True)
     print('\n' + ', '.join(f'{n} {k}' for k, n in sorted(counts.items())))
+    if allow_waiting:
+        # Every repository still waiting on the allow-list sentence, in one
+        # place (Morgan, 2026-11-02), never only under each one's line.
+        print(f'\n{ALLOW_LIST_MARK} in {len(allow_waiting)} repositor'
+              f'{"y" if len(allow_waiting) == 1 else "ies"} -- put this list at '
+              f'the TOP of your reply. Each one waits for the person to say its '
+              f'sentence there (or no, recorded with --allow-list no):')
+        for repo, say in allow_waiting:
+            print(f'  {repo}: "{say}"')
     fine = {'SKIPPED', 'NOT USED', 'CURRENT', 'PUSHED', 'READY'}
     return 0 if set(counts) <= fine else 1
 
