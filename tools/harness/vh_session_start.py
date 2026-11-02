@@ -1536,8 +1536,9 @@ def check_container_check_lists_commands_still_running():
 def check_archive_check_sees_work_left_in_a_scratch_folder():
     """A file left in a scratch folder makes the container unsafe to lose,
     the same as an uncommitted file in a checkout; a folder holding only a
-    page published on purpose does not; and the folder is given up by its
-    own name with the existing **Checkout disposition:** line.
+    page published on purpose does not, nor a copy of a committed file; and
+    the folder is given up by its own name through the scanner's --discard,
+    never in a reply (2026-11-02).
 
     2026-10-11: a session built 189 summaries in its scratch folder, had
     the filing refused, and moved on. The checkout scan could not see them,
@@ -1641,6 +1642,43 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
         cases.append(('...and one holding a commit no remote has is not',
                       'scratch:abcd1234' in unsafe_names(r), r.stdout[:300]))
         _g('worktree', 'remove', '--force', str(wt))
+        # A copy of a committed file, taken before editing it, is that
+        # file's old version and loses nothing (2026-11-02: a consuming repository's
+        # Update Vendors was refused twice over pre-edit copies).
+        (repo / 'kept.txt').write_text('as committed\n', encoding='utf-8')
+        _g('add', 'kept.txt')
+        _g('-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit',
+           '-q', '-m', 'keep a file')
+        (sess / 'kept.txt.orig').write_text('as committed\n', encoding='utf-8')
+        r = scan_repo()
+        cases.append(('a copy of a file the repository already holds is safe',
+                      'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        (sess / 'kept.txt.orig').write_text('as committed, then edited\n',
+                                            encoding='utf-8')
+        r = scan_repo()
+        cases.append(('...and one that differs from every committed version '
+                      'is not', 'scratch:abcd1234' in unsafe_names(r),
+                      r.stdout[:300]))
+        # Given up through the scanner, never in the reply (2026-11-02).
+        env = dict(os.environ, PRECEDENT_DISPOSITION_LEDGER=str(
+            pathlib.Path(td) / 'ledger.json'))
+        subprocess.run([sys.executable, str(scanner), '--only', str(repo),
+                        '--scratch', str(sess), '--no-processes', '--discard',
+                        'scratch:abcd1234', '--why', 'an old copy'],
+                       capture_output=True, text=True, env=env)
+        r = subprocess.run([sys.executable, str(scanner), '--only', str(repo),
+                            '--scratch', str(sess), '--json', '--no-processes'],
+                           capture_output=True, text=True, env=env)
+        cases.append(('a scratch folder given up with --discard is safe',
+                      'scratch:abcd1234' not in unsafe_names(r), r.stdout[:300]))
+        (sess / 'verdicts.json').write_text('[62 verdicts]\n', encoding='utf-8')
+        r = subprocess.run([sys.executable, str(scanner), '--only', str(repo),
+                            '--scratch', str(sess), '--json', '--no-processes'],
+                           capture_output=True, text=True, env=env)
+        cases.append(('...until a new file lands in it',
+                      'scratch:abcd1234' in unsafe_names(r), r.stdout[:300]))
+        for f in ('kept.txt.orig', 'verdicts.json'):
+            (sess / f).unlink()
         (sess / 'out').mkdir()
         (sess / 'out' / 'summaries.txt').write_text('189 lines\n', encoding='utf-8')
         r = scan()
@@ -1653,18 +1691,6 @@ def check_archive_check_sees_work_left_in_a_scratch_folder():
                              '--no-processes'], capture_output=True, text=True)
         cases.append(('with --only and no --scratch, no scratch folder is read',
                       'scratch:' not in r2.stdout, r2.stdout[:300]))
-    rules = _json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
-    marker = next((x['unless_reply_declares_loss']['marker']
-                   for x in (rules if isinstance(rules, list)
-                             else rules.get('requirements') or [])
-                   if isinstance(x, dict)
-                   and (x.get('unless_reply_declares_loss') or {}).get('marker')), None)
-    line = ('**Checkout disposition:** scratch:abcd1234 -- discard (a draft '
-            'already filed in the repo)')
-    cases.append(('the existing disposition line gives a scratch folder up by '
-                  'that name', bool(marker) and bool(_re.search(
-                      marker.replace('{name}', _re.escape('scratch:abcd1234')),
-                      line, _re.I)), str(marker)))
     failed = [c for c in cases if not c[1]]
     return (not failed, f'{len(cases)} stated cases',
             '; '.join(f'{c[0]}: {c[2]}' for c in failed))
