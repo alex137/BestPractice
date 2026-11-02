@@ -8088,6 +8088,52 @@ RETIRED_AGENTS_MD_SECTIONS = {
 # Conventions section of its own (a consuming repository's measured
 # ~1,825 tokens against the template's 314).
 _RETIRED_KEEP_IF_OWN = {'### Review sensitivities (accumulated)', '## Conventions'}
+# The 'keep' note is said once, not on every run: ENGINE_MANIFEST.json
+# records each section it has been said for, and it is said again only
+# while precedent.json's kept_template_divergences still names the
+# section (its companion note asks for that entry's removal). 2026-11-02:
+# a consumer's Update Vendors surfaced "## Conventions ... stays where it
+# is" as an UPSTREAM REVIEW item on every run, with nothing to do.
+RETIRED_KEPT_NOTED_KEY = 'agents_md_retired_kept_noted'
+
+
+def retired_kept_noted(dest_root):
+    """-> the retired AGENTS.md sections the 'keep' note has been said
+    for, as ENGINE_MANIFEST.json records them (empty when none)."""
+    try:
+        manifest = json.loads((dest_root / 'tools' / MANIFEST_NAME)
+                              .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return set()
+    return set(manifest.get(RETIRED_KEPT_NOTED_KEY) or ())
+
+
+def _retired_keep_unnoted(plan, noted):
+    """-> the 'keep' sections of `plan` the note has not been said for."""
+    return [k for k, _s, a, _sp, _o, _w in plan if a == 'keep' and k not in noted]
+
+
+def _record_retired_kept(dest_root, plan, noted):
+    """Record in ENGINE_MANIFEST.json the sections `plan` keeps, after
+    _write_engine_files has rewritten the manifest from scratch; a section
+    no longer kept drops out, so it is said again if it ever comes back.
+    -> [manifest path] when it changed the record, else []."""
+    now = sorted(k for k, _s, a, _sp, _o, _w in plan if a == 'keep')
+    manifest_path = dest_root / 'tools' / MANIFEST_NAME
+    try:
+        live = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    if live.get(RETIRED_KEPT_NOTED_KEY) == now or (not now and not noted
+                                                    and RETIRED_KEPT_NOTED_KEY not in live):
+        return []
+    if now:
+        live[RETIRED_KEPT_NOTED_KEY] = now
+    else:
+        live.pop(RETIRED_KEPT_NOTED_KEY, None)
+    manifest_path.write_text(json.dumps(live, indent=2, ensure_ascii=False) + '\n',
+                             encoding='utf-8')
+    return [manifest_path]
 _LOADER_TEMPLATE = 'templates/AGENTS.md.loader.template'
 
 
@@ -8203,13 +8249,22 @@ def _retired_agents_md_plan(dest_root, kind, templates_dir):
     return plan
 
 
-def _retired_pending(plan):
-    return any(a in ('remove', 'addon') for _k, _s, a, _sp, _o, _w in plan)
+def _retired_pending(plan, noted=()):
+    """True when applying `plan` would change AGENTS.md, or record a
+    'keep' note said for the first time (so a run with nothing else to do
+    still records it, and the next run is quiet)."""
+    return (any(a in ('remove', 'addon') for _k, _s, a, _sp, _o, _w in plan)
+            or bool(_retired_keep_unnoted(plan, noted)))
 
 
-def _report_retired_agents_md(dest_root, plan, applying=False):
+def _report_retired_agents_md(dest_root, plan, applying=False, noted=None):
     """Print what the retirement does or would do; put 'own' and 'side' on
-    the Left-for-you list."""
+    the Left-for-you list. The 'keep' note is printed only for a section
+    not yet in `noted` (default: what ENGINE_MANIFEST.json records), or
+    while kept_template_divergences still names it."""
+    if noted is None:
+        noted = retired_kept_noted(dest_root)
+    kept = kept_template_divergences(dest_root)
     for key, slug, action, _span, own, where in plan:
         carrier = (f'the practices its bullets named, and {slug}, do'
                    if key == '## Conventions' else f'practice {slug} does')
@@ -8224,7 +8279,8 @@ def _report_retired_agents_md(dest_root, plan, applying=False):
                   f"{'were' if applying else 'are'} moved word for word into "
                   f"a local add-on practice ({_addon_rel(dest_root, slug)}), and the "
                   f"section removed.")
-        elif action == 'keep':
+        elif action == 'keep' and (key not in noted
+                                   or f'{AGENTS_MD} {key}' in kept):
             print(f"  NOTE: {AGENTS_MD} \"{key}\" holds this repository's own "
                   f"entries, so it stays where it is: practice {slug} reads it "
                   f"there. The template no longer ships it.")
@@ -8247,7 +8303,6 @@ def _report_retired_agents_md(dest_root, plan, applying=False):
             _left(f'{where} "{key}"', f'retired upstream into practice {slug}: '
                   f'keep any of its own lines (listed above) as a local add-on '
                   f'practice (adds_to: {slug}), and delete the copy')
-        kept = kept_template_divergences(dest_root)
         if f'{AGENTS_MD} {key}' in kept:
             print(f"  NOTE: precedent.json's {KEPT_DIVERGENCES_KEY} entry for "
                   f"{AGENTS_MD} {key} decides nothing now: the template no "
@@ -10843,8 +10898,10 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
         _report_agents_md(ROOT, engine_dir / 'templates', agents_plan,
                           reask_absent=not handed_over, commit=new_commit)
         retired_plan = _retired_agents_md_plan(ROOT, kind, engine_dir / 'templates')
-        _report_retired_agents_md(ROOT, retired_plan)
-        agents_pending = agents_pending or _retired_pending(retired_plan)
+        retired_noted = set(manifest.get(RETIRED_KEPT_NOTED_KEY) or ())
+        _report_retired_agents_md(ROOT, retired_plan, noted=retired_noted)
+        agents_pending = agents_pending or _retired_pending(retired_plan,
+                                                            retired_noted)
 
         # Before the early exit, so a repo whose engine is already current
         # but whose catalogue pin is not -- the state a half-finished update
@@ -10984,8 +11041,9 @@ def refresh(clone, force=False, ref=None, take_anyway=False):
             written.append(ROOT / AGENTS_MD)
         # Planned again here: the refresh above may have rewritten sections,
         # which moves every span below them.
-        for f in _apply_retired_agents_md(ROOT, _retired_agents_md_plan(
-                ROOT, kind, engine_dir / 'templates')):
+        retired_plan = _retired_agents_md_plan(ROOT, kind, engine_dir / 'templates')
+        for f in (_apply_retired_agents_md(ROOT, retired_plan)
+                  + _record_retired_kept(ROOT, retired_plan, retired_noted)):
             if f not in written:
                 written.append(f)
         if engine_paths or manifest.get('engine_paths_sha256'):

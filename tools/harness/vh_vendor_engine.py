@@ -5161,6 +5161,44 @@ def check_retired_template_sections_migrate_into_practices():
         cases.append(('the review-sensitivities list with a real entry stays',
                       '### Review sensitivities (accumulated)' in after and 'Dana:' in after,
                       failure_detail(after, 800)))
+        # The 'keep' note is said once (2026-11-02: a consumer's Update
+        # Vendors repeated "## Conventions ... stays where it is" as an
+        # upstream-review item on every run, with nothing to do). The
+        # update's own report keeps only its summary lines; the note reaches
+        # a session through the engine's raw output, so it is read there.
+        import contextlib
+        import io
+        sens = '### Review sensitivities (accumulated)'
+        note = f'"{sens}" holds this repository\'s own'
+
+        def said(noted=None):
+            buf = io.StringIO()
+            plan = pve._retired_agents_md_plan(repo, 'consumer', ROOT)
+            with contextlib.redirect_stdout(buf):
+                pve._report_retired_agents_md(repo, plan, noted=noted)
+            return buf.getvalue(), plan
+        first, kplan = said(noted=set())
+        cases.append(('the keep note is said on the run that first finds the '
+                      'section kept, and that run counts as having work to do, '
+                      'so it records it even with nothing else pending',
+                      note in first and pve._retired_pending(kplan, set()),
+                      (first[:600], [r[:3] for r in kplan])))
+        cases.append(('the update recorded the section in ENGINE_MANIFEST.json',
+                      sens in pve.retired_kept_noted(repo),
+                      sorted(pve.retired_kept_noted(repo))))
+        again, _p = said()
+        cases.append(('THE CASE: every run after that says nothing about it, and '
+                      'has nothing to do for it',
+                      note not in again
+                      and not pve._retired_pending(kplan, pve.retired_kept_noted(repo)),
+                      again[:600]))
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+        fx.keep(repo, f'AGENTS.md {sens}', 'our own list', 'x' * 64)
+        stale, _p = said()
+        cases.append(('...but while kept_template_divergences still names it, the '
+                      'note is said again, with the entry\'s removal asked for',
+                      note in stale and 'decides nothing now' in stale, stale[:900]))
+        fx.write_config(repo, cfg)
         unreached = []
         for slug in sorted(set(pve.RETIRED_AGENTS_MD_SECTIONS.values())):
             fm = (ROOT / 'practices' / f'{slug}.md').read_text(encoding='utf-8')
