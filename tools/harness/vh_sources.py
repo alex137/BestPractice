@@ -1064,6 +1064,21 @@ def check_source_survey_gives_every_repository_a_verdict():
                       "git inside its folder: DECLARED",
                       vv.get('example/precedent-shared-fixture') == 'DECLARED',
                       repr(vrows)))
+        # 2026-11-02: a consumer vendoring the universal source with no repo
+        # key and no manifest recording its upstream got SHOULD ADD? for
+        # BestPractice itself. The universal source is one repository.
+        bare_u = clone('bare-universal', 'example/bare-universal')
+        (bare_u / 'precedent' / 'universal' / 'practices').mkdir(parents=True)
+        (bare_u / 'precedent.json').write_text(json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent',
+                         'path': 'precedent/universal'}]}), encoding='utf-8')
+        urows = pss.survey(str(bare_u), ['alex137/BestPractice'],
+                           user_config=str(user_cfg), beside=False)
+        uv = {r['repo']: r['verdict'] for r in urows}
+        cases.append(('a universal source declared with no repo key and no '
+                      'manifest is still BestPractice: DECLARED, never SHOULD ADD?',
+                      uv.get('alex137/BestPractice') == 'DECLARED', repr(urows)))
         cases.append(('a set declared for its exported files alone is DECLARED, '
                       'files only, never SHOULD ADD?',
                       vv.get('example/precedent-shared-other') == 'DECLARED'
