@@ -4072,6 +4072,12 @@ def check_built_from_record_is_compared_and_orders_the_updates():
     cases.append(('a repository runs after the ones it copies from',
                   order.index('o/rules') < order.index('o/voice')
                   < order.index('o/consumer') and len(order) == 4))
+    order = pua.dependency_order(
+        ['o/recent', 'o/consumer', 'o/older', 'o/old-source'],
+        {'o/consumer': {'o/old-source'}})
+    cases.append(('a source runs first even when pushed to least lately, and '
+                  'the rest keep the order given (newest push first)',
+                  order == ['o/old-source', 'o/recent', 'o/consumer', 'o/older']))
     cases.append(('a cycle keeps the order given',
                   pua.dependency_order(['o/a', 'o/b'],
                                        {'o/a': {'o/b'}, 'o/b': {'o/a'}})
