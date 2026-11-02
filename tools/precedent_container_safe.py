@@ -542,12 +542,21 @@ def fingerprint(entry):
     return h.hexdigest()
 
 
+def _same_dir(a, b):
+    """True when `a` and `b` are the same folder on this disk. Both are
+    filesystem paths the scan found, never repository names."""
+    try:
+        return bool(a) and pathlib.Path(a).resolve() == pathlib.Path(b).resolve()
+    except (OSError, RuntimeError, TypeError):
+        return False
+
+
 def given_up(entry, ledger=None):
     """-> the ledger record that gives `entry` up, unchanged since, or None."""
     ledger = read_ledger() if ledger is None else ledger
     want = None
     for rec in ledger:
-        if rec.get('repo') == entry['repo'] and rec.get('name') == entry_name(entry):
+        if _same_dir(rec.get('repo'), entry['repo']) and rec.get('name') == entry_name(entry):
             want = want or fingerprint(entry)
             if rec.get('fingerprint') == want:
                 return rec
@@ -564,7 +573,7 @@ def discard(name, why, entries):
         return False, f'nothing unsafe is called {name!r} (unsafe now: {names})'
     import datetime
     ledger = [r for r in read_ledger()
-              if not any(r.get('repo') == e['repo'] for e in hits)]
+              if not any(_same_dir(r.get('repo'), e['repo']) for e in hits)]
     for e in hits:
         ledger.append({'name': entry_name(e), 'repo': e['repo'],
                        'fingerprint': fingerprint(e), 'why': why.strip(),
