@@ -315,8 +315,8 @@ The rehearsal's output goes in the pull request.
 
 ## The review, and what it changed
 
-Reviewed 2026-11-01 by a second Opus 5.5 session ("BP: review the
-set-copy plan"), which checked the plan's claims against the code. Each of
+Reviewed 2026-11-01 by a second session, titled for its review of the
+set-copy plan, which checked the plan's claims against the code. Each of
 its points, with the verdict this plan now follows:
 
 1. **The table missed readers (must-fix, taken).**
