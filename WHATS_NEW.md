@@ -1,9 +1,33 @@
 ---
-checked_through: 2026-10-29
+checked_through: 2026-11-01
 ---
 # What's New
 
 A running log of what changed in this project, newest first: one entry per day on which something did.
+
+## Sunday 2026-11-01: set-copies-carry-every-file
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A copied-in practice set now brings every file the engine reads from it, not just two** (one registry, tools/precedent_set_files.py, names those files; the old two-name list had missed our_language.json, and the new set-copy-complete, set-file-registered and set-file-decided checks catch a copy, a read or a top-level set file nobody accounted for).
+- **The "should a source be added or dropped" step of Update Vendors became a tool instead of prose** (tools/precedent_source_survey.py gives one verdict per repository and fails while any is NOT ON DISK, after a session had reported a repository it never cloned as "not checked" and moved on).
+- **A busy day of landing fixes: 41 commits** (a run of red landings can now be mended in one go with repeated --fixing, a refused move into main shows every finding in full, and the fleet audit says when a workflow left main and where it still sits).
+
+## Saturday 2026-10-31: harness-split-and-shorter-rules
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **The giant test file was split into one file per area, so sessions stop colliding on it** (verify_harness.py had every test in one file of about 98,600 lines; 896 checks moved to 19 files under tools/harness/, made by a script that proves the result statement for statement against the original).
+- **More than thirty long practice Rules were cut to what a session must do, with the rest moved whole into Detail** (the very deep check's review of the longest quarter of every repository's Rules; the-boildown, prompt-please, vendor-update-runbook and very-deep-check among them).
+- **The AGENTS.md template shed more than half its words into practices** (its Working in parallel, Administrator requests and commit-credit sections became three practices, 2,735 words down to 1,324, and Update Vendors migrates installed repositories, keeping each one's own lines; the same day, every one of 893 tests got a current verdict and many were made cheaper).
+
+## Friday 2026-10-30: exported-files-copied
+
+Some top highlights from the day's activity; ask if you want to learn more details or the full list of everything done.
+
+- **A practice source can now export files, and Update Vendors copies all of them** (a source lists them under "exports" in precedent-source.json, a consumer can take only those with "exports_only", and the new copied-in-folder-is-declared check fails on a folder copied in any undeclared way).
+- **The end-of-reply summary stopped listing branches to delete** (the branch cleanup page already carries every one with its link, so the duplicate list and the stop-hook check behind it were removed).
+- **A reply can no longer ask "the X question" without stating it** (the reply check refuses a Your next steps bullet that asks for a decision unless the bullet says what each answer does and the session's pick, after about eight replies asked for an answer to a question none of them stated).
 
 ## Thursday 2026-10-29: one-session-load-total
 

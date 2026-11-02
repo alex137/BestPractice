@@ -3850,8 +3850,9 @@ def replaced_update_lines(repo, clone=None):
         out.append(f"\nREPLACED UPDATE BRANCHES -- earlier update branches "
                    f"this one replaces: the engine each carries is already in "
                    f"the one this update took, so none of them needs to reach "
-                   f"{pb.MAIN}. Each has done its job. Hand over each link; "
-                   f"never delete one yourself (never-delete-a-remote-branch):")
+                   f"{pb.MAIN}. Each has done its job. The branch cleanup page "
+                   f"lists them, so name none in the reply, and never delete one "
+                   f"yourself (the-boildown item 6; never-delete-a-remote-branch):")
         for name, old, wf in replaced:
             clash = [o for o in every if o != name and name in o]
             if clash:
@@ -3911,6 +3912,7 @@ class Report:
         self.migration_notes = {}  # header -> lines, from each migration; every outcome
         self.commit_note = None  # a --take-anyway: said in the commit message
         self.code_warning = None  # the code this run ran may be older than its data
+        self.allow_list = None  # (what it does, sentence): offered, not taken
 
     def step(self, name, outcome):
         self.steps.append((name, outcome))
@@ -4036,7 +4038,38 @@ class Report:
         for line in ur.report('update', new, old, 'commit'):
             print(line)
 
+    def _allow_list_reminder(self):
+        # TOP OF THE REPLY, never among the other questions (Morgan,
+        # 2026-11-02). The allow-list change sat in the QUESTIONS list of
+        # one repository's every update for over two weeks and he never saw
+        # it waiting. Printed first and last in every outcome, like the
+        # workflow banner, with what it does and the exact sentence.
+        if not self.allow_list:
+            return
+        what, say = self.allow_list
+        bar = '-' * 72
+        print(f"\n{bar}\n{ALLOW_LIST_MARK}")
+        print("  (For the session: open your reply with the line above in "
+              "bold, then what it does and the sentence -- before anything "
+              "else, never among the other questions.)")
+        print(f"  What it does: {what}")
+        print(f"  To approve it, the person says, in these words: \"{say}\"")
+        print(f"  Then run this update again with {HARNESS_GO_AHEAD}=\"<their "
+              f"words>\"; the yes is recorded in precedent.json's "
+              f"{pve.ALLOW_LIST_KEY} and never asked again.")
+        print(f"  To refuse it for good: run this update again with "
+              f"--allow-list no --answered-by 'Name, YYYY-MM-DD: \"<their "
+              f"words>\"'; the refresh then never adds these rules here and "
+              f"this is never raised again.")
+        print(bar)
+
     def close(self, failed=None):
+        self._allow_list_reminder()
+        code = self._close(failed)
+        self._allow_list_reminder()
+        return code
+
+    def _close(self, failed=None):
         if self.pin_repo is not None and not failed and not self.left:
             clear_pin(self.pin_repo)   # DONE: the next update starts fresh
         if failed and self.repo is None and self.before is not None:
@@ -4810,6 +4843,82 @@ def harness_approval(paths, last=False, cases=None):
             kinds.append(name)
     kind = ' and '.join(kinds) if kinds else 'hooks and settings'
     return f'Commit the {files} {kind} change'
+
+
+# Calm on purpose (Morgan, 2026-11-02: the capitals "sound like there's a
+# huge emergency"); the session puts it in bold at the top of its reply.
+ALLOW_LIST_MARK = ('Waiting for you to say one sentence to stop getting '
+                   'permission requests (the allow-list change)')
+
+
+def allow_list_only(cases):
+    """True when every harness_cases() line is the allow-list kind."""
+    return bool(cases) and all(_APPROVAL_NAMES[0][0].search(c) for c in cases)
+
+
+def allow_list_what(cases):
+    """-> what the allow-list change does, in plain words, for the
+    reminder at the top of the reply."""
+    rules = ', '.join(c.split(': ', 1)[1] for c in cases
+                      if _APPROVAL_NAMES[0][0].search(c) and ': ' in c)
+    return ('it adds rules to .claude/settings.json\'s permissions so Claude '
+            'Code runs the Precedent tools and attaches the declared practice '
+            'sources without stopping for a permission prompt; nothing already '
+            'in the file changes' + (f'. The rules: {rules}' if rules else ''))
+
+
+def allow_list_words(repo):
+    """-> the words of the recorded yes (precedent.json ALLOW_LIST_KEY)."""
+    try:
+        rec = json.loads((pathlib.Path(repo) / 'precedent.json').read_text(
+            encoding='utf-8')).get(pve.ALLOW_LIST_KEY) or {}
+    except (OSError, ValueError, AttributeError):
+        rec = {}
+    said = str(rec.get('answered_by') or '')
+    m = re.search(r'"([^"]{2,})"|\u201c([^\u201d]{2,})\u201d', said)
+    return (m.group(1) or m.group(2)) if m else pve.ALLOW_LIST_SENTENCE
+
+
+def record_allow_list_yes(repo, words, rep):
+    """The run with the person's words for a change that includes the
+    allow-list records their yes, so no later update asks it again."""
+    if pve.allow_list_answer(repo) == 'yes':
+        return
+    r = subprocess.run(['git', '-C', str(repo), 'config', 'user.name'],
+                       capture_output=True, text=True)
+    import time as _time
+    who = r.stdout.strip() or 'the person'
+    said = words.replace('"', "'")
+    ok, what = pve.record_allow_list_answer(
+        repo, 'yes', f'{who}, {_time.strftime("%Y-%m-%d")}: "{said}"')
+    if ok:
+        subprocess.run(['git', '-C', str(repo), 'add', '--', 'precedent.json'],
+                       capture_output=True, text=True)
+        rep.step('allow-list answer', what)
+
+
+def allow_list_step(repo, rep, answer, answered_by):
+    """--allow-list yes|no: record the person's answer. A no also takes
+    back out of .claude/settings.json the rules the refresh added and the
+    commit does not have, so nothing is left to offer."""
+    if not answer:
+        return
+    ok, what = pve.record_allow_list_answer(repo, answer, answered_by)
+    if not ok and 'already' not in what:
+        rep.leave('allow-list answer', what)
+        return
+    rep.step('allow-list answer', what)
+    if answer != 'no':
+        return
+    rel = '.claude/settings.json'
+    removed = pve.strip_refresh_allow_rules(repo, _git_show(repo, f'HEAD:{rel}'))
+    if removed:
+        rep.step('allow-list answer', f'took {len(removed)} rule(s) the refresh '
+                 f'had added back out of {rel}: {", ".join(removed)}')
+    f = pathlib.Path(repo) / rel
+    if f.is_file() and f.read_text(encoding='utf-8') == (_git_show(repo, f'HEAD:{rel}') or ''):
+        subprocess.run(['git', '-C', str(repo), 'reset', '-q', '--', rel],
+                       capture_output=True, text=True)
 
 
 ENGINE_MANIFEST_REL = 'tools/ENGINE_MANIFEST.json'
@@ -6280,7 +6389,8 @@ def source_commit(follow, tip, take=None):
 
 
 def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
-           copy_in=None, answered_by='', take_sets=(), keep_workflows=()):
+           copy_in=None, answered_by='', take_sets=(), keep_workflows=(),
+           allow_list=None):
     rep = Report()
     rep.pin_repo = repo
     if code:
@@ -6565,6 +6675,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     level_alias_step(repo, rep)
     maintainers_step(repo, rep)
     copy_in_step(repo, rep, copy_in or {}, answered_by)
+    allow_list_step(repo, rep, allow_list, answered_by)
 
     # 3. The catalogue, where there is one, by the source clone's checkin.py.
     if (repo / 'process' / 'manifest.json').is_file():
@@ -6889,13 +7000,27 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
     harness = harness_changes(repo)
     if harness:
         words = harness_go_ahead(repo)
+        cases = harness_cases(repo, harness)
+        allow_list = any(_APPROVAL_NAMES[0][0].search(c) for c in cases)
+        standing = ''
+        if not words and allow_list and allow_list_only(cases) \
+                and pve.allow_list_answer(repo) == 'yes':
+            # A yes the person gave once is not asked for again (Morgan,
+            # 2026-11-02): it stands for every later allow-list-only change.
+            standing = allow_list_words(repo)
+            words = standing
+        elif words and allow_list:
+            record_allow_list_yes(repo, words, rep)
         rehashed = hold_hook_hashes(repo, harness, approved=bool(words))
         if words:
             # At the step the words are given, not at the end of the run.
             record_harness_go_ahead(repo, words, _harness_diff(repo))
             rebased = rebaseline_vendored_entries(repo, set(harness), hold=set())
             rep.step('hooks and settings', f'{", ".join(harness)} changed, with '
-                     f'the person\'s go-ahead: "{words}"'
+                     + ('the person\'s recorded yes to the allow-list change '
+                        f'(precedent.json {pve.ALLOW_LIST_KEY}): ' if standing
+                        else 'the person\'s go-ahead: ')
+                     + f'"{words}"'
                      + (f'; recorded the hash of {", ".join(rehashed)} in '
                         f'{ENGINE_MANIFEST_REL}' if rehashed else '')
                      + (f'; re-recorded the baseline of {", ".join(rebased)}'
@@ -6905,9 +7030,12 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
                 rep.step('hooks and settings', f'{ENGINE_MANIFEST_REL} keeps '
                          f'the committed hash of {", ".join(rehashed)} until the '
                          f'run with the person\'s words')
+            if allow_list:
+                rep.allow_list = (allow_list_what(cases),
+                                  harness_approval(harness, cases=cases))
             rep.ask('hooks and settings',
                     harness_ask(harness, last=migrates_to_stubs(repo, harness),
-                                cases=harness_cases(repo, harness),
+                                cases=cases,
                                 gates=harness_new_gates(repo, harness),
                                 baselines=harness_baselines(repo, harness)))
 
@@ -7440,6 +7568,12 @@ def main(argv=None):
                     help='the person\'s answer to "copy this set into this '
                          'repository?", recorded in precedent.json and never '
                          'asked again; repeat per set')
+    ap.add_argument('--allow-list', choices=('yes', 'no'),
+                    help='the person\'s answer to the .claude/settings.json '
+                         'allow-list change, recorded in precedent.json\'s '
+                         'allow_list_answer and never asked again; no also '
+                         'keeps the refresh from adding the rules; needs '
+                         '--answered-by')
     ap.add_argument('--keep-workflow', action='append', default=[],
                     metavar='PATH',
                     help='the person said to keep this workflow of the '
@@ -7471,6 +7605,10 @@ def main(argv=None):
         print('precedent_update FAIL: --keep-workflow needs --answered-by: who '
               'answered, the date and their words in quotes.')
         return FAILED
+    if a.allow_list and not a.answered_by:
+        print('precedent_update FAIL: --allow-list needs --answered-by: who '
+              'answered, the date and their words in quotes.')
+        return FAILED
     if copy_in and not a.answered_by:
         print('precedent_update FAIL: --copy-in needs --answered-by: who '
               'answered, the date and their words in quotes.')
@@ -7495,7 +7633,8 @@ def main(argv=None):
     return update(repo, skip_check=a.skip_check, ref=a.from_ref, move=a.move,
                   take=a.take, code=code, copy_in=copy_in,
                   answered_by=a.answered_by, take_sets=tuple(a.take_set),
-                  keep_workflows=tuple(a.keep_workflow))
+                  keep_workflows=tuple(a.keep_workflow),
+                  allow_list=a.allow_list)
 
 
 def bootstrap(repo, a, argv):

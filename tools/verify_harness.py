@@ -4770,6 +4770,7 @@ def main():
     check_built_from_record_is_compared_and_orders_the_updates()
     check_update_all_vendors_skips_its_own_source()
     check_update_all_reads_what_the_update_prints()
+    check_allow_list_answer_is_recorded_and_reminded()
     check_update_all_moves_a_reused_clone_off_its_pin()
     check_copy_in_clones_an_offered_set_it_said_yes_to()
     check_declared_set_found_beside_the_individual_set()
