@@ -890,14 +890,20 @@ def check_source_names_detects_a_rename():
 
 def check_source_survey_gives_every_repository_a_verdict():
     """precedent_source_survey.py -- vendor-update-runbook step 9, should a
-    source be added or dropped, gives every repository the account reaches a
-    verdict, and a repository it could not read is never a pass.
+    source be added or dropped, gives every source in force, every clone
+    already beside this repo and every repository the person named a
+    verdict; a named one it could not read is never a pass, and it never
+    reaches for a repository that is not on disk or named.
 
     THE INCIDENT (2026-11-01). Step 9 was prose. A session running Update
     Vendors in a practice set listed the account's repositories, found one
     it had no clone of, and reported "not on disk, so I didn't check whether
     it's a practice set" -- half the step, and nothing said so until the
-    person asked. Each case asserts the verdict printed for one repository
+    person asked. THE SECOND (2026-11-02). Step 9 then passed every
+    repository the account reaches and said to attach each one not on
+    disk; a session tried to attach most of the account, and Morgan: "When
+    I update vendors it should just be for the repo that the session is
+    rooted in or that I explicitly ask to be updated." Each case asserts the verdict printed for one repository
     (practice: control-asserts-which-failure), and the fixture owns its
     user config, so the machine's real individual set is never surveyed
     (practice: fixture-owns-its-state)."""
@@ -989,14 +995,37 @@ def check_source_survey_gives_every_repository_a_verdict():
                       by.get('example/precedent-shared-unseen', {}).get('detail', ''),
                       out))
         gone = [r for r in rows if 'precedent-shared-gone' in r['repo']]
-        cases.append(('a declared set with no clone that the account no longer '
-                      'reaches is SHOULD DROP?',
-                      [r['verdict'] for r in gone] == ['SHOULD DROP?'], out))
+        cases.append(('a declared set with no clone is NOT ON DISK, never '
+                      'SHOULD DROP? for being absent (no reach list to judge '
+                      'absence by, and lost access reads the same)',
+                      [r['verdict'] for r in gone] == ['NOT ON DISK'], out))
         cases.append(('the summary counts what was not checked and says an '
                       'unchecked repository is not a passing one',
-                      '2 NOT checked' in out
+                      '3 NOT checked' in out
                       and 'an unchecked repository is not a passing one' in out,
                       out))
+        cases.append(('the last line says repositories not cloned here were '
+                      'not looked at and that Update Vendors attaches none',
+                      'not cloned here were not looked at' in out
+                      and 'Update Vendors attaches none' in out, out))
+
+        # Run bare, the way step 9 now runs it: clones already beside the
+        # repo are surveyed by their origin, and nothing else is reached for.
+        bare = pss.survey(str(consumer), [], user_config=str(user_cfg))
+        bv = {r['repo']: r['verdict'] for r in bare}
+        cases.append(('run bare, a set cloned beside the repo is found by its '
+                      'origin and given SHOULD ADD?',
+                      bv.get('example/precedent-shared-other') == 'SHOULD ADD?',
+                      repr(bare)))
+        cases.append(('run bare, a folder holding a clone of another '
+                      'repository is surveyed as what it is, not as its '
+                      'folder name',
+                      bv.get('example/somebody-else') == 'NOT A SET'
+                      and 'example/precedent-shared-impostor' not in bv,
+                      repr(bare)))
+        cases.append(('run bare, a repository that is neither on disk nor '
+                      'named is not reached for at all',
+                      not any('unseen' in k for k in bv), repr(bare)))
 
         # A repository whose sets are vendored copies inside it, the way a
         # voice repository holds them (2026-11-01: all four came back
@@ -1048,17 +1077,20 @@ def check_source_survey_gives_every_repository_a_verdict():
             finally:
                 sys.stdout = real
         base = ['--repo', str(consumer), '--user-config', str(user_cfg)]
-        cases.append(('it exits 1 while any repository is NOT ON DISK',
+        cases.append(('it exits 1 while a named repository is NOT ON DISK',
                       exit_of(base + sum((['--candidate', c] for c in
                                           candidates), [])) == 1, ''))
-        cases.append(('...and 0 once every candidate was read',
-                      exit_of(base + ['--candidate', 'example/a-project',
-                                      '--candidate',
-                                      'example/precedent-shared-fixture']) == 0,
+        tidy = clone('tidy', 'example/tidy')
+        (tidy / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'precedent-shared-fixture',
+             'path': '../precedent-shared-fixture'}]}), encoding='utf-8')
+        tbase = ['--repo', str(tidy), '--user-config', str(user_cfg)]
+        cases.append(('...and 0 once every named repository was read',
+                      exit_of(tbase + ['--candidate', 'example/a-project']) == 0,
                       ''))
-        cases.append(('with no --candidate at all it exits 1: step 9 is not '
-                      'done on the sources in force alone',
-                      exit_of(base) == 1, ''))
+        cases.append(('run bare it exits 0: the sources in force and the '
+                      'clones beside the repo are the whole step',
+                      exit_of(tbase) == 0, ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -1094,9 +1126,15 @@ def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
         none = '\n'.join(pu.source_steps_lines(tmp))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    step9 = [l for l in lines.splitlines() if l.strip().startswith('9.')]
+    step8 = [l for l in lines.splitlines() if l.strip().startswith('8.')]
     done_ok = ('precedent_source_names.py' in lines
                and 'precedent_source_survey.py' in lines
-               and '--candidate' in lines
+               # 2026-11-02: neither step sends the session out to the
+               # account's whole reach, or tells it to attach a source.
+               and step9 and 'list_repos' not in step9[0]
+               and 'account reaches' not in step9[0]
+               and step8 and 'attach nothing' in step8[0]
                and 'not applicable: this repo declares no sources' in none
                and 'precedent_source_survey.py' in none)
     check('steps 7, 8 and 9\'s tools are in the shared ENGINE_FILES, so a '
