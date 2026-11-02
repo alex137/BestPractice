@@ -133,11 +133,9 @@ except Exception:                                            # noqa: BLE001
 
 
 def _is_universal(src):
-    try:
-        level = pr.declared_level(src) if pr is not None else src.get('level')
-    except Exception:                                        # noqa: BLE001
-        level = src.get('level')
-    return level == 'universal'
+    # Through the one level reader, never the raw key: survey() only runs
+    # once precedent_resolve has loaded, so pr is always there.
+    return pr is not None and pr.declared_level(src) == 'universal'
 
 
 def source_origin(root, src):
