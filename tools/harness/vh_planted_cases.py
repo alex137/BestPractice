@@ -2483,6 +2483,71 @@ def check_precedent_check_fires():
                            capture_output=True)
         case('vendoring-decided', _plant_undecided_file)
 
+        # set-file-registered -- a new reader binds a source's path on one
+        # line and joins an unregistered file name on the next (2026-11-01,
+        # the shape the reply check's own read took).
+        def _plant_unregistered_reader(repo):
+            (repo / 'tools' / 'zz_planted_reader.py').write_text(
+                "import pathlib\n\n\ndef read(s):\n"
+                "    root = pathlib.Path(s['path'])\n"
+                "    return root / 'zz_planted.json'\n", encoding='utf-8')
+        case('set-file-registered', _plant_unregistered_reader)
+
+        # set-copy-complete -- a whole copy of a set whose record lists a
+        # registered file the copy no longer holds (no clone of the set
+        # here, so presence against the record is what is judged).
+        def _copy_record_setup(repo):
+            cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg.setdefault('sources', []).append(
+                {'name': 'zz-planted-set', 'level': 'shared',
+                 'path': 'process/zz-planted-set', 'vendored': True})
+            (repo / 'precedent.json').write_text(json.dumps(cfg, indent=2),
+                                                 encoding='utf-8')
+            copy = repo / 'process' / 'zz-planted-set'
+            copy.mkdir(parents=True)
+            (copy / 'our_language.json').write_text('{}', encoding='utf-8')
+            (repo / 'process' / 'manifest_zz-planted-set.json').write_text(
+                json.dumps({'upstream': {'set_files': ['our_language.json'],
+                                         'set_files_commit': '0' * 40}}),
+                encoding='utf-8')
+
+        def _plant_copy_lacks_a_file(repo):
+            (repo / 'process' / 'zz-planted-set' / 'our_language.json').unlink()
+        case('set-copy-complete', _plant_copy_lacks_a_file,
+             setup=_copy_record_setup)
+
+        # set-file-decided -- this tree as a shared set whose every current
+        # top-level entry is decided (kept home with a reason), then one new
+        # top-level file nothing decides.
+        def _shared_set_setup(repo):
+            sys.path.insert(0, str(repo / 'tools'))
+            import precedent_set_files as _psf
+            man = json.loads((repo / 'precedent-source.json').read_text(
+                encoding='utf-8'))
+            man.update({'name': 'zz-planted-shared', 'level': 'shared'})
+            (repo / 'precedent-source.json').write_text(json.dumps(man, indent=2),
+                                                        encoding='utf-8')
+            # This tree's own precedent.json declares adapters, which a
+            # shared set may not: the fixture's set declares none.
+            cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+            cfg.pop('adapters', None)
+            (repo / 'precedent.json').write_text(json.dumps(cfg, indent=2),
+                                                 encoding='utf-8')
+            undecided, _a, _l = _psf.set_file_decisions(repo)
+            man['stays'] = {n: 'fixture: this tree\'s own' for n in undecided}
+            (repo / 'precedent-source.json').write_text(json.dumps(man, indent=2),
+                                                        encoding='utf-8')
+            (repo / 'tools' / 'ENGINE_MANIFEST.json').write_text(json.dumps(
+                {'kind': 'source', _psf.DECIDED_MARKER_KEY: '2026-11-01'}),
+                encoding='utf-8')
+
+        def _plant_undecided_set_file(repo):
+            (repo / 'ZZ_PLANTED_NOTES.md').write_text('x\n', encoding='utf-8')
+            subprocess.run(['git', '-C', str(repo), 'add', 'ZZ_PLANTED_NOTES.md'],
+                           capture_output=True)
+        case('set-file-decided', _plant_undecided_set_file,
+             setup=_shared_set_setup)
+
         def _plant_small_resident_cap(repo):
             reg = repo / 'tools' / 'session_load_budgets.json'
             data = json.loads(reg.read_text(encoding='utf-8'))

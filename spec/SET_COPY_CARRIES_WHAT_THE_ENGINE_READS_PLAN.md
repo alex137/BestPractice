@@ -1,6 +1,18 @@
+---
+title:         A copied-in set carries every file the engine reads from it
+kind:          proposal
+status:        accepted
+opened:        2026-11-01
+closed:        null
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       "Built: one registry of the files the engine reads from a practice set's own folder, which the readers take their names from and the set copier copies from, so a copy of a set carries every one; a copy never carries another source's copy; and three checks keep the list true: set-file-registered, set-copy-complete and set-file-decided."
+---
+
 # A copied-in set carries every file the engine reads from it
 
-**Status:** proposed, 2026-11-01. Written for review before it is built.
+**Status:** built, 2026-11-01, on the branch that holds this plan; reviewed twice before it was built. The two review sections at the end override the sections above wherever they differ.
 Asked for by Morgan, 2026-11-01: "Write up your plan for this root fix.
 Make sure it includes mechanisms to keep this list up to date and check
 it."
@@ -261,7 +273,8 @@ it. Then it carries on. None is known today; the build's rehearsal
 confirms that on the repositories at hand.
 
 **The order the updates run in.**
-1. BestPractice lands and passes GitHub's test.
+1. BestPractice lands, and GitHub's test passes on the merge commit into
+   `main`. No set updates before that test has passed (second review, 8).
 2. The practice sets update next: individual, ladder, writing. Any `stays`
    decision they need is made in that sitting.
 3. Then the consumers, sets before the repositories that copy them. Update
@@ -385,3 +398,65 @@ writing sets actually hold at their top level:
 
 So neither set needs a commit before the engine reaches it, and the
 rehearsal checks that.
+
+## The second review, and what it changed
+
+A second review of "The first Update Vendors after this lands" made eight
+points (2026-11-01). Points 1 to 4 were must-fixes; all eight are built.
+
+1. **`precedent.json` stays on the built-in list, and `set-file-decided`
+   refuses a shared set whose `precedent.json` declares `adapters`.** Built;
+   the rehearsal confirms neither the ladder nor the writing set declares
+   any (only the individual set does, and it is never copied).
+2. **A kept local edit never goes red.** `set-copy-complete` and the
+   update's completeness step skip a path `kept_template_divergences`
+   keeps, and say it is kept. The copier honors the same declaration:
+   until now a kept edit to a file in a shared set's copy stopped every
+   update of that copy as "unexported work".
+3. **A practice set's first update never stops on `set-file-decided`.**
+   Keyed by a marker in the set's `tools/ENGINE_MANIFEST.json`, kept across
+   engine refreshes.
+4. **Individual sets are left out of `set-file-decided`.** `identity.json`
+   stays registered as an individual-only read.
+5. **The `set_files` record is written in the same write as the copy**, with
+   the commit it came from (`set_files_commit`). Where the record is missing
+   but that commit is there, the copy is compared against the commit.
+6. **An existing nested copy is a note on a DONE update**, with the line that
+   removes it. Only a new one is refused.
+7. **The rehearsal covers four more cases**: a set exporting a path under
+   `process/`, a files-only copy, a kept local edit to a registered file,
+   and a consumer updated before its sets have taken the engine. Results in
+   [SET_COPY_REHEARSAL_2026-11-01.md](SET_COPY_REHEARSAL_2026-11-01.md).
+8. **The run order's step 1 waits for GitHub's test on the merge commit
+   into `main`.** Above.
+
+## What the build changed from the plan, and why
+
+- **The marker has two steps, not one.** Point 3 as written would turn the
+  check strict at the end of the first update, and the push landing that
+  update would then be refused on any undecided file. Rehearsed on a set
+  with one undecided top-level file, that is what happened. So a first
+  update that notes anything writes `"set_files_decided": "noted <date>"`,
+  which the check still reads as a note; the next update replaces it with
+  the date it went strict. A set with nothing undecided goes strict on its
+  first update.
+- **`set-file-registered` tells the engine's own repository by its missing
+  `tools/ENGINE_MANIFEST.json`.** The first version also looked for the
+  harness file by its literal path, and `vendored-engine-file-refs-resolve`
+  then failed in every consumer. The rehearsal caught it.
+- **The registry also records `CATALOGUE_SYNC.json`** (read by the freshness
+  check from the universal source's copy, never a shared set's) and the
+  folder reads `tools/` and `bootstrap/`, which the scan found.
+- **`files_rules_name` moved into `tools/precedent_set_files.py`**, so a
+  practice set's own check can ask it: `checkin.py` is not in a set's
+  engine. `checkin._files_rules_name` is now that function.
+- **A dot-entry (`.github`, `.claude`, `.gitignore`) is never a decision**, and
+  `gotchas/`, `GEMINI.md`, `GLOSSARY.source.md` and `MAP.source.md` joined
+  the built-in list: another set's top level holds them.
+- **The audit-hook case also asserts the end-to-end property**: every file the
+  readers open in a set is in a whole copy of it. Its other half (no reader
+  opens an unregistered file) held on the old engine too, so on its own it
+  would not have failed before this change.
+- **A `stays` line with no reason, or naming nothing the set holds, is a
+  finding** (practice `checks-carry-a-declared-decline`).
+
