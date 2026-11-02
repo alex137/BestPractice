@@ -178,7 +178,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
 | [update-all-vendors](practices/update-all-vendors.md) | on-demand | a message says "Update All Vendors", or asks to update every repository the person uses Precedent in |
 | [upstream-bug-stops-here](practices/upstream-bug-stops-here.md) | on-demand | about to change a file to fix a bug, in a repository that did not write that file |
-| [upstream-fix](practices/upstream-fix.md) | on-demand | fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption |
+| [upstream-fix](practices/upstream-fix.md) | on-demand | fixing anything -- a bug, a stale or copied file, a broken environment -- adding a check or exemption, or a check flagging text that already does what its rule asks |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-neutral-by-default](practices/vendor-neutral-by-default.md) | on-demand | writing a hook, script or rule another repo will vendor |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a shipped practice, hook, template or engine file, before push or merge |
@@ -317,6 +317,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [tools/precedent_run_session_hooks.py](tools/precedent_run_session_hooks.py) | Runs each repo's own SessionStart hooks for a session opened in the folder above them |
 | [tools/precedent_session_check.py](tools/precedent_session_check.py) | Reports whether this session's SessionStart guarantees are actually in effect -- practices file, commit identity, backstop, packages, refspec, freshness, and the branch it started on -- and `--apply` runs the hooks by hand when the harness never did |
 | [tools/precedent_session_practices.py](tools/precedent_session_practices.py) | Writes the shared/individual/repo-local practices in force into an untracked .precedent/ file at session start, since this repo is public and their text may not be committed |
+| [tools/precedent_set_files.py](tools/precedent_set_files.py) | The one list of files the engine reads from a practice set's own folder, and whether a copy of the set carries each (spec/SET_COPY_CARRIES_WHAT_THE_ENGINE_READS_PLAN.md) |
 | [tools/precedent_show.py](tools/precedent_show.py) | Loads a practice's Rule/Detail/Why/Story/Install — the one code path that reads a practice file |
 | [tools/precedent_simulate.py](tools/precedent_simulate.py) | One command over the reach/mechanical-correctness and synthetic-batch tiers, plus the running trend log |
 | [tools/precedent_source_bootstrap.py](tools/precedent_source_bootstrap.py) | Clone-or-pull for a privately-scoped individual or shared source, used by its SessionStart hook and by precedent_resolve.py's own lazy self-heal |

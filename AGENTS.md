@@ -254,7 +254,7 @@ When finishing a task a session was spawned or triggered to do:
   report-up-the-chain — report to whoever tasked you; noticed work goes up, never out as an offer
 When finishing substantial work, or merging a branch:
   capture-gate — capture it in the turn that finds it; a separate second pass; merge is backstop
-When fixing anything -- a bug, a stale or copied file, a broken environment -- or adding a check or exemption:
+When fixing anything -- a bug, a stale or copied file, a broken environment -- adding a check or exemption, or a check flagging text that already does what its rule asks:
   upstream-fix — fix the cause where it lives, and the origin and copies; name a band-aid
 When making the first commit of a session for a person:
   commits-credit-the-driver — author each commit as the person; name yourself as co-author

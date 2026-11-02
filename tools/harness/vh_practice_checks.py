@@ -6140,14 +6140,10 @@ def check_leftover_pack_is_flagged_after_migration():
         subprocess.run(['git', '-C', str(base), 'init', '-q'],
                        capture_output=True)
         _shutil.copy2(chk, base / 'process' / 'upstream' / 'tools')
-        # fixture-owns-its-state: precedent_check.py imports precedent_time at
-        # module scope (practice: timestamps-carry-offset).
-        _shutil.copy2(ROOT / 'tools' / 'precedent_time.py',
-                      base / 'process' / 'upstream' / 'tools')
-        _shutil.copy2(ROOT / 'tools' / 'declared_base_branch.py',
-                      base / 'process' / 'upstream' / 'tools')
-        _shutil.copy2(ROOT / 'tools' / 'generated_blocks.py',
-                      base / 'process' / 'upstream' / 'tools')
+        # fixture-owns-its-state: precedent_check.py imports its companions
+        # at module scope; read from its imports, never listed by hand.
+        for n in _with_engine_imports('precedent_check.py')[1:]:
+            _shutil.copy2(ROOT / 'tools' / n, base / 'process' / 'upstream' / 'tools')
         _shutil.copy2(prac, base / 'practices')
         for d in ('tools', 'process/upstream/tools'):
             sp_dst = base / d
@@ -8425,15 +8421,12 @@ def check_source_supplied_checks_run():
         (repo / 'practices').mkdir(parents=True)
         (repo / 'tools' / 'checks').mkdir(parents=True)
         (repo / 'local' / 'tools' / 'checks').mkdir(parents=True)
-        shutil.copy(ROOT / 'tools' / 'precedent_check.py', repo / 'tools')
-        shutil.copy(ROOT / 'tools' / 'split_practices.py', repo / 'tools')
-        shutil.copy(ROOT / 'tools' / 'doc_lint.py', repo / 'tools')
-        # fixture-owns-its-state: precedent_check.py imports this at module
-        # scope (practice: timestamps-carry-offset), so a fixture engine tree
-        # without it does not degrade -- every case here dies on the import.
-        shutil.copy(ROOT / 'tools' / 'precedent_time.py', repo / 'tools')
-        shutil.copy(ROOT / 'tools' / 'generated_blocks.py', repo / 'tools')
-        shutil.copy(ROOT / 'tools' / 'declared_base_branch.py', repo / 'tools')
+        # fixture-owns-its-state: precedent_check.py imports its companions
+        # at module scope, so a fixture engine tree without one does not
+        # degrade -- every case here dies on the import. Read from its
+        # imports, never listed by hand.
+        for n in _with_engine_imports('precedent_check.py', 'doc_lint.py'):
+            shutil.copy(ROOT / 'tools' / n, repo / 'tools')
         (repo / 'AGENTS.md').write_text('# fixture\n', encoding='utf-8')
         subprocess.run(['git', 'init', '-q'], cwd=repo, capture_output=True)
 
