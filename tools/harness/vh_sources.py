@@ -1142,8 +1142,8 @@ def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
         bare_user.write_text(json.dumps({'format_version': 1}), encoding='utf-8')
         ind_user = tmp / 'user-ind.json'
         ind_user.write_text(json.dumps({'format_version': 1, 'individual': {
-            'name': 'precedent-individual', 'path': str(tmp / 'ind'),
-            'repo_url': 'https://github.com/someone/precedent-individual'}}),
+            'name': 'ind', 'path': str(tmp / 'ind'),
+            'repo_url': 'https://github.com/someone/ind'}}),
             encoding='utf-8')
         (tmp / 'ind' / 'practices').mkdir(parents=True)
         repo = tmp / 'repo'   # the individual clone sits beside it, not in it
@@ -1172,8 +1172,8 @@ def check_steps_8_and_9_tools_ship_to_every_kind_of_repo():
                and '--canonical someone/x' in step8[0]
                and 'declared source' not in lines
                and '--canonical someone/x' in with_ind
-               and '--canonical someone/precedent-individual' in with_ind
-               and '--canonical someone/precedent-individual' in ind_only
+               and '--canonical someone/ind' in with_ind
+               and '--canonical someone/ind' in ind_only
                and 'not applicable: no source in force' in none
                and 'precedent_source_survey.py' in none)
     check('steps 7, 8 and 9\'s tools are in the shared ENGINE_FILES, so a '
