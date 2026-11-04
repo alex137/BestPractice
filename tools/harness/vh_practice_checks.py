@@ -4800,6 +4800,26 @@ def check_close_detection_fires_only_when_all_conditions_hold():
         cases.append(('a session that already offered one is not asked again '
                       '-- the cap is per SESSION, not per reply',
                       r5.returncode == 0, r5.stderr[:200]))
+        # The block itself spends the cap too: it tells the session to
+        # answer a non-rule in one line, and that line carries no marker
+        # (Morgan, 2026-11-04: asked four times in one session).
+        asked = [('user', SAID), ('tool', MERGED), ('assistant', CLOSE),
+                 ('user', 'Stop hook feedback:\n[command hook 1]: This session merged '
+                          'something and is closing as ready to archive, and a Stage-1 '
+                          'detector found 1 signal(s).'),
+                 ('assistant', 'Not a rule: a one-off for this task.'),
+                 ('assistant', CLOSE)]
+        r5b = run(transcript('asked.jsonl', asked))
+        cases.append(('a session already asked, and answered "not a rule" in one '
+                      'line, is not asked again', r5b.returncode == 0, r5b.stderr[:200]))
+        # Control: the words alone, outside the hook's envelope, are not the
+        # hook having asked, so the close still blocks.
+        quoted = [('user', SAID), ('tool', MERGED),
+                  ('user', 'What does "a Stage-1 detector found" mean?'),
+                  ('assistant', CLOSE)]
+        r5c = run(transcript('quoted.jsonl', quoted))
+        cases.append(('...while the same words outside the hook\'s own feedback '
+                      'do not spend it', r5c.returncode == 2, f'exit {r5c.returncode}'))
 
         # Condition 4: there is actually something to offer. This is the case
         # that keeps the mechanism from becoming filler -- the ordinary
