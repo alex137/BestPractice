@@ -170,7 +170,8 @@ done and that `unarchive_session` reverses it.
 **The scanner's answer is not a caveat to report alongside an archive
 verdict -- it decides the verdict.** Unpushed work anywhere in the container
 fails condition 1 outright, whoever's work it is and whichever clone it sits
-in; push or merge it first, or say plainly that it is meant to be lost. A
+in; push or merge it first, or delete or give up (`--discard`) what is
+meant to be lost, silently ([the-boildown](the-boildown.md)). A
 reply that says the archive sentence with the container unsafe is refused by
 the reply gate ([the-boildown](the-boildown.md)'s
 `require_container_safe_if_says`), which is the 2026-09-22 amendment below.

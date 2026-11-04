@@ -430,12 +430,162 @@ def scan_scratch(d, repos=()):
             if is_commit_message(f, msgs):
                 continue
             files.append(str(rel))
+    if files:
+        known = blobs_in_repos([d / f for f in files], repos)
+        files = [f for f in files if str(d / f) not in known]
     if not files:
         return None
     return {'repo': str(d), 'name': scratch_name(d), 'branch': 'scratch folder',
             'unsafe': [f'{len(files)} file(s) in a scratch folder, in no '
                        f'repository'],
-            'detail': {'untracked': files[:20]}}
+            'detail': {'untracked': files[:20]}, '_files': files}
+
+
+# A COPY OF A FILE A REPOSITORY ALREADY HOLDS (2026-11-02). A session copies
+# a file into its scratch folder before it edits it, then commits the edit.
+# The copy is the old version, byte for byte a blob the checkout's history
+# already has, and lost nothing when the container goes. A consuming repository's
+# Update Vendors closed with two such folders and was refused twice over
+# them. Matched by git's own blob id, so only an exact copy counts; a blob
+# that exists only in an unpushed commit is the checkout scan's to report.
+BLOB_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _blob_id(path):
+    import hashlib
+    try:
+        if path.stat().st_size > BLOB_MAX_BYTES:
+            return None
+        data = path.read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha1(b'blob %d\0' % len(data) + data).hexdigest()
+
+
+def blobs_in_repos(paths, repos):
+    """-> the set of str(path) among `paths` whose exact contents are a blob
+    one of `repos` already stores."""
+    ids = {}
+    for p in paths:
+        b = _blob_id(pathlib.Path(p))
+        if b:
+            ids.setdefault(b, []).append(str(p))
+    found = set()
+    for repo in repos:
+        if not ids:
+            break
+        try:
+            r = subprocess.run(['git', '-C', str(repo), 'cat-file',
+                                '--batch-check=%(objectname) %(objecttype)'],
+                               input='\n'.join(ids) + '\n', capture_output=True,
+                               text=True, timeout=60)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        for line in r.stdout.splitlines():
+            sha, _, kind = line.partition(' ')
+            if kind == 'blob' and sha in ids:
+                found.update(ids.pop(sha))
+    return found
+
+
+# GIVEN UP INTERNALLY, NEVER IN THE REPLY (2026-11-02). Until today a session
+# gave up work it had read and judged worthless with a
+# `**Checkout disposition:** NAME -- discard (why)` line in its reply, which
+# the reply gate read. Morgan, 2026-11-02 (strength: decided): "check that
+# internally to make sure the checkout disposition is great, but to NOT
+# print it". So the verdict is recorded here, in a ledger outside every
+# repository, by `--discard NAME --why ...`, and this scan leaves an entry
+# out while the ledger holds its name with the SAME fingerprint. The
+# fingerprint is the full state the scan found -- HEAD, every local branch
+# head, the uncommitted diff, the untracked files' contents; for a scratch
+# folder, every flagged file's contents -- so anything written after the
+# verdict makes the entry unsafe again. A session cannot give up work it
+# never looked at, because it has to name it, and cannot give up work that
+# arrives later, because the fingerprint no longer matches.
+def ledger_path():
+    raw = os.environ.get('PRECEDENT_DISPOSITION_LEDGER')
+    if raw:
+        return pathlib.Path(raw).expanduser()
+    return pathlib.Path.home() / '.cache' / 'precedent' / 'container_dispositions.json'
+
+
+def read_ledger():
+    try:
+        data = json.loads(ledger_path().read_text(encoding='utf-8'))
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def entry_name(entry):
+    """-> the name a session gives an unsafe entry up by."""
+    return entry.get('name') or pathlib.PurePath(str(entry['repo']).rstrip('/')).name
+
+
+def fingerprint(entry):
+    """-> a hash of everything the scan found unsafe in `entry`."""
+    import hashlib
+    h = hashlib.sha256()
+    repo = pathlib.Path(entry['repo'])
+    if entry.get('branch') == 'scratch folder':
+        for rel in sorted(entry.get('_files') or entry['detail'].get('untracked') or []):
+            h.update(rel.encode() + b'\0' + (_blob_id(repo / rel) or 'big').encode())
+        return h.hexdigest()
+    for args in (('rev-parse', 'HEAD'),
+                 ('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads'),
+                 ('status', '--porcelain', '--untracked-files=all'),
+                 ('diff', 'HEAD')):
+        h.update(repr(_git(repo, *args)).encode())
+    ok, out = _git(repo, 'ls-files', '--others', '--exclude-standard')
+    for rel in sorted(out.splitlines()) if ok else []:
+        h.update(rel.encode() + b'\0' + (_blob_id(repo / rel) or 'big').encode())
+    return h.hexdigest()
+
+
+def _same_dir(a, b):
+    """True when `a` and `b` are the same folder on this disk. Both are
+    filesystem paths the scan found, never repository names."""
+    try:
+        return bool(a) and pathlib.Path(a).resolve() == pathlib.Path(b).resolve()
+    except (OSError, RuntimeError, TypeError):
+        return False
+
+
+def given_up(entry, ledger=None):
+    """-> the ledger record that gives `entry` up, unchanged since, or None."""
+    ledger = read_ledger() if ledger is None else ledger
+    want = None
+    for rec in ledger:
+        if _same_dir(rec.get('repo'), entry['repo']) and rec.get('name') == entry_name(entry):
+            want = want or fingerprint(entry)
+            if rec.get('fingerprint') == want:
+                return rec
+    return None
+
+
+def discard(name, why, entries):
+    """Record `name` as given up. -> (ok, message)."""
+    if not (why or '').strip():
+        return False, 'say why it is safe to lose: --why "..."'
+    hits = [e for e in entries if name in (entry_name(e), e['repo'], label(e['repo']))]
+    if not hits:
+        names = ', '.join(entry_name(e) for e in entries) or 'none'
+        return False, f'nothing unsafe is called {name!r} (unsafe now: {names})'
+    import datetime
+    ledger = [r for r in read_ledger()
+              if not any(_same_dir(r.get('repo'), e['repo']) for e in hits)]
+    for e in hits:
+        ledger.append({'name': entry_name(e), 'repo': e['repo'],
+                       'fingerprint': fingerprint(e), 'why': why.strip(),
+                       'unsafe': e['unsafe'],
+                       'at': datetime.datetime.now(datetime.timezone.utc)
+                       .isoformat(timespec='seconds')})
+    path = ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(ledger, indent=1), encoding='utf-8')
+    return True, (f'given up: {name} ({why.strip()}). The archive check passes '
+                  f'over it until anything in it changes. Nothing about this '
+                  f'goes in the reply.')
 
 
 def _engine_dirt(repo):
@@ -624,7 +774,22 @@ def main(argv=None):
                     help='check the checkouts only, not commands still running')
     ap.add_argument('--quiet', action='store_true',
                     help='print nothing; say it in the exit code alone')
+    ap.add_argument('--discard', metavar='NAME', default=None,
+                    help='give up an unsafe checkout or scratch folder you '
+                         'have read and judged worthless, by the name this '
+                         'scan prints; recorded outside every repository, '
+                         'never in a reply')
+    ap.add_argument('--why', default='',
+                    help='with --discard: why it is safe to lose')
+    ap.add_argument('--given-up', action='store_true',
+                    help='list what has been given up, and why')
     args = ap.parse_args(argv)
+
+    if args.given_up:
+        for rec in read_ledger():
+            print(f"{rec.get('at', '?')}  {rec.get('name')} -- {rec.get('repo')}: "
+                  f"{rec.get('why')}")
+        return 0
 
     if args.only:
         targets = []
@@ -644,13 +809,25 @@ def main(argv=None):
     leftovers = [e for e in (scan_scratch(d, targets) for d in scratch
                                   if d.is_dir()) if e]
     bad = [f for f in found if f['unsafe']] + leftovers
+    if args.discard:
+        ok, msg = discard(args.discard, args.why, bad)
+        print(msg, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 2
+    ledger = read_ledger()
+    dropped = [(f, rec) for f in bad for rec in [given_up(f, ledger)] if rec]
+    bad = [f for f in bad if not any(f is d for d, _r in dropped)]
     # Only when discovering: --only is a question about named checkouts,
     # and a planted test container must not depend on what else is running.
     running = [] if (args.only or args.no_processes) else still_running()
 
     if args.json:
         print(json.dumps({'safe': not bad and not running,
-                          'scanned': len(found), 'unsafe': bad,
+                          'scanned': len(found),
+                          'unsafe': [{k: v for k, v in f.items()
+                                      if not k.startswith('_')} for f in bad],
+                          'given_up': [{'name': entry_name(f), 'repo': f['repo'],
+                                        'why': rec.get('why')}
+                                       for f, rec in dropped],
                           'still_running': running}, indent=1))
     elif not args.quiet:
         if running:
@@ -663,6 +840,8 @@ def main(argv=None):
         for top in SAFE_SCRATCH_CHECKOUTS:
             print(f'safe to lose: {top} is a checkout in a scratch folder, '
                   f'and everything in it is on a remote')
+        for f, rec in dropped:
+            print(f"given up: {entry_name(f)} -- {rec.get('why')}")
         if not bad:
             print(f'container safe: {len(found)} checkout(s), '
                   f'nothing uncommitted and nothing off a remote'
@@ -674,8 +853,7 @@ def main(argv=None):
                   f'{len(found) + len(scratch)} checkout(s) and scratch '
                   f'folder(s) hold work that is only here:')
             for f in bad:
-                where = (f"{f['name']} -- {f['repo']}" if f.get('name')
-                         else label(f['repo']))
+                where = f"{entry_name(f)} -- {label(f['repo'])}"
                 print(f"  {where} ({f['branch']}): "
                       f"{', '.join(f['unsafe'])}")
                 for k in ('uncommitted', 'untracked'):
@@ -684,10 +862,13 @@ def main(argv=None):
                               + (' ...' if len(f['detail'][k]) > 6 else ''))
                 for line in f['detail'].get('unpushed_head', [])[:3]:
                     print(f'      {line}')
-            print('\nPush or merge it, or say plainly that it is meant to be '
-                  'lost, before telling anyone the session can be archived.'
-                  + (' A scratch folder\'s files go into a repository, or the '
-                     'folder is given up by the name shown.' if leftovers else ''))
+            print('\nBefore telling anyone the session can be archived: push '
+                  'or merge what anyone would keep, and file a helper\'s '
+                  'output you have not read. Delete your own throwaway files '
+                  '(logs, drafts, copies of what is committed). Something you '
+                  'have read, cannot push and is meant to be lost: give it up '
+                  'here, by the name shown, with --discard NAME --why "...". '
+                  'Say none of this in the reply.')
     return 1 if (bad or running) else 0
 
 

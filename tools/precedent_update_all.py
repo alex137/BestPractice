@@ -45,9 +45,14 @@ Each repository's line starts with one word:
     WAITS     not run: it copies a source from a repository PUSHED earlier
               in this run, whose update is not on its main yet; merge that,
               then run this one again
-Repositories run in dependency order: one that copies a source from
-another in the list runs after it (an ORDER line says when that differs
-from the order given), read from each one's declared `repo` links.
+Repositories run in dependency order: every one that another in the list
+copies a source from runs first, each after the ones it copies from, read
+from each one's declared `repo` links; the rest keep the order given, which
+the session makes newest push first (an ORDER line says when the order
+differs from the order given). --order-only prints that order, one per
+line, and stops: the session then runs one repository at a time and lands
+any BestPractice fix on main before the next one (practices/update-all-
+vendors.md).
 Every line but SKIPPED and NOT USED names the repository's log, which the
 session reads for that repository's root issues.
 The session opens and merges each PUSHED pull request itself (the merge
@@ -188,21 +193,31 @@ def declared_upstreams(repo, work):
 
 
 def dependency_order(repos, upstreams):
-    """-> `repos` reordered so each comes after every repository in the list
-    it copies a source from, otherwise in the order given. A cycle keeps the
-    order given for what is left of it.
+    """-> `repos` reordered: first every repository another one in the list
+    copies a source from, each after the ones it copies from itself; then
+    the rest, in the order given. A cycle keeps the order given for what is
+    left of it.
 
     WHY (Morgan, 2026-11-01, strength: decided: "Implement your plan"). A
     voice repository compiles a writing-rules set into the prompts it
     exports, and a consumer copies both; updated in the order typed, the
     consumer could take the rules before the voice repository had rebuilt
     its prompts from them, and the two copies disagreed. The order comes
-    from what each repository already declares, never from a list."""
+    from what each repository already declares, never from a list.
+
+    SOURCES FIRST, THEN THE ORDER GIVEN (Morgan, 2026-11-02, strength:
+    decided: "we do the ones repo-ed in to others like the precedent-* set
+    ... then for the remainders, we then do the remainder in order of last
+    accessed, so the ones I use more recently get updated sooner"). The
+    session passes the repositories newest push first; a source nobody has
+    pushed to lately still runs before every repository, so a fix found in
+    it reaches all of them."""
     names = [norm(r) for r in repos]
     inlist = set(names)
     waits = {n: {u for u in upstreams.get(n, set()) if u in inlist} for n in names}
+    sources = set().union(*waits.values()) if waits else set()
     out, done = [], set()
-    pending = list(range(len(repos)))
+    pending = sorted(range(len(repos)), key=lambda i: names[i] not in sources)
     while pending:
         ready = [i for i in pending if waits[names[i]] <= done]
         pick = ready[0] if ready else pending[0]
@@ -212,8 +227,33 @@ def dependency_order(repos, upstreams):
     return out
 
 
+def _print_order(repos, given):
+    if repos != list(given):
+        print('ORDER    ' + ' -> '.join(repos) + '  (every repository another '
+              'one here copies a source from runs first, after its own '
+              'sources; the rest keep the order given)', flush=True)
+
+
 QUESTIONS_MARK = 'QUESTIONS FOR THE PERSON -- '
 OPTIONAL_MARK = 'the update is complete without these'
+# precedent_update.ALLOW_LIST_MARK and the line under it naming the sentence.
+# Calm on purpose (Morgan, 2026-11-02: the capitals "sound like there's a
+# huge emergency"); the session puts it in bold at the top of its reply.
+ALLOW_LIST_MARK = ('Waiting for you to say one sentence to stop getting '
+                   'permission requests (the allow-list change)')
+ALLOW_LIST_SAYS = 'To approve it, the person says, in these words: '
+
+
+def _allow_list_sentence(out):
+    """-> the sentence an update's allow-list reminder asks the person to
+    say, or '' when it printed none."""
+    if ALLOW_LIST_MARK not in out:
+        return ''
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith(ALLOW_LIST_SAYS):
+            return line[len(ALLOW_LIST_SAYS):].strip().strip('"')
+    return ''
 NOTE_WORDS = 'COMMIT MESSAGE: say this in it, in these words: '
 NOTE_FILES = 'COMMIT MESSAGE: name each of these in it -- '
 
@@ -282,8 +322,10 @@ def _branch_name(clone_dir):
     return r.stdout.strip().splitlines()[-1]
 
 
-def run_one(repo, work, args):
-    """-> the outcome word, after printing one line for `repo`."""
+def run_one(repo, work, args, waiting_on_allow=None):
+    """-> the outcome word, after printing one line for `repo`. A repository
+    whose update offered the allow-list change and did not get it is added to
+    `waiting_on_allow` as (repo, sentence)."""
     dest = work / norm(repo).replace('/', '_')
     log = work / (dest.name + '.log')
     started = time.time()
@@ -320,6 +362,7 @@ def run_one(repo, work, args):
         out = r.stdout + r.stderr
         log.write_text(out, encoding='utf-8')
         result['moved'] = moved_off_pin(out)
+        result['allow_list'] = _allow_list_sentence(out)
         outcome = _outcome(r.returncode, out, dest)
         if outcome != 'ASK':
             result['questions'] = _questions(out)[0]
@@ -355,6 +398,8 @@ def run_one(repo, work, args):
     print(f'{outcome:8} {repo}{extra}{where}  ({secs}s)', flush=True)
     if result.get('moved'):
         print(f'         SOURCE for {repo}: {result["moved"]}', flush=True)
+    if result.get('allow_list') and waiting_on_allow is not None:
+        waiting_on_allow.append((repo, result['allow_list']))
     for question in result.get('questions', []):
         # Optional, so they held nothing back, and still the person's to
         # answer: the session passes them up.
@@ -421,6 +466,9 @@ def main(argv=None):
                     help='passed to each update, with --answered-by')
     ap.add_argument('--answered-by', default='',
                     help='who gave the --copy-in answers, a date and their words')
+    ap.add_argument('--order-only', action='store_true',
+                    help='print the order the repositories run in, one per '
+                    'line, and stop: for a run done one repository at a time')
     args = ap.parse_args(argv)
     if args.rehearse:
         args.no_push = True
@@ -434,10 +482,16 @@ def main(argv=None):
         upstreams = {norm(r): declared_upstreams(r, work) for r in args.repos
                      if not (own and norm(r) == own)}
     repos = dependency_order(args.repos, upstreams)
-    if repos != list(args.repos):
-        print('ORDER    ' + ' -> '.join(repos) + '  (a repository runs after '
-              'every one here it copies a source from)', flush=True)
+    if args.order_only:
+        # The order for a run done one repository at a time, with BestPractice
+        # fixed and landed on main between them (practices/update-all-vendors.md).
+        _print_order(repos, args.repos)
+        for repo in repos:
+            print(repo)
+        return 0
+    _print_order(repos, args.repos)
     total, began, counts, pushed = len(repos), time.time(), {}, set()
+    allow_waiting = []
     for i, repo in enumerate(repos, 1):
         print(f'[{i}/{total}] {repo} ...', file=sys.stderr, flush=True)
         waiting = sorted(upstreams.get(norm(repo), set()) & pushed)
@@ -453,7 +507,7 @@ def main(argv=None):
                   f'then run this repository again)', flush=True)
             outcome = 'WAITS'
         else:
-            outcome = run_one(repo, work, args)
+            outcome = run_one(repo, work, args, allow_waiting)
         if outcome == 'PUSHED':
             pushed.add(norm(repo))
         counts[outcome] = counts.get(outcome, 0) + 1
@@ -461,6 +515,16 @@ def main(argv=None):
         print(f'    {int(done)}s so far, about {int(done / i * (total - i))}s '
               f'left', file=sys.stderr, flush=True)
     print('\n' + ', '.join(f'{n} {k}' for k, n in sorted(counts.items())))
+    if allow_waiting:
+        # Every repository still waiting on the allow-list sentence, in one
+        # place (Morgan, 2026-11-02), never only under each one's line.
+        print(f'\n{ALLOW_LIST_MARK}, in {len(allow_waiting)} repositor'
+              f'{"y" if len(allow_waiting) == 1 else "ies"}. (For the session: '
+              f'open your reply with this line in bold and the list under it. '
+              f'Each repository waits for the person to say its sentence there, '
+              f'or no, recorded with --allow-list no.)')
+        for repo, say in allow_waiting:
+            print(f'  {repo}: "{say}"')
     fine = {'SKIPPED', 'NOT USED', 'CURRENT', 'PUSHED', 'READY'}
     return 0 if set(counts) <= fine else 1
 
