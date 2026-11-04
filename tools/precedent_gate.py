@@ -323,6 +323,41 @@ def _this_session_id():
     return precedent_detect.this_session_id()
 
 
+def _once_per_session(root, key, line):
+    """-> `line` the first time this session is shown it, and a one-line
+    pointer every time after. The full text is kept in .precedent/said-once.json
+    by session, so a resumed session sees it in full once more.
+
+    WHY (S. Alexander Jacobson, 2026-11-04, in a consumer's reduction pass):
+    the private-source paragraph is about 250 words and the reply gate printed
+    it on every UserPromptSubmit, a third of what the per-turn channel cost,
+    saying the same thing each time. The first telling is the one that matters
+    (practice: fail-gracefully); the rest is the pointer. With no session id
+    and no transcript path there is nothing to key on, and the line is printed
+    in full as before (practice: session-load-budget)."""
+    sid = _this_session_id() or os.environ.get('PRECEDENT_TRANSCRIPT_PATH', '').strip()
+    if not sid:
+        return line
+    path = pathlib.Path(root) / '.precedent' / 'said-once.json'
+    try:
+        said = json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+    except (OSError, ValueError):
+        said = {}
+    seen = said.get(key, {})
+    if sid in seen:
+        short = line.split(' -- ')[0].split(', and ')[0][:160]
+        return (f"{short}; said in full earlier this session -- "
+                f"`python3 tools/precedent_source_credentials.py` prints it again.")
+    seen[sid] = __import__('datetime').datetime.now(
+        __import__('datetime').timezone.utc).isoformat(timespec='seconds')
+    said[key] = seen
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(said, indent=1), encoding='utf-8')
+    except OSError:
+        pass
+    return line
+
 def _range_is_this_sessions(repo, rng, own, _git):
     """-> True when a commit in `rng` carries this session's trailer: the
     branch or flow those commits sit on is one this session worked on.
@@ -1237,7 +1272,7 @@ def main():
             import precedent_source_credentials as psc
             line = psc.remind(root, prefix='precedent gate')
             if line:
-                print(f"{line}\n")
+                print(f"{_once_per_session(root, 'credential-reminder', line)}\n")
         except ImportError:
             pass
 

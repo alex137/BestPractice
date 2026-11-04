@@ -1973,6 +1973,102 @@ def check_reply_check_keeps_practice_ideas_at_the_close():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+
+def check_reply_check_keeps_a_refusal_ledger():
+    """Every stop-hook verdict, pass or refusal, lands as one line in
+    .precedent/reply_refusals.jsonl under the repository, and
+    tools/reply_refusals.py counts them per session and per requirement kind.
+
+    S. Alexander Jacobson, 2026-11-04 (strength: decided), from a consumer's
+    reduction pass: the gate refused replies for weeks and nothing counted
+    them (practice: the-boildown, session-load-budget).
+
+    practice: control-asserts-which-failure -- the positive case asserts the
+    refused line names its kind; the negatives prove a pass is recorded too,
+    that the --text dry run writes nothing, and that the reader sums what
+    the ledger holds.
+    """
+    import json as _json
+    import os as _os
+    import pathlib as _pl
+    import shutil as _sh
+    import subprocess as _sp
+    import sys as _sys
+    import tempfile
+    tmp = _pl.Path(tempfile.mkdtemp(prefix='precedent-ledger-'))
+    cases = []
+    try:
+        fx = tmp / 'repo'
+        fx.mkdir()
+        (fx / 'precedent.json').write_text(_json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx / 'reply_check.json').write_text(_json.dumps([{
+            'practice': 'fixture-ledger',
+            'require_heading_matching': 'boildown'}]), encoding='utf-8')
+        env = {**_os.environ, 'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json'),
+               'CLAUDE_CODE_REMOTE_SESSION_ID': 'cse_ledgerfixture'}
+
+        def transcript(name, text):
+            path = tmp / name
+            path.write_text(_json.dumps({
+                'type': 'assistant', 'message': {
+                    'usage': {'input_tokens': 2},
+                    'content': [{'type': 'text', 'text': text}]}}) + '\n',
+                encoding='utf-8')
+            return path
+
+        def stop_hook(path):
+            return _sp.run(
+                [_sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(fx)],
+                input=_json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp), env=env)
+
+        ledger = fx / '.precedent' / 'reply_refusals.jsonl'
+        r1 = stop_hook(transcript('bad.jsonl', 'No closing at all.'))
+        rows = [_json.loads(l) for l in ledger.read_text(encoding='utf-8').splitlines()] \
+            if ledger.exists() else []
+        cases.append(('a refused turn is one ledger line naming its kind and session',
+                      r1.returncode == 2 and len(rows) == 1
+                      and rows[0]['outcome'] == 'refused'
+                      and rows[0]['kinds'] == ['heading']
+                      and rows[0]['session'] == 'session_ledgerfixture',
+                      f'exit {r1.returncode}; rows {rows}'))
+
+        r2 = stop_hook(transcript('good.jsonl',
+                                  'Done.\n\n## The Boildown\n- The work of this '
+                                  'session is now on: x\n'))
+        rows = [_json.loads(l) for l in ledger.read_text(encoding='utf-8').splitlines()]
+        cases.append(('negative control: a passing turn is recorded as a pass',
+                      r2.returncode == 0 and len(rows) == 2
+                      and rows[1]['outcome'] == 'pass' and rows[1]['kinds'] == [],
+                      f'exit {r2.returncode}; rows {len(rows)}'))
+
+        q = tmp / 'dry.md'
+        q.write_text('No closing at all.', encoding='utf-8')
+        r3 = _sp.run([_sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                      '--repo', str(fx), '--text', str(q)],
+                     capture_output=True, text=True, cwd=str(tmp), env=env)
+        rows = [_json.loads(l) for l in ledger.read_text(encoding='utf-8').splitlines()]
+        cases.append(('negative control: the --text dry run refuses but writes no line',
+                      r3.returncode == 2 and len(rows) == 2,
+                      f'exit {r3.returncode}; rows {len(rows)}'))
+
+        r4 = _sp.run([_sys.executable, str(ROOT / 'tools' / 'reply_refusals.py'),
+                      '--repo', str(fx)], capture_output=True, text=True, cwd=str(tmp))
+        cases.append(('the reader sums the ledger per session and per kind',
+                      r4.returncode == 0 and 'session_ledgerfixture' in r4.stdout
+                      and '2 turn(s) checked, 1 refused (50%)' in r4.stdout
+                      and 'heading' in r4.stdout,
+                      f'exit {r4.returncode}: {r4.stdout[:300]}'))
+    finally:
+        _sh.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
 def check_reply_check_refuses_a_repeated_boildown():
     """`require_section_not_repeated` refuses a Boildown whose every line says
     again what the previous reply's said, and nothing else.

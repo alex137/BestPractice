@@ -4456,6 +4456,8 @@ def main():
           *check_vendored_container_scan_knows_a_refresh_branch())
     check('the reply check refuses a Boildown that only repeats the last one',
           *check_reply_check_refuses_a_repeated_boildown())
+    check('the reply check records every verdict in a ledger the reader sums',
+          *check_reply_check_keeps_a_refusal_ledger())
     check('the reply check keeps practice ideas to the closing reply',
           *check_reply_check_keeps_practice_ideas_at_the_close())
     check('the reply check keeps quiet while a batch of background jobs runs',
