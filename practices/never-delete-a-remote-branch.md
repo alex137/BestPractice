@@ -8,7 +8,7 @@ applies_to:  ["**"]
 applies_to_why: "No locus, and deliberately so. The occasion is a moment in a conversation -- a branch has just done its job -- and the failure being prevented is a tool call, not an edit: a session about to run `git push origin --delete` is touching no file the path channel could match on. It carries its occasion-index line instead, which is the one channel loaded before a session acts. Decided: Morgan, 2026-09-21, when the practice was added."
 occasion:    "a branch has done its job, or a person says to delete branches"
 gates:       []
-index_clause: "never delete a remote branch; hand over the one-click link"
+index_clause: "never delete a remote branch; the branch cleanup page lists it"
 index_required: true
 checked_by:  null
 defines:     []
@@ -45,11 +45,13 @@ click** ("The cleanup workflow and its buttons"). A session never starts
 tool the all-public button calls, and never publishes a page that calls it
 on load.
 
-**Instead, hand over the one-click link and move on**
-([branch-delete-links](branch-delete-links.md)): once, flatly, as a
-recommendation -- *"`claude/foo` is merged and safe to delete: \<link\>"*
--- never as an apology, an offer, or something blocking ("The one-click
-link").
+**Instead, leave it to the branch cleanup page and say nothing of it.**
+Since 2026-10-30 a reply names no branch as deletable; the page lists
+every one, linked in the closing reply where the person's set provides
+one (the-boildown item 6). Only when the person asks which branches can go
+does a reply name them, each with its one-click link
+([branch-delete-links](branch-delete-links.md)) -- once, flatly, never as
+an apology, an offer, or something blocking ("The one-click link").
 
 ## Detail
 Everything under the headings below from "What is forbidden, by name" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
@@ -141,7 +143,7 @@ A session never clicks it, never calls that connector tool itself, and
 never publishes a page that calls it on load.
 
 ### The one-click link
-**What to do instead, every time: hand over the one-click link and move on.**
+**What to do instead: leave it to the branch cleanup page.** When the person asks which branches can go, hand over the one-click link and move on.
 [branch-delete-links](branch-delete-links.md) has the exact form. Say it once,
 flatly, as a recommendation — *"`claude/foo` is merged and safe to delete:
 \<link\>"* — and never as an apology, never as an offer to do it, and **never
@@ -193,6 +195,8 @@ rather than left to judgment: the failure mode being fixed is not one bad
 command, it is the search that follows it.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 490 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is forbidden, the cleanup workflow only a person starts, and the link to hand over instead, in 192 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-11-02: the tools stopped asking for the link in the reply.** The-boildown retired its delete-links item on 2026-10-30, but the lander's DONE WITH line, the ladder Promote's copy-branch line and Update Vendors' replaced-branches list still said "Hand the link over", and this Rule still said to hand it over every time. A consumer session followed the tool and put a done branch in its Boildown; Morgan: "Because now we have the branch cleanup page, you don't need to tell me in The Boildown on what branches to delete. I thought we discussed you no longer telling me that in the boildown." All three messages and this Rule now leave the branch to the cleanup page.
 
 ## Install
 Nothing to install — this is a rule a session applies, routed by its line in

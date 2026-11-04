@@ -52,7 +52,11 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   included; amended 2026-11-02, Morgan (decided) -- \"When I update
   vendors it should just be for the repo that the session is rooted in or
   that I explicitly ask to be updated\": steps 8 and 9 attach, clone and
-  survey nothing beyond this repo and what the person names"
+  survey nothing beyond this repo and what the person names; amended
+  2026-11-02, Morgan (decided) -- \"I should get a reminder with update
+  vendors to say that for any BP repo that I didn't say that for
+  previously\": the allow-list change leads the reply until answered, and
+  the answer is kept in precedent.json"
 ---
 ## Rule
 **"Update Vendors" asks for the whole sequence below, merge included, with
@@ -117,6 +121,15 @@ it prints the files under QUESTIONS FOR THE PERSON with the sentence to
 say. Pass that sentence on before committing, and never ask it as a
 yes-or-no question ("Hook and settings changes need the person's own
 words").
+
+**The allow-list change leads the reply.** When the update prints "Waiting
+for you to say one sentence to stop getting permission requests", the reply
+opens with that line in bold, then what the change does and the exact
+sentence, before anything else and never among the other questions.
+His yes, given through the rerun with his words, is recorded in
+`precedent.json`'s `allow_list_answer` and stands for every later
+allow-list-only change; a no is recorded with `--allow-list no
+--answered-by '...'`, and the refresh then never adds those rules here.
 
 **Upstream's version is the default, applied without asking**, in every
 vendored layer and every kind of conflict ("Upstream's version is the

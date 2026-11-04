@@ -20,7 +20,12 @@ assumed:
 
   1. this session MERGED something (the transcript's own tool calls say so);
   2. the reply being written says the session is ready to archive;
-  3. no reply this session has already carried a candidate — the cap;
+  3. this session has not already been asked — the cap. A reply that
+     carried a candidate spends it, and so does the hook's own earlier
+     block: the block tells the session to answer a non-rule in one line,
+     and that line carries no candidate marker, so counting only the
+     marker asked the same question at every later close (Morgan,
+     2026-11-04: four times in one session, about one sentence);
   4. a Stage-1 detector found something in THIS session's own material.
 
 Condition 4 is what keeps it from becoming noise, and it is the reason this
@@ -74,6 +79,9 @@ from precedent_set_files import set_file as _set_file  # noqa: E402
 CONFIG_NAME = _set_file('close_detect')
 DEFAULT_MARKER = 'Practice candidate'
 DEFAULT_HEADING = 'next step'
+# Words this detector's own block always carries, so a later close can tell
+# it has already asked (condition 3).
+ASKED_SIGNATURE = 'a Stage-1 detector found'
 
 # A merge this session actually performed. `git merge-base` is not a merge
 # and is run constantly by the freshness guard, so the pattern has to refuse
@@ -320,6 +328,20 @@ def _without_other_sessions_words(text, seeded=None):
     return text
 
 
+def already_asked(records):
+    """True when this detector already blocked a close in this session.
+
+    Its block comes back as a `type: user` text record opening "Stop hook
+    feedback", carrying ASKED_SIGNATURE. Tool results are not text blocks,
+    so a session that reads this file's source never trips it."""
+    for rec in records:
+        for b in _blocks(rec, 'user'):
+            text = (b.get('text') or '') if b.get('type') == 'text' else ''
+            if text.lstrip().startswith('Stop hook feedback') and ASKED_SIGNATURE in text:
+                return True
+    return False
+
+
 def merged_this_session(records):
     """-> the command or tool that merged, or None.
 
@@ -410,6 +432,8 @@ def evaluate(records, reqs, repo):
         marker = r.get('candidate_marker') or DEFAULT_MARKER
         if any(_norm(marker) in _norm(t) for t in texts):
             continue                      # the one-per-session cap, already spent
+        if already_asked(records):
+            continue                      # asked once; a one-line "not a rule" spent it too
         merge = merged_this_session(records)
         if not merge:
             continue                      # "if there wasn't, we were just talking"
@@ -419,7 +443,7 @@ def evaluate(records, reqs, repo):
         heading = r.get('closing_heading_matching') or DEFAULT_HEADING
         lines = [
             f"[{r.get('_source', '?')}] This session merged something and is "
-            f"closing as ready to archive, and a Stage-1 detector found "
+            f"closing as ready to archive, and {ASKED_SIGNATURE} "
             f"{len(found)} signal(s) in this session's own material. Add ONE "
             f"more bullet to the closing /{heading}/i section -- nothing else, "
             f"and do NOT rewrite the reply the person has already seen.",

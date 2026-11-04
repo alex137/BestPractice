@@ -1541,7 +1541,6 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_ask_states_its_question',
     'require_finished_plan_asks_to_act',
     'require_hold_names_what_runs',
-    'unless_reply_declares_loss',
     # printed by the reply gate before the reply, never evaluated here
     # (precedent_gate._note_from_tool, 2026-10-17)
     'note_from_tool',
@@ -2265,37 +2264,27 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
             if verdict is None:
                 continue
             ok, report = verdict
-            if not ok and _declares_loss(r, quoted_stripped):
-                # THE EXCEPTION THE RULE ALWAYS HAD, FINALLY IMPLEMENTED.
-                # Morgan's own words, quoted in this rule's `why` since
-                # 2026-09-22: "never never recommend 'You can archive this
-                # session' (unless the work is intended to be lost!)". The
-                # parenthesis was never coded. The refusal text even told
-                # the reader how to satisfy it -- "or say in the reply that
-                # it is meant to be lost" -- and then ignored them doing so.
-                #
-                # On 2026-09-23 a session said exactly that, in those words,
-                # in three consecutive replies about 34 watermark commits it
-                # had established were superseded pointer advances in a
-                # clone 74 commits behind its own origin and on an owner the
-                # git proxy refuses pushes to. All three turns were refused,
-                # so all three ended by telling the person NOT to archive a
-                # session they could safely archive. A gate that forces a
-                # false statement has stopped being a safety mechanism.
-                #
-                # It is deliberately not a magic phrase: `_declares_loss`
-                # also requires the reply to NAME every checkout being given
-                # up, so a session cannot wave away work it has not looked
-                # at -- which is the exact 2026-09-22 failure this rule was
-                # built for, and it stays caught.
-                continue
+            # NO ESCAPE IN THE REPLY ANY MORE (2026-11-02). From 2026-09-23
+            # a reply could give unsafe work up with a `**Checkout
+            # disposition:** NAME -- discard (why)` line, read here. Morgan,
+            # 2026-11-02 (strength: decided): "check that internally to make
+            # sure the checkout disposition is great, but to NOT print it".
+            # The verdict now lives in the scanner's own ledger
+            # (precedent_container_safe.py --discard NAME --why ...), which
+            # the scan reads before it answers; so `ok` is already true for
+            # work given up there, and nothing in the reply can make it so.
             if not ok:
                 out.append({'kind': 'container', 'advisory': False, 'message': (
                     f"[{r.get('_source', '?')}] this reply says "
                     f"\"{phrase}\" and this container is NOT safe to lose:"
                     f"\n{report}\n"
-                    f"Push or merge it -- or say in the reply that it is "
-                    f"meant to be lost -- before saying that sentence."
+                    f"Push or merge what anyone would keep, delete your own "
+                    f"throwaway files, and give up anything you have read "
+                    f"and cannot push with `python3 tools/"
+                    f"precedent_container_safe.py --discard NAME --why "
+                    f"'...'` -- never a helper's output not yet filed -- "
+                    f"before saying that sentence. None of it goes in the "
+                    f"reply."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_landed_if_says: the archive guard of the five-stage ladder
@@ -2809,90 +2798,6 @@ def _plans_with_steps_left(text, root=None):
     return found
 
 
-def _declares_loss(rule, text):
-    """-> True when the reply has deliberately given up the unsafe work.
-
-    Two routes, and each still needs its own naming half -- a session that
-    has not looked at a clone cannot name it, and one that has can say so in
-    the same breath as giving it up. The naming half is what keeps either
-    route from being a password.
-
-    ROUTE 1, THE MARKER (checked first). `unless_reply_declares_loss.marker`
-    is a regex template with a literal `{name}` placeholder; a reply passes
-    this route only when EVERY unsafe checkout has its own matching line, so
-    "precedent-individual" cannot cover for a second unsafe checkout the
-    reply never mentions. This is the one the archive line's own author is
-    meant to reach for: a structured `**Checkout disposition:** NAME --
-    discard (reason)` line, greppable, and never mistaken for prose that
-    merely happens to contain one of route 2's phrases (a quoted objection,
-    a description of someone else's reply) the way free text can be.
-
-    ROUTE 2, THE PHRASE LIST (kept for prose that says the same thing in
-    Morgan's own words rather than the marker). The reply says one of the
-    rule's declared phrases, ANYWHERE, and also names every unsafe checkout
-    anywhere in the same reply -- looser than route 1's per-checkout
-    pairing, which is why route 1 exists at all: a session naming two
-    checkouts and giving up only one could pass route 2 by accident. Route 1
-    is preferred for exactly that reason; route 2 stays for backward
-    compatibility with replies that already read correctly under the old
-    rule.
-
-    Matching is on the checkout's directory name (`precedent-individual`),
-    not its full path, because that is what a reply to a person actually
-    writes. An unreadable or unrunnable scanner returns False -- the same
-    fail-closed posture the caller takes everywhere else about this
-    sentence, since archiving cannot be undone next turn."""
-    names = _unsafe_checkout_names()
-    if not names:
-        # The scanner said unsafe but could not say WHICH. Nothing here can
-        # verify the naming half, so neither route is available.
-        return False
-    escape = rule.get('unless_reply_declares_loss') or {}
-
-    marker = escape.get('marker')
-    if marker:
-        try:
-            if all(re.search(marker.replace('{name}', re.escape(n)), text, re.I)
-                   for n in names):
-                return True
-        except re.error:
-            pass  # a malformed template falls through to route 2, never crashes
-
-    phrases = escape.get('phrases') or []
-    if not phrases:
-        return False
-    if not any(_norm(ph) in _norm(text) for ph in phrases):
-        return False
-    low = text.lower()
-    return all(n.lower() in low for n in names)
-
-
-def _unsafe_checkout_names():
-    """-> [directory name] for each checkout the scanner calls unsafe, or []
-    when it cannot be run or read. Run only on the unsafe path, which is
-    rare, so the second subprocess costs nothing in the ordinary case."""
-    tool = pathlib.Path(__file__).resolve().parent / 'precedent_container_safe.py'
-    if not tool.is_file():
-        return []
-    try:
-        p = subprocess.run([sys.executable, str(tool), '--json'],
-                           capture_output=True, text=True, timeout=120)
-        payload = json.loads(p.stdout or '{}')
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return []
-    names = []
-    for entry in payload.get('unsafe') or []:
-        # A scratch folder carries its own name (scratch:<session>), since
-        # every harness one is called scratchpad.
-        if entry.get('name'):
-            names.append(str(entry['name']))
-            continue
-        repo = str(entry.get('repo') or '').rstrip('/')
-        if repo:
-            names.append(pathlib.PurePath(repo).name)
-    return names
-
-
 def _container_verdict():
     """-> (safe, report) from tools/precedent_container_safe.py, or None
     when this engine has no copy of it to run.
@@ -3189,9 +3094,11 @@ def main():
               'else -- named below, with the checkout it is in. The person '
               'has ALREADY SEEN the reply above -- do NOT repeat it. PUSH OR '
               'MERGE that work first, in each checkout named; then output '
-              'ONLY a short correction of the archive line. If it is '
-              'genuinely meant to be lost, say so in the reply, in those '
-              'words.', file=sys.stderr)
+              'ONLY a short correction of the archive line. Your own throwaway '
+              'files you delete; something you have read, cannot push and '
+              'is meant to be lost you give up with precedent_container_'
+              'safe.py --discard NAME --why "..." -- silently, never in the '
+              'reply.', file=sys.stderr)
     elif any(b['kind'] == 'bare_pattern' for b in bad):
         print('The reply gate blocked this turn: it names something with a '
               'destination -- a PR, a session, a branch, a rule -- without '

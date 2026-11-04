@@ -3811,8 +3811,9 @@ def landed_branch_line(root, label, staging, landed):
     return (f'DONE WITH {branch}: everything on it is on {staging} now, and no '
             f'pull request merged it, so GitHub will not delete it. It is safe '
             f'to delete: {url} (the filtered page then reads "no branches '
-            f'matched"). Hand the link over; never delete it yourself '
-            f'(never-delete-a-remote-branch).')
+            f'matched"). The branch cleanup page lists it, so say nothing of it '
+            f'in the reply, and never delete it yourself (the-boildown item 6; '
+            f'never-delete-a-remote-branch).')
 
 
 def land(root, work=None, say=print, fixing=None):

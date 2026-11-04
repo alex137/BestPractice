@@ -163,7 +163,7 @@ words, at the length it earns.**
 
 ```
 When a branch has done its job, or a person says to delete branches:
-  never-delete-a-remote-branch — never delete a remote branch; hand over the one-click link
+  never-delete-a-remote-branch — never delete a remote branch; the branch cleanup page lists it
 When a computation books a transfer between two parties:
   name-both-sides-of-ledger — name both sides; check what is charged against what is received
 When a judgment call is needed to keep work moving:
