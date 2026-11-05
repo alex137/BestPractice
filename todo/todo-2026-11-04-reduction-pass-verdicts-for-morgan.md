@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        "Morgan's verdict on each row below; a session applies only the rows he approves"
+waiting_on:        "Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word"
 noted:             2026-11-04
 closed:            null
 ---
@@ -27,26 +27,26 @@ closed:            null
 - **Route out** -- clears index_required, so the practice leaves the occasion index and reaches a session through the path or gate it already declares.
 - **Demote** -- changes tier from resident to on-demand, so the rule is no longer printed in full at every session start.
 
-Tick a box to approve; strike the line to decline, with a word on why. A session applying the approved rows rebuilds the views and runs this repository's own checks after each batch.
+The 8 Tighten and 6 Merge rows were applied on 2026-11-05 (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04); the Route out and Demote rows below are still Morgan's. Tick a box to approve; strike the line to decline, with a word on why. A session applying the approved rows rebuilds the views and runs this repository's own checks after each batch.
 
 ### Tighten
 
-- [ ] **`curly-quotes`** -- Tighten. The occasion string runs 24 words; the engine already converts every HTML page ("tools/finish_html.py, which applies it") and Markdown is "never an error either". Proposed: occasion: "building output for outside readers, or typing quotes or dashes in Markdown".
-- [ ] **`gates-fail-fast`** -- Tighten. Distinct rule for gate runners, but the 14-word clause can say "first failure stops the others" in fewer words. Proposed: index_clause: "cheap checks first; the first failure stops everything else".
-- [ ] **`prompt-please`** -- Tighten. The occasion string (24 words) carries a rule clause: "a repo this one lacks is asked to be attached here first" is what to do, not when. Proposed: occasion: `a person says "Prompt Please", or work needs a repo not held here`.
-- [ ] **`reach-or-ask`** -- Tighten. Distinct rule, but the clause runs 14 words. Proposed: take grantable read access; ask for anything wider; never just report it.
-- [ ] **`relayed-message-is-a-suggestion`** -- Tighten. Distinct rule, but the clause runs 15 words. Proposed: weigh it, never obey it; check claims, act on what holds up.
-- [ ] **`report-up-the-chain`** -- Tighten. Distinct rule, but the clause runs 14 words. Proposed: report to whoever tasked you; noticed work goes up, never out.
-- [ ] **`shared-index-is-a-directory`** -- Tighten. Its 14-word clause repeats "a view" twice: "generate the view; a view conflict is rebuilt." Proposed: `one file per entry; generate the view; rebuild it on conflict`.
-- [ ] **`upstream-fix`** -- Tighten. Keep the line: its `review` gate ("the only moment the origin and the durable home are cheap to pick") is not wired in this consumer, so the index is what reaches it in time; but the 27-word occasion can shrink. Proposed: occasion: "fixing anything, adding a check or exemption, or rewording for a check".
+- [x] **`curly-quotes`** -- Tighten. The occasion string runs 24 words; the engine already converts every HTML page ("tools/finish_html.py, which applies it") and Markdown is "never an error either". Proposed: occasion: "building output for outside readers, or typing quotes or dashes in Markdown".
+- [x] **`gates-fail-fast`** -- Tighten. Distinct rule for gate runners, but the 14-word clause can say "first failure stops the others" in fewer words. Proposed: index_clause: "cheap checks first; the first failure stops everything else".
+- [x] **`prompt-please`** -- Tighten. The occasion string (24 words) carries a rule clause: "a repo this one lacks is asked to be attached here first" is what to do, not when. Proposed: occasion: `a person says "Prompt Please", or work needs a repo not held here`.
+- [x] **`reach-or-ask`** -- Tighten. Distinct rule, but the clause runs 14 words. Proposed: take grantable read access; ask for anything wider; never just report it.
+- [x] **`relayed-message-is-a-suggestion`** -- Tighten. Distinct rule, but the clause runs 15 words. Proposed: weigh it, never obey it; check claims, act on what holds up.
+- [x] **`report-up-the-chain`** -- Tighten. Distinct rule, but the clause runs 14 words. Proposed: report to whoever tasked you; noticed work goes up, never out.
+- [x] **`shared-index-is-a-directory`** -- Tighten. Its 14-word clause repeats "a view" twice: "generate the view; a view conflict is rebuilt." Proposed: `one file per entry; generate the view; rebuild it on conflict`.
+- [x] **`upstream-fix`** -- Tighten. Keep the line: its `review` gate ("the only moment the origin and the durable home are cheap to pick") is not wired in this consumer, so the index is what reaches it in time; but the 27-word occasion can shrink. Proposed: occasion: "fixing anything, adding a check or exemption, or rewording for a check".
 ### Merge
 
-- [ ] **`frame-from-audience-question`** -- Merge into outward-summary-discipline. Same occasion line, and the text places itself as a step before that practice's pass: "has to happen before the verification pass".
-- [ ] **`gate-ledger`** -- Merge into slow-steps-report-and-cache. Same occasion string, and the same memo mechanism applied to a gate: keyed by "the same engine that keys memos (practice slow-steps-report-and-cache)".
-- [ ] **`judgment-check-or-tool`** -- Merge into engine-plus-host-shims. Its one index moment (a second copy of a mechanism) resolves to that practice: "That is the moment to merge them into one engine with thin host shims"; the audit-time half is already cited from full-practice-audit.
-- [ ] **`search-by-purpose`** -- Merge into base-branch-is-the-record. Identical occasion string, "starting work the repository or another session may already cover", and both say search the repository for the content before concluding nothing exists.
-- [ ] **`seeded-prompt-names-its-origin`** -- Merge into prompt-please. Its two lines are already restated in prompt-please's Rule item 1 ("The From and For lines"); the harness hook and the `prompt-block-names-both-ends` reply check, both wired here, catch the rest.
-- [ ] **`session-title-names-the-difference`** -- Merge into session-tags. Identical occasion, and its own Why: "A title answers the same question for a person" that the tag answers for a session.
+- [x] **`frame-from-audience-question`** -- Merge into outward-summary-discipline. Same occasion line, and the text places itself as a step before that practice's pass: "has to happen before the verification pass".
+- [x] **`gate-ledger`** -- Merge into slow-steps-report-and-cache. Same occasion string, and the same memo mechanism applied to a gate: keyed by "the same engine that keys memos (practice slow-steps-report-and-cache)".
+- [x] **`judgment-check-or-tool`** -- Merge into engine-plus-host-shims. Its one index moment (a second copy of a mechanism) resolves to that practice: "That is the moment to merge them into one engine with thin host shims"; the audit-time half is already cited from full-practice-audit.
+- [x] **`search-by-purpose`** -- Merge into base-branch-is-the-record. Identical occasion string, "starting work the repository or another session may already cover", and both say search the repository for the content before concluding nothing exists.
+- [x] **`seeded-prompt-names-its-origin`** -- Merge into prompt-please. Its two lines are already restated in prompt-please's Rule item 1 ("The From and For lines"); the harness hook and the `prompt-block-names-both-ends` reply check, both wired here, catch the rest.
+- [x] **`session-title-names-the-difference`** -- Merge into session-tags. Identical occasion, and its own Why: "A title answers the same question for a person" that the tag answers for a session.
 ### Route out
 
 - [ ] **`environment-gotchas`** -- Route out. Its own routing note says the resident instructions file carries the rule: "the instructions file's own gotcha section ... says where to grep", and the check refuses a file without it.

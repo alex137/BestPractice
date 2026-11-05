@@ -4,7 +4,7 @@
 Which repository an engine tool is reading, and a loud line when it is not
 the one the person is standing in.
 
-code-cites-practice: judgment-check-or-tool
+code-cites-practice: engine-plus-host-shims
 
 THE TRAP. Every engine tool finds its repo from its own file:
 `ROOT = pathlib.Path(__file__).resolve().parent.parent`, or the git toplevel
@@ -37,7 +37,7 @@ layout (engine at <repo>/process/upstream/tools/, run from <repo>) is the
 same repo and stays quiet.
 
 One helper rather than a check copied into each tool, because the trap is the
-same everywhere (practice: judgment-check-or-tool, one mechanism, one tool).
+same everywhere (practice: engine-plus-host-shims, one mechanism, one tool).
 Callers import it inside try/except: the engine is vendored a file at a time,
 and a tree without this module keeps its old, quieter behaviour rather than
 failing (practice: fail-gracefully).

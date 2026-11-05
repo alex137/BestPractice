@@ -6598,7 +6598,7 @@ def _repo_name_compare_via_helper(ctx):
     back: the freshness check's `origin == repo_url` read a lowercase
     add_repo clone of a capitalized source as NOT VERIFIED. This check is
     what stops the next one (practice: upstream-fix; practice:
-    judgment-check-or-tool)."""
+    engine-plus-host-shims)."""
     import precedent_repo_id as rid
     out = []
     for f in _tools_py(ROOT / 'tools'):
@@ -11882,7 +11882,7 @@ def glob_changed_reason_did_not(root, base, rels):
     with only the practice files a change touched (2026-11-01: a landing on
     staging changed two practices' globs, nothing compared them until the
     move into main, and the Produce was refused; Morgan, "Fix at the
-    root"; practice: judgment-check-or-tool)."""
+    root"; practice: engine-plus-host-shims)."""
     out = []
     for rel in rels:
         path = pathlib.Path(root) / rel
@@ -14562,7 +14562,7 @@ def load_exemptions():
 # a part is measured, are session_load_trend's (SURFACES, as_measured,
 # approx_tokens, total_tokens): the session check's row and Update Vendors'
 # close read the same functions, so the three can never disagree about a
-# total (practice: judgment-check-or-tool; 2026-10-30, a third copy here).
+# total (practice: engine-plus-host-shims; 2026-10-30, a third copy here).
 # A copy of this file with no session_load_trend.py beside it (a fixture,
 # a hand-copied engine) still loads; the check says it cannot run there.
 try:

@@ -10,8 +10,8 @@ gates:       []
 index_clause: "re-runs: record code, reads and result per unit; skip a unit whose fact holds"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: slow-steps-report-and-cache
 supersedes:  []
 overrides:   null
 added:       "2026-09-28"
@@ -154,6 +154,8 @@ was reproduced on a toy repository and fixed. The same review ran the
 harness ledger against checks that truly failed and saw it replay eight
 of nine as PASS. It was switched off, then removed: a sound version
 would have skipped almost nothing.
+
+**2026-11-05: deduplicated into [slow-steps-report-and-cache](slow-steps-report-and-cache.md)**, which now carries this rule's substance; same occasion, one index line (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Give each gate that re-runs work to compare its output a ledger file

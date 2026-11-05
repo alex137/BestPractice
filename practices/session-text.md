@@ -265,7 +265,7 @@ above.
 **Where you did NOT get the authorization, say that instead of inventing
 it.** A seeded prompt claiming a person approved something they did not is
 the failure
-[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md) was
+[prompt-please](prompt-please.md) was
 written out of. If the work was your idea rather than theirs, seed it as
 work to do and stop before the merge.
 
@@ -315,7 +315,7 @@ done. One block per destination repository, keyed by the repository's name
 — never by an ordinal.
 
 **And it opens by naming THIS session —
-[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md): the
+[prompt-please](prompt-please.md): the
 sending session's title and id, a link to it, and that software rather than a
 person wrote the message.** Naming the sending *repository* is not this, and
 is what a session reaches for instead when the rule is not in front of it —
@@ -430,7 +430,7 @@ ask for that spawned session, I'd want it merged (or is there a reason not to
 do that?)."* The reason not to, asked for and answered: none that survives
 the three bounds in the Rule. The one real objection is that a relayed
 authorization is software asserting what a person said, which is the exact
-thing [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+thing [prompt-please](prompt-please.md)
 exists to police -- so the bounds are what that rule would ask for anyway,
 named work, a named branch and a named check, rather than a bare "he said
 merge it". Unbounded, it would be a session spawning a session that merges

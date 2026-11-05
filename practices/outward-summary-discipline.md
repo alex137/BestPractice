@@ -12,7 +12,7 @@ checked_by:  null
 defines:     []
 status:      active
 in_force_at: null
-supersedes:  []
+supersedes:  ["frame-from-audience-question"]
 overrides:   null
 added:       null
 approved_by: "BestPractice (pre-fork)"
@@ -37,6 +37,8 @@ diligence record. The record is part of the deliverable.
 **(d) Run the pass automatically, in the same working session, before
 reporting the work done** — do not queue it, offer it as an option, or defer
 it to "before external use".
+
+**(0) Before any of it, build the document around the question the audience actually has, not around the material you just produced.** The tell is a headline shaped like your recent work rather than like the reader's problem; if a one-sentence statement of the audience's question is not near the top, this step was skipped. (Absorbed from `outward-summary-discipline`, 2026-11-05.)
 
 ## Detail
 Only genuinely external blockers (an unreachable source, a number needing a
@@ -103,5 +105,7 @@ at the same *technology generation*. A fourth round added clause (i) after
 the author's own answer to a reviewer's challenge asserted, confidently and
 backwards, which way one of the model's terms inverted — inside the very
 pass meant to be checking the work.
+
+**2026-11-05: absorbs `outward-summary-discipline`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install

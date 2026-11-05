@@ -14,7 +14,7 @@ checked_by:  null
 defines:     []
 status:      active
 in_force_at: null
-supersedes:  []
+supersedes:  ["search-by-purpose"]
 overrides:   null
 added:       "2026-09-12"
 approved_by: "Morgan, 2026-09-13 -- \"yes, go merge, let's keep base branch is
@@ -52,6 +52,8 @@ a phrase from the text, the function name, the file. `git log --oneline
 HEAD..origin/<base>` after a fetch answers "did anything land while I was
 working", and grepping the file on `origin/<base>` answers "is my change
 already there".
+
+**Search twice before concluding that no prior work exists**: once in the vocabulary of the mechanism (how the thing works) and once in the vocabulary of the purpose (why it was done). Then make your own output findable under both. (Absorbed from `search-by-purpose`, 2026-11-05; its check keeps that slug.)
 
 ## Detail
 **The second read is the one that gets skipped**, and it is the cheaper of
@@ -116,6 +118,8 @@ from the other end: a spawned session reports back through its repository or
 not at all). So the summary was not merely stale. **It was written by a session
 that had no way to know**, which is why the remedy cannot be a better summary
 or a more careful reader of one, and has to be a read of the branch.
+
+**2026-11-05: absorbs `search-by-purpose`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so every

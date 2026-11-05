@@ -54,7 +54,7 @@ makes the task visible at all**, and that is load-bearing, not cosmetic.
 
 When work has to happen in a session other than this one, the reply hands
 over **three things, always, in this order** -- and a *seeded* prompt carries
-[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s header
+[prompt-please](prompt-please.md)'s header
 above all three, because nobody typed it:
 
 1. **Which repository to open the session in**, by name. Not "the other

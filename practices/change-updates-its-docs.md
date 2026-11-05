@@ -42,7 +42,7 @@ section describing a retired workflow because it was "a doc fix, not a broken
 path": *"Part of your job is to keep the docs consistent with the reality!"*
 
 Finding the document is part of the change, not a separate task. Search by
-purpose as well as by mechanism ([search-by-purpose](search-by-purpose.md)):
+purpose as well as by mechanism ([base-branch-is-the-record](base-branch-is-the-record.md)):
 the page that describes your tool may never name it.
 
 ## Detail

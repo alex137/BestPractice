@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "About whatever fix is in front of the session, in any file -- no path narrows it, and whether a file is a copy is a fact about its history that no glob can see. Its work (finding the cause, choosing where the fix lives, fixing the origin and the copies) happens inline. Reached through the occasion index and the `review` and `reply` gates. Decided: 2026-09-24, when the practice landed; checked again 2026-10-01, when durable-fix and fix-the-original merged into it, and the glob still holds."
-occasion:    "fixing anything -- a bug, a stale or copied file, a broken environment -- adding a check or exemption, or a check flagging text that already does what its rule asks"
+occasion:    "fixing anything, adding a check or exemption, or rewording for a check"
 gates:       ["review", "reply"]
 gates_why:   "`review` catches it while the fix is being chosen, the only moment the origin and the durable home are cheap to pick. `reply` catches the reporting half: a band-aid called one, every copy named, a check-only fix or a new exemption not presented as done."
 index_clause: "fix the cause where it lives, and the origin and copies; name a band-aid"
@@ -378,6 +378,8 @@ approval record, and a consumer added the term to its own glossary by
 hand. None of it read as "fixing", so this practice never loaded. Asked
 why the mistake happened and how to stop it, Morgan approved the fix:
 *"Also, act on the plan, including booked."* Strength: decided.
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 **Where the answer goes: [The Boildown](the-boildown.md)'s fix line**,

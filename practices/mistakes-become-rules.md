@@ -68,7 +68,7 @@ actually gets written never repeats an existing rule's phrasing — it arrives a
 prose about the day's own problem, in the day's own vocabulary. So search by
 what the rule is *about* and by the mechanism it names, and search the whole
 catalogue rather than the neighbours you would expect
-([search-by-purpose](search-by-purpose.md)).
+([base-branch-is-the-record](base-branch-is-the-record.md)).
 
 **Verifying a rule is a different act from verifying a fact, and a session that
 does the second will believe it did the first.** Checking every factual claim
@@ -113,7 +113,7 @@ rule" assumes the existing rule is visible, and it often is not: a practice
 source carries its own level's `practices/` only, so a set that resolves no
 sources never sees universal text at all, and the rule you are about to
 duplicate is invisible from inside the repository you are writing in. Search by
-subject *and* by mechanism ([search-by-purpose](search-by-purpose.md)) — a clone
+subject *and* by mechanism ([base-branch-is-the-record](base-branch-is-the-record.md)) — a clone
 of the upstream catalogue on disk is enough, with nothing attached — and report
 the result either way: **the slug you are extending, or that the search found
 nothing.** Unsearchable is not the same as absent, and neither is silence.

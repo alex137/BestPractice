@@ -652,7 +652,7 @@ confidently.
    pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
-   it is called ([search-by-purpose](search-by-purpose.md) is the same
+   it is called ([base-branch-is-the-record](base-branch-is-the-record.md) is the same
    search) — a duplicate that shared a name would have been noticed
    already. For each, name which copy is canonical and delete or re-point
    the other. Vendoring is the deliberate exception: the engine is copied
