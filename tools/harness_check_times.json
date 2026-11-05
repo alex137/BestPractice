@@ -549,6 +549,7 @@
   "check_render_names_files_by_title": 0.1,
   "check_rendered_docs_are_current": 0.1,
   "check_repin_kept_records_the_persons_words": 0.0,
+  "check_reply_check_keeps_a_refusal_ledger": 0.5,
   "check_reply_check_keeps_practice_ideas_at_the_close": 0.6,
   "check_reply_check_keeps_quiet_while_a_batch_runs": 1.0,
   "check_reply_check_names_what_it_cannot_evaluate": 0.0,
