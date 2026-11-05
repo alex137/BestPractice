@@ -372,6 +372,10 @@
       "quick": 5
     },
     {
+      "looking_for": "How often the reply gate refuses a turn, per session and by which requirement, on this machine",
+      "go_to": "[tools/reply_refusals.py](tools/reply_refusals.py) — reads the ledger [tools/precedent_reply_check.py](tools/precedent_reply_check.py) appends to under the untracked `.precedent/` folder, one line per checked turn, pass or refusal"
+    },
+    {
       "looking_for": "Whether anything in this container would be lost if the session were archived — every checkout, not just this repo",
       "go_to": "[tools/precedent_container_safe.py](tools/precedent_container_safe.py) — run it bare; exit 1 and a per-checkout report when work is only here. The rule is archive condition 1 in [practices/the-boildown.md](practices/the-boildown.md), enforced blocking by [tools/precedent_reply_check.py](tools/precedent_reply_check.py)"
     },

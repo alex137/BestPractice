@@ -2820,6 +2820,47 @@ def _container_verdict():
     return p.returncode == 0, (p.stdout or p.stderr or '').strip()
 
 
+# THE REFUSAL LEDGER. One JSON line per stop-hook verdict, pass or refusal,
+# in .precedent/reply_refusals.jsonl under the repository the check ran for
+# (practice: the-boildown; practice: session-load-budget). WHY (S. Alexander
+# Jacobson, 2026-11-04, in a consumer's reduction pass): the gate refused
+# replies for weeks and nothing counted them, so its cost was visible every
+# turn and its benefit was a belief. tools/reply_refusals.py reads the file.
+# Only the stop-hook path writes it: --text is the dry run a test or a
+# person uses to ask "would this block?", and a question is not a verdict.
+# Never raises: a ledger that could block a reply would be a second gate.
+REFUSAL_LEDGER = 'reply_refusals.jsonl'
+
+
+def record_outcome(repo, bad, turn=None, path=None, now=None):
+    """Append this verdict to the ledger. `bad` is main()'s list of
+    blocking violations (empty on a pass). -> the path written, or None."""
+    import datetime
+    try:
+        import precedent_detect as _pd
+        sid = _pd.this_session_id()
+    except Exception:                                         # noqa: BLE001
+        sid = ''
+    entry = {
+        'time': (now or datetime.datetime.now(datetime.timezone.utc)
+                 ).isoformat(timespec='seconds'),
+        'session': sid,
+        'repo': str(pathlib.Path(repo).resolve()),
+        'turn': turn,
+        'outcome': 'refused' if bad else 'pass',
+        'kinds': [b.get('kind', '') for b in bad],
+        'messages': [str(b.get('message', ''))[:200] for b in bad],
+    }
+    path = pathlib.Path(path) if path else pathlib.Path(repo) / '.precedent' / REFUSAL_LEDGER
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'a', encoding='utf-8') as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    except OSError:
+        return None
+    return path
+
+
 def main():
     argv = sys.argv[1:]
     repo = os.environ.get('CLAUDE_PROJECT_DIR') or '.'
@@ -2952,6 +2993,7 @@ def main():
     wake = None
     prompt = None
     written = None
+    ledger = False
     if '--text' in argv:
         text = pathlib.Path(argv[argv.index('--text') + 1]).read_text(encoding='utf-8')
         if '--written' in argv:
@@ -2972,6 +3014,7 @@ def main():
         transcript = payload.get('transcript_path')
         if not transcript:
             return 0
+        ledger = True
         timeline = assistant_timeline(transcript)
         turn = turn_text_count(transcript)
         written = turn_written_paths(transcript)
@@ -3006,6 +3049,8 @@ def main():
     _record_given_up(text)
     bad = [b for b in violations(text, reqs, timeline, wake, prompt, turn, written)
            if not b.get('advisory')]
+    if ledger:
+        record_outcome(repo, bad, turn)
     if not bad:
         return 0
     # The reply that was just refused has ALREADY been shown to the person --
