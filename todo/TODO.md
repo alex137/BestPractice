@@ -168,7 +168,7 @@ as_of: 2026-11-05
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens |  |
 | [`todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors`](todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors.md) | Should a session attach a copied-in source (a `vendored: true` entry in | Morgan |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, |  |
-| [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on each row below; a session applies only the rows he approves |
+| [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
 
 ## Due Reminders
 

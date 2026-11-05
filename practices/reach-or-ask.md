@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "No locus: the moment is a tool or check answering that it could not reach a repository, host or credential, in any repository and about any file. The occasion index is the channel. Decided: 2026-10-08, when the practice was written."
 occasion:    "a tool, check or task cannot reach a repository, service, credential or file it needs"
 gates:       []
-index_clause: "take read access a tool can grant; ask for anything wider; never just report it"
+index_clause: "take grantable read access; ask for anything wider; never just report it"
 checked_by:  null
 defines:     []
 status:      active
@@ -125,6 +125,8 @@ requirement'"*. Clause 1 now frees named repositories and groups and names
 the sweep as the careful case, and a gate holds it. strength: decided.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 388 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three answers, the sweep exception and what to do on a refusal, in 261 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Clause 1's sweep has a gate: [`tools/repo_attach_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/repo_attach_gate.py), run at

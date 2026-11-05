@@ -31,7 +31,7 @@ mechanical check and no gate (the set that can only be judged). Judge each
 one against the actual repo state with a closed question, one practice at
 a time — *does this apply; if so, is it satisfied, yes or no, with the
 specific file and line* — never the open "which of these might apply."
-For each one, also ask [judgment-check-or-tool](judgment-check-or-tool.md)'s
+For each one, also ask [engine-plus-host-shims](engine-plus-host-shims.md)'s
 question: should it stay judgment, get a check, or become one shared tool?
 On-demand only, invoked explicitly by a person; never a routine or
 automated gate. It is also Pass 4's catalogue read inside a

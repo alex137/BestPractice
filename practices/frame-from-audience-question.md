@@ -10,8 +10,8 @@ gates:       []
 index_clause: "from the start, build it around the audience's question, not your material"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: outward-summary-discipline
 supersedes:  []
 overrides:   null
 added:       null
@@ -45,6 +45,8 @@ from outside and reframed the whole document — including which limitation was
 binding, which market to lead with, and which mechanism was the strongest thing
 on offer. Nothing was wrong with the underlying work; the framing was wrong
 because it inherited the author's recent path instead of the reader's need.
+
+**2026-11-05: deduplicated into [outward-summary-discipline](outward-summary-discipline.md)**, which now carries this rule's substance; same occasion, one index line (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Before writing an outward-facing artifact, write the audience's

@@ -308,7 +308,7 @@ def check_upstream_fix_sets_up_the_fix_in_the_source():
 
 
 def check_seeded_prompt_gate_refuses_an_unlabelled_prompt():
-    """seeded-prompt-gate.sh (practice: seeded-prompt-names-its-origin).
+    """seeded-prompt-gate.sh (practice: prompt-please).
 
     Added 2026-09-23, after a session put a message into another session's
     live conversation with its session link at the END, and the receiving

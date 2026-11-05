@@ -24,7 +24,7 @@ moving a checkout can lose work (practice: repair-cannot-discard-work).
 The home rule decides where the NEXT clone goes and which way a new link
 points.
 
-ONE TREE, MANY PATHS (practice: judgment-check-or-tool). tree_key() is the
+ONE TREE, MANY PATHS (practice: engine-plus-host-shims). tree_key() is the
 identity: device and inode, which a link, its target and a case-insensitive
 spelling all share, else the resolved path. Every tool that counts or
 lists checkouts goes through one_per_tree() rather than a copy of that

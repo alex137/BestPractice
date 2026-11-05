@@ -33,7 +33,7 @@ freshness check compared a declared URL to a clone's origin with `==` and
 printed NOT VERIFIED for a source it could read. Four earlier fixes
 (a56ef8cb, 561a37f0, a78d30dc, 8e938154) each mended one tool; the next tool
 compared letter for letter again. One module and one check is the fix
-(practice: upstream-fix; practice: judgment-check-or-tool -- a mechanism
+(practice: upstream-fix; practice: engine-plus-host-shims -- a mechanism
 gets one tool). The write-up is in that consuming repository's spec/
 folder, REPO_NAME_CAPITALIZATION.md.
 

@@ -67,7 +67,7 @@ conversation ([plain-words](plain-words.md) is the standing change).
 not in this conversation**, the options are the ways to prevent or resolve
 it, under the same four, plus three more: this session's id, title and
 link, and that a session wrote it
-([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)); the
+([prompt-please](prompt-please.md)); the
 repository to root the new session in; and any others to attach, or
 "none". **Render it as a fence block**
 ([fence-block-for-paste](fence-block-for-paste.md)), which authorizes
@@ -183,7 +183,7 @@ compare it against.
 with none of this conversation:**
 - **This session's own id and title, with a link, and that a session wrote
   it rather than a person** -- the header
-  [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+  [prompt-please](prompt-please.md)
   already requires of any prompt one session hands to another, carried here
   for the same reason: whoever reads this needs to know where the claims
   came from.

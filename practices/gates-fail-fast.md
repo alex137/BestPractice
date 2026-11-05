@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "No locus. Any gate that chains checks or runs units concurrently; the practice is a property of the gate runner, not of a path. Decided: 2026-09-28, with the practice."
 occasion:    "writing, running or reviewing a gate, audit, cache or heavy solve"
 gates:       []
-index_clause: "cheap checks first; a failure skips the slow ones and stops the work beside it"
+index_clause: "cheap checks first; the first failure stops everything else"
 checked_by:  null
 defines:     []
 status:      active
@@ -68,6 +68,8 @@ reports; the fixed push then waited another ten. The same day a document
 gate that emitted blocks in a thread pool reported two crashes — each in
 its emitter's first second — fourteen minutes later apiece, when the
 slowest solve beside them finished.
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Sort the gate's checks into a cheap list and a slow list; run the cheap

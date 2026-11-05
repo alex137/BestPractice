@@ -15,7 +15,7 @@ defines:     ["subject:", "repo:", "role:", "wants:"]
 command:     null
 status:      active
 in_force_at: null
-supersedes:  []
+supersedes:  ["session-title-names-the-difference"]
 overrides:   null
 added:       "2026-09-14"
 approved_by: "Morgan, 2026-09-14 -- \"Approved, do it, go merge\"; strength: decided"
@@ -41,6 +41,8 @@ describes work that is already duplicated.
 **Give a session `wants:nothing` rather than leaving `wants:` off.** The
 absent tag and the "needs nothing from you" tag look identical in a listing
 and mean opposite things.
+
+**The title is set at the same call, as `<repo>: <differentiator>`**: a short tag for the repository the session writes to, then the one thing that makes this session unlike any other doing the same kind of work (a pull-request number, a commit, a branch, a file, a named blocker), never the task category alone. Before setting it, read the person's other open sessions' titles and make sure yours matches none on the same repo; a match means the differentiator is not sharp enough. Re-set it the moment a sharper one is known. (Absorbed from `session-tags`, 2026-11-05.)
 
 ## Detail
 **A tag is a free-form string on the session record**, held by the session
@@ -104,6 +106,8 @@ date carried ad-hoc tags on a handful of sessions — `item-74`,
 Two sessions were running at that moment on what looked like the same
 documentation work, and **neither could see the other**, which is the whole
 case for the rule in one observation.
+
+**2026-11-05: absorbs `session-tags`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing mechanical checks this: a tag lives on the session service, not in any

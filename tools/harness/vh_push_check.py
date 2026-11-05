@@ -2649,7 +2649,7 @@ def check_push_check_runs_cheap_checks_first():
 
 
 def check_push_check_records_over_its_own_ledgers():
-    """A push-check run that refreshes a fact ledger (practice: gate-ledger)
+    """A push-check run that refreshes a fact ledger (practice: slow-steps-report-and-cache)
     still records its pass for the commit, and leaves the ledger in place;
     real uncommitted work still blocks the record.
 

@@ -38,7 +38,7 @@ Produce one self-contained briefing, with all of the following, every time:
    `write-it-up` asks for.
 2. **This session's own id and title, with a link, and that a session wrote
    it rather than a person** -- the same header
-   [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+   [prompt-please](prompt-please.md)
    requires of any prompt one session hands to another, because whoever
    reads this needs to know where the claims came from.
 3. **A recommendation, with the reason.** What you think the other session

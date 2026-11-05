@@ -66,7 +66,7 @@ A vocabulary pass, run as a **separate step after drafting**,
 in the shape of [capture-gate](capture-gate.md)'s capture sweep: write the intended reader down
 as a plain sentence, then walk every category-naming noun against *"would
 this reader define this unprompted?"* Where the answer is no, apply one of
-the three verdicts. Do it after the framing check of [frame-from-audience-question](frame-from-audience-question.md), since
+the three verdicts. Do it after the framing check of [outward-summary-discipline](outward-summary-discipline.md), since
 reframing changes who the reader is.
 
 The natural audit extension ([convention-to-audit](convention-to-audit.md)) is a per-repo list of known insider
@@ -78,7 +78,7 @@ judge that.
 
 **Related.** [acronyms-glossary](acronyms-glossary.md) (acronyms and a central glossary) is the
 inward-facing counterpart — expansion for readers who will consult a list.
-[label-describes-content](label-describes-content.md) (a label describes what follows) and [frame-from-audience-question](frame-from-audience-question.md) (frame from the
+[label-describes-content](label-describes-content.md) (a label describes what follows) and [outward-summary-discipline](outward-summary-discipline.md) (frame from the
 audience's question) are the other two audience-facing failures, and all
 three survive each other: a document can be correctly framed, honestly
 labelled, and still unreadable because of its vocabulary. Three separate

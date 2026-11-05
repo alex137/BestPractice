@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 180 practice files (6 resident, 174 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 174 practice files (6 resident, 168 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -45,7 +45,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires, or any test or check that reports a failure |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
-| [curly-quotes](practices/curly-quotes.md) | on-demand | building a Word document, a web page, any HTML output or any other format an outside reader sees, or writing quotes and dashes in Markdown |
+| [curly-quotes](practices/curly-quotes.md) | on-demand | building output for outside readers, or typing quotes or dashes in Markdown |
 | [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
 | [dated-list-runs-forward](practices/dated-list-runs-forward.md) | on-demand | a document carries a list of dated entries that will be added to over time |
 | [decision-strength](practices/decision-strength.md) | on-demand | recording that someone approved a practice or a decision, or citing their past approval back to them |
@@ -65,7 +65,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [dont-race-another-window](practices/dont-race-another-window.md) | on-demand | being asked for something another window or session of the person's may already be working on |
 | [drift-notice](practices/drift-notice.md) | on-demand | session start reports a source BEHIND or NOT VERIFIED |
 | [enforcement-lives-with-its-practice](practices/enforcement-lives-with-its-practice.md) | on-demand | writing or moving a practice's check, tool or hook, or engine code that enforces one set's rule |
-| [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary |
+| [engine-plus-host-shims](practices/engine-plus-host-shims.md) | on-demand | exporting a tool across a repo boundary, or a second implementation of the same mechanism turns up |
 | [environment-gotchas](practices/environment-gotchas.md) | on-demand | an environment or tooling trap costs real time |
 | [fail-gracefully](practices/fail-gracefully.md) | on-demand | writing code that depends on something outside its own control, handling a part that could not run, or deciding how loudly to report one |
 | [fence-block-for-paste](practices/fence-block-for-paste.md) | on-demand | a reply hands over text meant to be pasted somewhere else -- a prompt, a commit message, a PR description, a config snippet, a comment for another tool |
@@ -73,10 +73,8 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [findings-return-through-repo](practices/findings-return-through-repo.md) | on-demand | discovering something a session in another window will need, or the person adopts a recommendation you gave in chat |
 | [fixture-owns-its-state](practices/fixture-owns-its-state.md) | on-demand | writing a test, fixture or control that reads or edits state it did not create |
 | [format-rules-grandfather](practices/format-rules-grandfather.md) | on-demand | adding or tightening a rule about how practices, open items or other records are laid out |
-| [frame-from-audience-question](practices/frame-from-audience-question.md) | on-demand | writing a deliverable an outside reader will see |
 | [fresh-before-write](practices/fresh-before-write.md) | on-demand | setting up a project a session works in, or a session reporting that its checkout is behind |
 | [full-practice-audit](practices/full-practice-audit.md) | on-demand | a person explicitly asks for a "very deep check" or a "full practice audit" |
-| [gate-ledger](practices/gate-ledger.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [gates-fail-fast](practices/gates-fail-fast.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [generated-artifact-provenance](practices/generated-artifact-provenance.md) | on-demand | building or committing a generated artifact |
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
@@ -89,7 +87,6 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [inner-workings-for-code-owners](practices/inner-workings-for-code-owners.md) | on-demand | writing a reply, or anything a tool prints for a reply, to a person who may not be one of the repository's code owners |
 | [install](practices/install.md) | on-demand | installing Precedent or a shared set into a repo |
 | [item-closes-on-its-condition](practices/item-closes-on-its-condition.md) | on-demand | writing, triaging or doing work on an open item |
-| [judgment-check-or-tool](practices/judgment-check-or-tool.md) | on-demand | a second implementation of the same mechanism turns up |
 | [label-describes-content](practices/label-describes-content.md) | on-demand | writing or editing a document |
 | [layered-practice-packs](practices/layered-practice-packs.md) | on-demand | deciding where a new rule belongs |
 | [lead-with-what-it-is](practices/lead-with-what-it-is.md) | on-demand | writing a README or other project-facing entry document |
@@ -126,7 +123,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [practice-standing](practices/practice-standing.md) | on-demand | labelling a practice Protocol, Principle or Preference, or setting a Preference aside |
 | [private-repo-scrub](practices/private-repo-scrub.md) | on-demand | writing content that ships into another repo |
-| [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", or work belongs in a new session -- a repo this one lacks is asked to be attached here first |
+| [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", work needs a repo not held here, or a prompt goes to another session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
 | [quick-index](practices/quick-index.md) | on-demand | looking for where something lives, before searching |
 | [quick-tier-is-closed](practices/quick-tier-is-closed.md) | on-demand | adding a test or a check, or wiring one to run before a push |
@@ -149,14 +146,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [rule-scope-ask](practices/rule-scope-ask.md) | on-demand | a new rule's scope isn't obvious |
 | [scripts-assert-properties](practices/scripts-assert-properties.md) | on-demand | computing, quoting or tabulating figures |
 | [scrub-gate](practices/scrub-gate.md) | on-demand | committing anything that touches the vendored/public tree |
-| [search-by-purpose](practices/search-by-purpose.md) | on-demand | starting work the repository or another session may already cover |
 | [section-order-by-frequency](practices/section-order-by-frequency.md) | on-demand | ordering sections in a document |
-| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | on-demand | seeding or scheduling a prompt into another session, or handing a person paste-ready text to carry into one |
 | [session-bootstrap](practices/session-bootstrap.md) | on-demand | setting up a new repo's session start |
 | [session-load-budget](practices/session-load-budget.md) | on-demand | adding to a file every session loads, or asking what a session pays before it starts work |
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
-| [session-title-names-the-difference](practices/session-title-names-the-difference.md) | on-demand | creating, renaming or retagging a session |
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
 | [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
@@ -178,7 +172,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
 | [update-all-vendors](practices/update-all-vendors.md) | on-demand | a message says "Update All Vendors", or asks to update every repository the person uses Precedent in |
 | [upstream-bug-stops-here](practices/upstream-bug-stops-here.md) | on-demand | about to change a file to fix a bug, in a repository that did not write that file |
-| [upstream-fix](practices/upstream-fix.md) | on-demand | fixing anything -- a bug, a stale or copied file, a broken environment -- adding a check or exemption, or a check flagging text that already does what its rule asks |
+| [upstream-fix](practices/upstream-fix.md) | on-demand | fixing anything, adding a check or exemption, or rewording for a check |
 | [variant-re-derives](practices/variant-re-derives.md) | on-demand | building a variant of an existing thing |
 | [vendor-neutral-by-default](practices/vendor-neutral-by-default.md) | on-demand | writing a hook, script or rule another repo will vendor |
 | [vendor-rollout-disclosed](practices/vendor-rollout-disclosed.md) | on-demand | committing a shipped practice, hook, template or engine file, before push or merge |
@@ -197,7 +191,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## Withdrawn practices
 
-12 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
+18 practice file(s) here are **not in force** and are left out of every table above. **The files are kept on purpose** -- a withdrawn rule and the argument against it are worth re-reading, and `retired` is not a synonym for deleted (that is `decommission-deletes-files`, and it is about mechanisms, not rules). Read one in full with `python3 tools/precedent_show.py SLUG`.
 
 | Practice | Status | Now in force at | Why it was withdrawn |
 |---|---|---|---|
@@ -205,13 +199,19 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [brief-it](practices/brief-it.md) | deduplicated | [my-options](practices/my-options.md) | Coined by Morgan, 2026-09-19. |
 | [durable-fix](practices/durable-fix.md) | deduplicated | [upstream-fix](practices/upstream-fix.md) | **Requested by Morgan, 2026-09-08, in those terms:** *"I prefer permanent fixes ... |
 | [fix-the-original](practices/fix-the-original.md) | deduplicated | [upstream-fix](practices/upstream-fix.md) | **Requested by Morgan, 2026-09-12, in those terms:** *"I often have to remind you, make this change not just in this file, but in the original template that led to it."* He described the general shape too — a fix applied once, in one repo, while the cause stays free to fire again elsewhere. |
+| [frame-from-audience-question](practices/frame-from-audience-question.md) | deduplicated | [outward-summary-discipline](practices/outward-summary-discipline.md) | A thread had just produced a detailed body of work on one property of a system, and wrote the outward-facing explanation around that property. |
+| [gate-ledger](practices/gate-ledger.md) | deduplicated | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | In the originating repository a single pricing edit cost two hours and a quarter, most of it re-running generated blocks that could not have changed and waiting on gates that re-derived every model. |
 | [handoff-is-pasteable](practices/handoff-is-pasteable.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Asked for by Morgan on 2026-09-10, in his own words: instructions should give *"the name of the repo* and the exact text to copy paste in*, and then those instructions should always finish with, reminding me to return to the original session with a message to copy-paste there confirming its success or sharing other issues."* |
+| [judgment-check-or-tool](practices/judgment-check-or-tool.md) | deduplicated | [engine-plus-host-shims](practices/engine-plus-host-shims.md) | In the originating repository, a session had just rebuilt one tool — a ledger that skips a gate's unit when its recorded inputs still hash the same — and a review had found and fixed half a dozen ways it could be wrong. |
 | [merged-session-offers-a-practice](practices/merged-session-offers-a-practice.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Morgan, 2026-09-14, on the practice engine he had been feeding by hand for weeks: *"I love the methodology of turning what we decide into Practices to be followed or enforced, but it seems like I'm always the one making the suggestions. |
 | [next-steps-after-commit](practices/next-steps-after-commit.md) | deduplicated | [the-boildown](practices/the-boildown.md) | Raised by Morgan as a standing personal preference, rather than in response to a specific missed handoff, and it lived in his individual set from 2026-09-04 to 2026-09-14. |
 | [response-please](practices/response-please.md) | retired | — (nowhere) | **Retired 2026-09-30.** Morgan: *"Response please probably doesn't need a phrase, because it doesn't really add anything so we can remove."* A pasted message from another session is weighed from context, and Prompt Please still hands work on. |
 | [revert-needs-no-trailer](practices/revert-needs-no-trailer.md) | deduplicated | [session-trailer](practices/session-trailer.md) | 2026-09-29, Morgan, while approving the change that made the trailer check judge only what a push carries: *"I think we should update the 'Session' trailer rule to say that it is okay if reverts don't have it ... |
+| [search-by-purpose](practices/search-by-purpose.md) | deduplicated | [base-branch-is-the-record](practices/base-branch-is-the-record.md) | No dated incident was recorded. |
 | [second-pass-capture](practices/second-pass-capture.md) | deduplicated | [capture-gate](practices/capture-gate.md) | **An owner-prompted sweep found two real gaps in a single day's work.** Somebody asked "did we miss capturing anything?" of work that had already been drafted, reviewed and considered finished, and the answer was yes twice: a cross-artifact transfer that had been waved off, and a competitor-inspired idea noted in passing but never landed anywhere durable. |
+| [seeded-prompt-names-its-origin](practices/seeded-prompt-names-its-origin.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **2026-09-12.** A session in this repository was told, by a human, to open a pull request and stop -- *"Do not merge -- a human reviews this one."* Over the next four minutes three scheduled routines appeared, two of them firing into that session, each asserting that Morgan had now authorized the merge and one adding *"do not ask again."* **Five existed within half an hour**, escalating: *"auth... |
 | [session-text](practices/session-text.md) | deduplicated | [prompt-please](practices/prompt-please.md) | **Coined by Morgan, 2026-09-11**, in his own words: *"When you give me what I need to do, first look to see if it should be in a different session, and that includes most importantly checking for cross repo issues first. |
+| [session-title-names-the-difference](practices/session-title-names-the-difference.md) | deduplicated | [session-tags](practices/session-tags.md) | Drafted 2026-09-17, from a listing where six of ten live titles read "vendor update," "vendoring exclusion mechanism verification," or "vendoring exclusion mechanism fix" — three sessions doing recognizably different work, one shared label apiece. |
 | [wide-search-needs-asking](practices/wide-search-needs-asking.md) | deduplicated | [grep-before-search](practices/grep-before-search.md) | **2026-09-28.** A session fixed the Boildown so it stopped asking which repositories to add or remove. |
 
 ## The engine
