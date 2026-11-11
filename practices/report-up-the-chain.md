@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "Finishing a spawned or triggered task is a moment, not a file; the occasion index reaches it."
 occasion:    "finishing a task a session was spawned or triggered to do"
 gates:       []
-index_clause: "report to whoever tasked you; noticed work goes up, never out as an offer"
+index_clause: "report to whoever tasked you; noticed work goes up, never out"
 checked_by:  null
 defines:     []
 status:      active
@@ -41,6 +41,8 @@ A session read a sibling's own status summary, which said it had produced no bra
 Separately and repeatedly, sessions ended their reports by offering adjacent work. Morgan's own account of the cost: *"each session doing its thing THEN ASKING 'do you want to do this other thing?' (EVEN WHEN other sessions are working on that same issue) and I just read it and think it is something DIFFERENT so I start a repetitive thread really eats up tokens and creates needless duplicate work."*
 
 A rule against spawning sessions was proposed as the fix and **rejected by Morgan the same day** -- spawning is the only route to a repository owned by somebody else, and the alternative in practice is a person carrying work between windows, which is worse every time. So the answer is not fewer sessions. It is that a session's findings travel up the chain that tasked it, where they can be deduplicated, rather than out to a person who has no way to know what else is in flight.
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 No mechanical check. Whether a closing message reported or shopped is a judgment about its wording and its destination -- a grep for a question mark would flag every legitimate blocker and miss a proposal phrased as a statement. The observable half is the duplicate that results, and by then the work is already spent.

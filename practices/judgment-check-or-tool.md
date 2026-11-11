@@ -10,8 +10,8 @@ gates:       []
 index_clause: "judgment stays prose; checkable gets an audit; a mechanism gets one tool"
 checked_by:  null
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: engine-plus-host-shims
 supersedes:  []
 overrides:   null
 added:       "2026-09-29"
@@ -107,6 +107,8 @@ read time, record the tool's own version — did not exist in the other
 two. About eight practices turned out to be describing these mechanisms in
 prose. The owner then asked whether any practice told a session to look
 for this; none did, and this is it.
+
+**2026-11-05: deduplicated into [engine-plus-host-shims](engine-plus-host-shims.md)**, which now carries this rule's substance; same occasion, one index line (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing to install. At a full practice audit, add one closed question

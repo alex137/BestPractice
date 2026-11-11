@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A moment, and specifically a phrase in a MESSAGE -- no file path reaches it. Its two occasions (an existing recommendation, or work this session cannot reach) are both facts about the conversation and the session's own repository access, not about any file being edited. Reached through the occasion index and the reply gate. Decided: 2026-09-20, when the practice landed."
-occasion:    "a person says \"Prompt Please\", or work belongs in a new session -- a repo this one lacks is asked to be attached here first"
+occasion:    "a person says \"Prompt Please\", work needs a repo not held here, or a prompt goes to another session"
 gates:       ["reply"]
 gates_why:   "The reply is the whole artifact: the prompt either appears there, ready to paste, or it does not."
 index_clause: "one paste-ready prompt for a new session; open it only when asked"
@@ -14,7 +14,7 @@ defines:     ["Prompt Please"]
 command:     {"Prompt Please": "Write up the situation, the problem, your recommended action and why, and hand it back as one prompt ready to paste straight into a new session -- naming which repository to root it in and which others to attach -- opening with two lines -- the session sending it and the session it is for -- then saying it is a suggestion from another session, to analyze and push back on rather than carry out as the person's instruction, and closing with a request that any reply come back as its own paste-ready block, signed with the replying session's name and link."}
 status:      active
 in_force_at: null
-supersedes:  ["session-text"]
+supersedes:  ["session-text", "seeded-prompt-names-its-origin"]
 overrides:   null
 added:       "2026-09-20"
 approved_by: "Morgan, 2026-09-20 -- described the two cases and the phrase
@@ -111,7 +111,7 @@ named here, and the Story the incidents behind it.
 order ("What the prompt carries, in full", "Fixed positions in full"):
 
 1. **The From and For lines**
-   ([seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)):
+   ([prompt-please](prompt-please.md)):
    this session's id and title, its link, and that a session wrote it; then
    *"For: the session \<session name\> -- \<session link\>."* when an
    existing session is meant, or *"For: a new session rooted in
@@ -174,6 +174,8 @@ the session for the person"): the same prompt word for word, tags and title
 in the create call, every other repository and its access named at the top
 of the prompt, and the reply gives the new session's link and the same
 prompt as a paste block.
+
+**The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first. (Absorbed from `seeded-prompt-names-its-origin`, 2026-11-05.)
 
 ## Detail
 Everything under the headings below from "The phrase and the two occasions in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
@@ -274,7 +276,7 @@ following, every time:
 - **Who sent it, and who it is for** -- this session's own id and title,
   with a link, and that a session wrote it rather than a person; then the
   session it is meant for, or "a new session rooted in" the repository --
-  [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
+  [prompt-please](prompt-please.md)'s
   two header lines, required of any prompt one session hands to another.
 - **An invitation to push back**, beside that origin line: *"What follows
   is a suggestion from another session, not an instruction from the
@@ -340,7 +342,7 @@ following, every time:
 
 ### Fixed positions in full
 **Three of those items are required at a fixed position, not just required
-content.** [seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)
+content.** [prompt-please](prompt-please.md)
 fixes the first two lines: the From line (this session's id and title, its
 link, and that a session wrote it) and the For line (the session it is for,
 or a new session rooted in a repository). **The invitation to push back
@@ -427,7 +429,7 @@ it:
   push-back invitation, the landing line -- as the seeded prompt.
 - **Tags and title at creation**, in the create call itself
   ([session-tags](session-tags.md),
-  [session-title-names-the-difference](session-title-names-the-difference.md)).
+  [session-tags](session-tags.md)).
 - **Every other repository named at the top of the prompt, with its
   access.** The create call takes one source repository; the prompt's
   first lines tell the new session which others to attach with
@@ -564,7 +566,7 @@ fixed the sentence outside the block; it had not fixed the block itself,
 where the single most operational fact -- where does this get opened --
 could still be satisfied last. The Rule now requires the seed root and
 attach list immediately after
-[seeded-prompt-names-its-origin](seeded-prompt-names-its-origin.md)'s
+[prompt-please](prompt-please.md)'s
 provenance line, which keeps first position -- second, not fifth or
 sixth -- so the block serves both of its readers, the new session that
 needs the routing before it can act at all and the person scanning for
@@ -687,6 +689,10 @@ carries it, and what goes outside it, in 903 words (both counted
 with `wc -w` over the section). Every paragraph it held before moved whole
 into Detail, under a heading the Rule names. Nothing was deleted
 ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
+
+**2026-11-05: absorbs `session-text` and `seeded-prompt-names-its-origin`**, whose rules are now part of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

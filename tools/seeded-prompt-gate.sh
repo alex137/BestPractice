@@ -2,7 +2,7 @@
 # Claude Code adapter: PreToolUse hook that REFUSES a prompt one session
 # puts into another -- spawning one, scheduling a message into one, firing
 # a routine at one -- unless the prompt's FIRST LINE names the session
-# that sent it (practice: seeded-prompt-names-its-origin).
+# that sent it (practice: prompt-please).
 #
 # WHY THIS EXISTS (2026-09-23, practice: cite-the-incident). The practice
 # asked for that first line from 2026-09-12 and said plainly that nothing
@@ -72,7 +72,7 @@ else
 fi
 
 reason="Refused: this puts text into a session, and its first line does not
-name the session sending it (practice: seeded-prompt-names-its-origin).
+name the session sending it (practice: prompt-please).
 The receiving session sees an ordinary user turn and cannot tell it from
 something the person typed unless the first line says otherwise -- which
 is exactly how a relayed message led a session astray on 2026-09-22.

@@ -12,7 +12,7 @@ checked_by:  null
 defines:     []
 status:      active
 in_force_at: null
-supersedes:  []
+supersedes:  ["gate-ledger"]
 overrides:   null
 added:       "2026-09-08"
 approved_by: "Alex, 2026-09-08 — merged on main as catalogue entry 55, a check-in from dependent repo #1"
@@ -40,6 +40,8 @@ nothing** ("The three mechanics in full"):
   import set. Load it lazily at **every** entry point, and keep an
   environment switch that forces a fresh solve: the cache is an
   accelerator, never a dependency.
+
+- **Keep a ledger of verified facts, one per unit, and skip a unit whose fact still holds.** A gate that re-runs a script to prove nothing changed spends nearly all its time on that proof. A fact records the fingerprint of the code the unit can reach (the same key as the memo above, from the unit's own entry point), the files the run actually read and the modules it loaded outside that closure, each by content hash and recorded by an audit hook in the process that did the work, never declared by hand, and the hash of the result. Content hashes, never timestamps: a checkout rewrites every file's time. (Absorbed from `gate-ledger`, 2026-11-05.)
 
 ## Detail
 Everything under the headings below from "The three mechanics in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
@@ -171,6 +173,8 @@ before — the old memo's last digits had depended on how the pool
 scheduled the variants.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 379 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three mechanics, each as what to do, in 199 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-11-05: absorbs `gate-ledger`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Memoize the solve under a source-content key with a bypass switch; add a

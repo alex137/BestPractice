@@ -357,7 +357,8 @@
         "(2) a scheduled task bound to this session": "\\bscheduled task\\b|\\broutine\\b",
         "(3) an action you owe that the work cannot finish or be made safe without": "\\b(?:cannot|can't|can\u2019t) (?:be )?(?:finish(?:ed)?|land(?:ed)?|made safe|go on|continue)\\b[^.]{0,60}\\bwithout\\b|\\bstopped on your\\b|\\buntil you (?:push|merge|approve|answer|attach|grant)\\b",
         "(4) something still running or waited on": "\\b(?:running|in progress|under way|waiting (?:on|for))\\b",
-        "(5) a plan with steps left": "\\*\\*Plan:\\*\\*|\\bPlan:|\\bsteps? left\\b"
+        "(5) a plan with steps left": "\\*\\*Plan:\\*\\*|\\bPlan:|\\bsteps? left\\b",
+        "(6) this session's own work not yet on its landing branch, pushed or not": "\\bnot (?:yet )?(?:on|in|landed on|merged into) `?(?:staging|the landing branch)\\b|\\bnot (?:yet )?landed\\b|\\bunlanded\\b|\\b(?:your|says?|until|waits? (?:on|for)|on|lands? (?:on|at|when you say|once you say)) [\"\u201c`*]*Booked\\b"
       }
     },
     "why": "Morgan, 2026-10-30 (strength: decided): \"You tell me not to archive this session, but you also tell me there's nothing for me to do. Are you doing anything? I looked and there's no background task, so I think you're not doing anything.\" The session was waiting on sessions it had spawned to carry out its plan; its Boildown said \"nothing for you to decide right now\" beside \"Don't archive this session\", with the reason only implied by a Plan line and a list of spawned sessions. When the archive line holds and Your next steps gives the person nothing, the What's blocking line names what is running, where (linked), and when the session next acts. The \"nothing blocking\" contradiction pair steps aside for a reply that carries the line, and this requirement judges it.",
@@ -478,7 +479,7 @@
     ]
   },
   {
-    "practice": "seeded-prompt-names-its-origin",
+    "practice": "prompt-please",
     "require_prompt_block_header": {
       "prompt_block_if_matches": "Sent automatically by the session|Nobody typed this|^\\s*Seed root:|^\\s*For:\\s+(?:the session|a new session)|^\\s*From:?\\s+(?:the )?(?:session\\s+)?[\"“`]|intended for the session|^\\s*From:?\\s[^\\n]*(?:https://claude\\.ai/code/session_|\\bsession\\b)|^\\s*For:\\s[^\\n]*(?:\\bsession\\b|\\brooted in\\b)",
       "prompt_block_if_preceded_by": "Paste (?:this )?into:?[^\\n]*(?:\\bnew session\\b|\\bthe session\\b|claude\\.ai/code/session_)",
@@ -488,7 +489,7 @@
       "exempt_if_reply_says": "\\bOpen a new session\\b"
     },
     "why": "Morgan, 2026-10-10 (strength: decided): \"Every prompt you give me should have BOTH at the top: the session sending it, and what session it is for.\" With many sessions open, the For line is what tells him which window a block goes to. A reply to another session's message goes back to that session; a reply whose plain text says \"Open a new session\" says so in its For line instead. It replaced reply-block-names-its-session (2026-10-08), which recognized a sender only as From \"...\" (link) and missed one opening \"Sent automatically by the session\". 2026-10-11, a consuming repository: a block headed \"From: <title> (<link>)\" and \"For: a new BestPractice session\" matched no prompt shape and was never judged, so a From or For line naming a session, or a \"Paste into:\" line above the block naming one, now marks it as a prompt; and the From line must say a session sent it, as the practice always asked.",
-    "checks_practice_at": "practices/seeded-prompt-names-its-origin.md",
+    "checks_practice_at": "practices/prompt-please.md",
     "id": "prompt-block-names-both-ends",
     "_examples": [
       {

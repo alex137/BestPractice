@@ -439,7 +439,7 @@ Two constraints from the plan's phase-3 row governed every decision:
 | | after phase 1 | after phase 1.5 | after phase 3 |
 |---|---|---|---|
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **8** |
 | Resident block, generated | — | ≈621 tokens | **≈312 tokens** |
 | Words in `## Detail` | — | — | **7,659** |
 
@@ -454,7 +454,9 @@ stay a stable record of what phase 3 delivered rather than drifting every
 time a later practice is added or an inherited one is deliberately rewritten
 ([`CHANGES_TO_TELL_ALEX.md`](CHANGES_TO_TELL_ALEX.md)). The "over 150 words" figure moved from 8 to 7
 on 2026-09-01, when `layered-practice-packs`' Rule was shortened as part of
-that rewrite. The "carries a Detail" figure moved from 15 to 16, and "Words
+that rewrite, and back from 7 to 8 on 2026-11-05, when `engine-plus-host-shims`
+absorbed `judgment-check-or-tool`'s rule as a paragraph and its Rule passed 150
+words. The "carries a Detail" figure moved from 15 to 16, and "Words
 in `## Detail`" from 2,253 to 2,778, on 2026-09-05, when `session-bootstrap`
 gained a real Detail — see [`CHANGES_TO_TELL_ALEX.md`](CHANGES_TO_TELL_ALEX.md). It moved again to 17
 practices, 3,243 words, on 2026-09-06, when `merge-authorization-keyword`

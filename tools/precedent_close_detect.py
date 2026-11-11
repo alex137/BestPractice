@@ -274,7 +274,7 @@ def _without_quoted_assistant(text, said):
 
 
 # The first line every prompt one session puts into another carries
-# (practice: seeded-prompt-names-its-origin). Three shapes: the practice's
+# (practice: prompt-please). Three shapes: the practice's
 # own "Sent automatically by ... Nobody typed this."; the From line, as the
 # reply check's prompt-block-names-both-ends entry defines it (read from
 # reply_check.json, so the two never drift apart); and "Origin:" naming a

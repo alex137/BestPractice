@@ -13,8 +13,8 @@ index_required: true
 checked_by:  null
 defines:     []
 command:     null
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: session-tags
 supersedes:  []
 overrides:   null
 added:       "2026-09-17"
@@ -77,6 +77,8 @@ the other's title, because nothing told it to: the rule said the
 differentiator should be unlike any other session's, and gave no step for
 finding out what the others said. The check-the-open-sessions step was added
 that day.
+
+**2026-11-05: deduplicated into [session-tags](session-tags.md)**, which now carries this rule's substance; same occasion, one index line (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing mechanical checks this: a title lives on the session service, not in

@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Any file can be built into something an outside reader sees, and the Markdown half is about every Markdown file, so no narrower path holds. The occasion clause reaches a session building an output; the engine applies the rule itself to every HTML page it writes (tools/finish_html.py). Decided: 2026-10-16, on the move to universal."
-occasion:    "building a Word document, a web page, any HTML output or any other format an outside reader sees, or writing quotes and dashes in Markdown"
+occasion:    "building output for outside readers, or typing quotes or dashes in Markdown"
 gates:       []
 index_clause: "plain quotes and hyphens in Markdown; anything built for a reader converts them"
 checked_by:  null
@@ -124,6 +124,8 @@ words, and named the exception: code. The Word builder until then had no
 idea what code was, so a command in backticks or a fenced example would
 have had its `--` turned into a dash. `smarten()` now skips a code span,
 and the writing set's Word builder sets fenced blocks and code spans as typed.
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 [`tools/typography.py`](https://github.com/alex137/BestPractice/blob/staging/tools/typography.py) is an engine file: every

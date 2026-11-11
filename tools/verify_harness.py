@@ -4456,6 +4456,8 @@ def main():
           *check_vendored_container_scan_knows_a_refresh_branch())
     check('the reply check refuses a Boildown that only repeats the last one',
           *check_reply_check_refuses_a_repeated_boildown())
+    check('the reply check records every verdict in a ledger the reader sums',
+          *check_reply_check_keeps_a_refusal_ledger())
     check('the reply check keeps practice ideas to the closing reply',
           *check_reply_check_keeps_practice_ideas_at_the_close())
     check('the reply check keeps quiet while a batch of background jobs runs',
@@ -4554,6 +4556,7 @@ def main():
     check_vocabulary_prefers_the_file_you_are_standing_on()
     check_vocabulary_moves_a_word_to_our_language()
     check_archive_guard_refuses_work_left_on_a_feature_branch()
+    check_unlanded_work_holds_the_archive_line()
     check_archive_guard_waits_for_an_unfinished_plan()
     check_trivial_checkin_exempts_the_boildown_gate()
     check_close_detection_fires_only_when_all_conditions_hold()

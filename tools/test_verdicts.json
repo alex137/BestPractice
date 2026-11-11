@@ -8256,6 +8256,15 @@
       "seconds": 0.1,
       "leads": [],
       "importance": "medium"
+    },
+    "check_unlanded_work_holds_the_archive_line": {
+      "verdict": "keep",
+      "why": "Reproduces 2026-11-11: a pushed branch not on staging must hold the archive line, and the stop hook's repair pass must refuse a false \"You can archive\".",
+      "date": "2026-11-11",
+      "by": "agent",
+      "seconds": 0.4,
+      "leads": [],
+      "importance": "high"
     }
   }
 }

@@ -867,7 +867,7 @@ def checks(offline=False):
     # every path compared as its own unexpanded spelling. It held only
     # because _attachable_sources already drops a second path to a tree it
     # has seen. Now it is precedent_source_home.tree_key, the one test every
-    # lister shares (practice: judgment-check-or-tool).
+    # lister shares (practice: engine-plus-host-shims).
     def _tree(shown):
         path = pathlib.Path(_expand_source_path(shown))
         if _psh is not None:

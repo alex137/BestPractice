@@ -10,8 +10,8 @@ gates:       []
 index_clause: "search by purpose and by mechanism before concluding nothing exists"
 checked_by:  "tools/precedent_check.py"
 defines:     []
-status:      active
-in_force_at: null
+status:      deduplicated
+in_force_at: base-branch-is-the-record
 supersedes:  []
 overrides:   null
 added:       null
@@ -89,6 +89,8 @@ silently in the repository for a later reader to trip over.
 central that somebody would surely have needed it already. When a result
 says the work wants a measurement nobody has, ask who else would have needed
 that same measurement, and search for their reason for needing it.
+
+**2026-11-05: deduplicated into [base-branch-is-the-record](base-branch-is-the-record.md)**, which now carries this rule's substance; same occasion, one index line (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 **Related:** [outward-summary-discipline](outward-summary-discipline.md) (read the primary, not the summary) is the sibling

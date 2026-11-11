@@ -135,7 +135,7 @@ says when that is.
 
 ### Searching less is not the point
 **This does not license searching less.**
-[search-by-purpose](search-by-purpose.md) asks for two searches before
+[base-branch-is-the-record](base-branch-is-the-record.md) asks for two searches before
 concluding nothing exists, and that still holds in full. This rule is about
 **where those searches run**, never about doing fewer of them: a local grep
 is the cheap one, so there is no tension to resolve — search more, search

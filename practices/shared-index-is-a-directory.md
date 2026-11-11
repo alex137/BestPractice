@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "No locus. Any index, digest, registry, glossary or log in any repository can be the file every thread appends to, wherever it lives; the practice is a property of how a file grows, not of a path. Decided: 2026-10-12, with the practice."
 occasion:    "creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge"
 gates:       []
-index_clause: "one file per entry in a directory; generate the view; a view conflict is rebuilt"
+index_clause: "one file per entry; generate the view; rebuild it on conflict"
 checked_by:  "tools/precedent_check.py"
 defines:     []
 status:      active
@@ -95,6 +95,8 @@ other indexes that collide the same way. Asked whether the practice should
 be "using directories rather than files when we have files that are really
 just indexes of some sort", Alex said "yes do the directory split", and
 the split was generalized to any Markdown index the same day.
+
+**2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Nothing to install: the split and the join ship with the engine
