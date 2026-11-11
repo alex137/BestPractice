@@ -53,10 +53,10 @@ that same turn, and act on what it finds.** The bare word does not skip the
 check.
 
 **The test, in Morgan's words, is under "The standing test", in Detail**:
-nothing pending, nothing unpushed, nothing needed in temporary files, and
+nothing pending, nothing off the landing branch, nothing needed in temporary files, and
 the plan continued elsewhere or dropped. It is
 [the-boildown](the-boildown.md)'s four archive conditions and its plan
-blocker, run on demand (in full under "The five conditions in full"):
+blocker and its unlanded-work blocker, run on demand (in full under "The six conditions in full"):
 
 1. **Nothing in the container anybody wants would be lost**, in every
    checkout it holds. Run
@@ -73,8 +73,11 @@ blocker, run on demand (in full under "The five conditions in full"):
 5. **No multi-step plan this session is following has a step left**,
    unless the person says in their own words they are ending it early, or
    it is handed to a session confirmed running with it.
+6. **Nothing this session committed sits off its landing branch**, pushed
+   or not (`precedent_branches.py --landing`). Pushed is safe from the
+   container, not landed: archived, nobody lands it.
 
-**All five hold, and nothing else is worth flagging -- archive it**:
+**All six hold, and nothing else is worth flagging -- archive it**:
 resolve the session, check `list_triggers`, call `archive_session`, and say
 plainly that it's done and that `unarchive_session` reverses it.
 
@@ -124,10 +127,10 @@ continue the plan, then you can say, and you should say, it can be
 archived."* The conditions below are that test, spelled out; when they
 hold, say so.
 
-### The five conditions in full
+### The six conditions in full
 
 **The check is [the-boildown](the-boildown.md)'s own four archive
-conditions and its plan blocker, run on demand instead of waited for at the
+conditions, its plan blocker and its unlanded-work blocker, run on demand instead of waited for at the
 natural end of a reply:**
 
 1. Nothing in the container that anybody wants to keep would be lost --
@@ -158,10 +161,18 @@ natural end of a reply:**
    is handed to another session confirmed running with it; name the plan
    and what is left, in plain words (the-boildown's blocker 5, Morgan,
    2026-10-19).
+6. Nothing this session committed sits on a branch that is not on its
+   landing branch yet, pushed or not -- the-boildown's blocker 6. The
+   scanner in condition 1 calls a pushed branch safe, and it is, from the
+   container going away; it is not landed, and nobody lands the branch of
+   an archived session. Say where it is and recommend landing it, or name it
+   as meant to be dropped. Morgan, 2026-11-11 (strength: decided): *"If
+   you have done work on a branch and it is not yet on staging, then I can
+   NOT [archive] it because that branch's work would be lost!!!!"*
 
 ### Archiving, and the scanner's answer
 
-**All five hold, and there is nothing else worth flagging** (no open
+**All six hold, and there is nothing else worth flagging** (no open
 recommendation, no other live session on the same subject, nothing the
 assistant is itself waiting on) -- **archive it**: resolve the session,
 check `list_triggers`, call `archive_session`, and say plainly that it's
