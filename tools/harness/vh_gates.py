@@ -2962,12 +2962,18 @@ def check_gate_drops_a_practice_another_source_replaced():
                         ignore=shutil.ignore_patterns('__pycache__'))
         (repo / 'practices').mkdir()
         (ind / 'practices').mkdir(parents=True)
-        base = (ROOT / 'practices' / 'session-title-names-the-difference.md'
-                ).read_text(encoding='utf-8')
+        # Borrowed from a live reply-gate practice. It was
+        # session-title-names-the-difference until the 2026-11-05 reduction
+        # pass deduplicated that one into session-tags; a non-active
+        # practice is never listed, so the control case failed (issue #1519).
+        base = (ROOT / 'practices' / 'session-tags.md'
+                ).read_text(encoding='utf-8').replace(
+            'supersedes:  ["session-title-names-the-difference"]',
+            'supersedes:  []')
         (repo / 'practices' / 'fixture-replaced.md').write_text(
-            base.replace('slug:        session-title-names-the-difference',
+            base.replace('slug:        session-tags',
                          'slug:        fixture-replaced'), encoding='utf-8')
-        mine = (base.replace('slug:        session-title-names-the-difference',
+        mine = (base.replace('slug:        session-tags',
                              'slug:        fixture-replacing'))
         (ind / 'practices' / 'fixture-replacing.md').write_text(
             mine, encoding='utf-8')

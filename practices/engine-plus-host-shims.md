@@ -31,7 +31,7 @@ practice text carries the behavior contract (the numbered spec of what the
 tool delivers), which is also what lets a host on a different stack
 reimplement deliberately rather than accidentally.
 
-**Every practice is carried by judgment, a check or a mechanism, and its text says which.** Judgment stays prose. A rule a script can catch gets an audit that fails loudly, and the prose shrinks to what the audit does not cover. A procedure sessions carry out by hand, or that each tool reimplements, becomes one shared tool, and the practice is rewritten as how and when to use it: prose gets done a little differently every time, code the same way, and fixed once. **Ask at two moments: when a second implementation of the same mechanism turns up** (a second hash-and-compare, a second store-on-a-branch, a second retry loop), which is the moment to make it one engine with thin host shims as above, **and during a [full practice audit](full-practice-audit.md)**, for every practice with no check. (Absorbed from `engine-plus-host-shims`, 2026-11-05.)
+**Every practice is carried by judgment, a check or a mechanism, and its text says which.** Judgment stays prose. A rule a script can catch gets an audit that fails loudly, and the prose shrinks to what the audit does not cover. A procedure sessions carry out by hand, or that each tool reimplements, becomes one shared tool, and the practice is rewritten as how and when to use it: prose gets done a little differently every time, code the same way, and fixed once. **Ask at two moments: when a second implementation of the same mechanism turns up** (a second hash-and-compare, a second store-on-a-branch, a second retry loop), which is the moment to make it one engine with thin host shims as above, **and during a [full practice audit](full-practice-audit.md)**, for every practice with no check. (Absorbed from `judgment-check-or-tool`, 2026-11-05.)
 
 ## Detail
 **The rule of thumb for what goes where:** if a change would be wanted by
@@ -90,7 +90,7 @@ A repo reimplementing from prose gets a tool that differs in a hundred small
 ways and re-learns every lesson. The spec is the contract; the vendored code
 is the reference implementation.
 
-**2026-11-05: absorbs `engine-plus-host-shims`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
+**2026-11-05: absorbs `judgment-check-or-tool`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 ## Install
 Vendored tool with module-level configuration attributes and
