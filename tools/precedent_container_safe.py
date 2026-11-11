@@ -848,6 +848,13 @@ def main(argv=None):
                   + (f', {len(scratch)} scratch folder(s) empty'
                      if scratch else '')
                   + ('' if not running else ' (but see STILL RUNNING above)'))
+            # Safe to lose the CONTAINER is not safe to archive the SESSION
+            # (2026-11-11): a session read "nothing off a remote" as leave to
+            # archive while two pushed commits waited for a Booked. A branch
+            # not on its landing branch is the reply gate's to hold
+            # (require_landed_if_says, blocker 6 of the-boildown).
+            print('  (that is the container only: a pushed branch not yet on '
+                  'its landing branch still holds the session open)')
         else:
             print(f'CONTAINER NOT SAFE TO LOSE -- {len(bad)} of '
                   f'{len(found) + len(scratch)} checkout(s) and scratch '
