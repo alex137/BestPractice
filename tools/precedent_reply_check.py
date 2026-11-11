@@ -2103,7 +2103,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                         f"that line, what is running, where (the session or job, "
                         f"linked), and when this session next acts (\"when X "
                         f"reports back, about HH:MM <city> time\") -- or, if "
-                        f"nothing is, say \"You can archive this session\""
+                        f"nothing is, {_archive_or_unlanded_hint()}"
                         + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
@@ -2113,9 +2113,23 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
             # case above caught a hold with nothing for him to do; a hold
             # beside a go-ahead that could wait went through, because Your
             # next steps was not empty. So every "Don't archive" carries a
-            # What's blocking line naming one of the closed list's five
+            # What's blocking line naming one of the closed list's
             # blockers (`blockers`, each a regex); a next step any session
             # can start later is not one. practice: the-boildown
+            #
+            # BLOCKER (6), AND NEVER STEER TO ARCHIVE WITH WORK UNLANDED
+            # (Morgan, 2026-11-11, strength: decided: "*NO*. YOU KEEP MAKING
+            # THIS MISTAKE. If you have done work on a branch and it is not
+            # yet on staging, then I can *NOT* [archive] it because that
+            # branch's work would be lost!!!!"). A session with two pushed
+            # commits waiting on his Booked wrote "What's blocking: your
+            # Booked"; the list had no entry for it, so this refused the hold
+            # and its message offered "You can archive this session" as the
+            # way out, and the one-line repair said exactly that. The list now
+            # carries (6), this session's own work not yet on the landing
+            # branch, and the message names the branches instead of offering
+            # the archive line while any are unlanded
+            # (_archive_or_unlanded_hint).
             blockers = hold.get('blockers') or {}
             if blockers and not nothing:
                 lines = [b for b in (section_bullets(text, heading) or [])
@@ -2134,8 +2148,7 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                         + f" blocker from the closed list: {'; '.join(blockers)}. "
                         f"A go-ahead for a next step any session can start later "
                         f"(a Produce, an Update Vendors, a rollout) is not one -- "
-                        f"name the blocker on that line, or say \"You can archive "
-                        f"this session\""
+                        f"name the blocker on that line, or {_archive_or_unlanded_hint()}"
                         + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                         + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
@@ -2306,7 +2319,15 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
         for phrase in (r.get('require_landed_if_says') or []):
             if _norm(phrase) not in _norm(quoted_stripped):
                 continue
+            # Every branch this session made that is on no base yet, not
+            # only each repo's CURRENT branch (2026-11-11): a session that
+            # pushed its branch and checked its base back out read as landed
+            # here while the work sat on origin waiting for a Booked.
             stranded = _stranded_branches()
+            seen = {b for _w, b in stranded}
+            stranded += [(where, branch) for where, branch, _landing
+                         in _own_unlanded_branches()
+                         if branch not in seen]
             gone = given_up_branches()
             left = [(where, branch) for where, branch in stranded
                     if branch not in gone and not re.search(r'\*\*branch disposition:\*\*\s*`?'
@@ -2318,9 +2339,12 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                     f"[{r.get('_source', '?')}] this reply says "
                     f"\"{phrase}\" while work sits on a feature branch, not "
                     f"on the branch its repo lands work on:\n{listing}\n"
-                    f"Land it (Booked / Go update), or give each branch up "
-                    f"by name: **Branch disposition:** BRANCH -- drop "
-                    f"(why it is safe to drop)."
+                    f"Being pushed is not being landed: archive the session "
+                    f"and nobody lands it. Land it (Booked / Go update), or "
+                    f"say \"Don't archive this session\" with a What's "
+                    f"blocking line naming the branch and that it lands on "
+                    f"Booked, or give each branch up by name: **Branch "
+                    f"disposition:** BRANCH -- drop (why it is safe to drop)."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
         # require_plan_done_if_says (Morgan, 2026-10-19, strength: decided:
@@ -2701,6 +2725,51 @@ def _stranded_branches(root=None, siblings=True):
     return found
 
 
+def _landing_word(root=None):
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_branches as _pb
+        return _pb.landing_branch(root or os.environ.get('CLAUDE_PROJECT_DIR')
+                                  or '.')[0]
+    except Exception:                                         # noqa: BLE001
+        return 'the landing branch'
+
+
+def _go_ahead_words(root=None):
+    """The ladder's word for a person on it, plain words for everyone else
+    (off the ladder, the engine says no ladder word)."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_ladder as _pl
+        return _pl.say('when you say Booked', 'once you give the go-ahead',
+                       root or os.environ.get('CLAUDE_PROJECT_DIR') or '.')
+    except Exception:                                         # noqa: BLE001
+        return 'once you give the go-ahead'
+
+
+def _archive_or_unlanded_hint(root=None):
+    """-> the end of a refusal that would otherwise offer "You can archive
+    this session" as the alternative: that offer, while nothing of this
+    session's is off its landing branch; otherwise the branches, and the
+    line that holds the session for them (blocker 6 of the-boildown).
+    Never offers the archive line while work is unlanded (Morgan,
+    2026-11-11, strength: decided -- see the blockers comment above)."""
+    try:
+        names = _unlanded_names(root)
+    except Exception:                                         # noqa: BLE001
+        names = []
+    if not names:
+        return 'say "You can archive this session"'
+    shown = ', '.join(f"'{n}'" for n in names[:4]) + (
+        ', ...' if len(names) > 4 else '')
+    return (f"-- since this session's work on {shown} is NOT on its landing "
+            f"branch yet, which IS a blocker, (6) -- keep \"Don't archive "
+            f"this session\" and say so on the What's blocking line, e.g. "
+            f"\"{names[0]} is not on {_landing_word(root)} yet; it lands "
+            f"{_go_ahead_words(root)}\". Never \"You can archive this session\" while it is "
+            f"unlanded: archiving leaves nobody to land it")
+
+
 # What the first line must say first when work is not landed, and the word
 # it must not say before that. A tier word is `staging` or `main` standing
 # alone: inside a branch name (red-main-counts) it names no tier.
@@ -3009,9 +3078,19 @@ def main():
         # Already blocked once this turn: Claude Code re-invokes the hook with
         # this set, and a gate that blocks the same reply twice is a loop, not
         # a gate.
-        if payload.get('stop_hook_active'):
-            return 0
+        # Except for the archive line (2026-11-11): a repair that says "You
+        # can archive this session" while work would be lost, a branch is
+        # unlanded or a plan has steps left is judged on those alone. After
+        # a hold was refused, the one-line repair "Correction: you can
+        # archive this session" went through unread while two commits sat on
+        # a pushed branch waiting for a Booked. Only that sentence can be
+        # refused again, so the loop lasts only as long as the false line.
+        repair = bool(payload.get('stop_hook_active'))
         transcript = payload.get('transcript_path')
+        if repair:
+            if not transcript:
+                return 0
+            return _judge_repair(repo, reqs, last_assistant_text(transcript))
         if not transcript:
             return 0
         ledger = True
@@ -3144,6 +3223,18 @@ def main():
               'is meant to be lost you give up with precedent_container_'
               'safe.py --discard NAME --why "..." -- silently, never in the '
               'reply.', file=sys.stderr)
+    elif any(b['kind'] in ('landed', 'plan') for b in bad):
+        # Not the sentence-only message below: the archive line written is
+        # FALSE, and "output that one line" got a repair that repeated it
+        # (2026-11-11).
+        print('The reply gate blocked this turn: it told the person they can '
+              'archive while this session still holds work named below -- a '
+              'branch not on its landing branch, or a plan with steps left. '
+              'The person has ALREADY SEEN the reply above -- do NOT repeat '
+              'it. Output ONLY a short correction: "Don\'t archive this '
+              'session.", with one What\'s blocking line naming what holds it '
+              '(for a branch: its name, and what its landing waits on). Never "You can archive this session" again until it '
+              'is landed or given up by name.', file=sys.stderr)
     elif any(b['kind'] == 'bare_pattern' for b in bad):
         print('The reply gate blocked this turn: it names something with a '
               'destination -- a PR, a session, a branch, a rule -- without '
@@ -3162,6 +3253,37 @@ def main():
     for b in bad:
         print(f"  - {b['message']}", file=sys.stderr)
     print('  Full rules: `python3 tools/precedent_gate.py reply`.', file=sys.stderr)
+    return 2
+
+
+ARCHIVE_STATE_KINDS = ('container', 'landed', 'plan')
+
+
+def _judge_repair(repo, reqs, text):
+    """The stop hook's second pass in one turn (stop_hook_active): only the
+    checks that read the archive line against real state -- the container,
+    unlanded branches, an unfinished plan. -> 0, or 2 with the refusal."""
+    if not reqs or not (text or '').strip():
+        return 0
+    archive = [{k: v for k, v in r.items()
+                if k in ('_source', 'practice', 'id', 'advisory',
+                         'require_container_safe_if_says',
+                         'require_landed_if_says', 'require_plan_done_if_says')}
+               for r in reqs
+               if any(r.get(k) for k in ('require_container_safe_if_says',
+                                         'require_landed_if_says',
+                                         'require_plan_done_if_says'))]
+    bad = [b for b in violations(text, archive, None, None, None, None, None)
+           if not b.get('advisory') and b.get('kind') in ARCHIVE_STATE_KINDS]
+    if not bad:
+        return 0
+    print('The reply gate blocked this correction too: it says "You can '
+          'archive this session", and that is false -- named below. Output '
+          'ONLY: "Don\'t archive this session." with one What\'s blocking '
+          'line naming what holds it (a branch: its name, and what its '
+          'landing waits on). Nothing else.', file=sys.stderr)
+    for b in bad:
+        print(f"  - {b['message']}", file=sys.stderr)
     return 2
 
 

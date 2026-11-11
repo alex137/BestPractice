@@ -748,6 +748,7 @@
   "check_typography_finishes_outward_text_and_every_engine_page": 0.1,
   "check_universal_change_names_the_set_copies_that_override_it": 0.0,
   "check_universal_occasion_share_is_capped": 6.7,
+  "check_unlanded_work_holds_the_archive_line": 2.5,
   "check_unlanded_work_is_reported_before_the_passes": 2.7,
   "check_unmerged_branch_verdicts": 1.7,
   "check_untracked_renders_use_source_fingerprints": 0.1,

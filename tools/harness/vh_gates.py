@@ -2873,6 +2873,156 @@ def check_archive_guard_refuses_work_left_on_a_feature_branch():
           f'accepts a named drop ({len(cases)} stated cases)', ok)
 
 
+def check_unlanded_work_holds_the_archive_line():
+    """A session's own pushed branch that is not on the landing branch holds
+    the archive line: "You can archive this session" is refused, and "Don't
+    archive this session" with a What's blocking line naming the branch and
+    its Booked passes -- blocker (6) of the-boildown.
+
+    The incident (Morgan, 2026-11-11, strength: decided: "*NO*. YOU KEEP
+    MAKING THIS MISTAKE. If you have done work on a branch and it is not
+    yet on staging, then I can *NOT* [archive] it because that branch's
+    work would be lost!!!!"). A consuming repository's session had two commits on a
+    pushed branch waiting for his Booked. "What's blocking: your Booked"
+    was refused as naming no blocker, the refusal offered the archive line
+    instead, and the one-line repair "Correction: you can archive this
+    session" passed unread, because the stop hook judged nothing on the
+    turn after a refusal. Each half of that is a case below, on a real
+    fixture: a bare origin, a landing branch `staging`, and a branch
+    carrying this fixture session's tag, pushed and then NOT checked out
+    (the shape the old finder, current branch only, missed).
+
+    practice: control-asserts-which-failure -- each refusal asserts its
+    kind; the controls are the same replies once the branch has landed.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as rc
+    import precedent_resolve as pr
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='unlanded-hold-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='Fixture', GIT_AUTHOR_EMAIL='f@example.com',
+               GIT_COMMITTER_NAME='Fixture', GIT_COMMITTER_EMAIL='f@example.com')
+    keys = ('CLAUDE_CODE_REMOTE_SESSION_ID', 'CLAUDE_PROJECT_DIR',
+            pr.ASSUME_LADDER_ENV, pr.NO_LADDERS_ENV, 'PRECEDENT_USER_CONFIG')
+    saved = {k: os.environ.get(k) for k in keys}
+
+    def git(*a, cwd):
+        return subprocess.run(['git', *a], cwd=str(cwd), env=env,
+                              capture_output=True, text=True)
+    cases = []
+    try:
+        origin = tmp / 'origin.git'
+        git('init', '-q', '--bare', '-b', 'main', str(origin), cwd=tmp)
+        repo = tmp / 'repo'
+        git('clone', '-q', str(origin), str(repo), cwd=tmp)
+        (repo / 'precedent.json').write_text(json.dumps(
+            {'base_branch': 'main', 'landing_branch': 'staging',
+             'tiers': ['staging', 'main']}) + '\n', encoding='utf-8')
+        git('add', '-A', cwd=repo); git('commit', '-qm', 'base', cwd=repo)
+        git('push', '-q', 'origin', 'HEAD:main', 'HEAD:staging', cwd=repo)
+        branch = '2026-11-11-fixture-calendar-fix-qq7zz-g384m'
+        git('checkout', '-q', '-b', branch, cwd=repo)
+        (repo / 'fix.md').write_text('the calendar fix\n', encoding='utf-8')
+        git('add', '-A', cwd=repo); git('commit', '-qm', 'fix', cwd=repo)
+        git('push', '-q', '-u', 'origin', branch, cwd=repo)
+        git('fetch', '-q', 'origin', cwd=repo)
+        git('checkout', '-q', '-B', 'staging', 'origin/staging', cwd=repo)
+
+        os.environ.update({'CLAUDE_CODE_REMOTE_SESSION_ID': 'cse_01Fixture000qq7zz',
+                           'CLAUDE_PROJECT_DIR': str(repo),
+                           pr.ASSUME_LADDER_ENV: '1',
+                           'PRECEDENT_USER_CONFIG': str(tmp / 'none.json')})
+        os.environ.pop(pr.NO_LADDERS_ENV, None)
+
+        names = rc._unlanded_names(str(repo), siblings=False)
+        cases.append(('the finder names the pushed branch while staging is '
+                      'checked out', branch in names, f'{names}'))
+
+        allreqs = json.loads((ROOT / 'reply_check.json').read_text(encoding='utf-8'))
+        hold_reqs = [r for r in allreqs if r.get('id') == 'boildown-hold-names-what-runs'
+                     or (r.get('practice') == 'the-boildown'
+                         and r.get('require_no_contradiction'))]
+        landed_req = [{'practice': 'ladder-required', '_source': 'shared/fixture',
+                       'id': 'archive-only-once-landed',
+                       'require_landed_if_says': ['You can archive this session']}]
+        reqs = hold_reqs + landed_req
+
+        def found(body):
+            return rc.violations(body, reqs)
+
+        def kinds(body):
+            return sorted(v['kind'] for v in found(body))
+        first = (f'- The work of this session is now on: [{branch}](https://x/tree/'
+                 f'{branch}) (a consuming repo), not on staging yet (you have '
+                 f'finished step 2 of 5, Act)\n')
+        steps = ('- **Your next steps:** say "Booked" (step 3 of 5) to put the '
+                 'calendar fix live. I\'d say Booked.\n')
+        head = 'Fixed.\n\n## The Boildown\n' + first + steps
+        archive = head + '- You can archive this session.\n'
+        pesty = (head + "- **What's blocking:** your Booked; this fix isn't "
+                 "live without it.\n- Don't archive this session.\n")
+        asked = (head + f"- **What's blocking:** `{branch}` is not on staging "
+                 f"yet; it lands when you say Booked.\n- Don't archive this "
+                 f"session.\n")
+        goahead = (head.replace(steps, '- **Your next steps:** say "Produce" '
+                                'when it suits. I\'d say yes.\n')
+                   + "- **What's blocking:** your go-ahead.\n"
+                   "- Don't archive this session.\n")
+        cases += [
+            ('THE CASE: "You can archive this session" is refused while the '
+             'branch is unlanded', 'landed' in kinds(archive), f'{kinds(archive)}'),
+            ('the hold the consuming repo session wrote ("your Booked") now passes',
+             kinds(pesty) == [], f'{kinds(pesty)}'),
+            ('the hold Morgan asked for (the branch, lands on Booked) passes',
+             kinds(asked) == [], f'{kinds(asked)}'),
+        ]
+        refusal = ' '.join(v['message'] for v in found(goahead)
+                           if v['kind'] == 'hold_without_blocker')
+        cases += [
+            ('a hold naming no blocker is still refused...',
+             bool(refusal), f'{kinds(goahead)}'),
+            ('...and its refusal names the branch, never offering the archive '
+             'line, while work is unlanded',
+             branch in refusal and 'say "You can archive this session"'
+             not in refusal, refusal[-400:]),
+        ]
+        repair = '- Correction: you can archive this session.'
+        cases += [
+            ('a repair turn (stop_hook_active) saying it is refused too',
+             rc._judge_repair(str(repo), reqs, repair) == 2, ''),
+            ('negative control: a repair that holds the session passes',
+             rc._judge_repair(str(repo), reqs, "- Don't archive this "
+                              "session.") == 0, ''),
+        ]
+
+        git('merge', '-q', '--ff-only', f'origin/{branch}', cwd=repo)
+        git('push', '-q', 'origin', 'HEAD:staging', cwd=repo)
+        git('fetch', '-q', 'origin', cwd=repo)
+        after = rc._unlanded_names(str(repo), siblings=False)
+        cases += [
+            ('negative control: once Booked, nothing is unlanded', after == [],
+             f'{after}'),
+            ('negative control: once Booked, "You can archive this session" '
+             'passes', 'landed' not in kinds(archive), f'{kinds(archive)}'),
+            ('negative control: once Booked, the repair passes too',
+             rc._judge_repair(str(repo), reqs, repair) == 0, ''),
+        ]
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+    ok = all(passed for _, passed, _ in cases)
+    for name, passed, detail in cases:
+        if not passed:
+            print(f"  unlanded hold did NOT behave as stated: {name} [{detail}]")
+    check(f'a session\'s unlanded pushed branch holds the archive line, and '
+          f'"Don\'t archive ... lands on Booked" passes ({len(cases)} stated '
+          f'cases)', ok)
+
+
 @_without_session_id
 def check_archive_guard_waits_for_an_unfinished_plan():
     """`require_plan_done_if_says` refuses the archive sentence while the
