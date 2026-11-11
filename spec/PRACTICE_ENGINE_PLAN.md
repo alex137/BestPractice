@@ -1311,7 +1311,7 @@ as the thing it checked has been green over a real defect.
 | | phase 1 | phase 1.5 | phase 3 |
 |---|---|---|---|
 | `## Rule` share of the catalogue | 44% | 40% | **28%** |
-| Practices with `## Rule` over 150 words | 16 | 20 | **7** |
+| Practices with `## Rule` over 150 words | 16 | 20 | **8** (7 until 2026-11-05) |
 | Resident block | — | ≈621 tokens | **≈312 tokens** |
 
 Fifteen practices gained a Detail. **Five cannot be split at all**, and that

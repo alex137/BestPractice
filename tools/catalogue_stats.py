@@ -167,8 +167,10 @@ ANCHORS = [
     # See phase3_snapshot_stats's docstring.
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — practices with a Detail',
      29, 29, lambda: (phase3_snapshot_stats()['with_detail'], phase3_snapshot_stats()['with_detail'])),
+    # Rules over 150 words moved 7->8 on 2026-11-05, when engine-plus-host-shims
+    # absorbed judgment-check-or-tool's rule as a paragraph (PR #1518).
     ('spec/PRACTICE_FORMAT.md, "The Rule/Detail Split" — Rules over 150 words',
-     7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
+     8, 8, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
     # PRACTICE_ENGINE_PLAN.md's own phase-3 table restates the SAME figure as
     # the anchor above -- found stale (still "8", the pre-correction value)
     # by a 2026-09-01 deep-check audit, on the very day spec/PRACTICE_FORMAT.md
@@ -177,7 +179,7 @@ ANCHORS = [
     # wired into verify_harness.py -- see check_catalogue_anchors there.
     ('PRACTICE_ENGINE_PLAN.md, "The ## Detail split, and the three practices '
      'that refused it" — Rules over 150 words',
-     7, 7, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
+     8, 8, lambda: (phase3_snapshot_stats()['long_rules'], phase3_snapshot_stats()['long_rules'])),
 ]
 
 
