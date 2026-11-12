@@ -5,7 +5,7 @@ domain:            engine
 severity:          low
 status:            open
 disposition:       ask
-remind_on:         2026-11-10
+remind_on:         2026-11-19
 blocked_on:        "Morgan's call (needs: decision -- Morgan), asked again on 2026-11-10"
 batch:             null
 decision:          "not automatic for now (2026-10-27)"
@@ -35,6 +35,8 @@ writing to the page's database asks him to approve it in his sessions,
 since an approval prompt in nearly every session is why the automatic
 rebuild was turned off on 2026-10-20. Over the two weeks, note whether he
 says "Branch cleanup" often (an argument for automatic) or rarely.
+
+2026-11-12, Morgan, asked about the reminder: "new date for the reminder" -- moved to 2026-11-19.
 
 ## Done when
 
