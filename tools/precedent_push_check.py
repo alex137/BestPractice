@@ -334,6 +334,16 @@ RENAME_LINKS_CHECK = (
     'rename_links', ['{engine}/precedent_check.py', '--only',
                      'rename-updates-links'],
     'nothing -- it ran only inside the full sweep, at the landing')
+# Whether each practice file carries the sections every practice must
+# (Rule, Why, Story, Install) and the rest of its shape: basic tier for the
+# engine's origin (2026-11-12). A new practice landed without ## Why and
+# ## Install, every quick check passed, and main's GitHub test was the
+# first to see it, after the Produce had moved main (issue #1525). About
+# 0.35 s over the whole catalogue.
+PRACTICE_SHAPE_CHECK = (
+    'practice_shape', ['{engine}/precedent_check.py', '--only',
+                       'practice-file-shape'],
+    "nothing -- it ran only in the full sweep and main's GitHub test")
 CI_WORKFLOWS_CHECK = (
     'ci_workflows', ['{engine}/precedent_check.py', '--only',
                      'ci-workflow-approved'],
@@ -405,6 +415,9 @@ BASIC_CHECKS_APPROVED = {
     'scrub_gate': (_IN_FORCE_AT_CLOSING, 1),
     'practice_export_loop': (_IN_FORCE_AT_CLOSING, 1),
     'rename_links': (_IN_FORCE_AT_CLOSING, 0),
+    'practice_shape': ('Morgan, 2026-11-12, told it takes about 0.35 s and '
+                       'urged to leave it to the full check: "yes, add it, '
+                       'booked and produce"', 0.35),
 }
 BASIC_CHECKS = set(BASIC_CHECKS_APPROVED)
 BASIC, FULL = 'basic', 'full'
@@ -452,6 +465,7 @@ PUSH_CHECKS = {
          'leak-gate.yml (structural half only in CI)'),
         ('doc_lint', ['{engine}/doc_lint.py'],
          'docs.yml, retired 2026-09-21'),
+        PRACTICE_SHAPE_CHECK,
         DEEP_CHECK_SUITE,
         *IDENTITY_CHECKS,
     ),
