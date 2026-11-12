@@ -1076,6 +1076,39 @@ def check_set_words_hold_a_practice_printed_part_to_output_patterns():
           not bad, '; '.join(bad))
 
 
+def check_set_words_skip_reply_check_pattern_values():
+    """set_words.file_hits leaves out the pattern VALUES of reply_check.json's
+    pattern maps (blockers, must_also_match), which recognize words in a
+    reply and are never printed, and still holds their keys and every other
+    field to the set's words. 2026-11-12: blocker (6)'s pattern knows "your
+    Booked", and the check called that a ladder word a person reads."""
+    import set_words as sw
+    import tempfile
+    words = sw.Words('zz-set', {'patterns': [
+        {'kind': 'a zz command', 'regex': r'\bZzbook\b',
+         'matches': ['say Zzbook'], 'never_matches': ['zzbooking']}]})
+    body = ('{{\n  "require_hold": {{\n    "blockers": {{\n'
+            '      "{key}": "\\\\byour Zzbook\\\\b"\n    }},\n'
+            '    "why": "{why}"\n  }}\n}}\n')
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        f = pathlib.Path(td) / 'reply_check.json'
+
+        def got(key='(1) plain', why='plain'):
+            f.write_text(body.format(key=key, why=why))
+            return [(n, m) for n, _k, m in sw.file_hits(f, words)]
+        cases.append(('a pattern value naming the word is not a hit', got() == []))
+        cases.append(('a key naming it is', got(key='(1) your Zzbook') == [(4, 'Zzbook')]))
+        cases.append(('CONTROL: a why naming it is', got(why='say Zzbook') == [(6, 'Zzbook')]))
+        g = pathlib.Path(td) / 'other.json'
+        g.write_text(body.format(key='(1) plain', why='plain'))
+        cases.append(('CONTROL: the same map in another file is a hit',
+                      [(n, m) for n, _k, m in sw.file_hits(g, words)] == [(4, 'Zzbook')]))
+    bad = [n for n, ok in cases if not ok]
+    check(f'reply_check.json pattern values are not set words ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_filtered_check_does_not_break_the_unpack_family():
     """A check filtered out by PRECEDENT_CHECK_ONLY/SKIP must unpack
     through `check('<name>', *check_foo())` without raising, and must land
