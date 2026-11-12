@@ -1592,6 +1592,45 @@ def check_merge_takes_the_vendor_update():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_merge_vendors_summary_is_cut_on_whole_lines():
+    """precedent_merge_vendors.commit_update caps the step lines it copies
+    into the commit message, and cuts between lines, never inside one, with a
+    line counting what it left out. On 2026-11-12 a cut at a fixed character
+    count ended a URL at a private repository's name, and the leak gate
+    refused the push. Driven through commit_update itself, with git stubbed,
+    so the old character cut fails it."""
+    rc, out = 0, ''
+    script = (
+        'import sys, types\n'
+        f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+        'import precedent_merge_vendors as mv\n'
+        'seen = {}\n'
+        'mv._git = lambda *a: types.SimpleNamespace(stdout="abc123\\n")\n'
+        'def run(argv, input=None, **k):\n'
+        '    seen["msg"] = input\n'
+        '    return types.SimpleNamespace(returncode=1, stdout="", stderr="")\n'
+        'mv.subprocess.run = run\n'
+        'url = "https://github.com/example-owner/example-private-repository"\n'
+        'steps = [f"  step {i:03d}: see {url}/pull/{i}" for i in range(200)]\n'
+        'out = "noise\\n== Update Vendors ==\\n" + "\\n".join(steps)\n'
+        'mv.commit_update(mv.pathlib.Path("/nonexistent"), "/nonexistent", out)\n'
+        'body = seen["msg"].split("\\n\\n", 2)[2]\n'
+        'lines = [l for l in body.splitlines() if l]\n'
+        'step_lines = [l for l in lines if l.startswith("  step ")]\n'
+        'assert all(l in steps for l in step_lines), "a step line was cut"\n'
+        'assert sum(len(l) + 1 for l in step_lines) <= 4001, "over the cap"\n'
+        'left = 200 - len(step_lines)\n'
+        'assert left > 0, "the fixture did not overflow the cap"\n'
+        'assert f"  ({left} more not listed)" in lines, "no count of the rest"\n'
+        'print("OK", len(step_lines), left)\n')
+    r = subprocess.run([sys.executable, '-c', script], capture_output=True,
+                       text=True, timeout=60)
+    out = r.stdout + r.stderr
+    return (r.returncode == 0 and 'OK' in r.stdout,
+            'step lines kept whole, the rest counted',
+            failure_detail(out, 800))
+
+
 def check_update_vendors_reruns_pinned_to_its_first_commit():
     """An update worked over several rounds of LEFT FOR YOU takes the same
     source commit on every rerun until one reports DONE, says so, and says
