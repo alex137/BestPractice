@@ -3,16 +3,16 @@ slug:              todo-2026-10-31-attach-copied-in-sources-only-at-update-vendo
 kind:              decision
 domain:            mechanism
 severity:          null
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
-blocked_on:        "Morgan's answer: a policy change to session start and drift-notice"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Morgan
+decision:          "B: a private copied-in source is checked only at Update Vendors, which attaches, clones and refreshes it and records the date; session start says 'checked at the last Update Vendors, <date>' for it; public copies are still checked at session start"
+decision_strength: decided
+waiting_on:        null
 noted:             2026-10-31
-closed:            null
+closed:            2026-11-12
 ---
 ## What
 
@@ -50,3 +50,45 @@ consuming repository's Update Vendors session asked for after the person
 approved one source twice. Building B means changing session start's
 attach list, the freshness check's row for a copied-in source, and the
 drift-notice practice's wording.
+
+## How It Closes
+
+When Morgan has picked A or B, and the pick is built: session start's
+attach list, the freshness row for a copied-in source, and drift-notice's
+wording all say the same thing.
+
+## Resolution
+
+**Decided 2026-11-12, Option B** (Morgan, strength: decided): *"Option B
+definitely!!!!!"*, and on the general rule that no source is named in the
+engine, only whether it is private: *"Perfect. Please open a new session
+seeded in the right things and do this, including booked."*
+
+Built the same day, all in BestPractice:
+
+- `freshness_at_update_vendors` in
+  [tools/precedent_resolve.py](../tools/precedent_resolve.py) is the one
+  reader: a copied-in source is Update Vendors' to check when its copy's
+  `precedent-source.json` does not say `"visibility": "public"`, unless its
+  entry says `"freshness": "session-start"` or `"update-vendors"`.
+- [tools/precedent_engine_freshness.py](../tools/precedent_engine_freshness.py)
+  never asks a private copy's repository; its row reads "checked at the
+  last Update Vendors, <date>" and is never counted NOT VERIFIED. The merge
+  step ([tools/precedent_merge_vendors.py](../tools/precedent_merge_vendors.py))
+  skips it the same way. Public copies are asked as before.
+- [tools/precedent_update.py](../tools/precedent_update.py): `--attach-list`
+  prints the `add_repo` call for each private copy with no clone here; the
+  refresh clones a missing copy beside the repository itself, records
+  `checked_at_update_vendors`, and leaves the copy for the person only when
+  the clone fails.
+- [practices/drift-notice.md](../practices/drift-notice.md) treats the
+  "checked at the last Update Vendors" line as current, and
+  [practices/vendor-update-runbook.md](../practices/vendor-update-runbook.md)
+  says to attach first.
+
+Session start's own attach lists already left copied-in sources out; what
+sent a session to attach them was the NOT VERIFIED freshness row and
+drift-notice's "reach the source directly". The relayed brief placed
+drift-notice in the individual set; it is BestPractice's, so nothing
+changed there. Test: `check_private_copies_are_checked_at_update_vendors`
+in [tools/harness/vh_update_vendors.py](../tools/harness/vh_update_vendors.py).
