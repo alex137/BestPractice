@@ -248,6 +248,40 @@ def output_hits_in_text(text, words):
                        for x in EXCUSED_IN_OUTPUT)]
 
 
+# The maps in a reply_check.json whose VALUES are patterns matched against
+# a reply and never printed: a refusal names an entry by its key (the
+# closed list of blockers, "missing: what each answer does"), so the key
+# is read by a person and the pattern is not. A pattern that recognizes a
+# set's word in a reply -- blocker (6) knows "waits on your Booked" -- says
+# nothing to anyone, so it is not that set's word in a place a person
+# reads (2026-11-12: the one hit left after a landing, a false alarm).
+_PATTERN_MAPS = ('"blockers"', '"must_also_match"')
+_MAP_ENTRY_RE = re.compile(r'^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)"(?:[^"\\]|\\.)*"(,?)\s*$')
+
+
+def _blank_pattern_values(lines):
+    """-> lines, with the pattern VALUES of reply_check.json's pattern maps
+    emptied and their keys kept, so line numbers still match the file."""
+    out, inside = [], False
+    for line in lines:
+        stripped = line.strip()
+        if not inside and any(stripped.startswith(k) and stripped.endswith('{')
+                              for k in _PATTERN_MAPS):
+            inside = True
+            out.append(line)
+            continue
+        if inside:
+            if stripped.startswith('}'):
+                inside = False
+                out.append(line)
+                continue
+            m = _MAP_ENTRY_RE.match(line)
+            out.append(f'{m.group(1)}""{m.group(2)}' if m else line)
+            continue
+        out.append(line)
+    return out
+
+
 def file_hits(path, words, provides=()):
     """-> hits of `words` in the file at `path`, records left out. A
     practice that `requires` a capability the owning set provides is in
@@ -269,6 +303,8 @@ def file_hits(path, words, provides=()):
         text = '\n'.join(_blank_record_fields(text.splitlines()))
     if path.suffix == '.md':
         text = '\n'.join(_strip_story(text.splitlines()))
+    if path.name == 'reply_check.json':
+        text = '\n'.join(_blank_pattern_values(text.splitlines()))
     found = hits(text, words.patterns)
     if printed is not None and words.output_patterns:
         seen = {(n, m) for n, _k, m in found}

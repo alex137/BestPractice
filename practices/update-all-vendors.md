@@ -199,8 +199,8 @@ the BestPractice clone:
    band-aid in its update whose cause lives in Precedent, a precedent-*
    set, a template or another repository.
    - **A cause in BestPractice:** fix it on a branch of the BestPractice
-     clone, land it and take it to `main` (Booked, then Produce, on the
-     ladder; the person's request for this run is the go-ahead for both),
+     clone, land it on the landing branch and take it to `main` (the
+     person's request for this run is the go-ahead for both),
      and wait for main's GitHub test to pass. The next repository's update
      takes the newest main that passed, so a fix that has not passed yet
      does not reach it; a SOURCE line under the next repository says which
