@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-11-12"
-approved_by: "Morgan, 2026-11-12, asked for it as a universal practice; relayed to the session that wrote it by another of his sessions (session_01Xcy6U3mHUtmgcGNqRZSX8m), which drafted the rule and its first subtleties. The relay recorded the strength as decided; his own words were not quoted in it, so his confirmation on the pull request is the record."
+approved_by: "Morgan, 2026-11-12, asked for it as a universal practice; relayed to the session that wrote it by another of his sessions (session_01Xcy6U3mHUtmgcGNqRZSX8m), which drafted the rule and its first subtleties. Landed on his own word in this session, 2026-11-12: \"booked\". Decided: he asked for the practice himself."
 strength:    decided
 ---
 ## Rule
