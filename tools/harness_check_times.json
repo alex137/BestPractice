@@ -417,6 +417,7 @@
   "check_merge_is_judged_by_the_landing_check": 0.3,
   "check_merge_refreshes_stale_views_as_its_own_commit": 0.4,
   "check_merge_takes_the_vendor_update": 43.7,
+  "check_merge_vendors_summary_is_cut_on_whole_lines": 0.1,
   "check_merged_branches_carry_a_date_and_a_staleness_verdict": 2.0,
   "check_migrate_views_keeps_every_word": 54.4,
   "check_mirrored_prefixes_answers_both_install_models": 0.0,

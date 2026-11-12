@@ -4,7 +4,7 @@
 Content record: hash a set of inputs now, and say later whether they still
 hold and which moved.
 
-Practice `judgment-check-or-tool` (spec/SHARED_ENGINES_PLAN.md, section 2).
+Practice `engine-plus-host-shims` (spec/SHARED_ENGINES_PLAN.md, section 2).
 Several tools asked the same question in their own words -- a gate's
 ledger of verified facts (`fact_ledger.py`), a drift check against content
 recorded at a release, the manifest stamped on a built package -- and each

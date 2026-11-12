@@ -4274,6 +4274,8 @@ def main():
           *check_model_audit_changed_selects_only_what_a_change_reaches())
     check('a merge takes the vendor update as its own commit, or takes it back whole',
           *check_merge_takes_the_vendor_update())
+    check('a merge\'s vendor-update commit cuts its step summary on whole lines, and counts the rest',
+          *check_merge_vendors_summary_is_cut_on_whole_lines())
     check('send carries a committed local edit upstream as a scrubbed branch',
           *check_send_carries_a_local_edit_upstream())
     check_local_edits_fetch_the_vendored_commit_from_upstream()
