@@ -4844,6 +4844,7 @@ def main():
     check_visibility_audit_skips_only_fixture_names()
     check_set_words_leave_out_the_set_itself_by_name()
     check_set_words_hold_a_practice_printed_part_to_output_patterns()
+    check_set_words_skip_reply_check_pattern_values()
     check_moves_core_names_exist_in_the_engine()
     check_bound_set_tools_and_reply_examples_are_held_in_any_set()
     check_resolver_leaves_out_the_set_itself_by_name()

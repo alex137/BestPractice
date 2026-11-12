@@ -651,6 +651,7 @@
   "check_set_refuses_its_own_stranded_deduplication": 0.1,
   "check_set_words_hold_a_practice_printed_part_to_output_patterns": 0.0,
   "check_set_words_leave_out_the_set_itself_by_name": 0.0,
+  "check_set_words_skip_reply_check_pattern_values": 0.0,
   "check_sets_carry_the_todo_and_gotcha_index_tools": 0.0,
   "check_settled_marker_scan_is_scoped_and_follows_the_split": 0.0,
   "check_shallow_clone_never_fabricates_unlanded_work": 0.0,

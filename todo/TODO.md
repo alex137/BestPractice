@@ -172,6 +172,4 @@ as_of: 2026-11-12
 
 ## Due Reminders
 
-| Item | What | Due since |
-|---|---|---|
-| [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 2026-11-10 |
+(none due)

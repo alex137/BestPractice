@@ -8023,6 +8023,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_set_words_skip_reply_check_pattern_values": {
+      "verdict": "keep",
+      "why": "set_words leaves out the pattern values of reply_check.json's pattern maps, which are never printed, and still holds their keys.",
+      "date": "2026-11-12",
+      "by": "agent",
+      "seconds": 0.0,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_set_words_hold_a_practice_printed_part_to_output_patterns": {
       "verdict": "keep",
       "why": "set_words holds a practice's printed parts to the set's output patterns.",
