@@ -1352,6 +1352,101 @@ def copy_in_step(repo, rep, answers=None, answered_by=''):
         rep.ask('copy in', pve.copy_in_question(offer))
 
 
+def _copy_repo_url(repo, entry):
+    """-> the repository a copied-in source entry is refreshed from: its
+    own `repo`, else the one its process/manifest_<name>.json recorded at
+    the last copy, else ''."""
+    url = str(entry.get('repo') or '').strip()
+    if url:
+        return url
+    try:
+        up = json.loads((repo / 'process' / f"manifest_{entry.get('name')}.json")
+                        .read_text(encoding='utf-8')).get('upstream') or {}
+    except (OSError, ValueError, AttributeError):
+        up = {}
+    return str(up.get('repo') or '').strip()
+
+
+def _owner_name(url):
+    """'https://github.com/o/Name.git' -> 'o/Name'; '' when it names no
+    GitHub repository."""
+    m = re.search(r'github\.com[/:]([^/]+)/([^/]+?)(?:\.git)?/?$', str(url or ''))
+    return f'{m.group(1)}/{m.group(2)}' if m else ''
+
+
+def copies_to_attach(repo):
+    """-> [(name, owner/name)] for every copied-in source this repository
+    checks only at Update Vendors (precedent_resolve.freshness_at_update_vendors:
+    a private copy, by default) that has no clone on this machine, so its
+    repository is not readable yet. `--attach-list` prints one add_repo
+    line per entry: the session attaches each before the update, and the
+    update clones it (practice: reach-or-ask)."""
+    import precedent_resolve as pr
+    try:
+        cfg = json.loads((repo / 'precedent.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    ind = pr.person_individual_path()
+    out = []
+    for e in cfg.get('sources') or []:
+        if not pr.freshness_at_update_vendors(repo, e):
+            continue
+        url = _copy_repo_url(repo, e)
+        clone = pr.clone_elsewhere(
+            e.get('name'), str(repo / str(e.get('path'))), any_clone=True,
+            repo=url or None,
+            near=([ind.resolve().parent] if ind else []) + [repo.resolve().parent])
+        if clone is not None and (pathlib.Path(clone) / '.git').exists():
+            continue
+        out.append((e.get('name'), _owner_name(url)))
+    return out
+
+
+def _clone_copy_source(repo, url):
+    """Clone `url` beside `repo`, named after the repository, so a
+    copied-in source with no clone here can be refreshed. -> (clone path or
+    None, why not). The attach that makes a private one readable is the
+    session's, before the run (copies_to_attach); this is the clone."""
+    import precedent_source_bootstrap as psb
+    base = str(url).rstrip('/').rsplit('/', 1)[-1].removesuffix('.git')
+    if not base:
+        return None, 'its repository is not recorded'
+    target = repo.resolve().parent / base
+    if target.exists() and not (target / '.git').exists():
+        return None, f'{target} is in the way and is not a clone'
+    ok, msg = psb._try_sync(url, target)
+    if ok and (target / '.git').exists():
+        return target, ''
+    return None, (str(msg).strip().splitlines() or ['no output'])[-1]
+
+
+def _record_checked(repo, entry, rep):
+    """Write today's date as the copy's last Update Vendors check, for a
+    copy session start does not ask about (Morgan, 2026-11-12): its
+    freshness line says "checked at the last Update Vendors, <date>". Only
+    when the date changes, so a second run the same day writes nothing."""
+    import precedent_resolve as pr
+    import precedent_time
+    if not pr.freshness_at_update_vendors(repo, entry):
+        return
+    mpath = repo / 'process' / f"manifest_{entry.get('name')}.json"
+    try:
+        data = json.loads(mpath.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return
+    up = data.get('upstream') if isinstance(data.get('upstream'), dict) else None
+    if up is None:
+        return
+    today = precedent_time.today(repo)
+    if up.get(pr.FRESHNESS_CHECKED_KEY) == today:
+        return
+    up[pr.FRESHNESS_CHECKED_KEY] = today
+    mpath.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+                     encoding='utf-8')
+    rep.step(f"copy of {entry.get('name')}", f'checked {today}; session start '
+             f'reports that date for it instead of asking its repository')
+
+
 def refresh_copies_step(repo, rep, take_sets=()):
     """Refresh every shared set this repository copies in, from the
     person's own clone of it, with checkin.py --source: the same mirror and
@@ -1396,18 +1491,43 @@ def refresh_copies_step(repo, rep, take_sets=()):
             # to; by folder name in any case, or by origin (clone_elsewhere).
             clone = pr.clone_elsewhere(
                 name, str(repo / str(e['path'])), any_clone=True,
-                repo=e.get('repo'),
-                near=[ind.resolve().parent] if ind else ())
+                repo=_copy_repo_url(repo, e) or None,
+                near=([ind.resolve().parent] if ind else [])
+                + [repo.resolve().parent])
         held = str(e.get('hold') or '').strip()
+        why = ''
         if clone is None or not (pathlib.Path(clone) / '.git').exists():
+            # Clone it here rather than stop (Morgan, 2026-11-12, strength:
+            # decided): a private copy is attached for Update Vendors and
+            # nothing else, so the update makes the clone it needs; it
+            # stops only when the repository cannot be read.
+            url = _copy_repo_url(repo, e)
+            if url:
+                clone, why = _clone_copy_source(repo, url)
+                if clone is not None:
+                    rep.step(f'copy of {name}', f'cloned {url} to {clone} to '
+                             f'refresh the copy from')
+        if clone is None or not (pathlib.Path(clone) / '.git').exists():
+            url = _copy_repo_url(repo, e)
+            slug = _owner_name(url)
             if held:
                 rep.step(f'copy of {name}', f'held by this repository ({held}); '
                          f'no clone of it on this machine to compare with')
+            elif url:
+                rep.leave(f'copy of {name}', f'not refreshed: cloning {url} '
+                          f'failed ({why}), so its repository is not readable '
+                          f'from this session. Attach it '
+                          + (f'(add_repo {slug}, read access)' if slug
+                             else '(read access)')
+                          + ' and run Update Vendors again; it clones and '
+                          'refreshes the copy itself. Stop only if the attach '
+                          'is refused')
             else:
                 rep.leave(f'copy of {name}', 'not refreshed: no clone of it on '
-                          'this machine, so nothing here can say the copy is '
-                          'current. Attach it (read access) and run Update '
-                          'Vendors again')
+                          'this machine, and neither its precedent.json entry '
+                          'nor its manifest records the repository it comes '
+                          'from. Add "repo": "<its URL>" to the entry and run '
+                          'Update Vendors again')
             continue
         clone = pathlib.Path(clone)
         # A set in a folder of its repository keeps its manifest there.
@@ -1462,6 +1582,7 @@ def refresh_copies_step(repo, rep, take_sets=()):
             else:
                 rep.step(f'copy of {name}', f'current; held by this repository '
                          f'({hold})')
+            _record_checked(repo, e, rep)
             continue
         was = _copy_digest(here)
         # A source declared in precedent.json by hand, not by the copy-in
@@ -1508,6 +1629,7 @@ def refresh_copies_step(repo, rep, take_sets=()):
             rep.step(f'copy of {name}', 'changed: ' + ', '.join(shown) + (
                 f' and {len(changed) - len(shown)} more' if changed[20:] else ''))
         if rc == 0:
+            _record_checked(repo, e, rep)
             set_copy_complete_step(repo, rep, e, clone, was, _copy_digest(here))
         refresh_installed_templates(repo, rep, e, clone, set_dir, man,
                                     up.get('commit'))
@@ -7586,6 +7708,11 @@ def main(argv=None):
     ap.add_argument('--take-set', action='append', default=[], metavar='NAME',
                     help='refresh this copied-in set this once although '
                          'this repository holds it ("hold" in precedent.json)')
+    ap.add_argument('--attach-list', action='store_true',
+                    help='print the add_repo call (read access) for each '
+                         'private copied-in source with no clone here, and '
+                         'exit: attach those first, then run the update, '
+                         'which clones and refreshes them')
     flags = [f for f in ap._option_string_actions if f.startswith('--')]
     for tok in (sys.argv[1:] if argv is None else argv):
         word = tok.split('=', 1)[0]
@@ -7597,6 +7724,18 @@ def main(argv=None):
                 return FAILED
     a = ap.parse_args(argv)
     repo = pathlib.Path(a.repo).resolve()
+    if a.attach_list:
+        todo = copies_to_attach(repo)
+        for name, slug in todo:
+            print(f'precedent_update: attach first: add_repo {slug} (read '
+                  f'access) -- the copy of {name} is private, so only Update '
+                  f'Vendors reads it' if slug else
+                  f'precedent_update: attach first: {name} -- its repository '
+                  f'is not recorded; add "repo" to its precedent.json entry')
+        if not todo:
+            print('precedent_update: nothing to attach first -- every private '
+                  'copied-in source has a clone here, or there is none')
+        return 0
     copy_in, bad = pve.parse_copy_in_answers(a.copy_in)
     if bad:
         print('precedent_update FAIL: ' + '; '.join(bad))

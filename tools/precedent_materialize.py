@@ -2512,7 +2512,7 @@ def _refuse_direct_run(repo, sources, res, allow_missing=False):
     individual source's name, absolute path and commit; with a source
     unreachable it said "Materializing WITHOUT it" and rewrote practices/
     anyway. Refusing here, rather than duplicating the wrapper's withholding,
-    keeps one implementation of it (judgment-check-or-tool)."""
+    keeps one implementation of it (engine-plus-host-shims)."""
     if pr.bv.repo_is_practice_source(pathlib.Path(repo)):
         # A set carries this module for its session file (2026-10-17), never
         # to materialize into: its practices/ is its own, and a write here

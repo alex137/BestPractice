@@ -16,11 +16,13 @@ visible_to:  code-owners
 supersedes:  []
 overrides:   null
 added:       "2026-10-05"
-approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05"
+approved_by: "Morgan F, drafted 2026-10-05, moved from the shared set precedent-shared-repo-maintenance; merged in PR #880 on 2026-10-05; amended 2026-11-12, Morgan (decided) -- a private copied-in source is checked at Update Vendors, and its line counts as current here"
 strength: decided
 ---
 ## Rule
 Nothing updates a vendored source between sessions (upstream updates are taken by `Update Vendors`, attended); this rule makes sure a session that is here says so, since the person who could approve an update is right here from the first turn. At session start, compare each vendored source's recorded commit against its actual head (one cheap remote query, no model call), and if either has moved, say so as part of catching the person up, not saved for the end of the session. **A source the check could not verify is not a current one.** A fast, clean failure (missing credentials, a permission error) means "could not verify", never "confirmed fresh": say so, reach the source directly if the environment offers any way to, and if it offers none, say plainly that you could not verify it rather than reporting it current.
+
+**A private copied-in source is the exception: "checked at the last Update Vendors, <date>" is current for this rule.** Update Vendors checks it, and its copy changes nowhere else, so raise nothing and attach nothing for it at session start.
 
 ## Detail
 A fired notice is also persisted, not just printed: file it as one `todo/todo-<date>-vendor-drift.md` item (`disposition: ask`) naming both commits, so it survives the turn and the open-items index keeps showing it. Taking either update stays deliberate, whenever it's raised -- never without being asked. If a merge lands in the same session while a notice is still open, re-ask right there rather than waiting for the end of the session. Fallback: if no notice fired at session start (an incomplete install, an offline start), repeat the same cheap comparison at the end of the session, right after the merge runbook's own steps.

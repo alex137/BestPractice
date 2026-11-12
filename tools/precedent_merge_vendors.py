@@ -107,6 +107,10 @@ def vendors_behind(repo):
         # A copy the repository holds on purpose is not behind (2026-10-20).
         if row.get('hold'):
             continue
+        # A private copy is Update Vendors' own to check (2026-11-12); its
+        # repository is not attached here, so asking would only say unknown.
+        if row.get('at_update'):
+            continue
         if row.get('problem'):
             if not row.get('nothing_vendored'):
                 unknown.append(f"{row['label']}: {row['problem']}")
@@ -233,6 +237,28 @@ def _summary(out):
     return out[i:].strip() if i >= 0 else out.strip()[-3000:]
 
 
+SUMMARY_LIMIT = 4000
+
+
+def _summary_lines(out, limit=SUMMARY_LIMIT):
+    """The summary's step lines for the commit message, cut on whole lines
+    at `limit` characters, with a count of what was left out. A cut inside a
+    line once ended a URL at a private repository's name, and the leak gate
+    refused the push over it (2026-11-12)."""
+    lines = [l for l in _summary(out).splitlines()
+             if l.startswith('  ') and ': ' in l]
+    kept, size = [], 0
+    for l in lines:
+        if size + len(l) + (1 if kept else 0) > limit:
+            break
+        size += len(l) + (1 if kept else 0)
+        kept.append(l)
+    left = len(lines) - len(kept)
+    if left:
+        kept.append(f'  ({left} more not listed)')
+    return '\n'.join(kept)
+
+
 def commit_update(repo, source, out):
     head = _git(source, 'rev-parse', '--short=12', 'HEAD').stdout.strip()
     try:
@@ -245,8 +271,7 @@ def commit_update(repo, source, out):
     msg = (f'Update Vendors at merge: BestPractice {branch} @ {landed}\n\n'
            f'Taken by tools/precedent_merge_vendors.py, as a commit of its own '
            f'so it can be read or reverted apart from the merge.\n\n'
-           + '\n'.join(l for l in _summary(out).splitlines()
-                       if l.startswith('  ') and ': ' in l)[:4000] + '\n')
+           + _summary_lines(out) + '\n')
     sid = os.environ.get('CLAUDE_CODE_REMOTE_SESSION_ID', '').strip()
     if sid:
         sid = sid if sid.startswith('session_') else f'session_{sid}'
