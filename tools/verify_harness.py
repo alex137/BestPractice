@@ -4877,6 +4877,7 @@ def main():
     check_a_copy_never_carries_a_copy()
     check_copy_in_is_asked_once()
     check_declared_exports_are_copied()
+    check_private_copies_are_checked_at_update_vendors()
     check_exports_only_copy_resolves()
     check('a failed update\'s rerun keeps an uncommitted copied-in set',
           *check_failed_rerun_keeps_an_uncommitted_copied_in_set())

@@ -35,6 +35,16 @@ Repo-local sources have no upstream and are skipped; a universal source
 declared at this repo's own root (a self-hosted catalogue) is this repo's
 own branch, which the freshness guard already covers.
 
+A PRIVATE COPY IS UPDATE VENDORS' TO CHECK (Morgan, 2026-11-12, strength:
+decided). A copied-in source (`"vendored": true`) whose copy does not say
+it is public is never asked here: its repository answers only once the
+session attaches it, a prompt the person approves at every session start
+for a repository nothing reads. Update Vendors attaches it, refreshes the
+copy and records the date, and its row says "checked at the last Update
+Vendors, <date>" -- never NOT VERIFIED. A public copy is asked as before.
+A source entry may choose either way with "freshness"
+(precedent_resolve.freshness_at_update_vendors).
+
 A REMINDER IS WHAT ALREADY FAILED, so this is built to run without being
 remembered: from the session-start bootstrap, and from precedent_gate.py's
 push and merge moments. It PRINTS and never refreshes anything -- the
@@ -219,6 +229,11 @@ def declared_sources(root, user=True):
                     # its row says held, never behind.
                     if str(entry.get('hold') or '').strip():
                         src['hold'] = str(entry['hold']).strip()
+                    # A private copy is checked by Update Vendors, never
+                    # here (precedent_resolve.freshness_at_update_vendors,
+                    # Morgan, 2026-11-12).
+                    if _at_update_vendors(root, entry):
+                        src['at_update'] = True
                 sources.append(src)
     user_cfg = pathlib.Path(os.environ.get(USER_CONFIG_ENV,
                                            DEFAULT_USER_CONFIG)).expanduser()
@@ -236,6 +251,34 @@ def declared_sources(root, user=True):
                     src['repo'] = str(ind['repo_url']).strip()
                 sources.append(src)
     return sources, notes
+
+
+# precedent_resolve.FRESHNESS_CHECKED_KEY, for a copy with no resolver
+# beside it.
+_FALLBACK_CHECKED_KEY = 'checked_at_update_vendors'
+
+
+def _at_update_vendors(root, entry):
+    """-> True when a copied-in source's freshness is Update Vendors' to
+    check, not session start's: a private copy, unless its entry chooses
+    otherwise (precedent_resolve.freshness_at_update_vendors, the one
+    reader). False where this engine copy predates it, which keeps the old
+    behavior: the row is asked, and NOT VERIFIED when it cannot be."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return bool(_pr.freshness_at_update_vendors(root, entry))
+    except Exception:                                        # noqa: BLE001
+        return False
+
+
+def _checked_key():
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_resolve as _pr
+        return _pr.FRESHNESS_CHECKED_KEY
+    except Exception:                                        # noqa: BLE001
+        return _FALLBACK_CHECKED_KEY
 
 
 def _deleted_declared(root):
@@ -369,6 +412,14 @@ def collect_targets(root='.'):
             label = f'{who} vendored at {where}'
             if m is None:
                 rows.append({'label': label, 'kind': 'vendored', 'problem': why})
+            elif src.get('at_update'):
+                # Private: asking its repository whether it moved means an
+                # attach at every session start for a repository nothing
+                # reads, so Update Vendors asks, and this row says when.
+                rows.append({'label': label, 'kind': 'vendored',
+                             'at_update': True,
+                             'checked': str(up.get(_checked_key()) or '')}
+                            | ({'hold': src['hold']} if src.get('hold') else {}))
             elif up.get('repo') and up.get('branch') and up.get('commit'):
                 rows.append({'label': label, 'kind': 'vendored',
                              'url': _on_record(up['repo'], src),
@@ -693,7 +744,7 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
     """One row per way a declared source is reached. Returns 0 always."""
     rows = collect_targets(root)
     tips, held = {}, {}           # held: the vendored rows behind, by move
-    behind = unverified = current = engine_behind = 0
+    behind = unverified = current = engine_behind = at_update = 0
     unverified_sources = 0        # what --quiet reports: no engine row there
     for row in rows:              # to verify is not a source left unverified
         if row['kind'] == 'deleted':
@@ -702,6 +753,25 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
             continue
         if row['kind'] == 'carried':
             print(f"freshness: {row['note']}", file=out)
+            continue
+        if row.get('at_update'):
+            # Never NOT VERIFIED (Morgan, 2026-11-12, strength: decided):
+            # the copy changes only at Update Vendors, which checks it, so
+            # its last check is the date to say. Printed with --quiet too:
+            # session start says when, rather than saying nothing.
+            at_update += 1
+            holding = f"; held by this repository ({row['hold']})" \
+                if row.get('hold') else ''
+            if row.get('checked'):
+                print(f"freshness: checked at the last Update Vendors, "
+                      f"{row['checked']} -- {row['label']} is private, so "
+                      f"Update Vendors checks it, not session start{holding}",
+                      file=out)
+            else:
+                print(f"freshness: checked at Update Vendors -- "
+                      f"{row['label']} is private, so Update Vendors checks "
+                      f"it, not session start, and none has recorded a check "
+                      f"yet; the next one does{holding}", file=out)
             continue
         if row.get('problem'):
             unverified += 1
@@ -802,7 +872,9 @@ def report(root='.', with_files=False, quiet=False, out=sys.stdout):
         print(f"freshness: {sum(r['kind'] not in ('deleted', 'carried') for r in rows)} "
               f'row(s) -- {current} current, '
               f'{behind} behind, {unverified} not verified (not verified is '
-              f'not current)', file=out)
+              f'not current)'
+              + (f', {at_update} checked at Update Vendors' if at_update else ''),
+              file=out)
     return 0
 
 
