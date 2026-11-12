@@ -5921,8 +5921,8 @@ def check_quick_tier_is_closed():
     name = 'the quick tier is closed: nothing joins it without the person\'s words'
     closed = {'build_views', 'ci_workflows', 'commit_author', 'commit_dates',
               'doc_lint', 'generated_files', 'leak_gate', 'leak_gate_commits',
-              'light_check', 'practice_export_loop', 'rename_links',
-              'scrub_gate', 'session_trailer', 'views_sync'}
+              'light_check', 'practice_export_loop', 'practice_shape',
+              'rename_links', 'scrub_gate', 'session_trailer', 'views_sync'}
     import ast, textwrap
 
     def runs_tests(src):
