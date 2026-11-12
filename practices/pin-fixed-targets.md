@@ -137,6 +137,12 @@ against a tree that holds none. The occasion index carries it; a project
 whose commands share one format could check that each names an ID-shaped
 token in its first step.
 
+## Why
+A search by title costs a lookup on every run and can return the wrong
+file: a copy, a lookalike, or the superseded version a team stopped
+writing to. A pin costs one lookup, once, and a cheap check on each read
+catches the case where it still opens but should not be trusted.
+
 ## Story
 **2026-11-12, a daily command in a private project repository.** Its
 command for pulling the results of a personality-profile questionnaire
@@ -156,3 +162,8 @@ pin for what is the same each time and a search for what is new, is the
 rule. Morgan asked for it as a universal practice the same day, and added
 the case a dead-link fallback misses: a pin that still opens, but onto a
 file that has been superseded.
+
+## Install
+Nothing to install. Where a project's commands share one format, put each
+fixed target's pin in the command's first step, or in the one config file
+its commands read once two of them share a target.
