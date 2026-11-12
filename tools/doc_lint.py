@@ -228,7 +228,18 @@ def is_content(path, root=None):
 ACRONYM_RE = re.compile(r'\b([A-Z]{2}[A-Z0-9]{0,4})\b')   # 2-6 chars, ≥2 leading letters
 # A shouted phrase: three or more ALL-CAPS words (one letter counts: "A",
 # "I"), separated by single spaces. scan_unglossed() says why.
-SHOUTED_RUN_RE = re.compile(r"\b[A-Z][A-Z0-9'’]*(?: [A-Z][A-Z0-9'’]*){2,}\b")
+# A shouted phrase stays one phrase across the punctuation a sentence
+# carries -- a colon, brackets, a question mark, a dash, quotation marks --
+# so long as a space sits between the words. Spaces alone were the rule
+# until a draft placeholder shaped like "CONFIRM: THE TEAM (JANE DOE) IS THE
+# OWNER" had its colon and brackets split it into short runs, and the
+# surname was refused as an acronym, blocking a Produce in a consumer repo
+# (Morgan, 2026-11-12: "phrases in caps shouldn't be treated as
+# acronyms"). A comma still ends a run, so a list like "API, CLI, SDK" is
+# still scanned.
+SHOUT_WORD = r"[A-Z][A-Z0-9'’]*"
+SHOUT_GAP = r"[:;()?!.\-–—\"“”]*\s+[(\"“”\-–—]*"
+SHOUTED_RUN_RE = re.compile(rf"\b{SHOUT_WORD}(?:{SHOUT_GAP}{SHOUT_WORD}){{2,}}\b")
 # Inside a quotation, two ALL-CAPS words in a row are already a person
 # shouting: a quote keeps its own form, and Morgan's "PURE CONTENT" in
 # promote-only's Story was refused as an acronym when the practice moved to a
