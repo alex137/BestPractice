@@ -1592,6 +1592,45 @@ def check_merge_takes_the_vendor_update():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_merge_vendors_summary_is_cut_on_whole_lines():
+    """precedent_merge_vendors.commit_update caps the step lines it copies
+    into the commit message, and cuts between lines, never inside one, with a
+    line counting what it left out. On 2026-11-12 a cut at a fixed character
+    count ended a URL at a private repository's name, and the leak gate
+    refused the push. Driven through commit_update itself, with git stubbed,
+    so the old character cut fails it."""
+    rc, out = 0, ''
+    script = (
+        'import sys, types\n'
+        f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+        'import precedent_merge_vendors as mv\n'
+        'seen = {}\n'
+        'mv._git = lambda *a: types.SimpleNamespace(stdout="abc123\\n")\n'
+        'def run(argv, input=None, **k):\n'
+        '    seen["msg"] = input\n'
+        '    return types.SimpleNamespace(returncode=1, stdout="", stderr="")\n'
+        'mv.subprocess.run = run\n'
+        'url = "https://github.com/example-owner/example-private-repository"\n'
+        'steps = [f"  step {i:03d}: see {url}/pull/{i}" for i in range(200)]\n'
+        'out = "noise\\n== Update Vendors ==\\n" + "\\n".join(steps)\n'
+        'mv.commit_update(mv.pathlib.Path("/nonexistent"), "/nonexistent", out)\n'
+        'body = seen["msg"].split("\\n\\n", 2)[2]\n'
+        'lines = [l for l in body.splitlines() if l]\n'
+        'step_lines = [l for l in lines if l.startswith("  step ")]\n'
+        'assert all(l in steps for l in step_lines), "a step line was cut"\n'
+        'assert sum(len(l) + 1 for l in step_lines) <= 4001, "over the cap"\n'
+        'left = 200 - len(step_lines)\n'
+        'assert left > 0, "the fixture did not overflow the cap"\n'
+        'assert f"  ({left} more not listed)" in lines, "no count of the rest"\n'
+        'print("OK", len(step_lines), left)\n')
+    r = subprocess.run([sys.executable, '-c', script], capture_output=True,
+                       text=True, timeout=60)
+    out = r.stdout + r.stderr
+    return (r.returncode == 0 and 'OK' in r.stdout,
+            'step lines kept whole, the rest counted',
+            failure_detail(out, 800))
+
+
 def check_update_vendors_reruns_pinned_to_its_first_commit():
     """An update worked over several rounds of LEFT FOR YOU takes the same
     source commit on every rerun until one reports DONE, says so, and says
@@ -6021,6 +6060,255 @@ def check_declared_exports_are_copied():
     check(f'files a source exports are copied in by Update Vendors, and an '
           f'undeclared copy fails the full check ({len(cases)} stated cases)',
           not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
+
+
+def check_private_copies_are_checked_at_update_vendors():
+    """A copied-in source whose copy is private is checked by Update
+    Vendors, never at session start, and a public one as before (Morgan,
+    2026-11-12, strength: decided: "Option B definitely!!!!!").
+
+    1. The resolver: a private copy is Update Vendors' to check, a public
+       one is not, "freshness" overrides either way, and a source that is
+       not copied in never is.
+    2. Update Vendors records the date it checked a private copy, and
+       writes nothing of the kind for a public one.
+    3. The freshness line says "checked at the last Update Vendors, <date>"
+       for the private copy without asking its repository, with --quiet
+       too, and never counts it NOT VERIFIED; the public copy is asked.
+       NEGATIVE CONTROL: with "freshness": "session-start" the private copy
+       is asked, and NOT VERIFIED when it cannot be reached.
+    4. The merge step does not count the private copy as unverified.
+    5. With no clone on this machine, --attach-list names the private copy
+       and not the public one, and Update Vendors clones it beside the
+       repository and refreshes it, leaving nothing for the person.
+    6. When the clone cannot be made, the copy is left for the person with
+       the attach to make, never DONE.
+    7. Session start's list of sources to attach names neither copy."""
+    import shutil, tempfile, importlib, io
+    sys.path.insert(0, str(ROOT / 'tools'))
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='private-copies-'))
+    cases = []
+    genv = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+            'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    saved = {k: os.environ.get(k) for k in ('PRECEDENT_USER_CONFIG',
+                                            'PRECEDENT_GITHUB_USER')}
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=genv,
+                              capture_output=True, text=True)
+
+    def make_source(name, vis):
+        origin = tmp / 'origins' / f'{name}.git'
+        origin.parent.mkdir(exist_ok=True)
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], env=genv, check=True)
+        clone = tmp / 'people' / name
+        subprocess.run(['git', 'clone', '-q', str(origin), str(clone)],
+                       env=genv, capture_output=True, check=True)
+        (clone / 'practices').mkdir(parents=True)
+        (clone / 'precedent-source.json').write_text(json.dumps(
+            {'name': name, 'level': 'shared', 'visibility': vis}))
+        (clone / 'practices' / f'{name}-rule.md').write_text(
+            f'---\nslug: {name}-rule\n---\n# r\n\n## Rule\n\nx\n')
+        git(clone, 'add', '-A')
+        git(clone, 'commit', '-qm', 'one')
+        git(clone, 'push', '-q', 'origin', 'main')
+        return origin, clone
+
+    def entry(name, **kw):
+        return {'level': 'shared', 'name': name, 'path': f'process/{name}',
+                'vendored': True, **kw}
+
+    def set_sources(host, sources):
+        cfg = json.loads((host / 'precedent.json').read_text())
+        cfg['sources'] = sources
+        (host / 'precedent.json').write_text(json.dumps(cfg, indent=2))
+
+    def manifest(host, name):
+        return json.loads((host / 'process' / f'manifest_{name}.json')
+                          .read_text()).get('upstream', {})
+
+    try:
+        ind = tmp / 'people' / 'zz-ind'
+        (ind / 'practices').mkdir(parents=True)
+        (ind / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-ind', 'level': 'individual'}))
+        ucfg = tmp / 'person.json'
+        ucfg.write_text(json.dumps({'individual': {'name': 'zz-ind',
+                                                   'path': str(ind)}}))
+        os.environ['PRECEDENT_USER_CONFIG'] = str(ucfg)
+        os.environ['PRECEDENT_GITHUB_USER'] = 'zzme'
+        priv_origin, priv_clone = make_source('zz-privx', 'private')
+        pub_origin, _pub_clone = make_source('zz-pubx', 'public')
+        host = tmp / 'host'
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps(
+            {'format_version': 1, 'visibility': 'private',
+             'sources': [entry('zz-privx'), entry('zz-pubx')]}, indent=2))
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)],
+                       env=genv, check=True)
+        git(host, 'add', '-A')
+        git(host, 'commit', '-qm', 'init')
+        import precedent_update as pu
+        import precedent_resolve as pr
+        import precedent_engine_freshness as fr
+        import precedent_merge_vendors as pmv
+        import precedent_time
+        today = precedent_time.today(host)
+
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        cases.append(('both copies are made from the clones on this machine',
+                      (host / 'process' / 'zz-privx' / 'precedent-source.json').is_file()
+                      and (host / 'process' / 'zz-pubx' / 'precedent-source.json').is_file()
+                      and rep.left == [],
+                      failure_detail(repr(rep.left) + repr(rep.steps), 600)))
+
+        e_priv, e_pub = entry('zz-privx'), entry('zz-pubx')
+        got = (pr.freshness_at_update_vendors(host, e_priv),
+               pr.freshness_at_update_vendors(host, e_pub),
+               pr.freshness_at_update_vendors(
+                   host, dict(e_priv, freshness='session-start')),
+               pr.freshness_at_update_vendors(
+                   host, dict(e_pub, freshness='update-vendors')),
+               pr.freshness_at_update_vendors(
+                   host, {k: v for k, v in e_priv.items() if k != 'vendored'}))
+        cases.append(('a private copy is checked at Update Vendors, a public one '
+                      'is not, "freshness" overrides either way, and a source '
+                      'not copied in never is',
+                      got == (True, False, False, True, False), repr(got)))
+
+        up_priv, up_pub = manifest(host, 'zz-privx'), manifest(host, 'zz-pubx')
+        cases.append(('Update Vendors records the day it checked the private '
+                      'copy, and nothing of the kind for the public one',
+                      up_priv.get(pr.FRESHNESS_CHECKED_KEY) == today
+                      and pr.FRESHNESS_CHECKED_KEY not in up_pub,
+                      repr(up_priv)[:300] + ' | ' + repr(up_pub)[:300]))
+        cases.append(('the report says the private copy was checked',
+                      any(w == 'copy of zz-privx' and t.startswith(f'checked {today}')
+                          for w, t in rep.steps), failure_detail(repr(rep.steps), 600)))
+
+        asked = []
+        saved_tip = fr.upstream_tip
+
+        def no_answer(url, branch, clone=None):
+            asked.append(str(url))
+            return None
+        fr.upstream_tip = no_answer
+        try:
+            out = io.StringIO()
+            fr.report(host, out=out)
+            full = out.getvalue()
+            out = io.StringIO()
+            fr.report(host, quiet=True, out=out)
+            quiet = out.getvalue()
+            _behind, unknown = pmv.vendors_behind(host)
+        finally:
+            fr.upstream_tip = saved_tip
+        cases.append(('the freshness line says when Update Vendors checked the '
+                      'private copy, and never asks its repository',
+                      f'checked at the last Update Vendors, {today} -- zz-privx'
+                      in full
+                      and not any('zz-privx' in u for u in asked)
+                      and not any('NOT VERIFIED' in l and 'zz-privx' in l
+                                  for l in full.splitlines()),
+                      failure_detail(full, 800) + repr(asked)))
+        cases.append(('the public copy is still asked at session start, and '
+                      'NOT VERIFIED when it cannot be reached',
+                      any('zz-pubx' in u for u in asked)
+                      and any('NOT VERIFIED' in l and 'zz-pubx' in l
+                              for l in full.splitlines()),
+                      failure_detail(full, 800) + repr(asked)))
+        # Every row the full run could not verify, the engine's absent
+        # manifest aside (--quiet never counts that one), and no more: the
+        # private copy is not among them.
+        unverified = [l for l in full.splitlines()
+                      if ('NOT VERIFIED --' in l or 'not checked --' in l)
+                      and 'vendored engine' not in l]
+        cases.append(('--quiet, what session start runs, prints the checked '
+                      'line and counts only what the full run could not verify',
+                      f'checked at the last Update Vendors, {today}' in quiet
+                      and f'NOT VERIFIED -- {len(unverified)} source(s)' in quiet
+                      and not any('zz-privx' in l for l in unverified),
+                      repr(quiet) + repr(unverified)))
+        cases.append(('the merge step does not count the private copy as '
+                      'unverified, and does count the public one',
+                      not any('zz-privx' in u for u in unknown)
+                      and any('zz-pubx' in u for u in unknown), repr(unknown)))
+
+        set_sources(host, [entry('zz-privx', freshness='session-start'),
+                           entry('zz-pubx')])
+        asked.clear()
+        fr.upstream_tip = no_answer
+        try:
+            out = io.StringIO()
+            fr.report(host, out=out)
+            full = out.getvalue()
+        finally:
+            fr.upstream_tip = saved_tip
+        cases.append(('NEGATIVE CONTROL: with "freshness": "session-start" the '
+                      'private copy is asked, and NOT VERIFIED when it cannot be',
+                      any('zz-privx' in u for u in asked)
+                      and any('NOT VERIFIED' in l and 'zz-privx' in l
+                              for l in full.splitlines())
+                      and 'checked at the last Update Vendors' not in full,
+                      failure_detail(full, 800)))
+
+        import precedent_hooks as ph
+        unloaded = [n for n, _w in ph.unloaded_sources(host)]
+        cases.append(('session start asks to attach neither copy',
+                      'zz-privx' not in unloaded and 'zz-pubx' not in unloaded,
+                      repr(unloaded)))
+
+        # No clone on this machine: the update makes it.
+        shutil.rmtree(priv_clone)
+        shutil.rmtree(tmp / 'people' / 'zz-pubx')
+        set_sources(host, [entry('zz-privx', repo=str(priv_origin)),
+                           entry('zz-pubx', repo=str(pub_origin))])
+        listed = [n for n, _s in pu.copies_to_attach(host)]
+        cases.append(('--attach-list names the private copy with no clone, and '
+                      'not the public one', listed == ['zz-privx'], repr(listed)))
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        cases.append(('Update Vendors clones a missing private copy beside the '
+                      'repository and refreshes it, leaving nothing',
+                      (tmp / 'zz-privx' / '.git').exists()
+                      and any(w == 'copy of zz-privx' and t.startswith('cloned ')
+                              for w, t in rep.steps)
+                      and not any(w == 'copy of zz-privx' for w, _t in rep.left),
+                      failure_detail(repr(rep.left) + repr(rep.steps), 800)))
+        cases.append(('NEGATIVE CONTROL: once cloned, nothing is left to attach',
+                      pu.copies_to_attach(host) == [],
+                      repr(pu.copies_to_attach(host))))
+
+        shutil.rmtree(tmp / 'zz-privx')
+        set_sources(host, [entry('zz-privx', repo=str(tmp / 'origins' / 'gone.git')),
+                           entry('zz-pubx', repo=str(pub_origin))])
+        (host / 'process' / 'manifest_zz-privx.json').write_text(json.dumps(
+            {'upstream': {k: v for k, v in manifest(host, 'zz-privx').items()
+                          if k != 'repo'}}, indent=2))
+        rep = pu.Report()
+        pu.refresh_copies_step(host, rep)
+        left = [why for w, why in rep.left if w == 'copy of zz-privx']
+        cases.append(('a copy whose repository cannot be cloned is left for the '
+                      'person with the attach to make, never DONE',
+                      len(left) == 1 and 'cloning' in left[0]
+                      and 'Attach it' in left[0]
+                      and 'Stop only if the attach is refused' in left[0],
+                      repr(rep.left)[:600]))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(tmp, ignore_errors=True)
+        if 'checkin' in sys.modules:
+            importlib.reload(sys.modules['checkin'])
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a private copied-in source is checked by Update Vendors, not at '
+          f'session start, and a public one as before ({len(cases)} stated '
+          f'cases)', not bad, '; '.join(f"{n} -- {d[:500]}" for n, d in bad))
 
 
 def check_update_refuses_a_shortened_flag():

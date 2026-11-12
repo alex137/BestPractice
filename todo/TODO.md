@@ -126,7 +126,6 @@ as_of: 2026-11-12
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | 35d | ask |  |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | 32d | wait |  |
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 15d | wait |  |
-| [`todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors`](todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors.md) | Should a session attach a copied-in source (a `vendored: true` entry in | 12d | ask | Morgan's answer: a policy change to session start and drift-notice |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, | 12d | wait | out of scope of the 2026-10-31 loader-template move, and a judgment on wording w… |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | 8d | ask |  |
 
@@ -166,7 +165,6 @@ as_of: 2026-11-12
 | [`todo-2026-10-08-less-reliant-on-github`](todo-2026-10-08-less-reliant-on-github.md) | Make BestPractice, and the repositories that use it, keep working when | Alex's or Morgan's approval of the plan below, stage by stage |
 | [`todo-2026-10-11-update-vendors-runs-stale-driver-code`](todo-2026-10-11-update-vendors-runs-stale-driver-code.md) | Update Vendors runs whatever code sits in the BestPractice clone's working tree, and nothing checks that it is the code | a later commit to tools/ on main, and a real Update Vendors over it (Closes when, 2) |
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens |  |
-| [`todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors`](todo-2026-10-31-attach-copied-in-sources-only-at-update-vendors.md) | Should a session attach a copied-in source (a `vendored: true` entry in | Morgan |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, |  |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
 
