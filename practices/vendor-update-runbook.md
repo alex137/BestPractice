@@ -56,7 +56,10 @@ approved_by: "Morgan; amended 2026-09-14, Morgan -- the phrase now carries
   2026-11-02, Morgan (decided) -- \"I should get a reminder with update
   vendors to say that for any BP repo that I didn't say that for
   previously\": the allow-list change leads the reply until answered, and
-  the answer is kept in precedent.json"
+  the answer is kept in precedent.json; amended 2026-11-12, Morgan
+  (decided) -- \"Option B definitely!!!!!\": a private copied-in source is
+  attached for Update Vendors, not at session start, and the update clones
+  and refreshes it itself"
 ---
 ## Rule
 **"Update Vendors" asks for the whole sequence below, merge included, with
@@ -101,6 +104,14 @@ what it wrote.
   `--take-set <name>`; a bare `--take` is refused.
 - **FAILED** (exit 2): nothing is published. Run it again as it is; an edit
   you made after the failure is refused until you commit it.
+
+**Attach the private copies first.** Run the same command with
+`--attach-list` and make each `add_repo` call it prints (read access):
+session start no longer attaches a copied-in source whose copy is private,
+so Update Vendors is the one moment it is read. The update then clones each
+beside the repo, refreshes the copy and records the date that session
+start's freshness line reports; it stops on one only when the attach is
+refused ("Private copies are checked here, not at session start").
 
 Every copied-in set and every file a source exports is refreshed; a
 repository freezes one only by its own `"hold": "<why>"`. **A whole copy
@@ -347,6 +358,34 @@ typing the path: `ls -d ../[Bb]est[Pp]ractice ../*/[Bb]est[Pp]ractice`. Run that
 [precedent_merge_vendors.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_vendors.py)
 and the update's own refusal of a vendored copy find it by its origin the
 same way (2026-10-08).
+
+### Private copies are checked here, not at session start
+**A copied-in source whose copy is private is checked only by Update
+Vendors** (Morgan, 2026-11-12, strength: decided: *"Option B
+definitely!!!!!"*). A copy is already in the repository as files, so
+nothing loads from its clone; the only reason a session reached its
+repository at start was to ask whether it had moved, which for a private
+one meant an attach the person approved in every session, for a repository
+the session never read. The copy changes only here anyway.
+
+Private means the copy's own `precedent-source.json` does not say
+`"visibility": "public"`; the engine never names a source. A public copy,
+such as a shared set, is still asked at every session start. One source can
+choose for itself with `"freshness": "session-start"` or
+`"freshness": "update-vendors"` on its entry in `precedent.json`; nobody has
+to set it.
+
+So, before the run, `--attach-list` prints `add_repo <owner>/<name> (read
+access)` for each private copy with no clone on this machine. The run clones
+a missing one beside the repository itself, refreshes it, and writes
+`checked_at_update_vendors` into `process/manifest_<name>.json`; session
+start then reads "checked at the last Update Vendors, <date>" for it,
+never NOT VERIFIED. Only when the clone fails, because the attach was
+refused or not made, is the copy left for you, with the attach to make.
+The code is `copies_to_attach` and `refresh_copies_step` in
+[tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py)
+and `freshness_at_update_vendors` in
+[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py).
 
 ### What the command does, and its three outcomes
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,

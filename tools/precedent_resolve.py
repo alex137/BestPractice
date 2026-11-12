@@ -1360,6 +1360,60 @@ def is_vendored(entry):
     return isinstance(entry, dict) and entry.get('vendored') is True
 
 
+# Where a copied-in source's freshness is checked (Morgan, 2026-11-12,
+# strength: decided: "Option B definitely!!!!!"). A copy is already in the
+# repository as files, so nothing loads from its clone; the only reason to
+# reach its repository at session start is to ask whether it has moved, and
+# for a private one that means an attach the person approves, every session,
+# for a repository the session never reads. So a private copy is checked
+# only when Update Vendors runs, which attaches it, refreshes the copy and
+# records the date (FRESHNESS_CHECKED_KEY in process/manifest_<name>.json);
+# a public one is still asked at session start, where that costs nothing.
+# Privacy is the copy's own precedent-source.json, never a name: the engine
+# asks whether a source is private and names none. A source entry may
+# choose either way for itself with "freshness": one of FRESHNESS_WHEN.
+FRESHNESS_KEY = 'freshness'
+FRESHNESS_AT_START = 'session-start'
+FRESHNESS_AT_UPDATE = 'update-vendors'
+FRESHNESS_WHEN = (FRESHNESS_AT_START, FRESHNESS_AT_UPDATE)
+FRESHNESS_CHECKED_KEY = 'checked_at_update_vendors'
+
+
+def copy_is_private(repo, entry):
+    """True unless the copy a copied-in source entry points at carries a
+    precedent-source.json saying "visibility": "public". No manifest, one
+    that cannot be read, or a level private by default (PRIVATE_LEVELS)
+    with no visibility named, all count as private: the side that costs an
+    attach prompt, never the side that leaks a name."""
+    path = pathlib.Path(str((entry or {}).get('path') or ''))
+    if not str(path) or path.is_absolute():
+        return True
+    try:
+        data = json.loads((pathlib.Path(repo) / path / SOURCE_MANIFEST)
+                          .read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return True
+    if not isinstance(data, dict):
+        return True
+    vis = str(data.get('visibility') or '').strip().lower()
+    if vis in ('public', 'private'):
+        return vis == 'private'
+    return normalize_level(data.get('level')) in PRIVATE_LEVELS
+
+
+def freshness_at_update_vendors(repo, entry):
+    """True when a copied-in source entry's freshness is checked only by
+    Update Vendors, never at session start: its own "freshness" choice when
+    it states one of FRESHNESS_WHEN, else whether its copy is private
+    (copy_is_private). False for anything not copied in."""
+    if not is_vendored(entry):
+        return False
+    said = str(entry.get(FRESHNESS_KEY) or '').strip().lower()
+    if said in FRESHNESS_WHEN:
+        return said == FRESHNESS_AT_UPDATE
+    return copy_is_private(repo, entry)
+
+
 def is_exports_only(entry):
     """True when a copied-in source entry takes only the files its source
     exports (`"exports_only": true`): a voice repository's compiled prompts,

@@ -107,6 +107,10 @@ def vendors_behind(repo):
         # A copy the repository holds on purpose is not behind (2026-10-20).
         if row.get('hold'):
             continue
+        # A private copy is Update Vendors' own to check (2026-11-12); its
+        # repository is not attached here, so asking would only say unknown.
+        if row.get('at_update'):
+            continue
         if row.get('problem'):
             if not row.get('nothing_vendored'):
                 unknown.append(f"{row['label']}: {row['problem']}")
