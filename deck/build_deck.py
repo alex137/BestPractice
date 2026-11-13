@@ -25,6 +25,9 @@ deck.json:
     {
       "title": "...", "subtitle": "...",
       "output": "My_Deck",                    -> My_Deck.html / My_Deck_send.html
+                                              ("My-Deck" -> My-Deck-send.html: the
+                                              send build takes the name's own
+                                              word separator)
       "footer": "per-slide footer/legend text",
       "theme": "theme.css",
       "glossary": "glossary.json",
@@ -236,6 +239,16 @@ JS = """
 """
 
 
+def send_suffix(base):
+    """The send build's suffix, in the output name's own word separator:
+    "_send" after My_Deck, "-send" after Extreme-Transparency-2026-11-12.
+    A fixed "_send" put two separators side by side in one output folder,
+    which a consumer repo's filename-separator check refused on main
+    (2026-11-12). A name with neither separator keeps "_send"."""
+    stem = pathlib.PurePath(base).name
+    return '-send' if '-' in stem and '_' not in stem else '_send'
+
+
 def build(deck_dir, send=False):
     deck_dir = pathlib.Path(deck_dir).resolve()
     mpath = deck_dir / 'deck.json'
@@ -285,7 +298,7 @@ def build(deck_dir, send=False):
            + ''.join(out_parts) + f'<script>{JS}</script></body></html>')
 
     base = manifest.get('output', 'Deck')
-    out = deck_dir / (f'{base}_send.html' if send else f'{base}.html')
+    out = deck_dir / (f'{base}{send_suffix(base)}.html' if send else f'{base}.html')
     # Finished typography (the engine's tools/finish_html.py; practice:
     # curly-quotes). A deck directory with no
     # engine beside it writes the page as built.
