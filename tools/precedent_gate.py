@@ -991,8 +991,11 @@ def _print_hard_requirements(root):
                   f"a yes or no or a go-ahead states the question itself, in "
                   f"that bullet: what is decided, what yes and no each do, "
                   f"and your pick -- never \"the X question\" or \"yes or no "
-                  f"on X\" alone. A question still waiting is restated in "
-                  f"every reply until answered.")
+                  f"on X\" alone. A question the person's own work still "
+                  f"waits on is restated in every reply until answered; a "
+                  f"suggestion this session raised itself, not taken up, is "
+                  f"asked once and then left out (file it as a quiet open "
+                  f"item if it is worth keeping).")
         # require_section_not_repeated: the previous reply's section is
         # knowable here, before a word is written -- and here is the only
         # place the repeat can still be avoided, since the stop hook fires
