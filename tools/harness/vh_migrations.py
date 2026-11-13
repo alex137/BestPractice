@@ -258,6 +258,17 @@ def check_doc_lint_fires():
                       'ZQX' in flagged and not ({'ONLY', 'BEFORE', 'END'} & flagged)))
         dl._corpus_cache = None
 
+        # A shouted phrase stays one phrase across a colon or brackets: a
+        # draft placeholder in capitals is not a row of acronyms (2026-11-12).
+        (tmp / 'shout_punct.md').write_text(
+            "Owner: CONFIRM: THE TEAM (JANE DOE) IS THE OWNER. Also ZQX, QZV, VQZ.\n",
+            encoding='utf-8')
+        _s, _u, punct_flagged, *_ = dl.check_file('shout_punct.md', fix=False, known=set())
+        punct = {tok for _i, tok in punct_flagged}
+        cases.append(('a capitalized phrase broken by a colon or brackets is '
+                      'still one shouted phrase, and a comma list is still scanned',
+                      not ({'DOE', 'JANE', 'CONFIRM'} & punct) and 'ZQX' in punct))
+
         (tmp / 'stems.md').write_text(
             "The ledger is [templates/harness/LEDGER.md](../t/LEDGER.md).\n",
             encoding='utf-8')
