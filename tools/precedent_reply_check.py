@@ -1788,9 +1788,12 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                     if cur and len(cur) > 1 else None)
             rest = cur
             # Nor is a Your next steps bullet that asks for an answer: the
-            # person may read only this reply, so a question still waiting
-            # is restated in every reply until it is answered (Morgan,
-            # 2026-10-29: "I scrolled and scrolled and I can't find it").
+            # person may read only this reply, so a question their own work
+            # still waits on is restated in every reply until it is answered
+            # (Morgan, 2026-10-29: "I scrolled and scrolled and I can't find
+            # it"). The session's own suggestion is not: it is asked once and
+            # then left out, so this exemption never forces one to stay
+            # (the-boildown, "A suggestion is asked once"; Morgan, 2026-11-12).
             # Without this the one-line form dropped the question, and the
             # sessions that obeyed it wrote "the voice pack question, as
             # before" -- a name for a question, not the question.
@@ -1809,8 +1812,10 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                     f"reply's did. With nothing new in it, the whole section "
                     f"is one line"
                     + (f": {one_line_form(rep)}" if rep.get('one_line') else '')
-                    + ("; while a question still waits on the person, add "
-                       "the Your next steps bullet restating it in full"
+                    + ("; while a question the person's own work waits on "
+                       "is still open, add the Your next steps bullet "
+                       "restating it in full (not a suggestion of yours "
+                       "already asked once)"
                        if any(q.get('require_ask_states_its_question') for q in reqs)
                        else '')
                     + (f" -- {rep['why']}" if rep.get('why') else '')
