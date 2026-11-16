@@ -959,6 +959,14 @@ ENGINE_FILES = [
     'doc_lifecycle.py',
     'full_practice_audit.py',
     'session_load_trend.py',
+    # THE READER SHIPS WITH THE LEDGER IT READS (2026-11-15). The stop hook's
+    # reply check has written .precedent/reply_refusals.jsonl in every
+    # consumer since 2026-11-04, and practice the-boildown tells a session to
+    # read it with this tool -- which was added to tools/ and never to this
+    # list, so a consumer got the ledger and the instruction and not the
+    # reader (found in the consumer that asked for the measure, eleven days
+    # on). Standard library only.
+    'reply_refusals.py',
     # The "you are reading a different repo than the one you are standing
     # in" warning (added 2026-09-29). session_load_trend.py, precedent_check.py,
     # build_views.py, precedent_show.py and precedent_push_check.py import it
