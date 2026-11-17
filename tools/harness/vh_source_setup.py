@@ -272,6 +272,54 @@ def check_move_dedupe_stub_names_the_slug_alone():
           '; '.join(f'{n}: {d}' for n, _ok, d in failed))
 
 
+def check_brought_sets_wait_for_the_individual_clone():
+    """Session start runs its hooks at once: one clones the individual set
+    while another reads what it brings. The reader waits for the clone's
+    lock, and when there is still nothing to read it says so, never an
+    empty, silent list (2026-11-17: the ladder set stayed off disk for
+    most of a session, no failure recorded)."""
+    import tempfile, threading, time
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_source_bootstrap as _psb
+    import precedent_resolve as _pr
+    import precedent_clone_lock as _cl
+    name = 'the brought-sets walk waits for the individual clone, and never goes quiet'
+    if _cl.fcntl is None:
+        check(f'{name} (not applicable: no fcntl here)', True)
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as tmp:
+        home = pathlib.Path(tmp)
+        cfg = home / 'config.json'
+        cfg.write_text(json.dumps({'individual': {'path': str(home / _pr.DEFAULT_INDIVIDUAL_NAME)}}),
+                       encoding='utf-8')
+        lock = home / f'.{_pr.DEFAULT_INDIVIDUAL_NAME}.{_cl.LOCK_NAME}'
+        fd = os.open(str(lock), os.O_RDWR | os.O_CREAT)
+        _cl.fcntl.flock(fd, _cl.fcntl.LOCK_EX)
+        saved = {k: os.environ.get(k) for k in ('HOME', _pr.USER_CONFIG_ENV)}
+        try:
+            os.environ['HOME'] = str(home)
+            os.environ[_pr.USER_CONFIG_ENV] = str(cfg)
+            threading.Timer(1.5, lambda: _cl.fcntl.flock(fd, _cl.fcntl.LOCK_UN)).start()
+            t0 = time.monotonic()
+            got = _psb.sources_from_brings(retries=0)
+            took = time.monotonic() - t0
+        finally:
+            os.close(fd)
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+    cases.append(('it waits while a run holds the clone lock', took >= 1.2, f'{took:.1f}s'))
+    cases.append(('with nothing to read it reports a failure, not an empty list',
+                  bool(got) and got[0][1] is False and 'precedent-source.json' in got[0][2],
+                  repr(got)[:200]))
+    failed = [(n, d) for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed,
+          '; '.join(f'{n}: {d}' for n, d in failed))
+
+
 def check_update_never_fetches_the_repo_it_updates():
     """Update Vendors in a set the person's individual set brings -- the
     ladder set, updated from its own clone -- does not fetch that clone as a
