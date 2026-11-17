@@ -4210,6 +4210,7 @@ def main():
     check_dropped_set_prose_successors_and_families()
     check_removal_selects_its_checks()
     check_update_never_fetches_the_repo_it_updates()
+    check_brought_sets_wait_for_the_individual_clone()
     check_engine_capability_holds_a_practice_back()
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
