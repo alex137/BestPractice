@@ -1592,6 +1592,126 @@ def check_merge_takes_the_vendor_update():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_merge_vendors_brings_main_in_first():
+    """precedent_merge_vendors.bring_main_in merges origin's main into the
+    branch before the update runs, so the update's check judges what the
+    landing will land on (2026-11-17: run before --land had brought main's
+    direct commits in, the update's check refused the branch for lacking
+    them, every time main had moved, and the update was taken back for a
+    reason that had nothing to do with it). Each outcome is asserted by the
+    repository's state, not by the words alone:
+
+      - main has a commit the branch lacks: it is merged in, HEAD carries
+        it, the tree is clean, and the step says so;
+      - the branch already carries main: nothing is merged, HEAD unmoved;
+      - merging main conflicts: the merge is aborted, HEAD is where it was,
+        nothing is left mid-merge, and the reason names the conflict;
+      - run() calls it after the source clone is found and before the
+        update starts, so a run with no clone merges nothing.
+
+    Negative control: before bring_main_in existed every case fails for want
+    of the function, and the order case fails on the old run()."""
+    import tempfile
+    import inspect
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import precedent_merge_vendors as mv
+    finally:
+        sys.path.pop(0)
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='merge-vendors-main-'))
+    env = dict(os.environ, GIT_AUTHOR_NAME='t', GIT_AUTHOR_EMAIL='t@t',
+               GIT_COMMITTER_NAME='t', GIT_COMMITTER_EMAIL='t@t')
+
+    def git(cwd, *a):
+        r = subprocess.run(['git', '-C', str(cwd), *a], capture_output=True,
+                           text=True, env=env)
+        return r.stdout.strip()
+
+    def setup(name, main_file, main_text, branch_text=None, branch_file=None):
+        origin = tmp / f'{name}-origin.git'
+        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main',
+                        str(origin)], check=True, env=env)
+        seed = tmp / f'{name}-seed'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(seed)],
+                       check=True, env=env, capture_output=True)
+        (seed / 'a.txt').write_text('base\n')
+        git(seed, 'add', '-A'); git(seed, 'commit', '-q', '-m', 'base')
+        git(seed, 'push', '-q', 'origin', 'HEAD:main')
+        git(seed, 'push', '-q', 'origin', 'HEAD:staging')
+        work = tmp / f'{name}-work'
+        subprocess.run(['git', 'clone', '-q', str(origin), str(work)],
+                       check=True, env=env, capture_output=True)
+        git(work, 'switch', '-q', '-c', 'feature', 'origin/staging')
+        if branch_text is not None:
+            (work / (branch_file or main_file)).write_text(branch_text)
+            git(work, 'add', '-A'); git(work, 'commit', '-q', '-m', 'mine')
+        if main_text is not None:
+            (seed / main_file).write_text(main_text)
+            git(seed, 'add', '-A'); git(seed, 'commit', '-q', '-m', 'on main')
+            git(seed, 'push', '-q', 'origin', 'HEAD:main')
+        return work
+
+    def run(work):
+        import io
+        import contextlib
+        buf = io.StringIO()
+        old = dict(os.environ)
+        os.environ.update(env)
+        try:
+            with contextlib.redirect_stdout(buf):
+                why = mv.bring_main_in(work)
+        finally:
+            os.environ.clear(); os.environ.update(old)
+        return why, buf.getvalue()
+
+    def clean(work):
+        gd = pathlib.Path(git(work, 'rev-parse', '--absolute-git-dir'))
+        return (git(work, 'status', '--porcelain') == ''
+                and not (gd / 'MERGE_HEAD').exists())
+    try:
+        work = setup('behind', 'b.txt', 'from main\n', branch_text='mine\n',
+                     branch_file='mine.txt')
+        why, out = run(work)
+        cases.append(('main has a commit the branch lacks: merged in first',
+                      why is None and (work / 'b.txt').read_text() == 'from main\n'
+                      and (work / 'mine.txt').read_text() == 'mine\n'
+                      and 'brought 1 commit' in out
+                      and clean(work)
+                      and subprocess.run(['git', '-C', str(work), 'merge-base',
+                                          '--is-ancestor', 'origin/main',
+                                          'HEAD']).returncode == 0,
+                      failure_detail(str(why) + out, 600)))
+        work = setup('current', 'c.txt', None, branch_text='mine\n')
+        head = git(work, 'rev-parse', 'HEAD')
+        why, out = run(work)
+        cases.append(('the branch already carries main: nothing merged',
+                      why is None and out == ''
+                      and git(work, 'rev-parse', 'HEAD') == head and clean(work),
+                      failure_detail(str(why) + out, 600)))
+        work = setup('conflict', 'a.txt', 'main says this\n',
+                     branch_text='the branch says that\n')
+        head = git(work, 'rev-parse', 'HEAD')
+        why, out = run(work)
+        cases.append(('merging main conflicts: aborted, HEAD unmoved, reason given',
+                      bool(why) and 'conflicts' in why
+                      and git(work, 'rev-parse', 'HEAD') == head and clean(work),
+                      failure_detail(str(why) + out, 600)))
+        src = inspect.getsource(mv.run)
+        i_clone = src.find('find_source(')
+        i_main = src.find('bring_main_in(')
+        i_update = src.find("'precedent_update.py'")
+        cases.append(('run() brings main in after finding the clone, before the update',
+                      -1 < i_clone < i_main < i_update,
+                      f'find_source at {i_clone}, bring_main_in at {i_main}, '
+                      f'update at {i_update}'))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_merge_vendors_summary_is_cut_on_whole_lines():
     """precedent_merge_vendors.commit_update caps the step lines it copies
     into the commit message, and cuts between lines, never inside one, with a
