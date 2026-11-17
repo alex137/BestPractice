@@ -47,6 +47,16 @@ an update, and the ones that did took it in one painful batch. A merge is
 the moment a branch is being checked and pushed anyway, so the update rides
 there, small and often.
 
+Main's work comes in first (bring_main_in). The update's own check
+judges the branch the way a landing on staging will, and that landing
+refuses a branch missing a commit made directly on main. Run before the
+landing had brought those commits in, the check failed for a reason that
+had nothing to do with the update, every time main had moved (2026-11-17,
+Morgan: the update was taken back and the reply had to explain why). So
+when origin's main has work this branch lacks, it is merged in here, the
+same merge `precedent_branches.py --land` makes a moment later; a merge
+that conflicts is aborted, and the update is NOT TAKEN with that reason.
+
 Preconditions, each refused with its reason rather than worked around:
 no merge in progress (commit it first), and no tracked file changed but
 uncommitted (the update's output must be the only thing in its commit, and
@@ -184,6 +194,38 @@ def preconditions(repo):
                 f'commit and the only thing taken back if it is not taken')
     if _git(repo, 'rev-parse', '--verify', '--quiet', 'HEAD').returncode != 0:
         return 'the branch has no commit yet'
+    return None
+
+
+def bring_main_in(repo):
+    """-> None once this branch carries all of origin's main, merging it in
+    when it does not; or why it could not, with the branch left as it was.
+    precedent_branches.main_work_missing decides, so the answer is the one
+    the landing's own check gives (2026-11-17)."""
+    try:
+        sys.path.insert(0, str(HERE))
+        import precedent_branches as pb
+    except Exception:                                        # noqa: BLE001
+        return None          # no branch tooling beside this copy: as before
+    finally:
+        sys.path.pop(0)
+    head = _git(repo, 'rev-parse', 'HEAD').stdout.strip()
+    try:
+        missing = pb.main_work_missing(str(repo), head)
+    except Exception:                                        # noqa: BLE001
+        return None
+    if not missing:
+        return None
+    r = _git(repo, 'merge', '--no-edit', '-q', f'origin/{pb.MAIN}')
+    if r.returncode != 0:
+        _git(repo, 'merge', '--abort')
+        return (f'this branch lacks {len(missing)} commit(s) already on '
+                f'{pb.MAIN}, and merging them in conflicts -- land the work '
+                f'first (`precedent_branches.py --land` brings {pb.MAIN} in), '
+                f'then run this again')
+    print(f'VENDORS: brought {len(missing)} commit(s) from {pb.MAIN} in '
+          f'first, as the landing would, so the update is checked against '
+          f'what it will land on.', flush=True)
     return None
 
 
@@ -407,6 +449,10 @@ def run(repo, source=None, check_only=False, always=False, extra=()):
               'source declared by path in precedent.json, ../BestPractice, or a '
               'clone beside the repo whose origin is alex137/BestPractice). '
               'Nothing was run.')
+        return 0
+    why = bring_main_in(repo)
+    if why:
+        print(f'VENDORS: NOT TAKEN -- {why}. Nothing was run.')
         return 0
     print(f'VENDORS: updating from {clone} -- Update Vendors, with its own '
           f'check; this takes minutes, not seconds.', flush=True)
