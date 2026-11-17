@@ -312,6 +312,8 @@ RENDERS_TRACKED = True
 
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
+/* a draft-marker note, arrows included: bright red, bold (practice: draft-marker) */
+.draft-marker { color: #FF0000; font-weight: 700; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
 .viewtoggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; cursor: pointer; user-select: none; }
@@ -1601,6 +1603,23 @@ def _wire_default_filters(body):
         sub, body, flags=re.S)
 
 
+# A draft-marker note's arrows (with or without the emoji variation
+# selector). The whole note, arrows included, is set in bright red wherever
+# the document is rendered (practice: draft-marker); the Markdown source
+# cannot carry a color, so the renderer adds it. Text inside <pre> and
+# <code> is left alone: there a marker is being shown, not left as a note.
+_MARKER_SPAN_RE = re.compile("(\u27a1\ufe0f?[^<]*?\u2b05\ufe0f?)")
+_CODE_BLOCK_RE = re.compile(r"(<pre\b.*?</pre>|<code\b.*?</code>)", re.S)
+
+
+def _mark_draft_notes(body):
+    """Wrap each ➡️ ... ⬅️ note in <span class="draft-marker">, outside code."""
+    parts = _CODE_BLOCK_RE.split(body)
+    for i in range(0, len(parts), 2):
+        parts[i] = _MARKER_SPAN_RE.sub(r'<span class="draft-marker">\1</span>', parts[i])
+    return "".join(parts)
+
+
 def _wire_note_backlinks(body):
     """Point each note's ↩ link back at the header cell it defines.
 
@@ -1790,6 +1809,7 @@ def render(src, out_path, title):
     body = retitle_file_links(body, src.parent)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
+    body = _mark_draft_notes(body)
     # wide-table wrapper + prose-width class for the small tables
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
