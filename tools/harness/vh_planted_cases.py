@@ -365,8 +365,20 @@ def check_precedent_check_fires():
             except BaseException as e:
                 q.put(('error', e))
 
-        def case(slug, plant, extra=(), setup=None, advisory=False,
-                 env_extra=None):
+        # WHETHER A CASE EXPECTS A WARNING OR A REFUSAL IS THE CHECK'S OWN
+        # REGISTRATION, read here, never restated per case (2026-11-17). Each
+        # case used to carry its own advisory=True, a second copy of the
+        # flag in precedent_check.py: enforcement-lives-with-its-practice
+        # went hard that night, its case still said advisory=True, the
+        # landing checks never run this harness, and main's GitHub test was
+        # red until a fix the next afternoon (issue #1543). One copy now:
+        # making a check hard or warning-only changes what its planted case
+        # expects in the same edit (practice: registry-source-of-truth).
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import precedent_check as _pc_registry
+
+        def case(slug, plant, extra=(), setup=None, env_extra=None):
+            advisory = bool(_pc_registry.CHECKS.get(slug, {}).get('advisory'))
             # DECLARED is recorded before the rotation decision, and is what
             # the untested-claim assertion at the end of this function reads.
             # A case that this invocation did not RUN is still a case this
@@ -427,7 +439,7 @@ def check_precedent_check_fires():
 
             planted[slug] = (rc, out)
             if advisory:
-                # advisory=True means a planted violation still reports its
+                # advisory (the check registers advisory=True) means a planted violation still reports its
                 # findings, labeled ADVISORY, but does not fail the run (rc
                 # stays 0). precedent_check.check() still offers the parameter;
                 # as of 2026-09-06 no check uses it (parallel-artifact-ledger,
@@ -794,8 +806,7 @@ def check_precedent_check_fires():
             mine.write_text(mine.read_text(encoding='utf-8')
                             + '\nA planted change to universal\'s copy.\n',
                             encoding='utf-8')
-        case('universal-change-reaches-overrides', _plant_override_drift,
-             advisory=True)
+        case('universal-change-reaches-overrides', _plant_override_drift)
 
         # bound-set-tool-calls-only-declared-names -- a set's bound tool
         # reads an engine name the engine does not declare for its key.
@@ -839,7 +850,7 @@ def check_precedent_check_fires():
             reqs.append({'practice': 'zz2', 'require_one_of': ['ZZ2']})
             f.write_text(json.dumps(reqs), encoding='utf-8')
         case('reply-rules-carry-examples', _plant_no_examples,
-             setup=_reply_examples_setup, advisory=True)
+             setup=_reply_examples_setup)
 
         # todo-is-a-handoff -- a line added to an open item that leaves work
         # undone names nothing blocking it (2026-10-20: "Not built." in an
@@ -890,7 +901,7 @@ def check_precedent_check_fires():
             line = re.search(r'^index_clause:.*\n', body, re.M).group(0)
             body = body.replace(line, '', 1)
             f.write_text(body.replace('---\n', '---\n' + line, 1), encoding='utf-8')
-        case('frontmatter-field-order', _plant_field_order, advisory=True)
+        case('frontmatter-field-order', _plant_field_order)
 
         # generated-edit-goes-upstream -- four shapes in one fixture, told
         # apart by the messages below rather than by the exit status
@@ -1514,8 +1525,7 @@ def check_precedent_check_fires():
              .write_text('---\nslug: todo-2099-01-01-planted-park\n'
                          'status:            open\n'
                          'disposition:       parked\nnoted: 2099-01-01\n---\n'
-                         '## What\n\nA planted item.\n', encoding='utf-8'),
-             advisory=True)
+                         '## What\n\nA planted item.\n', encoding='utf-8'))
 
         # The other half of that grammar, asserted directly rather than
         # through case(): a `parked` line nobody signed. case() proves only
@@ -1816,7 +1826,7 @@ def check_precedent_check_fires():
             rewrite(repo, 'practices/routing-audit.md', lambda t: t.replace(
                 '["practices/*.md", "tools/routing_audit.py"',
                 '["tools/routing_audit.py"', 1))
-        case('layered-practice-packs', _plant_unreachable, advisory=True)
+        case('layered-practice-packs', _plant_unreachable)
         # practice: shared-index-is-a-directory -- a change adding a row to a
         # 25-row table typed by hand is told the file can be a directory. The
         # setup commits the table to both trees, so only the planted one
@@ -1834,7 +1844,7 @@ def check_precedent_check_fires():
         def _plant_long_index(repo):
             rewrite(repo, 'docs/zz-index.md', lambda t: t + '| row new | there |\n')
         case('shared-index-is-a-directory', _plant_long_index,
-             setup=_setup_long_index, advisory=True)
+             setup=_setup_long_index)
         if 'shared-index-is-a-directory' in planted:
             cases.append(('shared-index-is-a-directory: the finding gives the '
                           'command that splits the file',
@@ -3892,7 +3902,7 @@ def check_precedent_check_fires():
             git(repo, 'commit', '-qm', 'planted untracked workflow file')
 
         case('workflow-file-outside-vendoring', _plant_workflow_outside_vendoring,
-             setup=_setup_workflow_outside_vendoring, advisory=True)
+             setup=_setup_workflow_outside_vendoring)
 
         # ci-workflow-approved (2026-09-25). Setup gives the fixture a
         # vendored consumer's shape: a manifest tracking one workflow at its
