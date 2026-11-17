@@ -548,6 +548,7 @@
   "check_rename_links_spares_a_path_moved_into_gitignore": 2.1,
   "check_rename_links_spares_a_url_into_another_repository": 2.1,
   "check_render_contents_can_be_switched_off": 0.1,
+  "check_render_filters_come_from_the_sets": 0.0,
   "check_render_names_files_by_title": 0.1,
   "check_rendered_docs_are_current": 0.1,
   "check_repin_kept_records_the_persons_words": 0.0,
@@ -578,6 +579,7 @@
   "check_repo_reference_allowlist": 12.1,
   "check_resident_rule_links_are_placed_for_the_block": 0.0,
   "check_resident_subset": 0.0,
+  "check_residue_catches_a_document_arguing_with_its_versions": 0.0,
   "check_resolver_leaves_out_the_set_itself_by_name": 0.0,
   "check_retired_branch_name_does_not_ship": 0.0,
   "check_retired_mentions_match_the_full_path_only": 0.0,
@@ -927,7 +929,6 @@
   "check_workflows_use_actions_that_run_on_node_24": 0.0,
   "check_worktree_resolves_sources_beside_its_main_checkout": 0.4,
   "check_worktree_snapshot_needs_no_git_identity": 0.2,
-  "check_residue_catches_a_document_arguing_with_its_versions": 0.0,
   "check_writing_checks_leave_a_declared_record_as_filed": 0.0
  },
  "green_full_run": "2026-10-31T15:31:25-03:00"
