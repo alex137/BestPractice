@@ -4955,6 +4955,7 @@ def main():
     check_global_pre_push_refuses_a_tree_the_full_sweep_failed()
     check_a_sessions_own_merge_rebuilds_generated_conflicts()
     check_writing_checks_leave_a_declared_record_as_filed()
+    check_residue_catches_a_document_arguing_with_its_versions()
     check_vocabulary_lets_a_local_practice_name_a_local_script()
     check_doc_lint_leaves_a_received_practice_to_its_source()
     check_one_upstream_move_is_said_once_at_session_start()
