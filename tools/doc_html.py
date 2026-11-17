@@ -1820,10 +1820,20 @@ def render(src, out_path, title):
     body = retitle_file_links(body, src.parent)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
-    filters = _render_filters()
+    # A filter's stylesheet goes on the page only when the filter changed
+    # it (a module with no filter always contributes its CSS): a page with
+    # nothing for a set to style then renders the same with or without the
+    # set on disk, so a committed render a check rebuilds elsewhere -- CI,
+    # where no set is present -- is not stale for want of one (2026-11-17:
+    # main went red on exactly that, issue #1551).
+    filters, used_css = _render_filters(), []
     for _name, _css, _fn in filters:
         if _fn:
-            body = _fn(body)
+            before, body = body, _fn(body)
+            if body != before:
+                used_css.append(_css)
+        else:
+            used_css.append(_css)
     # wide-table wrapper + prose-width class for the small tables
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
@@ -1844,7 +1854,7 @@ def render(src, out_path, title):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet"
  href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
-<style>{CSS}{''.join(css for _n, css, _f in filters)}</style>{page_css}
+<style>{CSS}{''.join(used_css)}</style>{page_css}
 <main>
 {body}
 </main>
