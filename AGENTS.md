@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 152 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 153 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -176,6 +176,8 @@ When a model or comparison rests on a constant nobody decided:
   constants-are-risk-inputs — make it a swept, registered input, never doctrine
 When a person asks "What's new?", or what has changed in the project lately:
   whats-new — write every missing day, quiet ones named; the reply opens with the link
+When a person asks for a new version, another pass, a v2 or a redo of something already made together:
+  edit-or-redo — edit or start over: read which they mean; can't tell, ask, with your pick
 When a person says "Drop it" about an open item or a question:
   park-it — mark the item `parked` now; never raise it unprompted again
 When a person says "My options", or asks to see a decision's options:
