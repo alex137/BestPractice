@@ -312,8 +312,8 @@ def check_brought_sets_wait_for_the_individual_clone():
                 else:
                     os.environ[k] = v
     cases.append(('it waits while a run holds the clone lock', took >= 1.2, f'{took:.1f}s'))
-    cases.append(('with nothing to read it reports a failure, not an empty list',
-                  bool(got) and got[0][1] is False and 'precedent-source.json' in got[0][2],
+    cases.append(('a set named but not on disk is reported, not an empty list',
+                  bool(got) and got[0][1] is False and 'not on disk' in got[0][2],
                   repr(got)[:200]))
     failed = [(n, d) for n, ok, d in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed,
