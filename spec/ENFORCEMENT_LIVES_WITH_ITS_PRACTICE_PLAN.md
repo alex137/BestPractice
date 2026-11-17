@@ -23,8 +23,9 @@ a practice's checks, tools and hooks live in the repository the practice
 lives in, and the engine knows how to run them, never what any one set's
 rule is. Its check, `python3 tools/precedent_check.py --only
 enforcement-lives-with-its-practice`, is the inventory this plan works
-from. It warns, without refusing, until the moves below land
-(`revisit: 2026-11-16`).
+from. It warned without refusing until the moves below landed, and
+refuses since 2026-11-17, when the last two findings (engine tests
+naming a set's practice) were replaced by planted names.
 
 **Every very deep check reads it again** (from 2026-10-17): its `SET
 INDEPENDENCE` section runs the inventory, lists part 3's files as held on
