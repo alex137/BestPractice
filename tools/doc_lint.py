@@ -1684,6 +1684,26 @@ RESIDUE_PATTERNS = [
     (re.compile(r"search.engine snippets?|egress.blocked", re.I),
      "how a figure was checked is verification bookkeeping; it belongs in "
      "the record doc"),
+    # A document arguing with its own earlier versions, which the reader was
+    # never shown: a "What changed" section, "version 0.6 asked ...",
+    # "carried over from version 0.6", "this revision". All four reached a
+    # published brief on 2026-11-17 and none of the patterns above matched.
+    # (practices: docs-are-current-state, abstract-first)
+    (re.compile(r"^#{1,6}\s.*\b(?:what(?:'s| has)? changed|"
+                r"changes (?:from|since) (?:the )?(?:version|last|previous|earlier|prior)|"
+                r"change ?log|revision history)\b", re.I),
+     "a document's own change history belongs in the record doc or version "
+     "control, never in a section of the document"),
+    (re.compile(r"\b(?:carried over|condensed|unchanged|changed) from "
+                r"(?:(?:the|an) )?(?:earlier|previous|prior|last) "
+                r"(?:version|draft|revision|text)\b|"
+                r"\b(?:carried over|condensed|unchanged|changed) from version \d|"
+                r"\bversion \d+(?:\.\d+)+ (?:asked|said|scaled|sized|defined|"
+                r"placed|cites?|cited|used|had|assumed|gave)\b", re.I),
+     "comparing the document with an earlier version the reader has not "
+     "seen -- state what is true now; the change goes in the record doc"),
+    (re.compile(r"\b(?:this|the (?:current|present)) revision\b", re.I),
+     "a note about the document's own revision belongs in the record doc"),
     (re.compile(r"\bopen tail\b|\bthe record carries\b", re.I),
      "pointing the reader at the record's apparatus -- the footer's one "
      "link to the record is enough"),
