@@ -217,6 +217,7 @@ def check_render_filters_come_from_the_sets():
              ('a filter\'s body function runs', got and got[1][2]('aXb') == 'aYb'),
              ('a CSS-only module has no body function', got and got[0][2] is None),
              ('a module that will not load stops the render by name', 'c_broken.py' in stopped),
+             ('a filter\'s CSS goes on a page only when the filter changed it', "used_css.append(_css)" in src and 'if body != before' in src),
              ('the engine carries no draft-note arrows of its own', '\\u27a1' not in src and '\u27a1' not in src)]
     failed = [n for n, ok in cases if not ok]
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
