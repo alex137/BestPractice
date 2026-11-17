@@ -10,10 +10,11 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 175 practice files (6 resident, 169 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 177 practice files (6 resident, 171 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
+| [abstract-first](practices/abstract-first.md) | on-demand | writing or revising a brief, report or write-up for people to read |
 | [acronyms-glossary](practices/acronyms-glossary.md) | on-demand | writing or editing a document |
 | [administrator-requests](practices/administrator-requests.md) | on-demand | a person says "What's waiting for me?" or "Add project members", or asks to review pending changes or add someone to the project |
 | [affordance-is-shared](practices/affordance-is-shared.md) | on-demand | building a mechanism that makes something discoverable or reachable |
@@ -105,6 +106,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [no-invented-specifics](practices/no-invented-specifics.md) | resident | writing a sentence that would land better with a specific figure, date, name or source |
 | [no-rewrite-for-warnings](practices/no-rewrite-for-warnings.md) | on-demand | a tool warns about already-published git history |
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming or adding a file |
+| [numbers-are-sourced](practices/numbers-are-sourced.md) | on-demand | writing a number into a document, table or model |
 | [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | computing, quoting or tabulating figures |
 | [one-python](practices/one-python.md) | on-demand | a repository's code runs on a Python, or a script starts another Python program |
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |

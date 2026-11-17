@@ -927,6 +927,7 @@
   "check_workflows_use_actions_that_run_on_node_24": 0.0,
   "check_worktree_resolves_sources_beside_its_main_checkout": 0.4,
   "check_worktree_snapshot_needs_no_git_identity": 0.2,
+  "check_residue_catches_a_document_arguing_with_its_versions": 0.0,
   "check_writing_checks_leave_a_declared_record_as_filed": 0.0
  },
  "green_full_run": "2026-10-31T15:31:25-03:00"
