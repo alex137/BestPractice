@@ -1756,6 +1756,20 @@ def _page_styles(md_text, base_dir):
     return "".join(out)
 
 
+class _BackslashBreak(markdown.extensions.Extension):
+    """A backslash at the end of a line is a hard line break, as CommonMark and
+    GitHub read it. Python-Markdown knows only the two-trailing-spaces form, so
+    without this the backslash printed as text ("Created by: Morgan\\" on a
+    published guide's byline). An inline pattern, so code spans and code
+    blocks keep their backslashes."""
+
+    def extendMarkdown(self, md):
+        from markdown.inlinepatterns import SubstituteTagInlineProcessor
+        # Above the escape pattern (180), which would otherwise leave the backslash as
+        # text; the lookbehind keeps an escaped backslash ("\\\\" at line end) literal.
+        md.inlinePatterns.register(SubstituteTagInlineProcessor(r"(?<!\\)\\\n", "br"), "backslash_break", 185)
+
+
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
@@ -1770,7 +1784,7 @@ def render(src, out_path, title):
                  f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
     page_css = _page_styles(md_text, src.parent)
-    body = markdown.markdown(md_text, extensions=["tables"])
+    body = markdown.markdown(md_text, extensions=["tables", _BackslashBreak()])
     body = _add_heading_ids(body)
     body = _wire_contents(body)
     body = retitle_file_links(body, src.parent)
