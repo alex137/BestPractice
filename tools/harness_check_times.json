@@ -98,6 +98,7 @@
   "check_branch_tiers": 0.1,
   "check_brought_set_ships_reach_the_session_untracked": 2.0,
   "check_brought_sets_have_their_own_session_budget": 0.5,
+  "check_brought_sets_wait_for_the_individual_clone": 1.9,
   "check_budget_approvals_see_computed_raises": 4.4,
   "check_build_views_refuses_a_long_index_clause": 0.7,
   "check_build_views_says_what_it_decides": 0.1,
