@@ -72,6 +72,7 @@ must never be what takes a session down). A failure after every retry is
 attempted is reported on stderr, not silently absorbed.
 """
 import argparse
+import contextlib
 import json
 import os
 import pathlib
@@ -1304,6 +1305,41 @@ def sources_from_attached_sets(repo_path, base_url=None,
     return out
 
 
+def _wait_for_clone(clone):
+    """Wait until no run holds `clone`'s clone lock -- the one beside the
+    path, which a run cloning it takes before .git exists, and the one
+    inside .git, which a run pulling it takes. precedent_clone_lock picks
+    one of the two by whether .git exists, so a reader arriving mid-clone
+    would look inside .git and miss the cloner's lock: both are waited on."""
+    import precedent_clone_lock as cl
+    if cl.fcntl is None:
+        return
+    clone = pathlib.Path(clone)
+    paths = [clone.parent / f'.{clone.name}.{cl.LOCK_NAME}', cl.lock_path(clone)]
+    for path in dict.fromkeys(paths):
+        if path.exists():
+            with _flocked(cl, path):
+                pass
+
+
+@contextlib.contextmanager
+def _flocked(cl, path):
+    fd = os.open(str(path), os.O_RDWR)
+    try:
+        deadline = time.monotonic() + cl.WAIT_SECONDS
+        while True:
+            try:
+                cl.fcntl.flock(fd, cl.fcntl.LOCK_SH | cl.fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise TimeoutError(f'{path} stayed locked')
+                time.sleep(0.5)
+        yield
+    finally:
+        os.close(fd)
+
+
 def sources_from_brings(retries=DEFAULT_RETRIES, skip=(), skip_names=()):
     """Clone or pull every set the person's individual set BRINGS
     (spec/LADDER_OPT_IN_PLAN.md D2): beside the individual set, from the full
@@ -1324,12 +1360,31 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=(), skip_names=()):
         import precedent_resolve as pr
         ucfg = pathlib.Path(os.environ.get(
             pr.USER_CONFIG_ENV, str(pr.DEFAULT_USER_CONFIG))).expanduser()
-        ind = json.loads(ucfg.read_text(encoding='utf-8')).get('individual')
+        # A RACE, NOT AN ABSENCE (2026-11-17). Session start runs several
+        # hooks at once, and one of them clones the individual set while
+        # this walk reads it. A walk that ran first found no set to read,
+        # brought nothing, and said nothing: the ladder set was missing for
+        # most of a session, with no failure recorded anywhere. So wait for
+        # the individual set's own clone lock (held by whichever run is
+        # cloning it) before reading what it brings, and say so when there
+        # is still nothing to read.
+        default = pathlib.Path.home() / pr.DEFAULT_INDIVIDUAL_NAME
+        _wait_for_clone(default)
+        cfg = json.loads(ucfg.read_text(encoding='utf-8')) \
+            if ucfg.is_file() else {}
+        ind = cfg.get('individual')
         ind_path = pathlib.Path(ind['path']).expanduser() \
             if isinstance(ind, dict) and ind.get('path') else None
+        if ind_path and ind_path != default:
+            _wait_for_clone(ind_path)
         brought = pr.brought_sources(ind_path, warn=False) if ind_path else []
-    except Exception:                                       # noqa: BLE001
-        return []
+    except Exception as e:                                  # noqa: BLE001
+        return [('the sets your individual set brings', False,
+                 f'could not be read ({e})')]
+    if not brought and ind_path and not (ind_path / 'precedent-source.json').is_file():
+        return [('the sets your individual set brings', False,
+                 f'{ind_path} holds no precedent-source.json yet, so what it '
+                 f'brings could not be read')]
     out = []
     skipped = {pathlib.Path(x).resolve() for x in skip}
     for b in brought:

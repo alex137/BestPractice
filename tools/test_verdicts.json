@@ -8292,6 +8292,15 @@
       "seconds": 0.0,
       "leads": [],
       "importance": "low"
+    },
+    "check_brought_sets_wait_for_the_individual_clone": {
+      "verdict": "keep",
+      "why": "Session start's hooks run at once; without the wait, the sets an individual set brings (the ladder) are skipped in silence and their rules are off for the session.",
+      "date": "2026-11-17",
+      "by": "agent",
+      "seconds": 1.6,
+      "leads": [],
+      "importance": "high"
     }
   }
 }
