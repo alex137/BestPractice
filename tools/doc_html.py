@@ -312,8 +312,6 @@ RENDERS_TRACKED = True
 
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
-/* a draft note, arrows included: bright red, bold (the writing set's draft-marker rule) */
-.draft-marker { color: #FF0000; font-weight: 700; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
 .viewtoggle { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; cursor: pointer; user-select: none; }
@@ -1603,23 +1601,34 @@ def _wire_default_filters(body):
         sub, body, flags=re.S)
 
 
-# A draft-marker note's arrows (with or without the emoji variation
-# selector). The whole note, arrows included, is set in bright red wherever
-# the document is rendered (precedent-shared-writing's draft-marker rule,
-# named here, not cited: an engine file cites only universal practices);
-# the Markdown source
-# cannot carry a color, so the renderer adds it. Text inside <pre> and
-# <code> is left alone: there a marker is being shown, not left as a note.
-_MARKER_SPAN_RE = re.compile("(\u27a1\ufe0f?[^<]*?\u2b05\ufe0f?)")
-_CODE_BLOCK_RE = re.compile(r"(<pre\b.*?</pre>|<code\b.*?</code>)", re.S)
+# RENDER FILTERS A PRACTICE SET SHIPS (2026-11-17). How a set's convention
+# looks on a rendered page is the set's own rule, so it lives in the set,
+# never here: this engine knows how to run a filter, not what any one is
+# for. A set ships a module into RENDER_FILTER_DIR (declared in its
+# practice's `ships:`, delivered by the sync like any shipped file); each
+# module may define CSS (a stylesheet string) and filter(body) -> body
+# (the rendered HTML body, after links are rewritten). They run in file
+# name order. A module that will not load stops the render with its name:
+# a page silently missing a set's styling is the failure this replaces.
+RENDER_FILTER_DIR = "tools/doc_html_filters"
 
 
-def _mark_draft_notes(body):
-    """Wrap each ➡️ ... ⬅️ note in <span class="draft-marker">, outside code."""
-    parts = _CODE_BLOCK_RE.split(body)
-    for i in range(0, len(parts), 2):
-        parts[i] = _MARKER_SPAN_RE.sub(r'<span class="draft-marker">\1</span>', parts[i])
-    return "".join(parts)
+def _render_filters():
+    """-> [(name, css, filter or None)] for every module in RENDER_FILTER_DIR."""
+    import importlib.util
+    out = []
+    d = ROOT / RENDER_FILTER_DIR
+    for f in sorted(d.glob("*.py")) if d.is_dir() else []:
+        spec = importlib.util.spec_from_file_location(f"doc_html_filter_{f.stem}", f)
+        mod = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(mod)
+        except Exception as e:                              # noqa: BLE001
+            sys.exit(f"doc_html FAIL: render filter {f.relative_to(ROOT)} did not load ({e})")
+        fn = getattr(mod, "filter", None)
+        out.append((f.stem, str(getattr(mod, "CSS", "") or ""),
+                    fn if callable(fn) else None))
+    return out
 
 
 def _wire_note_backlinks(body):
@@ -1811,7 +1820,10 @@ def render(src, out_path, title):
     body = retitle_file_links(body, src.parent)
     body = rewrite_links(body, src.parent)
     body = _wire_note_backlinks(body)
-    body = _mark_draft_notes(body)
+    filters = _render_filters()
+    for _name, _css, _fn in filters:
+        if _fn:
+            body = _fn(body)
     # wide-table wrapper + prose-width class for the small tables
     body = body.replace("<table>", '<div class="tablewrap"><table>')
     body = body.replace("</table>", "</table></div>")
@@ -1832,7 +1844,7 @@ def render(src, out_path, title):
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet"
  href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
-<style>{CSS}</style>{page_css}
+<style>{CSS}{''.join(css for _n, css, _f in filters)}</style>{page_css}
 <main>
 {body}
 </main>

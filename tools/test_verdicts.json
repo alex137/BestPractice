@@ -8275,6 +8275,15 @@
       "leads": [],
       "importance": "high"
     },
+    "check_render_filters_come_from_the_sets": {
+      "verdict": "keep",
+      "why": "doc_html runs only the render filters practice sets ship and none of its own; a miss puts one set's rule back into the engine, or drops a set's styling from every page.",
+      "date": "2026-11-17",
+      "by": "agent",
+      "seconds": 0.1,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_residue_catches_a_document_arguing_with_its_versions": {
       "verdict": "keep",
       "why": "Residue check flags a document comparing itself with an earlier version or carrying its change history, and leaves ordinary version numbers alone.",
