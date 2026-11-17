@@ -176,6 +176,52 @@ def check_views_refuse_to_drop_hand_edits():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_render_filters_come_from_the_sets():
+    """doc_html runs every module a practice set ships into
+    RENDER_FILTER_DIR -- its CSS and its filter(body) -- and knows no set's
+    rule itself (2026-11-17: the writing set's red draft notes had been
+    written into the engine; practice: enforcement-lives-with-its-practice).
+    A module that will not load stops the render with its name."""
+    import importlib, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_html as dh
+    finally:
+        sys.path.pop(0)
+    name = "doc_html runs the render filters a set ships, and none of its own"
+    saved = dh.ROOT
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        try:
+            dh.ROOT = root
+            none = dh._render_filters()
+            d = root / dh.RENDER_FILTER_DIR
+            d.mkdir(parents=True)
+            (d / 'b_planted.py').write_text(
+                'CSS = ".planted { color: red; }"\n'
+                'def filter(body):\n    return body.replace("X", "Y")\n')
+            (d / 'a_css_only.py').write_text('CSS = ".a {}"\n')
+            got = dh._render_filters()
+            (d / 'c_broken.py').write_text('raise RuntimeError("planted")\n')
+            try:
+                dh._render_filters()
+                stopped = ''
+            except SystemExit as e:
+                stopped = str(e)
+        finally:
+            dh.ROOT = saved
+    src = (ROOT / 'tools' / 'doc_html.py').read_text(encoding='utf-8')
+    cases = [('no filter directory means no filters', none == []),
+             ('filters load in file-name order', [n for n, _c, _f in got] == ['a_css_only', 'b_planted']),
+             ('a filter\'s CSS is read', got and '.planted' in got[1][1]),
+             ('a filter\'s body function runs', got and got[1][2]('aXb') == 'aYb'),
+             ('a CSS-only module has no body function', got and got[0][2] is None),
+             ('a module that will not load stops the render by name', 'c_broken.py' in stopped),
+             ('the engine carries no draft-note arrows of its own', '\\u27a1' not in src and '\u27a1' not in src)]
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_render_contents_can_be_switched_off():
     """A document with three sections gets a contents list and back-links;
     the same document carrying doc_html.NO_CONTENTS_MARK gets neither

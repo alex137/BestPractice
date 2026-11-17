@@ -8274,6 +8274,15 @@
       "seconds": 0.4,
       "leads": [],
       "importance": "high"
+    },
+    "check_render_filters_come_from_the_sets": {
+      "verdict": "keep",
+      "why": "doc_html runs only the render filters practice sets ship and none of its own; a miss puts one set's rule back into the engine, or drops a set's styling from every page.",
+      "date": "2026-11-17",
+      "by": "agent",
+      "seconds": 0.1,
+      "leads": [],
+      "importance": "medium"
     }
   }
 }

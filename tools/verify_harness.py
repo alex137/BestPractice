@@ -4711,6 +4711,7 @@ def main():
     check_promote_runs_doc_html_only_where_it_is_in_use()
     check_push_check_installs_gate_packages()
     check_markdown_required_only_where_doc_html_runs()
+    check_render_filters_come_from_the_sets()
     check_push_check_runs_cheap_checks_first()
     check_push_check_records_over_its_own_ledgers()
     check_push_check_refuses_an_unknown_option()
