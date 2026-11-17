@@ -312,7 +312,7 @@ RENDERS_TRACKED = True
 
 CSS = """
 .renderstamp { display: block; color: var(--muted); font-size: 12px; margin: -0.6rem 0 1.6rem; }
-/* a draft-marker note, arrows included: bright red, bold (practice: draft-marker) */
+/* a draft note, arrows included: bright red, bold (the writing set's draft-marker rule) */
 .draft-marker { color: #FF0000; font-weight: 700; }
 td span[data-view] { display: none; }
 td span[data-view].von { display: inline; }
@@ -1605,7 +1605,9 @@ def _wire_default_filters(body):
 
 # A draft-marker note's arrows (with or without the emoji variation
 # selector). The whole note, arrows included, is set in bright red wherever
-# the document is rendered (practice: draft-marker); the Markdown source
+# the document is rendered (precedent-shared-writing's draft-marker rule,
+# named here, not cited: an engine file cites only universal practices);
+# the Markdown source
 # cannot carry a color, so the renderer adds it. Text inside <pre> and
 # <code> is left alone: there a marker is being shown, not left as a note.
 _MARKER_SPAN_RE = re.compile("(\u27a1\ufe0f?[^<]*?\u2b05\ufe0f?)")

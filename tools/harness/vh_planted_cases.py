@@ -4096,8 +4096,10 @@ def check_precedent_check_fires():
         # of the fixture's own, found through a user config it brings
         # (relative, so the planted and clean trees each read their own).
         # Setup: the set's practice is checked by its own tools/checks/
-        # script. Plant: by an engine file instead. Advisory until the moves
-        # in spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md land.
+        # script. Plant: by an engine file instead. A hard check since
+        # 2026-11-17, when the moves in
+        # spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md landed, so the
+        # planted violation must fail it.
         # The set's name is made at run time, never written here: this file
         # is one the check reads, and a planted name spelled out in it is
         # itself "an engine test naming the set" in the clean tree.
@@ -4137,7 +4139,6 @@ def check_precedent_check_fires():
         import json as _pj_e
         case('enforcement-lives-with-its-practice',
              _plant_enforcement_lives, setup=_setup_enforcement_lives,
-             advisory=True,
              env_extra={'PRECEDENT_USER_CONFIG': '.planted-user-config.json'})
 
         # wired-hooks-can-reach-a-consumer (2026-09-21). The check reads a
