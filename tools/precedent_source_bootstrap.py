@@ -1381,10 +1381,13 @@ def sources_from_brings(retries=DEFAULT_RETRIES, skip=(), skip_names=()):
     except Exception as e:                                  # noqa: BLE001
         return [('the sets your individual set brings', False,
                  f'could not be read ({e})')]
-    if not brought and ind_path and not (ind_path / 'precedent-source.json').is_file():
+    # Once the clone lock is free, a set with no precedent-source.json
+    # simply brings nothing. Only a set the config names that is not on
+    # disk at all is a failure to report.
+    if not brought and ind_path and not ind_path.exists():
         return [('the sets your individual set brings', False,
-                 f'{ind_path} holds no precedent-source.json yet, so what it '
-                 f'brings could not be read')]
+                 f'{ind_path} is not on disk, so what it brings could not '
+                 f'be read')]
     out = []
     skipped = {pathlib.Path(x).resolve() for x in skip}
     for b in brought:
