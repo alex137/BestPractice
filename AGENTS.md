@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 150 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 152 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -278,12 +278,16 @@ When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When writing a deliverable an outside reader will see:
   outward-summary-discipline — claims summary: claims-to-source table, honest sums, a recorded adversarial pass
+When writing a number into a document, table or model:
+  numbers-are-sourced — a number is a choice, a stored-source figure or a model output; no estimates
 When writing a rule that depends on the outside world:
   volatile-rules-carry-dates — it carries its date, inline
 When writing content that ships into another repo:
   private-repo-scrub — name a private repo only in general terms
 When writing or changing an automatic repair:
   repair-cannot-discard-work — it must never discard work; reporting is not repairing
+When writing or revising a brief, report or write-up for people to read:
+  abstract-first — abstract, contents, note on numbers; tight; no history in the document
 When writing or running a step that reads the same file, folder, page, view or channel every time:
   pin-fixed-targets — pin it by ID in one place; search only for what is new, then fix the pin
 When writing, running or reviewing a gate, audit, cache or heavy solve:

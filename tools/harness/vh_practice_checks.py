@@ -7489,6 +7489,55 @@ def check_vocabulary_lets_a_local_practice_name_a_local_script():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_residue_catches_a_document_arguing_with_its_versions():
+    """A published document that compares itself with an earlier version,
+    or carries its own change history, is process residue.
+
+    2026-11-17, a consumer's design brief: it said "Version 0.6 asked
+    whether ...", "carried over from version 0.6", "made for this revision"
+    and closed on a "What Changed From Version 0.6" section, to a reader who
+    had never been shown version 0.6. Every residue pattern passed it.
+    Planted: those four lines, and the plain statements a document may make
+    (a product's version number, a section on what changes at each node)."""
+    import tempfile
+    name = 'residue: a document arguing with its own earlier versions'
+    sys.path.insert(0, str(ROOT / 'tools'))
+    try:
+        import doc_lint as dl
+    finally:
+        sys.path.pop(0)
+    bad = ['## 6. What Changed From Version 0.6, and Sources',
+           'Version 0.6 asked whether analog summation beats a digital adder.',
+           'The prices are assumptions carried over from version 0.6.',
+           'These are estimates made for this revision.',
+           'It is condensed from the earlier draft.']
+    fine = ['The engine runs on Python version 3.12.',
+            '## What Changes From Process to Process',
+            'Support was added in version 2.1 of the library.',
+            'The revision of the standard is not settled.']
+    cases = []
+    saved = dl.ROOT
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            repo = pathlib.Path(td)
+            (repo / 'precedent.json').write_text('{}', encoding='utf-8')
+            dl.ROOT = repo
+
+            def hits(line):
+                f = repo / 'brief.md'
+                f.write_text('# A Brief\n\n' + line + '\n', encoding='utf-8')
+                return dl.check_residue(str(f))
+            for line in bad:
+                cases.append((f'flagged: {line[:40]}', len(hits(line)) >= 1))
+            for line in fine:
+                cases.append((f'THE DISCRIMINATING CASE, left alone: {line[:40]}',
+                              hits(line) == []))
+    finally:
+        dl.ROOT = saved
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_writing_checks_leave_a_declared_record_as_filed():
     """The writing checks leave a file the repository declares in
     record_paths as it was filed; the same file anywhere else is still
