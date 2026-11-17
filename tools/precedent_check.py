@@ -9281,12 +9281,6 @@ def _vocabulary_reaches_the_consumer(ctx):
        "tools/ .py files, test scripts' non-comment lines and universal "
        "practices' Rule and Detail are read, so logic keyed on a value no "
        "slug matches is invisible to it",
-       advisory=True,
-       advisory_term={'term': 'temporary',
-                      'waiting_for': 'the moves in '
-                                     'spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md',
-                      'owner': 'Morgan',
-                      'revisit': '2026-11-16'},
        selects_on=('practices/*.md', 'tools/*.py', 'tools/*.sh',
                    'tools/checks/*.py', 'tools/checks/tests/*.sh',
                    'tools/precedent_vendor_engine.py'))

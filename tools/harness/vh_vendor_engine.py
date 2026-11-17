@@ -5247,11 +5247,11 @@ def check_exported_file_not_received_fails_the_copied_in_check():
         (src / 'tools' / 'checks' / 'tests').mkdir(parents=True)
         t = src / 'tools' / 'checks' / 'tests'
         (t / 'test_orphan.sh').write_text('#!/bin/bash\n# tests a data file\nexit 0\n')
-        (t / 'test_cited.sh').write_text('#!/bin/bash\n# practice: act\nexit 0\n')
+        (t / 'test_cited.sh').write_text('#!/bin/bash\n# practice: planted-act\nexit 0\n')
         (t / 'test_elsewhere.sh').write_text('#!/bin/bash\n# practice: other\nexit 0\n')
         sources = [{'name': 'the-set', 'path': str(src), 'level': 'team'}]
         res = {'practices': {
-            'act': {'fm': {}, 'source': 'the-set', 'file': str(src / 'practices' / 'act.md')},
+            'planted-act': {'fm': {}, 'source': 'the-set', 'file': str(src / 'practices' / 'planted-act.md')},
             'other': {'fm': {}, 'source': 'precedent', 'file': str(td / 'u' / 'other.md')}}}
         err = io.StringIO()
         with contextlib.redirect_stderr(err):

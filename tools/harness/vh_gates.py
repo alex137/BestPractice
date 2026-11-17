@@ -2942,7 +2942,7 @@ def check_unlanded_work_holds_the_archive_line():
         hold_reqs = [r for r in allreqs if r.get('id') == 'boildown-hold-names-what-runs'
                      or (r.get('practice') == 'the-boildown'
                          and r.get('require_no_contradiction'))]
-        landed_req = [{'practice': 'ladder-required', '_source': 'shared/fixture',
+        landed_req = [{'practice': 'planted-landing-rule', '_source': 'shared/fixture',
                        'id': 'archive-only-once-landed',
                        'require_landed_if_says': ['You can archive this session']}]
         reqs = hold_reqs + landed_req
