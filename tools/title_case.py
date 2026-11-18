@@ -348,8 +348,17 @@ OPENS_PHRASE = (":", "—", "–", "--")
 
 
 def _cap(word: str) -> str:
-    """Capitalize the first letter, leave every other character alone."""
+    """Capitalize the first letter, leave every other character alone.
+
+    A word that starts with a digit is left as written: the digit is its
+    first character, and a number has no case. The letters after it are a
+    unit or suffix whose case is part of the term -- `720p`, `4k`, `3rd`,
+    `10x` -- and capitalizing them names something else. Reported
+    2026-11-18 from a consuming repo, whose Produce was refused because a
+    heading's `720p` was to become `720P`."""
     for i, ch in enumerate(word):
+        if ch.isdigit():
+            return word
         if ch.isalpha():
             return word[:i] + ch.upper() + word[i + 1:]
     return word
