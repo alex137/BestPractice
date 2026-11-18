@@ -223,9 +223,33 @@ def set_github(login, repo='.'):
     return f, None
 
 
-def missing_user_note(login=''):
+def unread_individual_set(repo='.'):
+    """-> the name of an individual set this session expects and could not
+    read, or ''. A username declared there is unread, not undeclared, and
+    the two call for different things: attach the set, or ask the person."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        import precedent_source_credentials as psc
+        for level, name, _ in psc.unresolved_private_sources(repo):
+            if level == 'individual':
+                return name
+    except Exception:  # a partial engine copy: say what we can
+        pass
+    return ''
+
+
+def missing_user_note(login='', unread=''):
     """-> what to say when no username is declared; `login` is what GitHub
-    answered, when it was asked."""
+    answered, when it was asked. `unread` names an individual set that
+    could not be read: then the username is not known to be missing, and
+    saying it is sent a session to ask a person for what they had already
+    written down (2026-11-18)."""
+    if unread:
+        return (f'the individual set that holds the GitHub username, '
+                f'{unread}, could not be read here, so this name leaves it '
+                f'out. That is not a missing username: attach {unread} '
+                f'(add_repo, read access) and run this again. Ask the person '
+                f'for a username only if the set, once read, declares none.')
     if login:
         found = (f'GitHub says this session is signed in as {login}. Offer '
                  f'it as the suggestion ("Is your GitHub username {login}?"), '
@@ -367,7 +391,9 @@ def main(argv=None):
         print(f'precedent_branch_name: {e}', file=sys.stderr)
         return 2
     if not user:
-        notes.append(missing_user_note(github_login_from_github()))
+        unread = unread_individual_set(args.repo)
+        notes.append(missing_user_note(
+            '' if unread else github_login_from_github(), unread))
     for n in notes:
         print(f'precedent_branch_name: {n}', file=sys.stderr)
     print(name)
