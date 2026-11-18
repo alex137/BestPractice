@@ -8301,6 +8301,15 @@
       "seconds": 1.6,
       "leads": [],
       "importance": "high"
+    },
+    "check_item_codes_are_not_acronyms": {
+      "verdict": "keep",
+      "why": "Item codes like GS69 are not reported as unglossed acronyms; a consumer's Produce was blocked by seven.",
+      "date": "2026-11-18",
+      "by": "agent",
+      "seconds": 0.0,
+      "leads": [],
+      "importance": "low"
     }
   }
 }

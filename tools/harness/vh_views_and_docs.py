@@ -6188,6 +6188,39 @@ def check_vdc_is_a_known_acronym_everywhere():
           f'({len(cases)} stated cases)', not bad, '; '.join(bad))
 
 
+def check_item_codes_are_not_acronyms():
+    """An item's code -- two to four capitals, then two or more digits
+    (GS69, FF216) -- is never reported as an unglossed acronym, while a
+    real acronym with one digit (MP3) and a bare one (QZX) still are.
+
+    WHY. 2026-11-18, a consumer: article reviews naming each article by its
+    code had seven of them refused as unglossed acronyms, which blocked a
+    Produce of unrelated work. A code names one item; there is nothing to
+    gloss."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lint as _dl
+    sys.path.pop(0)
+    saved = _dl.looks_like_a_word
+    _dl.looks_like_a_word = lambda tok: False
+    try:
+        text = ('1. GS69 - How Central Ohio Seasons Shape Bed Bug Activity\n'
+                'The FF216 draft and RIG2024 are fine.\n'
+                'Export it as MP3, then ask QZX.\n')
+        flagged = {str(f) for f in _dl.scan_unglossed(text, set(), 'r.md')}
+    finally:
+        _dl.looks_like_a_word = saved
+    hit = lambda tok: any(tok in f for f in flagged)
+    cases = [
+        ('GS69, FF216 and RIG2024 read as item codes',
+         not hit('GS69') and not hit('FF216') and not hit('RIG2024')),
+        ('MP3, one digit, is still checked', hit('MP3')),
+        ('QZX, no digits, is still checked', hit('QZX')),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'an item code is not an acronym ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_sync_names_a_field_its_engine_does_not_know():
     """The sync says, in plain words, when a practice uses a frontmatter
     field this engine does not know: the set needs a newer engine, so Update
