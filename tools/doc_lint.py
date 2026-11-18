@@ -759,6 +759,25 @@ def looks_like_placeholder(tok):
         ord(b) - ord(a) == 1 for a, b in zip(tok, tok[1:]))
 
 
+# Letters then a run of digits: an item's code, never an initialism. See
+# looks_like_an_id().
+ID_CODE_RE = re.compile(r'[A-Z]{2,4}[0-9]{2,}')
+
+
+def looks_like_an_id(tok):
+    """True when `tok` is two to four capitals followed by two or more
+    digits (GS69, FF216, RIG2024): the code a team gives an article, a
+    ticket or a batch, with a client's initials in front. Nobody can gloss
+    one, because it names a single item, not a phrase. One digit stays
+    checked, so a real acronym carrying a number (MP3, HTML5) still is.
+
+    Found 2026-11-18: a consuming repository's article reviews name each
+    article by its code ("GS69 - How Central Ohio Seasons Shape Bed Bug
+    Activity"), and seven of them were refused as unglossed acronyms,
+    blocking a Produce that had nothing to do with them."""
+    return ID_CODE_RE.fullmatch(tok) is not None
+
+
 # A code span, or one that wraps onto the next line or two: markdown lets an
 # inline code span run across a soft line break inside a paragraph, and a
 # document wrapped at 72 columns does it whenever a long command lands at
@@ -880,6 +899,10 @@ def scan_unglossed(text, known, path=None):
             if looks_like_placeholder(tok):
                 # "Please do XYZ" -- placeholder letters, not an acronym.
                 # See looks_like_placeholder() for why this is a grammar.
+                continue
+            if looks_like_an_id(tok):
+                # "GS69", "FF216" -- an item's code, not an acronym. See
+                # looks_like_an_id().
                 continue
             if FILENAME_STEM_RE.match(clean, m.end()):
                 # An ALL-CAPS filename stem is a file reference, not an
