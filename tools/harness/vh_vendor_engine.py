@@ -7413,15 +7413,19 @@ def check_repin_kept_records_the_persons_words():
     SHA-256 values pasted into precedent.json by hand, which a session's
     own safety checks refused as editing an audit record (2026-10-07). It
     refuses without the person's words, without a reason given with the
-    decision, and for a section not recorded as kept; the reason it is given
-    replaces the one recorded before (2026-10-13: a consumer's re-pin kept a
-    reason describing a section that no longer existed in that form)."""
+    decision, and for a section the template does not have; the reason it is
+    given replaces the one recorded before (2026-10-13: a consumer's re-pin
+    kept a reason describing a section that no longer existed in that form).
+    A section not recorded yet is recorded, not refused (2026-11-18: a
+    consumer's session wrote a stub entry by hand to get past the refusal)."""
     import tempfile
     sys.path.insert(0, str(ROOT / 'tools'))
     import precedent_vendor_engine as pve
     cases = []
     key = '## Session start'
-    tpl_text = f'# T\n\n{key}\n\nKeep this file\'s generated block current.\n'
+    new_key = '## Git / workflow'
+    tpl_text = (f'# T\n\n{key}\n\nKeep this file\'s generated block current.\n\n'
+                f'{new_key}\n\nWork on a branch of your own.\n')
     names = ('_read_agents_md_sources', '_rev', '_load_manifest')
     saved = {n: getattr(pve, n) for n in names}
     with tempfile.TemporaryDirectory() as td:
@@ -7430,7 +7434,7 @@ def check_repin_kept_records_the_persons_words():
         (dest / 'tools').mkdir(parents=True)
         (dest / 'AGENTS.md').write_text(
             f'# Repo\n\n{key}\n\nOur own line.\n\nKeep this file\'s generated '
-            f'block current.\n', encoding='utf-8')
+            f'block current.\n\n{new_key}\n\nWe work on main.\n', encoding='utf-8')
         item = f'AGENTS.md {key}'
         (dest / 'precedent.json').write_text(json.dumps({pve.KEPT_DIVERGENCES_KEY: {
             item: {'reason': 'ours', 'template_sha256': 'f' * 64}}}), encoding='utf-8')
@@ -7454,7 +7458,28 @@ def check_repin_kept_records_the_persons_words():
                           msg))
             ok, msg = pve.repin_kept_section(td, 'AGENTS.md ## Nowhere', 'yes',
                                              dest_root=dest, reason='x')
-            cases.append(('refuses a section not recorded as kept', not ok, msg))
+            cases.append(('refuses a section the template does not have, writing nothing',
+                          not ok and 'nothing to pin' in msg
+                          and 'AGENTS.md ## Nowhere' not in (dest / 'precedent.json')
+                          .read_text(encoding='utf-8'), msg))
+            # 2026-11-18, a consumer: the update said "kept on purpose?
+            # record it", and repin-kept refused a section not recorded yet;
+            # the session wrote a stub entry by hand. It records it now.
+            ok, msg = pve.repin_kept_section(td, f'AGENTS.md {new_key}', '', dest_root=dest,
+                                             reason='this repository lands on main',
+                                             by_rule=True)
+            fresh = json.loads((dest / 'precedent.json').read_text(
+                encoding='utf-8'))[pve.KEPT_DIVERGENCES_KEY].get(f'AGENTS.md {new_key}') or {}
+            cases.append(('--by-rule records a section not recorded yet, with its reason, '
+                          'the rule and both pins',
+                          ok and 'RECORDED AND PINNED' in msg
+                          and fresh.get('reason') == 'this repository lands on main'
+                          and fresh.get('decided_by') == 'rule'
+                          and len(fresh.get('template_sha256') or '') == 64
+                          and len(fresh.get('carried_sha256') or '') == 64,
+                          f'{msg} {fresh}'))
+            cases.append(('...and says its lacked blocks still need a verdict each',
+                          'judge-kept' in msg, msg))
             ok, msg = pve.repin_kept_section(td, item, 'Morgan: still kept', dest_root=dest,
                                              reason='Our own line stays: it names our hook')
             entry = json.loads((dest / 'precedent.json').read_text(
