@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "A property of how long something runs, not of where it lives -- a gate script, an audit and a heavy solve are all in scope and share no path. Reached through the occasion index. Decided: 2026-09-08, when the practice landed."
 occasion:    "writing, running or reviewing a gate, audit, cache or heavy solve"
 gates:       []
-index_clause: "over a minute: print elapsed and remaining; cache a heavy solve to disk"
+index_clause: "over a minute: report progress; save each unit as it ends; cache a heavy solve"
 checked_by:  null
 defines:     []
 status:      active
@@ -33,6 +33,12 @@ nothing** ("The three mechanics in full"):
   prints on its error stream items done, elapsed time and an estimated time
   remaining, and a chained gate script logs each step's elapsed seconds.
   Record those durations, dated, where the run instructions live.
+- **A long run saves each unit as it finishes.** A run of more than a few
+  minutes writes each finished unit's result to disk before it starts the
+  next, and can be restarted to continue from there. Results held only in
+  memory until a final step are lost with that step. Before starting a
+  second heavy job beside a running one, check that both fit in memory at
+  their largest step.
 - **Cache an expensive pure solve to disk** when several gates re-derive
   it: under a gitignored directory, keyed by a hash of the code the solve
   can reach
@@ -175,6 +181,15 @@ scheduled the variants.
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 379 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three mechanics, each as what to do, in 199 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 **2026-11-05: absorbs `gate-ledger`**, whose rule is now a paragraph of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
+
+**A run that kept its results in memory, 2026-11-18.** A simulation in a
+dependent repo ran eleven conditions through a model for four and a half
+hours, holding every condition's result in memory for a scoring step at
+the end. A second heavy job was started beside it, the two together ran the
+machine out of memory during that last step, and all eleven results were
+lost. Other long scripts in the same session wrote their progress to disk
+after each unit and lost nothing. The rule had covered caching a solve so
+it is not repeated, and said nothing about a run saving its own progress.
 
 ## Install
 Memoize the solve under a source-content key with a bypass switch; add a
