@@ -21,8 +21,10 @@ term:
     a Python or Node HTTP library, ssh, scp, nc and the like): the whole
     command, scripts written inline included;
   - any MCP tool whose name says it fetches, searches or browses.
-Git pushes are not refused: a commit's author address is attribution the
-person chose, and the commit goes to their own repository.
+A git command that runs on this machine alone (commit, tag, log, add and
+every subcommand outside the few that reach a remote) is never outbound,
+whatever its message, --author or --trailer say: a commit's author address
+is attribution the person chose. A push is read like any network command.
 
 THE PRIVATE TERMS, from three places, none of them committed by this file:
   - CLAUDE_CODE_USER_EMAIL, the signed-in person's address, which Claude
@@ -46,6 +48,7 @@ import datetime
 import json
 import os
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -88,44 +91,140 @@ def terms(root=ROOT):
     return out
 
 
-# A git command that takes a message: its message is local text that the
-# commit carries, never a request.
-_GIT_MESSAGE_CMD = re.compile(r'\bgit\b(?:\s+-[Cc]\s+\S+)*\s+(?:commit|tag|notes|merge)\b')
+# Git subcommands that talk to a remote. Every other git subcommand runs
+# on this machine alone, whatever its arguments say.
+_GIT_NETWORK_SUBCOMMANDS = {'push', 'fetch', 'pull', 'clone', 'ls-remote', 'remote',
+                            'submodule', 'send-email', 'archive', 'lfs', 'svn', 'p4'}
+# git's own options that come before the subcommand and take a value.
+_GIT_VALUE_OPTS = {'-C', '-c', '--git-dir', '--work-tree', '--namespace',
+                   '--exec-path', '--config-env'}
 _HEREDOC = re.compile(r'<<-?[ \t]*([\'"]?)([A-Za-z_]\w*)\1')
-_MESSAGE_ARG = re.compile(
-    r'(\s(?:-m|--message)(?:=|\s+))("(?:[^"\\]|\\.)*"|\'[^\']*\'|\S+)')
+_ASSIGNMENT = re.compile(r'^[A-Za-z_]\w*=')
 
 
-def without_commit_messages(cmd):
-    """`cmd` with the messages of its git commit, tag, notes and merge
-    commands blanked: a heredoc that feeds one, and each -m / --message
-    value. Everything else is kept, an inline script included.
+def _segments(cmd):
+    """`cmd` split into its simple commands at unquoted `&&`, `||`, `;`,
+    `|`, `&` and newlines. Quotes and `$( )` are respected, so a message
+    that spans lines stays inside the command it belongs to."""
+    out, cur, i, n = [], [], 0, len(cmd)
+    quote, depth = None, 0
+    while i < n:
+        c = cmd[i]
+        if quote == "'":
+            cur.append(c)
+            if c == "'":
+                quote = None
+        elif c == '\\' and i + 1 < n:
+            cur.append(cmd[i:i + 2]); i += 2; continue
+        elif quote == '"':
+            cur.append(c)
+            if c == '"':
+                quote = None
+        elif c in '\'"':
+            quote = c; cur.append(c)
+        elif cmd.startswith('$(', i):
+            depth += 1; cur.append('$('); i += 2; continue
+        elif c == ')' and depth:
+            depth -= 1; cur.append(c)
+        elif depth == 0 and c in ';&|\n':
+            out.append(''.join(cur)); cur = []
+            if cmd.startswith(('&&', '||'), i):
+                i += 1
+        else:
+            cur.append(c)
+        i += 1
+    out.append(''.join(cur))
+    return [s for s in out if s.strip()]
 
-    WHY (2026-10-31, and 2026-10-20 before it). Every commit here carries
-    a `Claude-Session: https://...` trailer, and the author's address goes
-    in `--author` or `-c user.email`. The URL read as "this command reaches
-    the network" and the address as a private term, so a plain local
-    commit was refused as outbound -- twice on 2026-10-20 and again on
-    2026-10-31. A push is still read whole: it is the network step."""
+
+def _words(segment):
+    try:
+        return shlex.split(segment, comments=False)
+    except ValueError:
+        return segment.split()
+
+
+def _local_git(segment):
+    """True when `segment` is a git command that never leaves the machine:
+    git, its own leading options, then a subcommand outside
+    _GIT_NETWORK_SUBCOMMANDS."""
+    words = _words(segment)
+    while words and _ASSIGNMENT.match(words[0]):
+        words = words[1:]
+    if not words or Path(words[0]).name != 'git':
+        return False
+    i = 1
+    while i < len(words) and words[i].startswith('-'):
+        if words[i] in _GIT_VALUE_OPTS:
+            i += 1
+        i += 1
+    return i < len(words) and words[i] not in _GIT_NETWORK_SUBCOMMANDS
+
+
+def _substitutions(segment):
+    """The `$( )` and backtick commands inside `segment`, which run even when
+    the command around them is local. `$(cat <<EOF ...)`, the usual way to
+    hand git a message, reads nothing from the network and is left out."""
+    found, i = [], 0
+    while True:
+        i = segment.find('$(', i)
+        if i < 0:
+            break
+        depth, j = 1, i + 2
+        while j < len(segment) and depth:
+            if segment.startswith('$(', j):
+                depth += 1; j += 1
+            elif segment[j] == ')':
+                depth -= 1
+            j += 1
+        found.append(segment[i + 2:j - 1])
+        i = j
+    found += re.findall(r'`([^`]*)`', segment)
+    return [f for f in found if not re.match(r'\s*cat\s*<<', f)]
+
+
+def without_local_git(cmd):
+    """`cmd` with every git command that runs on this machine alone taken
+    out -- its messages, `--author`, `--trailer` and `-c user.email` with it
+    -- and the heredoc that feeds one. A git command that reaches a remote
+    (push, fetch, clone and the rest of _GIT_NETWORK_SUBCOMMANDS) is kept
+    whole, and so is every other command, inline scripts included, and any
+    command substitution inside a local git command.
+
+    WHY (2026-11-18; 2026-10-31 and 2026-10-20 before it). Every commit here
+    carries a `Claude-Session: https://...` trailer, and the author's
+    address goes in `--author` or `-c user.email`. The URL read as "this
+    command reaches the network" and the address as a private term, so a
+    plain local commit was refused as outbound. The first two fixes blanked
+    the message forms seen so far (a heredoc, a one-line -m); the third
+    refusal came from a message that spanned lines inside quotes, and
+    `--trailer` was never covered at all. Guessing message shapes keeps
+    missing one, so this reads what the command DOES instead: a local git
+    subcommand sends nothing, whatever text it carries."""
     lines = cmd.split('\n')
-    out, i = [], 0
+    kept, i = [], 0
     while i < len(lines):
         line = lines[i]
         m = _HEREDOC.search(line)
-        if m and _GIT_MESSAGE_CMD.search(line[:m.start()]):
-            out.append(_MESSAGE_ARG.sub(r'\1""', line))
+        before = _segments(line[:m.start()]) if m else []
+        if m and before and _local_git(before[-1]):
+            kept.append(line)
             end = m.group(2)
             i += 1
             while i < len(lines) and lines[i].strip() != end:
                 i += 1
             if i < len(lines):
-                out.append(lines[i])
+                kept.append(lines[i])
             i += 1
             continue
-        if _GIT_MESSAGE_CMD.search(line):
-            line = _MESSAGE_ARG.sub(r'\1""', line)
-        out.append(line)
+        kept.append(line)
         i += 1
+    out = []
+    for seg in _segments('\n'.join(kept)):
+        if _local_git(seg):
+            out.extend(without_local_git(s) for s in _substitutions(seg))
+        else:
+            out.append(seg)
     return '\n'.join(out)
 
 
@@ -135,7 +234,7 @@ def outbound_text(tool, tool_input):
         return json.dumps(tool_input, ensure_ascii=False)
     if tool == 'Bash':
         cmd = str(tool_input.get('command') or '')
-        read = without_commit_messages(cmd)
+        read = without_local_git(cmd)
         if NETWORK.search(read):
             return read
     return None

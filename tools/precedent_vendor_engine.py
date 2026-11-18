@@ -6250,15 +6250,24 @@ def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None,
     key = item[len(AGENTS_MD) + 1:] if item.startswith(AGENTS_MD + ' ') else item
     item = f'{AGENTS_MD} {key}'
     path = dest_root / 'precedent.json'
+    # A section not recorded yet is recorded here, with the reason and the
+    # decision this command already requires -- once the template is found
+    # to have the section, below. WHY (2026-11-18, a consuming repository's
+    # Update Vendors): the update said "kept on purpose? record it", and
+    # this command refused because the section was not recorded yet, so the
+    # session wrote a stub entry into precedent.json by hand to re-pin it.
     try:
         data = json.loads(path.read_text(encoding='utf-8'))
-        entry = data[KEPT_DIVERGENCES_KEY][item]
-    except (OSError, ValueError, KeyError, TypeError):         # noqa: BLE001
-        return False, (f'{item} is not in precedent.json\'s '
-                       f'{KEPT_DIVERGENCES_KEY}: record it there with a '
-                       f'reason first, then re-pin it')
+        kept = data.setdefault(KEPT_DIVERGENCES_KEY, {})
+    except (OSError, ValueError, AttributeError):              # noqa: BLE001
+        return False, f'precedent.json could not be read to record {item}'
+    if not isinstance(data, dict) or not isinstance(kept, dict):
+        return False, (f'precedent.json\'s {KEPT_DIVERGENCES_KEY} is not a '
+                       f'mapping, so {item} cannot be recorded in it')
+    entry = kept.get(item, {})
     if not isinstance(entry, dict):
         return False, f'{item} is not a kept entry precedent.json can re-pin'
+    new_entry = item not in kept
     manifest = _load_manifest(dest_root / 'tools')
     kind = manifest.get('kind', DEFAULT_KIND)
     commit = (_rev(clone, manifest.get('source_commit') or '')
@@ -6286,6 +6295,7 @@ def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None,
         today = precedent_time.today()
     except Exception:                                           # noqa: BLE001
         today = None
+    kept[item] = entry
     entry.update({'reason': reason,
                   'template_sha256': _sha_text(section),
                   'carried_sha256': _carried_sha(section, lacks),
@@ -6301,9 +6311,12 @@ def repin_kept_section(clone, item, confirmed, dest_root=None, reason=None,
     said = ('by the standing rule (upstream is the default; this '
             'repository keeps only what is its own)' if by_rule
             else f'confirmed: "{confirmed}"')
-    return True, (f'PIN UPDATED: {item} re-pinned to the template at '
-                  f'{commit[:12]}, {said}'
-                  + (f' ({today})' if today else ''))
+    return True, (f'{"RECORDED AND PINNED" if new_entry else "PIN UPDATED"}: '
+                  f'{item} {"recorded as kept and pinned" if new_entry else "re-pinned"} '
+                  f'to the template at {commit[:12]}, {said}'
+                  + (f' ({today})' if today else '')
+                  + (f'. Each block it lacks still needs its own verdict '
+                     f'(judge-kept), as the next run lists' if lacks else ''))
 
 
 def _cli_repin_kept(args):
