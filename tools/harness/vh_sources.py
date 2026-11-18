@@ -2253,6 +2253,74 @@ def check_update_rerun_after_failed_takes_its_own_output():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_rerun_after_failed_puts_back_earlier_deletions():
+    """A rerun after a FAILED Update Vendors puts back, with the failed
+    run's own output, the deletions an EARLIER run of the same update
+    staged and nobody has touched since.
+
+    THE INCIDENT (2026-11-18, a consuming repository). Run 1 staged the
+    deletion of two engine files upstream no longer ships and stopped for
+    the person. A later run ended FAILED, and the run after it put
+    tools/ENGINE_MANIFEST.json back to HEAD -- the failed run's output --
+    but not run 1's deletions, which the failed run had found already
+    staged and so never recorded as its own. HEAD's manifest still listed
+    both files, and the engine refresh refused them as "a vendored file
+    edited here and not committed". Planted here: run 1 stages a deletion,
+    run 2 ends FAILED on a second upstream change, run 3 must not refuse.
+
+    Negative control, measured 2026-11-18 against staging at b3f4191: run
+    3 stops with "not committed" naming the deleted file."""
+    fx = _LocalEditsFixture('precedent-update-rerun-deleted-')
+    cases = []
+    gone = 'tools/set_words.py'
+
+    def red_update(repo, ref):
+        return fx.sh(sys.executable, '-c', (
+            'import sys\n'
+            f'sys.path.insert(0, {str(ROOT / "tools")!r})\n'
+            'import precedent_update as pu\n'
+            'pu.judged_as_committed = lambda _r, _a: (1, "stubbed red check")\n'
+            f'sys.exit(pu.main(["--repo", {str(repo)!r}, "--from-ref", {ref!r}]))\n'),
+            cwd=repo)
+    try:
+        repo = fx.consumer('rerun-deleted')
+        seeded = fx.seeded_from(repo)
+        fx.update(repo, seeded)
+        fx.commit(repo, 'first update')
+        if not (repo / gone).is_file():
+            cases.append((f'the fixture ships {gone}', False, ''))
+        else:
+            # Upstream drops the file and its name from the engine's list,
+            # as a retirement does.
+            eng = subprocess.run(['git', '-C', str(ROOT), 'show',
+                                  f'{seeded}:tools/precedent_vendor_engine.py'],
+                                 capture_output=True, check=True).stdout
+            ref1 = fx.upstream(seeded, {gone: None, 'tools/precedent_vendor_engine.py':
+                                        eng.replace(b"    'set_words.py',\n", b'', 1)})
+            rc, out = fx.update(repo, ref1)
+            cases.append(('run 1 stages the deletion of a file upstream no longer ships',
+                          not (repo / gone).exists() and gone in fx.git(
+                              repo, 'diff', '--cached', '--name-only', '--diff-filter=D'),
+                          failure_detail(out, 1200)))
+            show = repo / 'tools' / 'precedent_show.py'
+            ref2 = fx.upstream(ref1, {'tools/precedent_show.py':
+                                      show.read_bytes() + b'\n# upstream\n'})
+            rc, out = red_update(repo, ref2)
+            cases.append(('run 2 ends FAILED on its check', rc == 2 and 'FAILED' in out,
+                          failure_detail(out, 1200)))
+            rc, out = fx.update(repo, ref2)
+            cases.append(('run 3 takes run 1\'s deletion as the update\'s own output and '
+                          'does not refuse it', 'not committed' not in out and rc != 2
+                          and not (repo / gone).exists(), failure_detail(out, 1500)))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        fx.close()
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_rerun_counts_its_own_staged_output_apart():
     """A rerun of Update Vendors before the commit counts what an earlier
     run staged apart from what was uncommitted before any run.

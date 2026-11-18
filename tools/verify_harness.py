@@ -2882,13 +2882,17 @@ class _LocalEditsFixture:
                           .read_text(encoding='utf-8'))['source_commit']
 
     def upstream(self, base, changes):
-        """-> a commit on top of `base` whose files `changes` replaces."""
+        """-> a commit on top of `base` whose files `changes` replaces; a
+        file whose new content is None is deleted."""
         idx = self.tmp / 'scratch-index'
         e = {**self.env, 'GIT_INDEX_FILE': str(idx)}
         run = lambda *a, data=None: subprocess.run(
             ['git', '-C', str(ROOT), *a], env=e, capture_output=True, input=data)
         run('read-tree', base)
         for rel, data in changes.items():
+            if data is None:
+                run('update-index', '--force-remove', '--', rel)
+                continue
             oid = run('hash-object', '-w', '--stdin', data=data).stdout.decode().strip()
             run('update-index', '--add', '--cacheinfo', f'100644,{oid},{rel}')
         tree = run('write-tree').stdout.decode().strip()
@@ -4263,6 +4267,8 @@ def main():
           *check_update_vendors_resolves_local_edits())
     check('a rerun after a FAILED Update Vendors takes the staged output as its own',
           *check_update_rerun_after_failed_takes_its_own_output())
+    check('a rerun after a FAILED Update Vendors puts back an earlier run\'s staged deletions too',
+          *check_update_rerun_after_failed_puts_back_earlier_deletions())
     check('Update Vendors re-baselines a file it asked about, and its review reads no git output',
           *check_update_rebaselines_what_it_asked_about_and_reviews_no_git_output())
     check('a rerun of Update Vendors counts its own staged output apart from yours',

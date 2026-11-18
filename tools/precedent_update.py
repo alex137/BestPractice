@@ -4211,7 +4211,14 @@ class Report:
             # builds on (sections recorded as left out on purpose), and a
             # FAILED one asked nothing new: with any item left, the check
             # that fails is never started.
-            record_staged_output(self.repo, self.staged)
+            # What an earlier run of this update staged and nobody touched
+            # since (self.earlier) is this update's output as much as what
+            # this run wrote, and goes back with it. Left out, a deletion an
+            # earlier LEFT run staged stayed while the engine manifest went
+            # back to HEAD, whose list still named the file, and the rerun
+            # refused it as "a vendored file edited here and not committed"
+            # (2026-11-18, a consuming repository: two retired engine files).
+            record_staged_output(self.repo, set(self.staged) | set(self.earlier or ()))
         if self.before is not None and (self.repo or self.pin_repo) is not None:
             # Every outcome: a LEFT or DONE run's staged output is what a
             # rerun before the commit finds uncommitted, and is not someone's
