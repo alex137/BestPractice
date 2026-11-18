@@ -3358,9 +3358,9 @@ def check_update_stages_what_a_late_step_writes():
                       unstaged == {'notes.md'} and 'notes.md' not in cached, str(unstaged)))
         src = pathlib.Path(pu.__file__).read_text(encoding='utf-8')
         cases.append(('the update calls it after its last writing step, before the check',
-                      src.index('late = stage_late_output(repo, before)')
+                      src.index('late = stage_late_output(repo, before')
                       > src.index('adopted = adopt_listed_records(')
-                      and src.index('late = stage_late_output(repo, before)')
+                      and src.index('late = stage_late_output(repo, before')
                       < src.index('return closing_check(repo, rep, skip_check)'), ''))
     bad = [(n, d) for n, ok, d in cases if not ok]
     check(f'Update Vendors stages what a late step writes ({len(cases)} stated cases)',
