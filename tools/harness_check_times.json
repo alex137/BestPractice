@@ -331,6 +331,7 @@
   "check_instruction_files_name_repos_that_exist": 0.0,
   "check_isolated_copy_carries_uncommitted_changes": 0.2,
   "check_isolated_run_matches_the_runner": 0.0,
+  "check_item_codes_are_not_acronyms": 0.0,
   "check_kept_agents_md_divergence_is_recorded": 50.7,
   "check_kept_bootstrap_divergence_is_recorded": 18.7,
   "check_kept_divergence_is_judged_block_by_block": 0.9,
