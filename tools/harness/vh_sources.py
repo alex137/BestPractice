@@ -2321,6 +2321,95 @@ def check_update_rerun_after_failed_puts_back_earlier_deletions():
             '; '.join(f'{n}: {d}' for n, d in bad))
 
 
+def check_update_restages_what_an_earlier_run_staged_as_deleted():
+    """A rerun of Update Vendors that writes back a file an earlier run of
+    it staged as deleted stages the file again; it never leaves it
+    untracked under the staged deletion.
+
+    THE INCIDENT (2026-11-18, a consuming repository). Run 1, with no
+    copy-in answers yet, staged the deletion of a shared set's materialized
+    files. Run 2, given the answers, wrote them back to disk, and they
+    stayed untracked while the deletions stayed staged: they were already
+    uncommitted when run 2 started, and stage_update staged only what was
+    not. The basic check then failed on a manifest listing paths the index
+    had deleted, and the session ran `git add` by hand. The engine and the
+    catalogue each adopt their own earlier output; nothing else did.
+
+    Planted with the update's own record functions on a small repository:
+    run 1's output (a staged deletion, a staged edit) is recorded as
+    record_kept_output records it, run 2 writes the deleted file back and
+    the person has an unstaged note of their own. Asserted: the file is
+    staged again and matches the disk, the edit stays staged, the note is
+    left unstaged, and the count is what run 2 changed. NEGATIVE CONTROL:
+    the same tree staged without `earlier` -- stage_update as it stood
+    before this fix -- leaves the file deleted in the index."""
+    import tempfile, shutil
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as pu
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-restage-'))
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t'}
+    cases = []
+
+    def git(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), *a], env=env,
+                              capture_output=True, text=True).stdout
+
+    def build(name):
+        repo = tmp / name
+        (repo / 'practices').mkdir(parents=True)
+        (repo / 'practices' / 'stage-words.md').write_text('# the set\'s rule\n')
+        (repo / 'MANIFEST.json').write_text('{"v": 1}\n')
+        (repo / 'notes.md').write_text('# notes\n')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], env=env, check=True)
+        git(repo, 'add', '-A')
+        git(repo, 'commit', '-qm', 'base')
+        # Run 1: deletes the set's file and edits the manifest, staged.
+        git(repo, 'rm', '-q', '--', 'practices/stage-words.md')
+        (repo / 'MANIFEST.json').write_text('{"v": 2}\n')
+        git(repo, 'add', '--', 'MANIFEST.json')
+        pu.record_kept_output(repo, {'practices/stage-words.md', 'MANIFEST.json'})
+        # Between the runs: the person's own unstaged note.
+        (repo / 'notes.md').write_text('# notes\nmine\n')
+        # Run 2 starts: what was uncommitted, and which of it is run 1's.
+        before = pu.dirty_paths(repo)
+        earlier = pu.earlier_runs_output(repo, before)
+        # Run 2 writes the set's file back, as the copy-in does.
+        (repo / 'practices').mkdir(exist_ok=True)
+        (repo / 'practices' / 'stage-words.md').write_text('# the set\'s rule\n')
+        return repo, before, earlier
+
+    try:
+        repo, before, earlier = build('fixed')
+        cases.append(('run 1\'s staged deletion and edit are counted as its own output',
+                      earlier == {'practices/stage-words.md', 'MANIFEST.json'},
+                      sorted(earlier)))
+        n = pu.stage_update(repo, before, earlier)
+        status = git(repo, 'status', '--porcelain')
+        cases.append(('the file run 2 wrote back is staged again, not left untracked '
+                      'under a staged deletion',
+                      'practices/stage-words.md' not in status
+                      and 'stage-words.md' in git(repo, 'ls-files'), status))
+        cases.append(('run 1\'s edit stays staged', 'M  MANIFEST.json' in status, status))
+        cases.append(('the person\'s unstaged note is left as it was',
+                      ' M notes.md' in status, status))
+        cases.append(('the count is what this run changed, not run 1\'s output', n == 0, n))
+        repo, before, earlier = build('control')
+        pu.stage_update(repo, before)
+        status = git(repo, 'status', '--porcelain')
+        cases.append(('NEGATIVE CONTROL: staged without the earlier run\'s output, '
+                      'the deletion stays and the file is untracked',
+                      'D  practices/stage-words.md' in status
+                      and '?? practices/' in status, status))
+    except (OSError, subprocess.CalledProcessError) as e:
+        cases.append((f'fixture could not be built ({e})', False, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad))
+
+
 def check_update_rerun_counts_its_own_staged_output_apart():
     """A rerun of Update Vendors before the commit counts what an earlier
     run staged apart from what was uncommitted before any run.

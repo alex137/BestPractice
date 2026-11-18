@@ -4203,7 +4203,7 @@ class Report:
             # Staged and recorded the same way, so the rerun puts it back.
             ours = sorted(dirty_paths(self.pin_repo) - self.before)
             if ours:
-                stage_update(self.pin_repo, self.before)
+                stage_update(self.pin_repo, self.before, self.earlier)
                 self.repo, self.staged = self.pin_repo, ours
         if failed and self.repo is not None and self.staged:
             # Only a FAILED run's output is put back by the next one. A run
@@ -5188,23 +5188,38 @@ def harness_ask(paths, last=False, cases=None, gates=None, baselines=None):
     return (f'this update changes {", ".join(paths)}{what}. {new}{approve}')
 
 
-def stage_update(repo, before):
+def stage_update(repo, before, earlier=()):
     """Stage what this run wrote or deleted, and nothing that was already
-    uncommitted when it started. Returns how many paths it staged.
+    uncommitted when it started -- except what an earlier run of this same
+    update staged and nobody has touched since (`earlier`, from
+    earlier_runs_output), which is the update's own and is staged again
+    as this run left it. Returns how many paths this run changed.
 
     So the deep check judges the tree the commit will hold. Found
     2026-09-27 taking main into a consumer: `checkin.py update` deleted two
     files upstream had dropped, the deletions sat unstaged, and the deep
     check -- listing files from the index -- failed the update on a file
-    that was gone. A person's own unfinished work is left as it was."""
-    ours = sorted(dirty_paths(repo) - before)
+    that was gone. A person's own unfinished work is left as it was.
+
+    WHY `earlier` (2026-11-18, a consumer). Run 1, with no copy-in answers
+    yet, staged the deletion of a shared set's materialized files. Run 2,
+    with the answers, wrote them back -- but they were already uncommitted
+    before run 2 began, so not staged, and they sat untracked under a
+    staged deletion; the basic check failed on a manifest that listed
+    paths the index had deleted. The engine and the catalogue each adopt
+    their own earlier output (adopt_engine_output, adopt_catalogue_output);
+    everything else the update writes needs the same, so it is done here,
+    once, for every path."""
+    dirty = dirty_paths(repo)
+    changed = dirty - before
+    ours = sorted(changed | (set(earlier or ()) & dirty))
     for i in range(0, len(ours), 200):
         subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *ours[i:i + 200]],
                        capture_output=True, text=True)
-    return len(ours)
+    return len(changed)
 
 
-def stage_late_output(repo, before):
+def stage_late_output(repo, before, earlier=()):
     """Stage what this run wrote after its `staged` step, and nothing that
     was uncommitted when it started. -> the paths it staged.
 
@@ -5214,13 +5229,16 @@ def stage_late_output(repo, before):
     modified and unstaged, and a session committing what was staged would
     have left the move behind. A step added after the staging step can
     always do this, so the update stages late output once more, at the end,
-    rather than trusting each step to remember."""
+    rather than trusting each step to remember. An earlier run's own output
+    (`earlier`) a late step wrote again is staged too (stage_update says
+    why)."""
     r = subprocess.run(['git', '-C', str(repo), 'diff', '--name-only', '-z'],
                        capture_output=True, text=True)
     u = subprocess.run(['git', '-C', str(repo), 'ls-files', '--others',
                         '--exclude-standard', '-z'], capture_output=True, text=True)
     loose = {x for x in (r.stdout + u.stdout).split('\0') if x}
-    late = sorted((loose & dirty_paths(repo)) - set(before))
+    late = sorted((loose & dirty_paths(repo))
+                  - (set(before) - set(earlier or ())))
     for i in range(0, len(late), 200):
         subprocess.run(['git', '-C', str(repo), 'add', '-A', '--', *late[i:i + 200]],
                        capture_output=True, text=True)
@@ -7113,7 +7131,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
                  f'path(s) were an earlier run\'s mirror of the pinned commit, '
                  f'byte for byte; staged as this update\'s')
     record_copy_fingerprint(repo, rep)
-    n = stage_update(repo, before)
+    n = stage_update(repo, before, rep.earlier)
     regenerated_step(repo, rep)
     built_from_step(repo, rep)
     rep.repo, rep.staged = repo, sorted(dirty_paths(repo) - before)
@@ -7209,7 +7227,7 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
                  + record_paths_hint(read))
 
     manifest_postcondition(repo, rep)
-    late = stage_late_output(repo, before)
+    late = stage_late_output(repo, before, rep.earlier)
     if late:
         rep.staged = sorted(set(rep.staged or ()) | set(late))
         rep.step('staged, written later', f'{len(late)} path(s) a step after '

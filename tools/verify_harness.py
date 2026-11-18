@@ -4269,6 +4269,8 @@ def main():
           *check_update_rerun_after_failed_takes_its_own_output())
     check('a rerun after a FAILED Update Vendors puts back an earlier run\'s staged deletions too',
           *check_update_rerun_after_failed_puts_back_earlier_deletions())
+    check('a rerun of Update Vendors restages a file an earlier run staged as deleted',
+          *check_update_restages_what_an_earlier_run_staged_as_deleted())
     check('Update Vendors re-baselines a file it asked about, and its review reads no git output',
           *check_update_rebaselines_what_it_asked_about_and_reviews_no_git_output())
     check('a rerun of Update Vendors counts its own staged output apart from yours',
