@@ -323,10 +323,17 @@ def _this_session_id():
     return precedent_detect.this_session_id()
 
 
-def _once_per_session(root, key, line):
+def _once_per_session(root, key, line, remedy=''):
     """-> `line` the first time this session is shown it, and a one-line
     pointer every time after. The full text is kept in .precedent/said-once.json
     by session, so a resumed session sees it in full once more.
+
+    `remedy` rides on the pointer every time (2026-11-18). The pointer used
+    to name the problem and send the reader to "earlier this session" for
+    what to do about it. A session whose context had since been summarized
+    had no earlier to read, kept seeing a line with no action in it, and
+    left a person's individual set unread for two days. A short line that
+    recurs must carry its own fix.
 
     WHY (S. Alexander Jacobson, 2026-11-04, in a consumer's reduction pass):
     the private-source paragraph is about 250 words and the reply gate printed
@@ -347,7 +354,8 @@ def _once_per_session(root, key, line):
     if sid in seen:
         short = line.split(' -- ')[0].split(', and ')[0][:160]
         return (f"{short}; said in full earlier this session -- "
-                f"`python3 tools/precedent_source_credentials.py` prints it again.")
+                f"`python3 tools/precedent_source_credentials.py` prints it again."
+                + (f" {remedy}" if remedy else ''))
     seen[sid] = __import__('datetime').datetime.now(
         __import__('datetime').timezone.utc).isoformat(timespec='seconds')
     said[key] = seen
@@ -1275,7 +1283,12 @@ def main():
             import precedent_source_credentials as psc
             line = psc.remind(root, prefix='precedent gate')
             if line:
-                print(f"{_once_per_session(root, 'credential-reminder', line)}\n")
+                names = ', '.join(n for _, n, _ in psc.unresolved_private_sources(root))
+                remedy = (f"STILL NOT FIXED: attach {names} now (add_repo, read access) "
+                          f"if this session has that tool; if it is refused, tell the "
+                          f"person in one line that their own rules are not loaded "
+                          f"here.") if names else ''
+                print(f"{_once_per_session(root, 'credential-reminder', line, remedy)}\n")
         except ImportError:
             pass
 
