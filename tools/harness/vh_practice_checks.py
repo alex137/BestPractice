@@ -7211,6 +7211,18 @@ def check_title_case_leaves_code_and_first_word_alone():
         ("See Also", "See also", 'and one already miscapitalized'),
         ("Notes and see also", "See also", 'mid-heading, not only at the start'),
         ("the why", "The Why", 'the other keep-phrase still keeps its caps'),
+        # A word that starts with a digit is left as written: `720p` became
+        # `720P` and the headline check refused a consuming repo's correct
+        # heading (2026-11-18). The letters after a number are a unit or
+        # suffix; a word whose digit merely follows a letter is unaffected.
+        ("First Cut (Nov 17): Wan 3.0, 720p",
+         "First Cut (Nov 17): Wan 3.0, 720p", 'a unit after a number keeps its case'),
+        ("the 3rd option and a 4k screen",
+         "The 3rd Option and a 4k Screen", 'ordinals and units after digits'),
+        ("a 2026-era plan", "A 2026-Era Plan",
+         'a hyphen part after a number is still a word'),
+        ("Option A and Option B", "Option A and Option B",
+         'single capital letters are unchanged'),
     ]
     bad = []
     for text, must, why in cases:
