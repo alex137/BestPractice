@@ -4126,6 +4126,14 @@ def check_precedent_check_fires():
                     'overrides:   null\nadded:       null\napproved_by: "h"\n'
                     '---\n\n## Rule\nDo it.\n\n## Story\nPlanted.\n')
 
+        def _retired_starter(repo, ind):
+            for f in (repo / 'templates' / 'practice-set-individual'
+                      / 'practices').glob('*.md'):
+                (ind / 'practices' / f.name).write_text(
+                    f.read_text(encoding='utf-8').replace(
+                        'status:      active', 'status:      retired', 1),
+                    encoding='utf-8')
+
         def _setup_enforcement_lives(repo):
             ind = repo / '_planted_individual'
             (ind / 'practices').mkdir(parents=True, exist_ok=True)
@@ -4137,6 +4145,11 @@ def check_precedent_check_fires():
                 '#!/bin/bash\nexit 0\n', encoding='utf-8')
             (ind / 'practices' / f'{_zz_set}-rule.md').write_text(
                 _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
+            # The set still holds the starter its template gave it, retired,
+            # as a real person's did on 2026-11-19. The starter is the
+            # engine's own file, which the bootstrap test names, so the
+            # clean tree must still pass with it there.
+            _retired_starter(repo, ind)
             (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
                 'format_version': 1, 'individual': {
                     'name': _zz_set, 'path': '_planted_individual'}}),

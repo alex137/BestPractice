@@ -4050,6 +4050,17 @@ def _repo_local_practice_dirs():
     return out
 
 
+def _template_starter_slugs(root):
+    """-> the slugs of the starter practices the engine's own set templates
+    ship (templates/practice-set-*/practices/*.md). They are files of this
+    repository, named by the bootstrap tool, its tests and each template's
+    own README, and every set made from a template starts with a copy. A
+    person who retires their copy has withdrawn a practice of THEIR set; the
+    template's file of the same name is still there and still linked."""
+    return {f.stem for f in pathlib.Path(root).glob(
+        'templates/practice-set-*/practices/*.md')}
+
+
 @check('practice-change-propagates', 'tree',
        'no file this repository owns carries a LIVE pointer to a practice in '
        'force nowhere, or one that now only forwards to a different slug -- a '
@@ -4094,10 +4105,15 @@ def _practice_change_propagates(ctx):
     successors = {s: v['successor'] for s, v in wmap.items() if v['successor']}
     rows = ppr.scan_root(ROOT, set(wmap), successors,
                          skip=ppr.received_paths(ROOT)) if wmap else []
+    starters = _template_starter_slugs(ROOT)
     for row in rows:
         if not ppr.must_fix(row, wmap):
             continue
         rel, ln, slug, form, _kind, section, _line = row
+        # A set template citing its own starter file: the slug was withdrawn
+        # in some set made from the template, not here.
+        if slug in starters and str(rel).startswith('templates/practice-set-'):
+            continue
         succ = successors.get(slug)
         what = {'link': 'links', 'show': 'looks up'}.get(form, 'names')
         where = (' in its Rule' if form not in ('link', 'show') else '')
@@ -9369,8 +9385,16 @@ def _enforcement_lives_with_its_practice(ctx):
     # not one set's rule (Morgan, 2026-10-16: "keep the default name").
     names = names - {_pr.DEFAULT_INDIVIDUAL_NAME}
     wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME} - set(_SET_NAMES_KEPT)
+    # The starter file the engine's own set templates ship is the engine's
+    # name: every set bootstrapped from a template carries it, so a set that
+    # still holds its starter does not make it that set's rule (2026-11-19:
+    # the bootstrap test, which checks the starter was written, read as
+    # naming one person's practice wherever their set was on disk).
+    starters = _template_starter_slugs(ctx.root)
+    wanted -= starters
     set_only = {s: n for s, n in slugs.items()
-                if s not in universal and s not in _SET_NAMES_KEPT}
+                if s not in universal and s not in _SET_NAMES_KEPT
+                and s not in starters}
     # EVERY .py under tools/, not only the engine's file lists (2026-10-17):
     # the harness and BestPractice's own checks are never vendored, so the
     # lists missed the tests that held a set's rules -- the problem fixed the
