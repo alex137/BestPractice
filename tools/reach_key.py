@@ -28,7 +28,14 @@ pricing method re-keys a sizing solve only if the sizing code can call it.
 Where it cannot follow, it widens rather than narrows:
 
 * a module used as a bare value (passed to a function, aliased through a
-  structure the resolver does not follow) is hashed whole;
+  structure the resolver does not follow) is hashed whole. A module-level
+  name that only renames a module is followed, not widened: `fp = bf.fp`,
+  an alias of an alias by bare name (`ft = fp`), and each such element of
+  a statement that binds several names at once
+  (`base, tf, n = fc.base, fc.tf, 3` follows `base` and `tf` as aliases
+  and only `3` as a value). `getattr(fc.bf, "LIMIT", 2.0)` is the
+  reference `fc.bf.LIMIT`. `reach_whole` lists what a key hashes whole,
+  for a host self-check that asserts a solve widens nowhere it should not;
 * a reached definition that calls `getattr` on a module with a non-literal
   name, looks a name up through `globals()` or `vars()` (indexed, or with
   `.get`/`.pop`/`.setdefault`), or uses `exec`, `eval`, `__import__` or
@@ -319,22 +326,66 @@ class _Resolver:
                 return self.module_alias(self.load(p), imp[2], seen)
             return None
         for stmt in m.assigns.get(name, []):
-            if not isinstance(stmt, ast.Assign):
-                continue
-            for t in stmt.targets:
-                pairs = []
-                if isinstance(t, ast.Name):
-                    pairs = [(t, stmt.value)]
-                elif isinstance(t, (ast.Tuple, ast.List)) and isinstance(stmt.value, (ast.Tuple, ast.List)) \
-                        and len(t.elts) == len(stmt.value.elts):
-                    pairs = list(zip(t.elts, stmt.value.elts))
-                for tgt, val in pairs:
-                    if isinstance(tgt, ast.Name) and tgt.id == name and isinstance(val, ast.Attribute) \
-                            and isinstance(val.value, ast.Name):
-                        base = self.module_alias(m, val.value.id, seen)
-                        if base:
-                            return self.module_alias(self.load(base), val.attr, seen)
+            for tgt, val in _alias_pairs(stmt):
+                if isinstance(tgt, ast.Name) and tgt.id == name:
+                    hit = self.value_module(m, val, seen)
+                    if hit:
+                        return hit
         return None
+
+    def value_module(self, m, val, seen=None):
+        """The repo module a module-level expression in m stands for, or
+        None: a module alias by bare name (`ft = fp`) or an attribute chain
+        of module aliases (`fp = bf.fp`, `x = a.b.c`)."""
+        seen = set() if seen is None else seen
+        chain = []
+        while isinstance(val, ast.Attribute):
+            chain.append(val.attr)
+            val = val.value
+        if not isinstance(val, ast.Name):
+            return None
+        mod = self.module_alias(m, val.id, seen)
+        for a in reversed(chain):
+            if not mod:
+                return None
+            mod = self.module_alias(self.load(mod), a, seen)
+        return mod
+
+
+def _alias_pairs(stmt):
+    """The (target, value) pairs of a module-level assignment that binds
+    names one for one: `x = v`, `a, b = v, w`, `a = b = v`. Empty for
+    anything else (an unpacked call, an augmented assignment)."""
+    if not isinstance(stmt, ast.Assign):
+        return []
+    pairs = []
+    for t in stmt.targets:
+        if isinstance(t, ast.Name):
+            pairs.append((t, stmt.value))
+        elif isinstance(t, (ast.Tuple, ast.List)) and isinstance(stmt.value, (ast.Tuple, ast.List)) \
+                and len(t.elts) == len(stmt.value.elts) \
+                and not any(isinstance(e, ast.Starred) for e in (*t.elts, *stmt.value.elts)):
+            pairs.extend(zip(t.elts, stmt.value.elts))
+        else:
+            return []
+    return pairs
+
+
+def _assign_parts(R, m, stmt):
+    """What to follow when a module-level assignment is reached as a
+    constant. A statement that binds several names at once
+    (`base, tf, n = fc.base, fc.tf, 3`) is followed one element at a time:
+    an element that only names a module is an alias, which the resolver
+    follows wherever the name is used, so it is not a module used as a bare
+    value; every other element is followed as before. A statement binding
+    one name, or one with no such element, is followed whole."""
+    pairs = _alias_pairs(stmt)
+    if len(pairs) < 2:
+        return [stmt]
+    keep = [(t, v) for t, v in pairs if not (isinstance(t, ast.Name) and R.value_module(m, v))]
+    if len(keep) == len(pairs):
+        return [stmt]
+    return [x for pair in keep for x in pair]
 
 
 # A session shares work across many keys computed over unchanged files (a
@@ -401,6 +452,7 @@ def _refs_record(R, m, node, dynamic):
         whole.add(mod)
 
     consumed = set()                 # Name nodes already handled as a chain base or a literal getattr
+    chained = set()                  # Attribute nodes already followed as the object of a literal getattr
     parent = {id(c): n for n in ast.walk(node) for c in ast.iter_child_nodes(n)}
 
     def lookup(call):
@@ -435,6 +487,19 @@ def _refs_record(R, m, node, dynamic):
                     widen[0] = True          # an object's attribute by computed name: any method may run
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
                 and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
+                and isinstance(n.args[0], ast.Attribute) \
+                and isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
+            # getattr(a.b, "NAME"): the reference a.b.NAME, not the module a.b as a value
+            chain, cur = [], n.args[0]
+            while isinstance(cur, ast.Attribute):
+                chain.append(cur.attr)
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                consumed.add(id(cur))
+                chained.add(id(n.args[0]))
+                attr_ref([cur.id, *reversed(chain), n.args[1].value], id(cur))
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) \
+                and n.func.id in ("getattr", "hasattr", "setattr") and len(n.args) >= 2 \
                 and isinstance(n.args[0], ast.Name):
             if isinstance(n.args[1], ast.Constant) and isinstance(n.args[1].value, str):
                 attr_ref([n.args[0].id, n.args[1].value], id(n.args[0]))
@@ -444,7 +509,8 @@ def _refs_record(R, m, node, dynamic):
                 if modp:
                     whole.add(modp)
                     consumed.add(id(n.args[0]))
-        if isinstance(n, ast.Attribute) and not isinstance(getattr(n, "_parent_attr", None), ast.Attribute):
+        if isinstance(n, ast.Attribute) and id(n) not in chained \
+                and not isinstance(getattr(n, "_parent_attr", None), ast.Attribute):
             chain, cur = [], n
             while isinstance(cur, ast.Attribute):
                 chain.append(cur.attr)
@@ -833,7 +899,8 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
             elif sym in m.assigns:
                 for st in m.assigns[sym]:
                     items.append((p, "assign", sym, _digest(m, "assign", sym, st)))
-                    refs(m, st)
+                    for part in _assign_parts(R, m, st):
+                        refs(m, part)
             elif sym in m.imports:
                 imp = m.imports[sym]
                 q = R.find(imp[1], p.parent)
@@ -880,6 +947,17 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
         h.update(d.encode())
     h.update(b"\0extra\0" + (extra if isinstance(extra, bytes) else str(extra).encode()))
     return h.hexdigest()[:16]
+
+
+def reach_whole(path, entries, search_dirs=(), root=None, stop=()):
+    """The files the key of `entries` hashes whole, sorted: where the
+    resolver widened, plus any file loaded by path (hashed whole by
+    design). A whole file in a key means any edit to it is a cold solve,
+    and nothing else says so; a host self-check asserts the list it
+    expects (`assert reach_whole(__file__, ["_solve"], dirs) == []`)."""
+    tr = []
+    reach_key(path, entries, search_dirs, root=root, trace=tr, stop=stop)
+    return sorted({t[0] for t in tr if t[1] == "whole"})
 
 
 def self_check():
@@ -1090,6 +1168,57 @@ def self_check():
         if reach_key(d / "other.py", ["solve"], [str(d)], root=d) != c:
             fails.append("load by path: a solve that imports the loader but uses none of it re-keyed "
                          "when the loaded file changed")
+    # module aliases the resolver follows rather than widens (2026-11-18):
+    # an alias of an alias by bare name, the alias elements of a statement
+    # binding several names, a literal getattr on a chain of aliases
+    PH = "LIMIT = 2\ndef lift(x):\n    return 2 * x\ndef unused():\n    return 0\n"
+    BF = "import phys as fp\nimport tabs as ts\n"
+    FC = "import bf\nfp, ts = bf.fp, bf.ts\nft = fp\n"
+    TABS = "def fmt(x):\n    return str(x)\n"
+    HEAD = "import fc\ndef count():\n    return 3\ndef use(mod):\n    return mod.lift(1)\n"
+    alias_cases = [
+        # (what, lib.py, files expected whole, [(file, old, new, should the key move)])
+        ("an alias of an alias by bare name, re-exported in a tuple",
+         HEAD + "base, ft, bf = fc.ts, fc.ft, fc.bf\ndef solve():\n    return ft.lift(2)\n", [],
+         [("phys.py", "return 0", "return 1", False), ("tabs.py", "str(x)", "repr(x)", False),
+          ("phys.py", "2 * x", "3 * x", True)]),
+        ("a tuple of aliases beside one real value",
+         HEAD + "ft, N, bf = fc.ft, count(), fc.bf\ndef solve():\n    return ft.lift(N)\n", [],
+         [("phys.py", "return 0", "return 1", False), ("lib.py", "return 3", "return 4", True),
+          ("phys.py", "2 * x", "3 * x", True)]),
+        ("a literal getattr on a chain of module aliases",
+         HEAD + "X = getattr(fc.bf.fp, 'LIMIT', 1)\ndef solve():\n    return X + hasattr(fc.ft, 'ABSENT')\n", [],
+         [("phys.py", "return 0", "return 1", False), ("phys.py", "LIMIT = 2", "LIMIT = 3", True),
+          ("phys.py", "LIMIT = 2", "LIMIT = 2\nABSENT = 1", True)]),
+        ("a module passed to a function is still hashed whole, and only that one",
+         HEAD + "ts, ft = fc.ts, fc.ft\ndef solve():\n    return use(ft)\n", ["phys.py"],
+         [("phys.py", "return 0", "return 1", True), ("tabs.py", "str(x)", "repr(x)", False)]),
+        ("a module held in a structure is still hashed whole",
+         HEAD + "MODS = [fc.ft]\ndef solve():\n    return MODS[0].lift(1)\n", ["phys.py"],
+         [("phys.py", "return 0", "return 1", True)]),
+        ("names that alias each other in a circle resolve to nothing, and end",
+         "a = b\nb = a\ndef solve():\n    return a\n", [], []),
+    ]
+    for what, lib_src, want_whole, edits in alias_cases:
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            src = {"phys.py": PH, "bf.py": BF, "fc.py": FC, "tabs.py": TABS, "lib.py": lib_src}
+            for n, t in src.items():
+                (d / n).write_text(t)
+            got = reach_whole(d / "lib.py", ["solve"], [str(d)], root=d)
+            if got != want_whole:
+                fails.append(f"{what}: hashed whole {got}, expected {want_whole}")
+            a = reach_key(d / "lib.py", ["solve"], [str(d)], root=d)
+            for fn, old_t, new_t, should in edits:
+                if old_t not in src[fn]:
+                    fails.append(f"test edit did not apply: {what}")
+                    continue
+                (d / fn).write_text(src[fn].replace(old_t, new_t))
+                moved = reach_key(d / "lib.py", ["solve"], [str(d)], root=d) != a
+                (d / fn).write_text(src[fn])
+                if moved != should:
+                    fails.append(f"{what}, {fn} {old_t!r} -> {new_t!r}: the key "
+                                 f"{'moved' if moved else 'held'}, it should have {'moved' if should else 'held'}")
     return fails
 
 
@@ -1100,11 +1229,17 @@ if __name__ == "__main__":
     ap.add_argument("entries", nargs="+")
     ap.add_argument("--dir", action="append", default=[], help="a search directory (repeatable)")
     ap.add_argument("--trace", action="store_true", help="list what is hashed")
+    ap.add_argument("--whole", action="store_true",
+                    help="list the files hashed whole instead of the key; exit 1 if there are any")
     if sys.argv[1:] == ["--self-check"]:
         f = self_check()
         print(f"self_check: {'PASS' if not f else f}")
         sys.exit(1 if f else 0)
     a = ap.parse_args()
+    if a.whole:
+        w = reach_whole(a.path, a.entries, a.dir)
+        print("\n".join(w) if w else "nothing is hashed whole")
+        sys.exit(1 if w else 0)
     tr = [] if a.trace else None
     print(reach_key(a.path, a.entries, a.dir, trace=tr))
     for t in tr or []:

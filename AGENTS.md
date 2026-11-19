@@ -297,7 +297,7 @@ When writing, running or reviewing a gate, audit, cache or heavy solve:
   gates-fail-fast — cheap checks first; the first failure stops everything else
   review-against-a-contract — skip/cache/hold/refuse code: one-line contract; a finding counts once reproduced
   shared-result-cache — share code-keyed memos on a cache branch; a peer waits on a leased solve
-  slow-steps-report-and-cache — over a minute: print elapsed and remaining; cache a heavy solve to disk
+  slow-steps-report-and-cache — over a minute: report progress; save each unit as it ends; cache a heavy solve
 When writing, triaging or doing work on an open item:
   item-closes-on-its-condition — record findings in the item; close only on its condition
 When writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply:
