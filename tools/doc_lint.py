@@ -1790,11 +1790,28 @@ def is_declared_output(path):
     return bool(title_case.is_outward(path, ROOT))
 
 
+CHANGE_HISTORY_WHY = ("a document's own change history belongs in the record "
+                      "doc or version control, never in a section of the document")
+
+
+def is_change_form(path):
+    """True for a pull request form: GitHub's pull_request_template.md, or a
+    file under a PULL_REQUEST_TEMPLATE directory. Its "What changed" heading
+    asks the author what their pull request changes; it is not the form
+    recounting its own earlier versions, which is what the change-history
+    pattern is for. That pattern arrived 2026-11-17 and refused this
+    repository's own form the first time anyone edited it, two days later."""
+    parts = [x.lower() for x in pathlib.PurePath(str(path)).parts]
+    return bool(parts) and (parts[-1] == 'pull_request_template.md'
+                            or 'pull_request_template' in parts[:-1])
+
+
 def check_residue(path):
     """[(lineno, message)] process-residue hits in a deliverable doc."""
     if is_record_doc(path) or is_declared_internal(path):
         return []
     out = []
+    form = is_change_form(path)
     # Was r"\]\([^)]*_(record|diligence)\.md\)" -- only two of the six
     # record-doc name suffixes is_record_doc() (and RECORD_NAME_RE) already
     # recognize. A line that is legitimately just a link to
@@ -1813,6 +1830,8 @@ def check_residue(path):
         if link_re.search(line):
             continue        # the one allowed reference: a link to the record
         for pat, why in RESIDUE_PATTERNS:
+            if form and why == CHANGE_HISTORY_WHY:
+                continue
             if pat.search(line):
                 out.append((i, why))
     return out
