@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 178 practice files (6 resident, 172 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 179 practice files (6 resident, 173 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -164,6 +164,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [source-sets-run-no-ci](practices/source-sets-run-no-ci.md) | on-demand | installing, refreshing or adding a continuous-integration workflow in a practice SOURCE -- an individual or shared set |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | computing, quoting or tabulating figures |
+| [tasked-session-stays-reachable](practices/tasked-session-stays-reachable.md) | on-demand | tasking another session with long work, sending a working session a change of plan, or doing long work for a session that tasked you |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
 | [their-constraints-are-given](practices/their-constraints-are-given.md) | on-demand | a person's account of their own situation seems contradicted by the evidence |
