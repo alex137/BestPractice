@@ -7883,3 +7883,56 @@ def check_brought_sets_have_their_own_session_budget():
           not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
 
 
+def check_manifest_is_the_same_with_and_without_an_individual_set():
+    """A tracked MANIFEST.json does not depend on whose session synced it.
+
+    2026-11-18: a consumer's manifest listed the person's individual set
+    under `sources` though that set put no practice in the tree. A session
+    that could reach the set wrote the entry, a worker session that could
+    not left it out, and the push check, which compares the tracked file
+    with a fresh sync, refused each one's push in turn -- seven worker
+    sessions, with nothing stale. The sync is run here both ways on one
+    tree, and the comparison on a manifest written before the fix."""
+    import precedent_materialize as _pm
+    uni = {'level': 'universal', 'name': 'precedent', 'path': 'precedent/universal'}
+    ind = {'level': 'individual', 'name': 'planted-individual',
+           'path': '/nowhere/planted-individual'}
+    theirs = {'slug': 'planted-rule', 'level': 'universal', 'source': 'precedent',
+              'sha256_16': '0' * 16}
+    own = {'slug': 'planted-own-rule', 'level': 'individual',
+           'source': 'planted-individual', 'sha256_16': '1' * 16}
+
+    def build(sources, written):
+        return _pm._build_manifest(sources, written, [], {}, base=None)
+
+    def names(m):
+        return [e['name'] for e in m['sources']]
+    with_set, without = build([uni, ind], [theirs]), build([uni], [theirs])
+    results = [
+        ('1: a set with no practice in the tree is not recorded',
+         names(with_set) == ['precedent'], str(names(with_set))),
+        ('2: so both sessions write the same manifest',
+         _pm._comparable(with_set) == _pm._comparable(without), ''),
+        ('3: CONTROL: a set with a practice in the tree is recorded',
+         names(build([uni, ind], [theirs, own])) == ['precedent', 'planted-individual'],
+         str(names(build([uni, ind], [theirs, own])))),
+    ]
+    # A manifest an older engine wrote still carries the bare entry.
+    older = dict(without, sources=without['sources'] + [
+        {'level': 'individual', 'name': 'planted-individual',
+         'path': '/elsewhere/planted-individual', 'commit': 'a' * 40}])
+    results.append(('4: an older manifest carrying the bare entry is not drift',
+                    _pm._comparable(older) == _pm._comparable(without), ''))
+    shared = dict(without, sources=without['sources'] + [
+        {'level': 'shared', 'name': 'planted-shared', 'path': '../planted-shared'}])
+    results.append(('5: CONTROL: a shared set one side lacks is still drift',
+                    _pm._comparable(shared) != _pm._comparable(without), ''))
+    kept = build([uni, ind], [theirs, own])
+    results.append(('6: CONTROL: nor is a set with a practice here dropped '
+                    'from the comparison',
+                    _pm._comparable(kept) != _pm._comparable(
+                        dict(kept, sources=kept['sources'][:1])), ''))
+    failed = [(n, d) for n, ok, d in results if not ok]
+    check(f'a tracked manifest is the same whether or not the session can '
+          f'reach an individual set ({len(results)} stated cases)',
+          not failed, '; '.join(f'{n} -- {d}' for n, d in failed))
