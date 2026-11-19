@@ -185,3 +185,9 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **`add_repo` with `owner: owner, repo: SomeSet` answers `Repo owner/someset added`, hands back a lowercase `clone_url`, and tells the session to call `register_repo_root` with `repo: "someset"`. A session that follows it clones from the lowercase URL, so the clone's origin, and anything copied from it, now spells a declared repository a second way.** [story](gotcha-2026-10-31-add-repo-answers-a-capitalized-repository-in-lowercase.md)
 
 - **In a session opened above its repositories (`/home/user`), the first tool call is refused:** [story](gotcha-2026-11-01-opened-above-its-repos-the-freshness-guard-moved-a-source-clone-off-main.md)
+
+- **A cloud session works for two days with the person's individual set unread. Every turn the reply gate prints** [story](gotcha-2026-11-18-an-unread-individual-set-was-reported-as-a-missing-username.md)
+
+- **A long job running in the background of a cloud session dies with no error, and `uptime` shows the machine has been up for a minute. The conversation carries a notice that instruction files "were re-read when this session started". Nothing in the job's log explains it.** [story](gotcha-2026-11-18-attaching-a-repository-restarts-a-cloud-session-and-kills-its-jobs.md)
+
+- **A session that tasks other sessions sends one a change of plan. The send reports "delivered". The other session carries on with the old plan, and hours later says the message "never arrived", or that several arrived at once.** [story](gotcha-2026-11-19-messages-to-a-busy-session-arrive-hours-late.md)
