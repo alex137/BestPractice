@@ -128,7 +128,6 @@ as_of: 2026-11-19
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 22d | wait |  |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, | 19d | wait | out of scope of the 2026-10-31 loader-template move, and a judgment on wording w… |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | 15d | ask |  |
-| [`todo-2026-11-15-a-manifest-entry-for-an-individual-set-with-no-practices-flips`](todo-2026-11-15-a-manifest-entry-for-an-individual-set-with-no-practices-flips.md) | A consumer's tracked `MANIFEST.json` gains and loses its individual-set entry depending on which session lands. | 4d | ask |  |
 
 ## Unblocked Work
 
@@ -168,11 +167,9 @@ as_of: 2026-11-19
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens |  |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, |  |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
-| [`todo-2026-11-15-a-manifest-entry-for-an-individual-set-with-no-practices-flips`](todo-2026-11-15-a-manifest-entry-for-an-individual-set-with-no-practices-flips.md) | A consumer's tracked `MANIFEST.json` gains and loses its individual-set entry depending on which session lands. | Morgan's choice between the two fixes below; it changes what a private repository's tracked manifest records about a person's individual set (his decision of 2026-10-19) |
 
 ## Due Reminders
 
 | Item | What | Due since |
 |---|---|---|
-| [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-11-15 |
 | [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 2026-11-19 |

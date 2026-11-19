@@ -4187,6 +4187,7 @@ def main():
     check_very_deep_check_account_blocks_postdate_the_last_fix()
     check_default_blocklist_runs_the_vocabulary_layer()
     check_session_practices_load_without_publishing()
+    check_manifest_is_the_same_with_and_without_an_individual_set()
     check_fix_sweep_copy_keeps_its_neighbours()
     check_fix_sweep_judges_in_force_by_the_targets_resolver()
     check_engine_carries_no_branch_naming_enforcement()

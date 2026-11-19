@@ -109,6 +109,19 @@ def check_doc_lint_fires():
         cases.append(('plain prose near those words is not residue',
                       not dl.check_residue('prose-clean.md')))
 
+        # 2026-11-19: a pull request form asks "What changed" of the pull
+        # request it will describe. The same heading in any other document
+        # is that document recounting its own versions, and still fires.
+        (tmp / 'pull_request_template.md').write_text(
+            "## What changed\n\nOne or two sentences.\n", encoding='utf-8')
+        (tmp / 'brief.md').write_text(
+            "## What changed\n\nOne or two sentences.\n", encoding='utf-8')
+        cases.append(("a pull request form's own What changed heading is "
+                      'not residue',
+                      not dl.check_residue('pull_request_template.md')))
+        cases.append(('CONTROL: the same heading in any other document is',
+                      bool(dl.check_residue('brief.md'))))
+
         # 2026-10-10: a repo that declares its reader-facing documents has
         # answered which files are deliverables. A rule that tells a writer
         # not to quote "from memory", in a working document it did not

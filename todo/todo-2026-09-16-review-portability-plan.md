@@ -5,7 +5,7 @@ domain:            content
 severity:          notable
 status:            open
 disposition:       ask
-remind_on:         "2026-11-15"
+remind_on:         "2026-12-01"
 blocked_on:        null
 batch:             null
 decision:          null
@@ -39,3 +39,4 @@ remaining phases.
 ## Notes
 
 - 2026-10-11: Morgan moved the reminder from 2026-09-19 to 2026-11-15 ("give me the date of Nov 15th to remind me please"); the review itself is still open.
+- 2026-11-19: Alex moved the reminder: "Move date to December". Set to 2026-12-01, the first day of the month, since no day was named.
