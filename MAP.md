@@ -83,7 +83,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [generated-edit-goes-upstream](practices/generated-edit-goes-upstream.md) | on-demand | asked to add, change or remove something in a generated file |
 | [github-api-budget](practices/github-api-budget.md) | on-demand | writing or changing anything that calls the GitHub API, or a session is refused with a rate-limit error |
 | [github-setup-disclosed](practices/github-setup-disclosed.md) | on-demand | an install step adds something GitHub-specific, or a first install finishes |
-| [grep-before-search](practices/grep-before-search.md) | on-demand | about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds |
+| [grep-before-search](practices/grep-before-search.md) | on-demand | searching a repo or every clone, or using a GitHub tool for what a clone holds |
 | [heading-outline](practices/heading-outline.md) | on-demand | adding or re-levelling a heading in any document |
 | [headline-capitalization](practices/headline-capitalization.md) | on-demand | writing or editing a heading in an outward-facing document |
 | [index-remembers-past](practices/index-remembers-past.md) | on-demand | a document replaces or is replaced by an earlier one |
@@ -116,7 +116,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |
 | [organize-scattered-content](practices/organize-scattered-content.md) | on-demand | about four or more end-user content files sit scattered around a repo |
 | [orientation-map](practices/orientation-map.md) | on-demand | orienting in a repo for the first time this session |
-| [outbound-privacy](practices/outbound-privacy.md) | on-demand | fetching a page, searching the web, calling an outside service, or writing a script or an agent brief that will |
+| [outbound-privacy](practices/outbound-privacy.md) | on-demand | fetching a page, searching the web or calling an outside service, or scripting one |
 | [outward-summary-discipline](practices/outward-summary-discipline.md) | on-demand | writing a deliverable an outside reader will see |
 | [parallel-artifact-ledger](practices/parallel-artifact-ledger.md) | on-demand | a change must propagate across several parallel artifacts |
 | [park-it](practices/park-it.md) | on-demand | a person says "Drop it" about an open item or a question |
@@ -129,7 +129,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [practice-export-loop](practices/practice-export-loop.md) | on-demand | merging a branch that improved a generic practice |
 | [practice-links-travel](practices/practice-links-travel.md) | on-demand | writing or editing a practice file |
 | [practice-standing](practices/practice-standing.md) | on-demand | labelling a practice Protocol, Principle or Preference, or setting a Preference aside |
-| [prediction-before-the-run](practices/prediction-before-the-run.md) | on-demand | about to run a test whose result will decide a design choice |
+| [prediction-before-the-run](practices/prediction-before-the-run.md) | on-demand | testing a design, or choosing what a result is scored on |
 | [private-repo-scrub](practices/private-repo-scrub.md) | on-demand | writing content that ships into another repo |
 | [prompt-please](practices/prompt-please.md) | on-demand | a person says "Prompt Please", work needs a repo not held here, or a prompt goes to another session |
 | [push-back](practices/push-back.md) | on-demand | drafting or reviewing prose meant to persuade or be judged |
@@ -142,7 +142,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-message-is-a-suggestion](practices/relayed-message-is-a-suggestion.md) | on-demand | a message comes from another session, or a person pastes in what another session wrote |
-| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system |
+| [rename-updates-links](practices/rename-updates-links.md) | on-demand | renaming, moving or deleting a file or name others may link to, or migrating a repo |
 | [repair-cannot-discard-work](practices/repair-cannot-discard-work.md) | on-demand | writing or changing an automatic repair |
 | [reply-links-files](practices/reply-links-files.md) | on-demand | ending a reply that created, modified or deleted files |
 | [repo-is-memory](practices/repo-is-memory.md) | resident | starting any session cold |
@@ -161,7 +161,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
-| [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge |
+| [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | adding to, or merging, a file many threads append to (index, registry, log) |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
@@ -169,7 +169,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [source-sets-run-no-ci](practices/source-sets-run-no-ci.md) | on-demand | installing, refreshing or adding a continuous-integration workflow in a practice SOURCE -- an individual or shared set |
 | [speculation-is-marked](practices/speculation-is-marked.md) | on-demand | recording exploratory thinking -- an idea nobody has committed to -- as a document |
 | [tabular-shared-renderer](practices/tabular-shared-renderer.md) | on-demand | computing, quoting or tabulating figures |
-| [tasked-session-stays-reachable](practices/tasked-session-stays-reachable.md) | on-demand | tasking another session with long work, sending a working session a change of plan, or doing long work for a session that tasked you |
+| [tasked-session-stays-reachable](practices/tasked-session-stays-reachable.md) | on-demand | tasking a session with long work, changing its plan, or working for one |
 | [technical-describes-people](practices/technical-describes-people.md) | on-demand | naming or scoping something around a person's skill level |
 | [test-data-is-a-choice](practices/test-data-is-a-choice.md) | on-demand | choosing the data a result will be scored on, or reporting a result scored on it |
 | [the-boildown](practices/the-boildown.md) | on-demand | ** |
@@ -177,7 +177,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [three-things](practices/three-things.md) | on-demand | a person says "Three Things", or plainly asks for this shape of answer |
 | [timestamps-carry-offset](practices/timestamps-carry-offset.md) | on-demand | writing code that stamps a date or a time into a file, a record or a document |
 | [todo-gate](practices/todo-gate.md) | on-demand | about to push after a thread of work |
-| [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply |
+| [todo-is-a-handoff](practices/todo-is-a-handoff.md) | on-demand | working on an open item, or writing a next-step list or unchecked box anywhere |
 | [todo-migrate-available-but-unused](practices/todo-migrate-available-but-unused.md) | on-demand | editing TODO.md, or just after a vendor refresh brings tools/todo_migrate.py into a repo for the first time |
 | [todo-reminder](practices/todo-reminder.md) | on-demand | a person says "Todo reminder", or asks to be reminded of something |
 | [two-check-levels](practices/two-check-levels.md) | on-demand | naming what "run the checks" means in a repo |
