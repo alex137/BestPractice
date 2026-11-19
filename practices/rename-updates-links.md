@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "A rename can strand a reference in any file of any type -- a markdown link, a path inside a script, a workflow, a config -- so no narrower glob is honest. `**` is right here for the same reason it is right for no-version-suffix: the occasion is an action taken ON a file, not a property of the file being edited. Its check is scoped instead: it compares against the published default branch, so it only ever asks about renames this branch itself made. Decided: 2026-09-06, when the practice was added."
-occasion:    "renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system"
+occasion:    "renaming, moving or deleting a file or name others may link to, or migrating a repo"
 gates:       []
 index_clause: "repoint every link and use of a retired name in the same commit or migration"
 checked_by:  "tools/precedent_check.py"

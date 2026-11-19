@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["TODO.md", "todo/todo-*.md"]
 applies_to_why: "The distinguishing condition is writing or triaging an entry in the TODO file itself — the only place the practice's rule is ever violated. Widened 2026-09-18 to the per-item todo/ format's own files, once a repo has migrated to it. Decided: post-phase-4, converting Alex's practice 53."
-occasion:    "writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply"
+occasion:    "working on an open item, or writing a next-step list or unchecked box anywhere"
 gates:       ["merge", "reply"]
 gates_why:   "The periodic sweep that enforces the stated-reason requirement on the backlog naturally happens at merge time, the same as capture-gate. The reply gate carries it because a reply is where an unsettled list often lands, and no check reads the lists in a reply (2026-10-12)."
 index_clause: "queue only for a stated blocked-on/out-of-scope reason; else just do it"
