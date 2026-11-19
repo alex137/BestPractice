@@ -155,7 +155,28 @@ BASIC_CHECK = ["python3", "tools/precedent_push_check.py", "--tier", "basic"]
 # in an afternoon, and each time the push check refused every landing until
 # someone resynced by hand. The lander resyncs them itself, as a commit of
 # its own, before the push check judges the merge.
-SYNC_VIEWS = ["python3", "tools/precedent_sync_views.py", "--repo", "."]
+#
+# WHICH TOOL RESYNCS DEPENDS ON THE REPOSITORY'S KIND (2026-11-19). A
+# practice set (ENGINE_MANIFEST.json kind "source") is not vendored
+# precedent_sync_views.py; its views are build_views.py's. Naming the
+# consumer's tool for every repository failed every queued branch in
+# precedent-individual at this step ("can't open file
+# .../tools/precedent_sync_views.py") -- the queue lander could land nothing
+# there, and sessions fell back to precedent_branches.py --land.
+def sync_views_cmd(root):
+    """-> the command that regenerates `root`'s practice views."""
+    import json
+    try:
+        kind = json.loads((root / "tools" / "ENGINE_MANIFEST.json")
+                          .read_text(encoding="utf-8")).get("kind")
+    except (OSError, ValueError):
+        kind = None
+    if kind == "source":
+        return ["python3", "tools/build_views.py", "--repo", "."]
+    return ["python3", "tools/precedent_sync_views.py", "--repo", "."]
+
+
+SYNC_VIEWS = sync_views_cmd(ROOT)
 # Generated lists the merge may conflict on, each with the command that
 # rebuilds it from the files it lists. A conflict confined to these is no
 # judgment call: the lander rebuilds them and finishes the merge. Found
@@ -742,6 +763,25 @@ def self_check():
     report_failure = lambda *a: ""  # noqa: E731 -- no issues from a scratch repo
     TRUNK, SHARED_CACHES, LEDGERS = "master", (".cache",), ()
     ok = True
+    import json
+    for kind, tool in (("source", "tools/build_views.py"),
+                       ("consumer", "tools/precedent_sync_views.py"),
+                       ("unreadable", "tools/precedent_sync_views.py"),
+                       ("absent", "tools/precedent_sync_views.py")):
+        # A practice set resyncs with build_views.py, anything else -- a
+        # consumer, a broken manifest, no manifest -- with
+        # precedent_sync_views.py (sync_views_cmd's WHY).
+        with tempfile.TemporaryDirectory() as td:
+            (pathlib.Path(td) / "tools").mkdir()
+            m = pathlib.Path(td) / "tools" / "ENGINE_MANIFEST.json"
+            if kind == "unreadable":
+                m.write_text("")
+            elif kind != "absent":
+                m.write_text(json.dumps({"kind": kind}))
+            got = sync_views_cmd(pathlib.Path(td))[1]
+            if got != tool:
+                print(f"FAIL: manifest {kind!r} resyncs with {got}, not {tool}")
+                ok = False
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
         origin, work = td / "origin.git", td / "work"
