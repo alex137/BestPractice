@@ -29,18 +29,18 @@ isn't in the glossary, it adds it in the same pass — **and where the glossary
 is generated, it adds it at the glossary's source, never by editing the
 generated file** (in this catalogue, the `defines:` field of the practice that
 owns the term; see [generated-edit-goes-upstream](generated-edit-goes-upstream.md)).
-Identifiers that already have their own registry (a code table, a component
-index) are pointed to, not duplicated.
-
-**A proper noun needs no definition**, even written in capitals: a
-company's, product's or place's name ("ATCO Pest Control") is already the
-fullest form a document can give (Morgan, 2026-11-19). Neither does a date
-format's letters (YYYY-MM-DD). The check reads both as such: capitals that
-lead a multi-word name after a lowercase word, and letter fields joined
-into a date or time pattern.
+Identifiers with their own registry (a code table, a component index) are
+pointed to, not duplicated; **proper nouns and date formats need nothing.**
 
 ## Detail
 ## Why
+**Proper nouns and date formats** (Morgan, 2026-11-19). A company's,
+product's or place's name ("ATCO Pest Control") is already the fullest form a document can give,
+and a date format's letters (YYYY-MM-DD) stand for digits. The check reads capitals that
+lead a multi-word name after a lowercase word as a name, and letter fields
+joined into a date or time pattern as a format. A real acronym inside a
+Title-Case title, in a heading or standing alone is still caught.
+
 In a repo-is-the-memory system the reader arriving at a document is
 usually *not* the person who wrote it and often has none of the surrounding
 context — the exact case an acronym silently assumes. One undefined initialism
