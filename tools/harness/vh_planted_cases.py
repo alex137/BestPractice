@@ -1382,7 +1382,18 @@ def check_precedent_check_fires():
             d = repo / 'templates' / 'nontechnical-thing'
             d.mkdir(parents=True, exist_ok=True)
             (d / 'a.md').write_text('# planted\n', encoding='utf-8')
+            # A kind of writing, not a reader's skill: planted beside the
+            # label that must fire, and must stay out of the findings.
+            (repo / 'templates' / 'zzz-technical-prose.txt').write_text(
+                'planted\n', encoding='utf-8')
         case('technical-describes-people', _plant_skill_label)
+        if 'technical-describes-people' in planted:
+            _tdp = planted['technical-describes-people'][1]
+            cases.append(('technical-describes-people: "technical" before a '
+                          'kind of writing is not a skill label, and the '
+                          'label beside it still fires',
+                          'zzz-technical-prose' not in _tdp
+                          and 'nontechnical-thing' in _tdp))
 
         # no-version-suffix
         case('no-version-suffix',
@@ -4126,6 +4137,14 @@ def check_precedent_check_fires():
                     'overrides:   null\nadded:       null\napproved_by: "h"\n'
                     '---\n\n## Rule\nDo it.\n\n## Story\nPlanted.\n')
 
+        def _retired_starter(repo, ind):
+            for f in (repo / 'templates' / 'practice-set-individual'
+                      / 'practices').glob('*.md'):
+                (ind / 'practices' / f.name).write_text(
+                    f.read_text(encoding='utf-8').replace(
+                        'status:      active', 'status:      retired', 1),
+                    encoding='utf-8')
+
         def _setup_enforcement_lives(repo):
             ind = repo / '_planted_individual'
             (ind / 'practices').mkdir(parents=True, exist_ok=True)
@@ -4137,6 +4156,11 @@ def check_precedent_check_fires():
                 '#!/bin/bash\nexit 0\n', encoding='utf-8')
             (ind / 'practices' / f'{_zz_set}-rule.md').write_text(
                 _set_practice('tools/checks/check_zzz.py'), encoding='utf-8')
+            # The set still holds the starter its template gave it, retired,
+            # as a real person's did on 2026-11-19. The starter is the
+            # engine's own file, which the bootstrap test names, so the
+            # clean tree must still pass with it there.
+            _retired_starter(repo, ind)
             (repo / '.planted-user-config.json').write_text(_pj_e.dumps({
                 'format_version': 1, 'individual': {
                     'name': _zz_set, 'path': '_planted_individual'}}),

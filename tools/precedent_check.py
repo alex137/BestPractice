@@ -3050,6 +3050,17 @@ _PERSON_NOUNS = ('contributor', 'contributors', 'person', 'people', 'user',
                  'authors', 'reader', 'readers', 'writer', 'writers',
                  'staff', 'colleague', 'colleagues', 'owner', 'owners')
 
+# Nouns "technical" joins to name a kind of writing or a field's own term,
+# where it says nothing about who the reader is: technical prose is a
+# register with a standard of its own, technical debt is a thing a codebase
+# has. Only the bare word, and only directly before one of these; a
+# "technical guide" or a "technical setup" is still a document labelled for
+# its reader, and "non-technical" anything always is (2026-11-18: a
+# consumer's source text `...-technical-prose.txt` was refused, and the
+# rename broke the job that had written it).
+_SUBJECT_NOUNS = ('prose', 'writing', 'debt', 'term', 'terms', 'vocabulary',
+                  'standard', 'standards', 'drawing', 'drawings')
+
 _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?',
                              re.IGNORECASE)
 
@@ -3057,9 +3068,11 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
 @check('technical-describes-people', 'tree',
        'no tracked path labels a FILE or DIRECTORY with a skill level; '
        "'technical' and 'non-technical' describe people",
-       'the same label inside prose, and a path where the label is followed '
+       'the same label inside prose, a path where the label is followed '
        'by a person-noun (a nontechnical-contributor-guide names a person '
-       'and is correct). It reads names only -- it cannot see a per-person '
+       'and is correct), and bare "technical" directly before a noun it '
+       'joins to name a kind of writing or a field\'s term (technical-prose, '
+       'technical-debt). It reads names only -- it cannot see a per-person '
        'rule written into a shared file, which is the failure the name leads '
        'to.',
        # A practice filename is a published path.
@@ -3093,6 +3106,8 @@ def _technical_describes_people(ctx):
             rest = part[m.end():].lower()
             token = re.split(r'[/_\-. ]', rest.lstrip('_-'))[0]
             if token in _PERSON_NOUNS:
+                continue
+            if m.group(1).lower() == 'technical' and token in _SUBJECT_NOUNS:
                 continue
             out.append(Finding(f, "the path labels a file or directory with a "
                                   "skill level ('%s') -- that describes a "
@@ -4050,6 +4065,17 @@ def _repo_local_practice_dirs():
     return out
 
 
+def _template_starter_slugs(root):
+    """-> the slugs of the starter practices the engine's own set templates
+    ship (templates/practice-set-*/practices/*.md). They are files of this
+    repository, named by the bootstrap tool, its tests and each template's
+    own README, and every set made from a template starts with a copy. A
+    person who retires their copy has withdrawn a practice of THEIR set; the
+    template's file of the same name is still there and still linked."""
+    return {f.stem for f in pathlib.Path(root).glob(
+        'templates/practice-set-*/practices/*.md')}
+
+
 @check('practice-change-propagates', 'tree',
        'no file this repository owns carries a LIVE pointer to a practice in '
        'force nowhere, or one that now only forwards to a different slug -- a '
@@ -4094,10 +4120,15 @@ def _practice_change_propagates(ctx):
     successors = {s: v['successor'] for s, v in wmap.items() if v['successor']}
     rows = ppr.scan_root(ROOT, set(wmap), successors,
                          skip=ppr.received_paths(ROOT)) if wmap else []
+    starters = _template_starter_slugs(ROOT)
     for row in rows:
         if not ppr.must_fix(row, wmap):
             continue
         rel, ln, slug, form, _kind, section, _line = row
+        # A set template citing its own starter file: the slug was withdrawn
+        # in some set made from the template, not here.
+        if slug in starters and str(rel).startswith('templates/practice-set-'):
+            continue
         succ = successors.get(slug)
         what = {'link': 'links', 'show': 'looks up'}.get(form, 'names')
         where = (' in its Rule' if form not in ('link', 'show') else '')
@@ -9369,8 +9400,16 @@ def _enforcement_lives_with_its_practice(ctx):
     # not one set's rule (Morgan, 2026-10-16: "keep the default name").
     names = names - {_pr.DEFAULT_INDIVIDUAL_NAME}
     wanted = (names | set(slugs)) - {_pr.DEFAULT_INDIVIDUAL_NAME} - set(_SET_NAMES_KEPT)
+    # The starter file the engine's own set templates ship is the engine's
+    # name: every set bootstrapped from a template carries it, so a set that
+    # still holds its starter does not make it that set's rule (2026-11-19:
+    # the bootstrap test, which checks the starter was written, read as
+    # naming one person's practice wherever their set was on disk).
+    starters = _template_starter_slugs(ctx.root)
+    wanted -= starters
     set_only = {s: n for s, n in slugs.items()
-                if s not in universal and s not in _SET_NAMES_KEPT}
+                if s not in universal and s not in _SET_NAMES_KEPT
+                and s not in starters}
     # EVERY .py under tools/, not only the engine's file lists (2026-10-17):
     # the harness and BestPractice's own checks are never vendored, so the
     # lists missed the tests that held a set's rules -- the problem fixed the

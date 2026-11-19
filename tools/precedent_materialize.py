@@ -2247,6 +2247,26 @@ def _with_owner(entry, source, written):
     return entry
 
 
+def _recorded_here(source, written):
+    """Whether a source gets a `sources` entry in this tree's manifest.
+
+    Every source does but one: an individual set with no practice written
+    here. That set resolves through one person's own config, so whether it
+    is in `sources` at all depends on whose session ran the sync, and the
+    manifest is a tracked file every session's push check compares with a
+    fresh sync. An entry that names only the set, and nothing it put here,
+    made the file differ by machine with nothing stale: a session that
+    could reach the person's set wrote it, one that could not left it out,
+    and each refused the other's push (2026-11-18, a consumer's seven
+    worker sessions in turn). With a practice here the entry stays, and a
+    session with no individual set reports not-verifiable instead
+    (build_views.individual_not_verifiable)."""
+    if pr.normalize_level(source.get('level')) != 'individual':
+        return True
+    return any(pr.normalize_level(w.get('level')) == 'individual'
+               and w.get('source') == source.get('name') for w in written)
+
+
 def _build_manifest(sources, written, checks_written, rstats,
                     adapters_written=(), withheld=None,
                     excluded_engine_dev=None, ships_written=(),
@@ -2279,7 +2299,7 @@ def _build_manifest(sources, written, checks_written, rstats,
                 'this file records exactly what produced the snapshot so drift '
                 'is visible, per generated-artifact-provenance.',
         'sources': [_with_owner(_source_entry(s, base), s, written)
-                    for s in sources],
+                    for s in sources if _recorded_here(s, written)],
         'resident': rstats,
         'practices': written,
         'checks': checks_written,
@@ -2451,24 +2471,41 @@ def drift(sources, res, out_dir, withheld=None):
             found.append('MANIFEST.json is not valid JSON')
             have = None
         if have is not None:
-            have.pop('generated_at_utc', None)
-            want_cmp = dict(want)
-            want_cmp.pop('generated_at_utc', None)
-            # A source outside this directory is compared by level and name:
-            # its path is where the checkout that synced found it, which
-            # another machine's layout changes with nothing stale. Its
-            # commit is provenance, like the timestamp: the content it
-            # produced is what is compared, file by file, above.
-            for side in (have, want_cmp):
-                if isinstance(side.get('sources'), list):
-                    side['sources'] = [
-                        {k: v for k, v in e.items() if k not in ('path', 'commit')}
-                        if isinstance(e, dict) and _outside(e) else e
-                        for e in side['sources']]
+            have, want_cmp = _comparable(have), _comparable(want)
             if have != want_cmp:
                 found.append('MANIFEST.json differs from what a fresh sync writes '
                               '(ignoring its generated_at_utc timestamp)')
     return found
+
+
+def _comparable(manifest):
+    """A manifest as the drift check compares it: what a sync on another
+    machine, or at another minute, would also have written.
+
+    generated_at_utc is a timestamp, not state -- comparing it would make
+    every run report drift against itself. A source outside this directory
+    is compared by level and name: its path is where the checkout that
+    synced found it, which another machine's layout changes with nothing
+    stale, and its commit is provenance, like the timestamp -- the content
+    it produced is compared file by file. An individual set's entry counts
+    only with a practice of that set in the tree (_recorded_here): a
+    manifest written before that rule may still carry a bare one, and it is
+    not drift."""
+    out = {k: v for k, v in manifest.items() if k != 'generated_at_utc'}
+
+    def bare_individual(e):
+        return (pr.normalize_level(e.get('level')) == 'individual'
+                and not any(isinstance(w, dict)
+                            and pr.normalize_level(w.get('level')) == 'individual'
+                            and w.get('source') == e.get('name')
+                            for w in out.get('practices') or []))
+    if isinstance(out.get('sources'), list):
+        out['sources'] = [
+            {k: v for k, v in e.items() if k not in ('path', 'commit')}
+            if isinstance(e, dict) and _outside(e) else e
+            for e in out['sources']
+            if not (isinstance(e, dict) and bare_individual(e))]
+    return out
 
 
 def _parse_args(argv):
