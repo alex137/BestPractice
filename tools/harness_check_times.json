@@ -406,6 +406,7 @@
   "check_main_test_repo_setting": 1.6,
   "check_main_test_without_individual_source": 0.8,
   "check_maintainer_heartbeat_names_a_missing_maintainer_once": 0.7,
+  "check_manifest_is_the_same_with_and_without_an_individual_set": 0.0,
   "check_map_reads_each_tools_own_summary": 11.8,
   "check_markdown_required_only_where_doc_html_runs": 0.1,
   "check_materialize_bridges_loader": 1.0,
