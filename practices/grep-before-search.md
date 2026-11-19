@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus, and deliberately `**`. What the rule governs is a session's choice of TOOL in the moment it goes looking for something -- a local grep against a GitHub search call -- which happens before any file is opened and leaves no artifact in the tree at all. There is no path whose editing means the choice was made badly, so a narrower glob would only make the rule invisible at the moment it fires. Decided: 2026-09-14, when the practice was written."
-occasion:    "about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds"
+occasion:    "searching a repo or every clone, or using a GitHub tool for what a clone holds"
 gates:       []
 index_clause: "grep the clone first; list before search; never sweep every clone unasked"
 index_required: true

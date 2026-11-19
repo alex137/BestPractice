@@ -5,9 +5,9 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Choosing how a result will be tested is a moment, not a file; the occasion index reaches it."
-occasion:    "about to run a test whose result will decide a design choice"
+occasion:    "testing a design, or choosing what a result is scored on"
 gates:       []
-index_clause: "record the prediction and fix the settings before a run that decides something"
+index_clause: "predict first; its additions cover pass marks, data, stand-ins, batches"
 checked_by:  null
 defines:     []
 status:      active

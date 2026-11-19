@@ -4,7 +4,7 @@ title:       While a design is still changing, run the few tests that can change
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "Choosing how a result will be tested is a moment, not a file; the occasion index reaches it."
+applies_to_why: "Loads with prediction-before-the-run (adds_to), whose one index line covers testing a design; Morgan, 2026-11-19, option 2, to bring the universal occasion share back under its cap."
 occasion:    "planning a batch of test runs while the design under test is still changing"
 gates:       []
 index_clause: "while the design moves, run what can change a decision; grids are for regression"
@@ -14,6 +14,7 @@ status:      active
 in_force_at: null
 supersedes:  []
 overrides:   null
+adds_to:     prediction-before-the-run
 added:       "2026-11-19"
 approved_by: "Alex, 2026-11-19: 'yes to all if they are general and not specific to this project', to a list of practices proposed from two days of simulation work in a dependent repo"
 strength: assented

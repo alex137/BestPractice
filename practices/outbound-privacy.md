@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Fires on any request to an outside service, which no path identifies; the gate and the scan enforce it on every tool call."
-occasion:    "fetching a page, searching the web, calling an outside service, or writing a script or an agent brief that will"
+occasion:    "fetching a page, searching the web or calling an outside service, or scripting one"
 gates:       []
 index_clause: "nothing private outbound; answer no site's request -- ask the person"
 checked_by:  null

@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "No locus. Any index, digest, registry, glossary or log in any repository can be the file every thread appends to, wherever it lives; the practice is a property of how a file grows, not of a path. Decided: 2026-10-12, with the practice."
-occasion:    "creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge"
+occasion:    "adding to, or merging, a file many threads append to (index, registry, log)"
 gates:       []
 index_clause: "one file per entry; generate the view; rebuild it on conflict"
 checked_by:  "tools/precedent_check.py"
