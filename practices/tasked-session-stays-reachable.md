@@ -40,7 +40,7 @@ This sits beside [report-up-the-chain](report-up-the-chain.md), which says where
 A fleet's orchestrator steers by message. If its messages land hours late it is steering from a picture that is hours old, and every worker is, at any moment, possibly executing a plan that was replaced. The waste compounds: the work is redone, the sessions that depended on it wait, and the orchestrator reads each late arrival as one worker's lapse and does not see the pattern.
 
 ## Story
-[gotcha-2026-11-19](../gotchas/gotcha-2026-11-19-messages-to-a-busy-session-arrive-hours-late.md): about a night of machine time across seven sessions, and one worker that received eleven messages at once twelve hours after the first was sent. The orchestrating session had itself told the workers to hold their turns open.
+[gotcha-2026-11-19](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-11-19-messages-to-a-busy-session-arrive-hours-late.md): about a night of machine time across seven sessions, and one worker that received eleven messages at once twelve hours after the first was sent. The orchestrating session had itself told the workers to hold their turns open.
 
 ## Install
 Nothing to install. A session that tasks others loads this rule when it does; a brief written for a worker says, in its own words, to check for messages on each wake and to list what it has seen.
