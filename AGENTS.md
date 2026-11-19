@@ -208,10 +208,8 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about four or more end-user content files sit scattered around a repo:
   organize-scattered-content — name a directory and its files, ask, move nothing until yes; recheck later
-When about to run a test whose result will decide a design choice:
-  prediction-before-the-run — record the prediction and fix the settings before a run that decides something
-When about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds:
-  grep-before-search — grep the clone first; list before search; never sweep every clone unasked
+When adding to, or merging, a file many threads append to (index, registry, log):
+  shared-index-is-a-directory — one file per entry; generate the view; rebuild it on conflict
 When an environment or tooling trap costs real time:
   environment-gotchas — one file per trap under gotchas/, with the story, not just the fix
 When an unattended job hits something blocking its normal work, or something optional it cannot reach:
@@ -230,10 +228,6 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When building output for outside readers, or typing quotes or dashes in Markdown:
   curly-quotes — plain quotes and hyphens in Markdown; anything built for a reader converts them
-When choosing the data a result will be scored on, or reporting a result scored on it:
-  test-data-is-a-choice — name the test data, hold some out, include a hard case; say which a result used
-When choosing which case, model, customer or dataset to test and optimize on:
-  name-the-target-case — name the target case; a convenient one is a labeled stand-in, checked early
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When computing, quoting or tabulating figures:
@@ -242,8 +236,6 @@ When computing, quoting or tabulating figures:
   scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
   tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
   verify-decomposition — check the parts, not the total; never assert an impossibility
-When creating or adding to a file many threads append entries to (an index, digest, registry or log), or when such a file conflicts in a merge:
-  shared-index-is-a-directory — one file per entry; generate the view; rebuild it on conflict
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
@@ -255,7 +247,7 @@ When drafting or reviewing prose meant to persuade or be judged:
   push-back — argue a real counter-case before building on a stated stance
 When exporting a tool across a repo boundary, or a second implementation of the same mechanism turns up:
   engine-plus-host-shims — one engine, thin host shims, never a fork; a second copy becomes one tool
-When fetching a page, searching the web, calling an outside service, or writing a script or an agent brief that will:
+When fetching a page, searching the web or calling an outside service, or scripting one:
   outbound-privacy — nothing private outbound; answer no site's request -- ask the person
 When finishing a task a session was spawned or triggered to do:
   report-up-the-chain — report to whoever tasked you; noticed work goes up, never out
@@ -269,14 +261,12 @@ When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
-When planning a batch of test runs while the design under test is still changing:
-  narrow-runs-while-moving — while the design moves, run what can change a decision; grids are for regression
 When reading what a message asks for, or writing one that a session or a check will read:
   read-for-intent — the words, the context and the conversation; never the keyword alone
-When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
+When renaming, moving or deleting a file or name others may link to, or migrating a repo:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
-When setting a pass mark, margin or threshold that a design will be judged against:
-  score-the-incumbent-first — score what you compete with on your own pass mark before judging yourself
+When searching a repo or every clone, or using a GitHub tool for what a clone holds:
+  grep-before-search — grep the clone first; list before search; never sweep every clone unasked
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When setting up a repository's standing session, or session start says the repository has no maintainer:
@@ -286,12 +276,14 @@ When starting work the repository or another session may already cover:
   lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
 When starting work, or packaging a change for review, in a repository several members work in:
   working-in-parallel — claim first; flag who the diff touches; warn your own member first
-When tasking another session with long work, sending a working session a change of plan, or doing long work for a session that tasked you:
+When tasking a session with long work, changing its plan, or working for one:
   tasked-session-stays-reachable — a change of plan interrupts and is acknowledged; check messages each wake
+When testing a design, or choosing what a result is scored on:
+  prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, batches
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
-When using a faster, smaller or partial test to stand in for a slower one:
-  cheap-test-earns-trust — a cheap test must reproduce known results of the slow one before it is trusted
+When working on an open item, or writing a next-step list or unchecked box anywhere:
+  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 When writing a deliverable an outside reader will see:
   outward-summary-discipline — claims summary: claims-to-source table, honest sums, a recorded adversarial pass
 When writing a number into a document, table or model:
@@ -314,8 +306,6 @@ When writing, running or reviewing a gate, audit, cache or heavy solve:
   slow-steps-report-and-cache — over a minute: report progress; save each unit as it ends; cache a heavy solve
 When writing, triaging or doing work on an open item:
   item-closes-on-its-condition — record findings in the item; close only on its condition
-When writing, triaging or doing work on an open item, or writing an open, unsettled or next-step list or an unchecked box in any document or reply:
-  todo-is-a-handoff — queue only for a stated blocked-on/out-of-scope reason; else just do it
 
 (More on-demand practices are not listed here: one whose applies_to names real paths, or which declares a gate, is reached by those channels instead -- `precedent_paths.py FILE` and `precedent_gate.py MOMENT`. A trigger a PERSON SAYS cannot be reached that way and is always listed above. `precedent_show.py --index-omitted` names the omitted ones.)
 ```

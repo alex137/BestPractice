@@ -5,7 +5,7 @@ tier:        on-demand
 severity:    default
 applies_to:  ["**"]
 applies_to_why: "Tasking another session, or working for one, is a moment, not a file; the occasion index reaches it."
-occasion:    "tasking another session with long work, sending a working session a change of plan, or doing long work for a session that tasked you"
+occasion:    "tasking a session with long work, changing its plan, or working for one"
 gates:       []
 index_clause: "a change of plan interrupts and is acknowledged; check messages each wake"
 checked_by:  null
