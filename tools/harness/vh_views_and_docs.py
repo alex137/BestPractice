@@ -6221,6 +6221,49 @@ def check_item_codes_are_not_acronyms():
           not bad, '; '.join(bad))
 
 
+def check_proper_names_and_date_formats_are_not_acronyms():
+    """A proper name led by capitals ("the ATCO Pest Control video") and a
+    date format (YYYY-MM-DD, HH:MM) are never reported as unglossed
+    acronyms, while a real acronym inside a Title-Case title, one standing
+    alone, one in a heading and a lone DD still are.
+
+    WHY. 2026-11-19, a consumer: a sales brief naming ATCO Pest Control and
+    SOP notes quoting a doc title ending YYYY-MM-DD were refused, which
+    blocked a Produce of unrelated work. Morgan: proper nouns need no
+    definition. A date format's letters stand for digits; there is nothing
+    to gloss."""
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import doc_lint as _dl
+    sys.path.pop(0)
+    saved = _dl.looks_like_a_word
+    _dl.looks_like_a_word = lambda tok: False
+    try:
+        text = ('Andrew made the ATCO Pest Control personalized video.\n'
+                'A call with PCI Pest Control went well.\n'
+                'Its name ("BHB Pest Elimination") is fine.\n'
+                'Title it "Weekly Technical SEO Audit YYYY-MM-DD" at HH:MM.\n'
+                'Ask the QZX team about it.\n'
+                '## The QZW Process Docs\n'
+                'Only DD alone.\n')
+        flagged = {str(f) for f in _dl.scan_unglossed(text, set(), 'r.md')}
+    finally:
+        _dl.looks_like_a_word = saved
+    hit = lambda tok: any(tok in f for f in flagged)
+    cases = [
+        ('ATCO, PCI and a quoted BHB read as proper names',
+         not hit('ATCO') and not hit('PCI') and not hit('BHB')),
+        ('YYYY, MM, DD and HH in a date format are skipped',
+         not hit('YYYY') and not hit('HH')),
+        ('SEO inside a Title-Case title is still checked', hit('SEO')),
+        ('QZX standing alone is still checked', hit('QZX')),
+        ('QZW in a heading is still checked', hit('QZW')),
+        ('a lone DD is still checked', hit('DD')),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    check(f'a proper name or date format is not an acronym ({len(cases)} stated cases)',
+          not bad, '; '.join(bad))
+
+
 def check_sync_names_a_field_its_engine_does_not_know():
     """The sync says, in plain words, when a practice uses a frontmatter
     field this engine does not know: the set needs a newer engine, so Update

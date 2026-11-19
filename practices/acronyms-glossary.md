@@ -32,6 +32,13 @@ owns the term; see [generated-edit-goes-upstream](generated-edit-goes-upstream.m
 Identifiers that already have their own registry (a code table, a component
 index) are pointed to, not duplicated.
 
+**A proper noun needs no definition**, even written in capitals: a
+company's, product's or place's name ("ATCO Pest Control") is already the
+fullest form a document can give (Morgan, 2026-11-19). Neither does a date
+format's letters (YYYY-MM-DD). The check reads both as such: capitals that
+lead a multi-word name after a lowercase word, and letter fields joined
+into a date or time pattern.
+
 ## Detail
 ## Why
 In a repo-is-the-memory system the reader arriving at a document is

@@ -4810,6 +4810,7 @@ def main():
     check_session_check_stamps_at_session_start()
     check_vdc_is_a_known_acronym_everywhere()
     check_item_codes_are_not_acronyms()
+    check_proper_names_and_date_formats_are_not_acronyms()
     check_gates_promise_no_override()
     check_gate_refusals_are_worded_by_their_tools()
     check_publish_gate_passes_the_branch_cleanup_page()
