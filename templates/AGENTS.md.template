@@ -115,6 +115,20 @@ instructions for this repo, not gotchas.
   resolves, beside this repo, so clone it there if nothing has.
 
 
+## What a session tasked into this repo must know
+
+A brief that sends a session here points at this section; it does not
+restate it. One line per fact that has cost a tasked session time, added
+the second time anyone has to say it.
+
+- **Practice sets:** <owner>/<shared-set-repo-name>, attached at session
+  start as the section above says.
+- **Python:** the scripts here import <packages>. They are listed under
+  `python.packages` in `precedent.json`, which session start installs; a
+  script that needs another adds it there.
+- **Heavy jobs:** <how many may run at once, and about how long one takes>.
+- **Long runs:** <where a run saves its progress, and how to resume one>.
+
 ## Git / workflow
 
 - Develop on a feature branch; open a PR; merge only when the user says so.
