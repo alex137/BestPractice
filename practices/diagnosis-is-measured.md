@@ -130,6 +130,21 @@ explanation"* reads as the output of a completed investigation, and it is
 still only the causes one author enumerated. **Ruling one thing out is not
 the same as having ruled the rest in.**
 
+### A cause you write yourself
+
+The same holds when the explanation is your own and it is going into a
+document. "This fails because the signals are too large" reads as a finding
+whoever wrote it and however it was reached. Before a cause is written into a
+report, a brief or a research note, either measure it or mark it as a guess in
+the same sentence, and name the measurement that would settle it. A guess that
+later turns out wrong is corrected where it was published, saying that it was
+a guess.
+
+Seen 2026-11-19 in a dependent repo: three explanations written as fact, two
+in the project's main report and one in a research note, were each overturned
+within hours by a measurement nobody had made before writing them. One of the
+three was the reverse of the truth.
+
 ## Why
 **A guard's cause list is written from the author's imagination, and the
 failures that actually happen are the ones nobody imagined.** A condition

@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 153 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 159 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -208,6 +208,8 @@ When a tool, hook, check or gate flags something the person would otherwise have
   verdict-not-mechanism — judge what a tool flagged; give the person a verdict and why, never its name
 When about four or more end-user content files sit scattered around a repo:
   organize-scattered-content — name a directory and its files, ask, move nothing until yes; recheck later
+When about to run a test whose result will decide a design choice:
+  prediction-before-the-run — record the prediction and fix the settings before a run that decides something
 When about to search a repo, every clone or every file, or use a GitHub tool for what the clone holds:
   grep-before-search — grep the clone first; list before search; never sweep every clone unasked
 When an environment or tooling trap costs real time:
@@ -228,6 +230,10 @@ When building a variant of an existing thing:
   variant-re-derives — re-derive what a variant inherits; limits bind, choices do not
 When building output for outside readers, or typing quotes or dashes in Markdown:
   curly-quotes — plain quotes and hyphens in Markdown; anything built for a reader converts them
+When choosing the data a result will be scored on, or reporting a result scored on it:
+  test-data-is-a-choice — name the test data, hold some out, include a hard case; say which a result used
+When choosing which case, model, customer or dataset to test and optimize on:
+  name-the-target-case — name the target case; a convenient one is a labeled stand-in, checked early
 When comparing an option against a baseline:
   check-source-architecture — check both options exist in the source before costing them
 When computing, quoting or tabulating figures:
@@ -263,10 +269,14 @@ When naming or adding a file:
   no-version-suffix — name a file for what it is; the repository is the version
 When naming or scoping something around a person's skill level:
   technical-describes-people — a skill level describes a person, never a project, repo or file
+When planning a batch of test runs while the design under test is still changing:
+  narrow-runs-while-moving — while the design moves, run what can change a decision; grids are for regression
 When reading what a message asks for, or writing one that a session or a check will read:
   read-for-intent — the words, the context and the conversation; never the keyword alone
 When renaming, moving or deleting a file others may link to, renaming or retiring a name, or migrating a repo off an old system:
   rename-updates-links — repoint every link and use of a retired name in the same commit or migration
+When setting a pass mark, margin or threshold that a design will be judged against:
+  score-the-incumbent-first — score what you compete with on your own pass mark before judging yourself
 When setting up a project a session works in, or a session reporting that its checkout is behind:
   fresh-before-write — verify and fast-forward the checkout before the first write, never after
 When setting up a repository's standing session, or session start says the repository has no maintainer:
@@ -278,6 +288,8 @@ When starting work, or packaging a change for review, in a repository several me
   working-in-parallel — claim first; flag who the diff touches; warn your own member first
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
+When using a faster, smaller or partial test to stand in for a slower one:
+  cheap-test-earns-trust — a cheap test must reproduce known results of the slow one before it is trusted
 When writing a deliverable an outside reader will see:
   outward-summary-discipline — claims summary: claims-to-source table, honest sums, a recorded adversarial pass
 When writing a number into a document, table or model:
