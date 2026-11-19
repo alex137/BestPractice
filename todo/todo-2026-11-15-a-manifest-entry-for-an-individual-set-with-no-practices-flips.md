@@ -34,3 +34,6 @@ closed:            null
 ## Notes
 
 - The session that found it changed no engine code for this. The choice touches the 2026-10-19 decision that a private repository's manifest holds the individual set as its owner's saved copy.
+- 2026-11-19: it happened again, harder. On 2026-11-18 a second consumer had seven worker sessions in turn refused at push over the same entry, and its main session regenerated the manifest at every merge. Reproduced on a copy of that consumer: the view check passes with the person's set reachable and fails without.
+- 2026-11-19: fix 1 is built, not merged, on the branch [claude/bestpractice-upstream-faults-6w4gkf](https://github.com/alex137/BestPractice/tree/claude/bestpractice-upstream-faults-6w4gkf), with a harness test (`check_manifest_is_the_same_with_and_without_an_individual_set`). A sync records an individual set only when a practice of it is in the tree, and the comparison ignores a bare entry an older engine wrote, so no consumer has to regenerate first. On the copy, both kinds of session then pass and write the same file. A set with a practice in the tree keeps its entry and its owner record, so the saved copy of 2026-10-19 is as it was. It still waits on Morgan's choice (needs: decision -- Morgan).
+
