@@ -172,5 +172,4 @@ as_of: 2026-11-19
 
 | Item | What | Due since |
 |---|---|---|
-| [`todo-2026-09-16-review-portability-plan`](todo-2026-09-16-review-portability-plan.md) | Review spec/PROVIDER_PORTABILITY_PLAN.md | 2026-11-15 |
 | [`todo-2026-10-27-branch-page-refresh-automatic`](todo-2026-10-27-branch-page-refresh-automatic.md) | Should the branch cleanup page refresh itself again at the close of every | 2026-11-19 |
