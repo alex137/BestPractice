@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 153 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 154 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -276,6 +276,8 @@ When starting work the repository or another session may already cover:
   lease-in-flight-work — lease slow, costly or external work on a branch; its tool checks the board first
 When starting work, or packaging a change for review, in a repository several members work in:
   working-in-parallel — claim first; flag who the diff touches; warn your own member first
+When tasking another session with long work, sending a working session a change of plan, or doing long work for a session that tasked you:
+  tasked-session-stays-reachable — a change of plan interrupts and is acknowledged; check messages each wake
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When writing a deliverable an outside reader will see:
