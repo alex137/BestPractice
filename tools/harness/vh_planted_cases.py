@@ -1382,7 +1382,18 @@ def check_precedent_check_fires():
             d = repo / 'templates' / 'nontechnical-thing'
             d.mkdir(parents=True, exist_ok=True)
             (d / 'a.md').write_text('# planted\n', encoding='utf-8')
+            # A kind of writing, not a reader's skill: planted beside the
+            # label that must fire, and must stay out of the findings.
+            (repo / 'templates' / 'zzz-technical-prose.txt').write_text(
+                'planted\n', encoding='utf-8')
         case('technical-describes-people', _plant_skill_label)
+        if 'technical-describes-people' in planted:
+            _tdp = planted['technical-describes-people'][1]
+            cases.append(('technical-describes-people: "technical" before a '
+                          'kind of writing is not a skill label, and the '
+                          'label beside it still fires',
+                          'zzz-technical-prose' not in _tdp
+                          and 'nontechnical-thing' in _tdp))
 
         # no-version-suffix
         case('no-version-suffix',

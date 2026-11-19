@@ -3050,6 +3050,17 @@ _PERSON_NOUNS = ('contributor', 'contributors', 'person', 'people', 'user',
                  'authors', 'reader', 'readers', 'writer', 'writers',
                  'staff', 'colleague', 'colleagues', 'owner', 'owners')
 
+# Nouns "technical" joins to name a kind of writing or a field's own term,
+# where it says nothing about who the reader is: technical prose is a
+# register with a standard of its own, technical debt is a thing a codebase
+# has. Only the bare word, and only directly before one of these; a
+# "technical guide" or a "technical setup" is still a document labelled for
+# its reader, and "non-technical" anything always is (2026-11-18: a
+# consumer's source text `...-technical-prose.txt` was refused, and the
+# rename broke the job that had written it).
+_SUBJECT_NOUNS = ('prose', 'writing', 'debt', 'term', 'terms', 'vocabulary',
+                  'standard', 'standards', 'drawing', 'drawings')
+
 _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?',
                              re.IGNORECASE)
 
@@ -3057,9 +3068,11 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
 @check('technical-describes-people', 'tree',
        'no tracked path labels a FILE or DIRECTORY with a skill level; '
        "'technical' and 'non-technical' describe people",
-       'the same label inside prose, and a path where the label is followed '
+       'the same label inside prose, a path where the label is followed '
        'by a person-noun (a nontechnical-contributor-guide names a person '
-       'and is correct). It reads names only -- it cannot see a per-person '
+       'and is correct), and bare "technical" directly before a noun it '
+       'joins to name a kind of writing or a field\'s term (technical-prose, '
+       'technical-debt). It reads names only -- it cannot see a per-person '
        'rule written into a shared file, which is the failure the name leads '
        'to.',
        # A practice filename is a published path.
@@ -3093,6 +3106,8 @@ def _technical_describes_people(ctx):
             rest = part[m.end():].lower()
             token = re.split(r'[/_\-. ]', rest.lstrip('_-'))[0]
             if token in _PERSON_NOUNS:
+                continue
+            if m.group(1).lower() == 'technical' and token in _SUBJECT_NOUNS:
                 continue
             out.append(Finding(f, "the path labels a file or directory with a "
                                   "skill level ('%s') -- that describes a "
