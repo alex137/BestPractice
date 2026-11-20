@@ -1299,6 +1299,19 @@ def check_update_vendors_is_one_command():
         cases.append(('an install on the retired pin finishes with nothing asked: '
                       'exit 0 and DONE', rc == 0 and 'DONE -- nothing left' in out,
                       failure_detail(out, 1500)))
+        # Committed, the same update again finds nothing new: it says so in
+        # one outcome, runs steps 7 to 9 itself, and asks for no commit or
+        # landing walk (Morgan, 2026-11-19, strength: assented).
+        sh('git', 'commit', '-qm', 'the update', cwd=done)
+        rc2, again = update(done)
+        cases.append(('an update already current says NOTHING TO UPDATE, exit 0, '
+                      'and no "review the staged diff, commit"',
+                      rc2 == 0 and 'NOTHING TO UPDATE' in again
+                      and 'Review the staged diff' not in again
+                      and 'STEPS 7 TO 9' not in again,
+                      failure_detail(again, 1500)))
+        cases.append(('...it ran steps 7 to 9 itself and says the outcome of them',
+                      'Steps 7 to 9 ran here' in again, failure_detail(again, 800)))
         # A repository with only main asked for no tiers: an update -- even
         # one run by a person on the ladder -- leaves it on main (Morgan,
         # 2026-10-02, strength: decided: "nothing creates tiers in a
@@ -4816,6 +4829,73 @@ def check_update_done_names_the_branch_to_commit_on():
         sys.path.pop(0)
     bad = [(c[0], c[2]) for c in cases if not c[1]]
     check(f'Update Vendors names the branch to commit on from a tier branch '
+          f'({len(cases)} stated cases)', not bad,
+          '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
+
+
+def check_update_nothing_new_says_what_still_waits():
+    """When Update Vendors staged nothing, it says whether anything is left
+    to land and whether the landing branch is ahead of main -- each in its
+    loud world and its quiet one -- and an index holding a change is never
+    called nothing to update.
+
+    WHY. 2026-11-19, a consumer already current: DONE said "commit, then
+    land it", the session walked steps 7 to 9 and a landing with nothing to
+    land, and only then reached the one move that did anything, staging
+    into main (Morgan, strength: assented)."""
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_update as _pu
+    cases = []
+    saved = _pu.pb.landing_branch
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            td = pathlib.Path(td)
+            bare, repo = td / 'o.git', td / 'repo'
+            g = ['git', '-C', str(repo), '-c', 'user.name=t', '-c',
+                 'user.email=t@example.com']
+            subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(bare)],
+                           check=True)
+            subprocess.run(['git', 'init', '-q', '-b', 'main', str(repo)], check=True)
+            (repo / 'f').write_text('1\n')
+            subprocess.run(g + ['add', '-A'], check=True)
+            subprocess.run(g + ['commit', '-qm', '1'], check=True)
+            subprocess.run(g + ['remote', 'add', 'origin', str(bare)], check=True)
+            subprocess.run(g + ['push', '-q', 'origin', 'main', 'main:staging'],
+                           check=True)
+            _pu.pb.landing_branch = lambda r, u=None: ('staging', '')
+            text = '\n'.join(_pu.waiting_lines(repo))
+            cases.append(('level: nothing to land, nothing waits to go live',
+                          'Nothing to land' in text and 'agree' in text, text))
+            (repo / 'f').write_text('2\n')
+            subprocess.run(g + ['commit', '-qam', '2'], check=True)
+            subprocess.run(g + ['push', '-q', 'origin', 'HEAD:staging'], check=True)
+            text = '\n'.join(_pu.waiting_lines(repo))
+            cases.append(('staging ahead of main: moving it into main is next',
+                          '1 commit(s) ahead of origin/main' in text
+                          and 'Nothing to land' in text, text))
+            (repo / 'f').write_text('3\n')
+            subprocess.run(g + ['commit', '-qam', '3'], check=True)
+            text = '\n'.join(_pu.waiting_lines(repo))
+            cases.append(('a branch ahead of staging: the landing still applies',
+                          'landing it on staging still applies' in text, text))
+            _pu.pb.landing_branch = lambda r, u=None: ('main', '')
+            text = '\n'.join(_pu.waiting_lines(repo))
+            cases.append(('landing on main: nothing said about going live',
+                          'go live' not in text and 'into main' not in text, text))
+            cases.append(('a clean index is nothing staged',
+                          _pu.nothing_staged(repo), ''))
+            (repo / 'f').write_text('4\n')
+            subprocess.run(g + ['add', 'f'], check=True)
+            cases.append(('a staged change is not nothing to update',
+                          not _pu.nothing_staged(repo), ''))
+            cases.append(('...nor is a path this run staged',
+                          not _pu.nothing_staged(td, ['x']), ''))
+    finally:
+        _pu.pb.landing_branch = saved
+        sys.path.pop(0)
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'Update Vendors with nothing new says what still waits '
           f'({len(cases)} stated cases)', not bad,
           '; '.join(f'{n} -- {d[:300]}' for n, d in bad))
 

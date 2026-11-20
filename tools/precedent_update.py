@@ -3847,6 +3847,155 @@ def source_steps_lines(repo, user_config=None):
     return out
 
 
+# NOTHING TO UPDATE (2026-11-19). A consuming repo already current got the
+# whole DONE text -- "commit, then land it", steps 7 to 9 to run one at a
+# time, the landing to say aloud -- over "staged: 0 path(s)". The session
+# walked every step and landed nothing; the one move that did anything was
+# taking staging into main, which waited at the end. Morgan, 2026-11-19
+# (strength: assented): when the update finds nothing new it says so in one
+# line and goes straight to what is still waiting. Steps 7 to 9 still run --
+# a credential or a rename changes without any code changing -- but here,
+# by the update, and only a finding is printed.
+SURVEY_FINE = ('THIS REPO', 'DECLARED', 'IN FORCE', 'NOT A SET')
+
+
+def nothing_staged(repo, staged=(), earlier=()):
+    """True when this run and earlier ones staged nothing and the index of
+    `repo` holds nothing to commit; False in doubt."""
+    if repo is None or staged or earlier:
+        return False
+    try:
+        r = subprocess.run(['git', '-C', str(repo), 'diff', '--cached',
+                            '--quiet'], capture_output=True, text=True)
+    except OSError:
+        return False
+    return r.returncode == 0
+
+
+def source_step_findings(repo, user_config=None, canonical=()):
+    """-> (findings, unverified): runbook steps 7, 8 and 9 run here against
+    `repo`. `findings` is one line per thing the session must act on or say
+    (a MISSING credential, a RENAMED source, a survey verdict to judge, a
+    step that could not run); `unverified` the GitHub names step 8 could
+    not confirm, which only the session can, from list_repos. Both empty:
+    all three are clean. `user_config` and `canonical` exist for fixtures."""
+    findings, unverified = [], []
+    try:
+        import precedent_source_credentials as _psc
+        verdict, message = _psc.assess(str(repo))
+        if verdict != 'ok':
+            findings.append(f"7. source credentials: {verdict.upper()} -- "
+                            f"{message}")
+    except Exception as e:                                   # noqa: BLE001
+        findings.append(f"7. source credentials could not run "
+                        f"({type(e).__name__}: {e})")
+    try:
+        import precedent_source_names as _psn
+        for row in _psn.assess(str(repo), user_config=user_config,
+                               canonical=list(canonical)):
+            if row['verdict'] == 'UNVERIFIED':
+                unverified.append(row)
+            elif row['verdict'] != 'OK':
+                findings.append(f"8. {row['verdict']} {row['level']}/"
+                                f"{row['declared']} -- {row['detail']}")
+            if row.get('declared_drift'):
+                findings.append(f"8. DRIFT {row['level']}/{row['declared']} "
+                                f"-- {row['declared_drift']}")
+    except Exception as e:                                   # noqa: BLE001
+        findings.append(f"8. source names could not run "
+                        f"({type(e).__name__}: {e})")
+    try:
+        import precedent_source_survey as _pss
+        for row in _pss.survey(str(repo), (), user_config=user_config):
+            if row['verdict'] not in SURVEY_FINE:
+                findings.append(f"9. {row['verdict']} {row.get('repo', '')} "
+                                f"-- {row.get('detail', '')}")
+    except Exception as e:                                   # noqa: BLE001
+        findings.append(f"9. source survey could not run "
+                        f"({type(e).__name__}: {e})")
+    return findings, unverified
+
+
+def _ahead(repo, base, head):
+    """-> how many commits `head` has that `base` lacks, or None unread."""
+    r = subprocess.run(['git', '-C', str(repo), 'rev-list', '--count',
+                        f'{base}..{head}'], capture_output=True, text=True)
+    return int(r.stdout.strip()) if r.returncode == 0 else None
+
+
+def waiting_lines(repo):
+    """-> what is still waiting once the update found nothing new: whether
+    the current branch carries commits the landing branch lacks (then the
+    landing still happens), and, below main, whether the landing branch is
+    ahead of main (then moving it into main is the next step). Reads
+    origin's refs after a quiet fetch; [] when nothing can be read."""
+    if repo is None:
+        return []
+    try:
+        landing = pb.landing_branch(repo)[0] or pb.MAIN
+    except Exception:                                        # noqa: BLE001
+        landing = pb.MAIN
+    wanted = [landing] + ([pb.MAIN] if landing != pb.MAIN else [])
+    try:
+        subprocess.run(['git', '-C', str(repo), 'fetch', '-q', 'origin']
+                       + wanted, capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    out = []
+    here = _ahead(repo, f'origin/{landing}', 'HEAD')
+    if here:
+        out.append(f"This branch carries {here} commit(s) origin/{landing} "
+                   f"lacks: landing it on {landing} still applies.")
+    elif here == 0:
+        out.append(f"Nothing to land: this branch has nothing "
+                   f"origin/{landing} lacks, so the landing is one clause in "
+                   f"the reply, not a step.")
+    if landing != pb.MAIN:
+        up = _ahead(repo, f'origin/{pb.MAIN}', f'origin/{landing}')
+        if up:
+            out.append(f"origin/{landing} is {up} commit(s) ahead of "
+                       f"origin/{pb.MAIN}: moving {landing} into {pb.MAIN} "
+                       f"is the next step, and it takes all of them live, so "
+                       f"name what goes.")
+        elif up == 0:
+            out.append(f"origin/{landing} and origin/{pb.MAIN} agree: "
+                       f"nothing waits to go live.")
+    return out
+
+
+def nothing_to_update_lines(repo, user_config=None, canonical=()):
+    """-> the lines an update prints in place of DONE's when it staged
+    nothing: the outcome, steps 7 to 9 as run here, and what still waits."""
+    findings, unverified = source_step_findings(repo, user_config, canonical)
+    out = ["\nNOTHING TO UPDATE -- every layer was already current and this "
+           "run staged nothing, so there is nothing to commit or review."]
+    if not findings and not unverified:
+        out.append("Steps 7 to 9 ran here: source credentials, source names "
+                   "and the source survey are all clean. Say it in one line: "
+                   "\"nothing to update; checks clean\".")
+    else:
+        out.append("Steps 7 to 9 ran here; what needs you:")
+        out.extend(f"  {f}" for f in findings)
+        if unverified:
+            here = pathlib.Path(repo) / 'tools' / 'precedent_source_names.py'
+            tool = ('python3 tools/precedent_source_names.py' if here.is_file()
+                    else f'python3 {HERE.parent / "precedent_source_names.py"} '
+                         f'--repo .')
+            names = []
+            for row in unverified:
+                m = re.search(r'about (\S+?/\S+?):', row.get('detail', ''))
+                names.append(m.group(1) if m else row['declared'])
+            out.append(f"  8. {len(unverified)} source name(s) only list_repos "
+                       f"can confirm: check {', '.join(names)} there (it "
+                       f"attaches nothing), then run {tool} "
+                       + ' '.join(f'--canonical {n}' for n in names)
+                       + " with GitHub's spelling of each.")
+        if not findings:
+            out.append("  Everything else in steps 7 to 9 is clean.")
+    out.extend(waiting_lines(repo))
+    return out
+
+
 # EARLIER UPDATE BRANCHES THIS ONE REPLACES (2026-11-01). An update that
 # was replaced before it landed stays on origin for good: nothing marks it
 # done, and the stale-branch lists offer only merged branches. One practice
@@ -4286,6 +4435,17 @@ class Report:
         for line in self.warnings:
             print(f"\nWARNING: {line}")
         self._upstream_review()
+        if (not self.asks and not self.warnings
+                and nothing_staged(self.pin_repo, self.staged, self.earlier)):
+            # practice: answer-first-ask-before-long-work -- nothing new is
+            # one line, and what still waits comes straight after it.
+            for line in nothing_to_update_lines(self.pin_repo):
+                print(line)
+            for line in replaced_update_lines(self.repo or self.pin_repo):
+                print(line)
+            if self.not_run:
+                print(self.not_run)
+            return DONE
         switch = feature_branch_line(self.pin_repo)
         if self.asks:
             print("\nDONE -- nothing left for this repo to decide. Ask the "
