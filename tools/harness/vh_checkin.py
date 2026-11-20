@@ -2820,3 +2820,61 @@ def check_carry_check_never_invents_lost_content():
           '; '.join(f'{n}: {d}' for n, o, d in cases if not o)[:900])
 
 
+
+
+def check_a_first_source_copy_needs_no_manifest():
+    """`checkin.py update --source NAME` takes a set's first copy into a
+    repository that has no process/manifest_<name>.json yet: no refusal over
+    a commit nobody could have recorded, and no crash writing synced_from
+    into a file that does not exist (2026-11-20, a consumer installing the
+    patent set; every fixture here had written the manifest by hand first,
+    which is why none saw it)."""
+    import tempfile
+    name = 'a first --source copy needs no manifest'
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='first-source-copy-'))
+    cases = []
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@t',
+           'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@t',
+           'PRECEDENT_USER_CONFIG': str(tmp / 'no-config.json')}
+    (tmp / 'no-config.json').write_text('{}', encoding='utf-8')
+
+    def git(d, *a):
+        return subprocess.run(['git', '-C', str(d), *a], env=env,
+                              capture_output=True, text=True)
+    try:
+        src = tmp / 'zz-set'
+        (src / 'engine').mkdir(parents=True)
+        (src / 'engine' / 'tool.py').write_text('print(1)\n', encoding='utf-8')
+        (src / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'zz-set', 'level': 'shared', 'visibility': 'private',
+             'code': ['engine']}), encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], env=env, check=True)
+        git(src, 'add', '-A'); git(src, 'commit', '-qm', 'one')
+        host = tmp / 'host'
+        host.mkdir()
+        (host / 'precedent.json').write_text(json.dumps({
+            'format_version': 1, 'visibility': 'private', 'sources': [
+                {'name': 'zz-set', 'level': 'shared', 'path': str(src)}]}),
+            encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(host)], env=env, check=True)
+        git(host, 'add', '-A'); git(host, 'commit', '-qm', 'init')
+        r = subprocess.run([sys.executable, str(ROOT / 'tools' / 'checkin.py'),
+                            '--source', 'zz-set', '--repo', str(host),
+                            'update', str(src)],
+                           env=env, capture_output=True, text=True)
+        said = r.stdout + r.stderr
+        cases.append(('THE CASE: the first copy succeeds without --force',
+                      r.returncode == 0 and 'Traceback' not in said,
+                      failure_detail(said, 400)))
+        mf = host / 'process' / 'manifest_zz-set.json'
+        cases.append(('...and starts the manifest, recording what it synced from',
+                      mf.is_file() and json.loads(mf.read_text(encoding='utf-8'))
+                      .get('upstream', {}).get('synced_from'), ''))
+        cases.append(('...and the copy is there',
+                      (host / 'process' / 'zz-set' / 'engine' / 'tool.py').is_file(), ''))
+        cases.append(('...and it says a loader consumer does not need the copy',
+                      'does not need this copy' in said, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    failed = [f'{n} {d}'.strip() for n, ok, d in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
