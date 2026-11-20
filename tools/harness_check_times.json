@@ -494,6 +494,7 @@
   "check_promote_names_a_binary_conflict": 1.0,
   "check_promote_only_and_tier_branches": 1.5,
   "check_promote_runs_doc_html_only_where_it_is_in_use": 0.6,
+  "check_proper_names_and_date_formats_are_not_acronyms": 0.0,
   "check_public_consumer_does_not_materialize_private_text": 0.8,
   "check_public_copy_in_needs_the_leak_check": 0.8,
   "check_public_tree_bakes_in_no_owner_account": 0.2,

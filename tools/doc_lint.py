@@ -759,6 +759,42 @@ def looks_like_placeholder(tok):
         ord(b) - ord(a) == 1 for a, b in zip(tok, tok[1:]))
 
 
+# A date or time format written in its letters: YYYY-MM-DD, DD/MM/YY,
+# HH:MM. Each letter run stands for a digit field, so none of them is an
+# initialism anybody could gloss. Read as a whole pattern, two or more
+# fields joined by - / : or ., so a lone DD or YY elsewhere is still
+# checked. Found 2026-11-19: a consumer's SOP notes quoting a doc title
+# ending "YYYY-MM-DD" had YYYY and DD refused, and that blocked a Produce.
+DATE_FIELD = r'(?:Y{2}|Y{4}|M{1,4}|D{1,2}|H{1,2}|S{1,2})'
+DATE_FORMAT_RE = re.compile(rf'\b{DATE_FIELD}(?:[-/:.]{DATE_FIELD})+\b')
+
+
+# A proper name led by a word in capitals: "the ATCO Pest Control video".
+# The capitals are part of the name, which is already the fullest form the
+# document can give, so there is nothing to expand (Morgan, 2026-11-19:
+# proper nouns need no definition). Read narrowly, so a real acronym in a
+# sentence is still caught: the capitals word comes right after a word in
+# lowercase, two or more Title-Case words follow it, and the line is not a
+# heading (headings are Title Case throughout, so they would read as names).
+# An opening bracket or quotation mark may sit between: a name ("ATCO
+# Pest Control").
+PROPER_NAME_AFTER_RE = re.compile(r"(?:[ \t]+[A-Z][a-z][A-Za-z'’&-]*){2,}")
+PROPER_NAME_BEFORE_RE = re.compile(r"(?:^|[\s(])[a-z][A-Za-z'’-]*[ \t]+[(\"“]*$")
+
+
+def starts_a_proper_name(line, start, end):
+    """True when the capitals token at line[start:end] leads a proper name:
+    "created the ATCO Pest Control video", "a call with PCI Pest Control".
+    See PROPER_NAME_AFTER_RE for the narrow reading and why. False on a
+    heading line, and where the token stands alone ("the SEO plan") or
+    inside a Title-Case run it does not start ("Weekly Technical SEO
+    Audit")."""
+    if line.lstrip().startswith('#'):
+        return False
+    return bool(PROPER_NAME_AFTER_RE.match(line, end)
+                and PROPER_NAME_BEFORE_RE.search(line[:start]))
+
+
 # Letters then a run of digits: an item's code, never an initialism. See
 # looks_like_an_id().
 ID_CODE_RE = re.compile(r'[A-Z]{2,4}[0-9]{2,}')
@@ -865,6 +901,8 @@ def scan_unglossed(text, known, path=None):
             continue
         clean = _decontent(line)
         shouted = [r.span() for r in SHOUTED_RUN_RE.finditer(clean)]
+        # A date or time format (YYYY-MM-DD): see DATE_FORMAT_RE.
+        shouted += [r.span() for r in DATE_FORMAT_RE.finditer(clean)]
         for q in QUOTATION_RE.finditer(clean):
             shouted += [(q.start() + r.start(), q.start() + r.end())
                         for r in QUOTED_SHOUT_RE.finditer(q.group(0))]
@@ -903,6 +941,10 @@ def scan_unglossed(text, known, path=None):
             if looks_like_an_id(tok):
                 # "GS69", "FF216" -- an item's code, not an acronym. See
                 # looks_like_an_id().
+                continue
+            if starts_a_proper_name(clean, m.start(), m.end()):
+                # "the ATCO Pest Control video" -- a proper name, which
+                # needs no definition. See starts_a_proper_name().
                 continue
             if FILENAME_STEM_RE.match(clean, m.end()):
                 # An ALL-CAPS filename stem is a file reference, not an
