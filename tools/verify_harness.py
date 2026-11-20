@@ -4464,6 +4464,8 @@ def main():
           *check_reply_check_requires_the_boildown_first_line())
     check('the reply check wants an ask under Your next steps to state its question',
           *check_reply_check_wants_an_ask_to_state_its_question())
+    check('the reply check wants what a reply points at shown or linked',
+          *check_reply_check_wants_what_a_reply_points_at_shown())
     check('the reply check wants a finished plan to ask to act, and a hold to '
           'say what runs', *check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why())
     check('a vendored container scan knows a session-start refresh branch',

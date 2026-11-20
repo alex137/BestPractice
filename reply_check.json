@@ -307,6 +307,45 @@
     ]
   },
   {
+    "practice": "show-what-you-point-at",
+    "id": "boildown-references-shown",
+    "require_references_shown": {
+      "count_nouns": "questions|candidates|options|items|rules|practices|proposals|ideas|suggestions|findings|points|decisions|choices|concerns|blockers|issues|things",
+      "numbered_nouns": "question|candidate|option|item|point|proposal|idea|suggestion|finding|decision|choice|rule|concern|issue",
+      "named_nouns": "question",
+      "thread_pointers": "\\bas (?:discussed|mentioned|agreed)\\b|\\b(?:mentioned|discussed|raised|listed|asked|said) (?:earlier|before|previously)(?=\\s*[.,;:)!?]|\\s*$|\\s+(?:in|on) (?:the|this|that|our) (?:thread|conversation|session|chat)\\b)|\\bfrom (?:last night|earlier today|earlier|yesterday)\\b|\\bthe (?:earlier|previous) (?:questions?|list|options?|candidates?|items?|reply)\\b",
+      "in_reply_pointers": "\\b(?:as|see) (?:above|below)\\b|\\b(?:questions?|items?|list|options?|candidates?|points?|reasons?) (?:above|below)\\b|\\blisted (?:above|below)\\b"
+    },
+    "why": "Morgan, 2026-11-20 (strength: decided): \"how do we solve the general problem that you keep on referencing things that I have no idea what you're referencing since you don't put it there or link it (sometimes its in docs linked, sometimes it's mentioned dozens of messages from hours earlier etc).\" A reply's Your next steps said \"Five new rule and process candidates from last night: keep marks each in force ... My pick is keep all five\" and never listed the five; it passed, because boildown-ask-states-its-question checks that an ask gives stakes and a pick, not that what it points at is shown. Raised before on 2026-10-29 (the voice pack question). Blocking, on the whole reply's prose: a counted set needs a list of that many somewhere else in the reply (a list is a different list from the one the line sits in) or an inline listing; a numbered item needs that item shown; a named question needs a question asked; a pointer into the thread needs a link. A link on the line always counts. Fenced blocks, blockquotes, code spans and double-quoted citations are not read.",
+    "checks_practice_at": "practices/show-what-you-point-at.md",
+    "_examples": [
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** Five new rule and process candidates from last night: keep marks each in force, drop parks it. My pick is keep all five, because each one fixed a real miss.\n- You can archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** five new rule and process candidates; keep marks each in force, drop parks it. My pick is keep all five.\n  - Name the branch in every commit message.\n  - Link each file the reply touched.\n  - Say the landing tier first.\n  - One fence block per paste.\n  - Date every outside-world rule.\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** answer question 2. My pick is yes.\n- You can archive this session.\n",
+        "refused": true
+      },
+      {
+        "reply": "1. Should the gate read sub-bullets?\n2. Should it read tables?\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** answer question 2 above: yes means tables are read, no leaves them out. My pick is yes.\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- **Your next steps:** the five candidates are in [the candidates file](todo/candidates.md); keep marks each in force. My pick is keep all five.\n- You can archive this session.\n",
+        "refused": false
+      },
+      {
+        "reply": "Done.\n\n## The Boildown\n- The work of this session is now on: staging\n- 4 of 5 changes NOT on the landing branch yet; 2 commits that change files.\n- **Your next steps:** Nothing blocking for you to do now.\n- You can archive this session.\n",
+        "refused": false
+      }
+    ]
+  },
+  {
     "practice": "the-boildown",
     "id": "boildown-finished-plan-asks-to-act",
     "require_finished_plan_asks_to_act": {
