@@ -40,6 +40,11 @@ A message sent at the interrupting priority arrived within a minute every
 time it was used. It ends the receiving session's current wait, not the
 job that session started in the background, so nothing was lost by it.
 
+Seen again on 2026-11-20, in a different dependent repo installing a
+practice set over a long multi-session day: default-priority messages
+between sessions arrived hours late, and messages sent at the
+interrupting priority arrived at once. Same shape, same remedy.
+
 ## Fix
 
 Practice [tasked-session-stays-reachable](../practices/tasked-session-stays-reachable.md):
