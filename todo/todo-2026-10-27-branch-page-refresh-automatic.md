@@ -3,16 +3,16 @@ slug:              todo-2026-10-27-branch-page-refresh-automatic
 kind:              manual
 domain:            engine
 severity:          low
-status:            open
+status:            done
 disposition:       ask
-remind_on:         2026-11-19
-blocked_on:        "Morgan's call (needs: decision -- Morgan), asked again on 2026-11-10"
+remind_on:         null
+blocked_on:        null
 batch:             null
-decision:          "not automatic for now (2026-10-27)"
+decision:          "stays manual: refreshes only on \"Branch cleanup\" (2026-11-20)"
 decision_strength: decided
 waiting_on:        null
 noted:             2026-10-27
-closed:            null
+closed:            2026-11-20
 ---
 ## What
 
@@ -37,6 +37,11 @@ rebuild was turned off on 2026-10-20. Over the two weeks, note whether he
 says "Branch cleanup" often (an argument for automatic) or rarely.
 
 2026-11-12, Morgan, asked about the reminder: "new date for the reminder" -- moved to 2026-11-19.
+
+2026-11-20, Morgan, answered: "Nah, keep it manual." A refresh that
+afternoon, run to measure, cost a few thousand tokens and raised no
+approval prompt in an auto-mode session; it also put one of his busiest repositories on the
+page, which had been missing from it. Closed on that answer.
 
 ## Done when
 
