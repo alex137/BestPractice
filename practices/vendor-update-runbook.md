@@ -97,6 +97,13 @@ what it wrote.
   your landing branch it first prints
   `git switch --no-track -c "$(python3 tools/precedent_branch_name.py update-vendors)"`:
   run it before committing.
+- **NOTHING TO UPDATE** (exit 0), DONE's short form: every layer was
+  current and nothing was staged. The update has run steps 7 to 9 itself; act only on what it
+  prints, and steps 11 and 12 have nothing to publish. The reply says it in
+  one line -- "nothing to update; checks clean" -- with the landing, when
+  the branch carries nothing the landing branch lacks, a clause in that
+  line rather than a step. Where it says the landing branch is ahead of
+  `main`, that move is the next step (2026-11-19).
 - **LEFT FOR YOU** (exit 1): work each named file under the conflicted-file
   review below, then run it again. The rerun keeps the same source commit
   until a run reports DONE; `--move` takes the newest. Spell out
@@ -391,7 +398,13 @@ and `freshness_at_update_vendors` in
 It does steps 1, 3, 4, 5, 6 and 10 in order, with no question in between,
 and ends with one of three outcomes. It stages what it wrote and deleted
 first, so the deep check judges what the commit will hold. **DONE** (exit
-0): nothing is left, so commit and go on to steps 11 and 12. **When the
+0): nothing is left, so commit and go on to steps 11 and 12. **When it
+staged nothing at all, DONE's short form is NOTHING TO UPDATE**: no commit,
+no review, steps 7 to 9 run by the update itself with only their findings
+printed, and a line on what still waits -- commits the landing branch
+lacks, or a landing branch ahead of `main`. A credential or a rename
+changes without any code changing, which is why those steps still run
+(Morgan, 2026-11-19, strength: assented). **When the
 checkout is on `main` or on the branch your work lands on**, DONE prints the command that moves the staged update onto
 a session branch first, `git switch --no-track -c "$(python3
 tools/precedent_branch_name.py update-vendors)"`: for a person on the
