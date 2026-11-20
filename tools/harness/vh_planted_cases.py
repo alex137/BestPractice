@@ -1834,6 +1834,12 @@ def check_precedent_check_fires():
         def _plant_unreachable(repo):
             rewrite(repo, 'AGENTS.md', lambda t: re.sub(
                 r'\n  quote-discipline [^\n]*', '', t))
+            # A third (2026-11-20): an addition loads with its base, so it is
+            # reachable only while the base is. The base's index line goes;
+            # its additions must then be reported too. The unplanted tree,
+            # where the base is indexed, is the quiet half (issue #1586).
+            rewrite(repo, 'AGENTS.md', lambda t: re.sub(
+                r'\n  prediction-before-the-run [^\n]*', '', t))
             rewrite(repo, 'practices/routing-audit.md', lambda t: t.replace(
                 '["practices/*.md", "tools/routing_audit.py"',
                 '["tools/routing_audit.py"', 1))
@@ -1867,6 +1873,10 @@ def check_precedent_check_fires():
                           'its own tool files, with an existence-only check, '
                           'is reported unreachable',
                           'routing-audit' in _lpp and 'quote-discipline' in _lpp))
+            cases.append(('layered-practice-packs: an addition whose base '
+                          'is reachable by nothing is reported unreachable too',
+                          'prediction-before-the-run is in force' in _lpp
+                          and 'cheap-test-earns-trust is in force' in _lpp))
 
         # quick-index -- the table removed from the instructions
         def _plant_qi(repo):
