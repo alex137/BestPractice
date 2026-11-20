@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 185 practice files (6 resident, 179 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 186 practice files (6 resident, 180 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -163,6 +163,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
 | [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | adding to, or merging, a file many threads append to (index, registry, log) |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
+| [show-what-you-point-at](practices/show-what-you-point-at.md) | on-demand | ** |
 | [slow-steps-report-and-cache](practices/slow-steps-report-and-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [small-calls](practices/small-calls.md) | on-demand | a judgment call is needed to keep work moving |
 | [source-naming](practices/source-naming.md) | on-demand | importing, creating, or declaring a repository that holds practices |
