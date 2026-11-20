@@ -1386,6 +1386,15 @@ def check_precedent_check_fires():
             # label that must fire, and must stay out of the findings.
             (repo / 'templates' / 'zzz-technical-prose.txt').write_text(
                 'planted\n', encoding='utf-8')
+            # A field's own term (2026-11-20, a consumer's SEO process map):
+            # must stay silent too, while non-technical- and a reader-
+            # labelled guide still fire.
+            for name in ('zzz-weekly-technical-audit.md',
+                         'zzz-technical-seo-checklist.md',
+                         'zzz-non-technical-audit.md',
+                         'zzz-technical-guide.md'):
+                (repo / 'templates' / name).write_text(
+                    'planted\n', encoding='utf-8')
         case('technical-describes-people', _plant_skill_label)
         if 'technical-describes-people' in planted:
             _tdp = planted['technical-describes-people'][1]
@@ -1394,6 +1403,13 @@ def check_precedent_check_fires():
                           'label beside it still fires',
                           'zzz-technical-prose' not in _tdp
                           and 'nontechnical-thing' in _tdp))
+            cases.append(('technical-describes-people: "technical audit" and '
+                          '"technical SEO" are a field\'s terms, but '
+                          'non-technical-audit and technical-guide still fire',
+                          'zzz-weekly-technical-audit' not in _tdp
+                          and 'zzz-technical-seo-checklist' not in _tdp
+                          and 'zzz-non-technical-audit' in _tdp
+                          and 'zzz-technical-guide' in _tdp))
 
         # no-version-suffix
         case('no-version-suffix',
