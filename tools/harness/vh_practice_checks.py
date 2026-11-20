@@ -7223,6 +7223,14 @@ def check_title_case_leaves_code_and_first_word_alone():
          'a hyphen part after a number is still a word'),
         ("Option A and Option B", "Option A and Option B",
          'single capital letters are unchanged'),
+        # A section number with no closing mark is still an enumerator:
+        # `4.1 The Argument in Full` was refused in a consuming repo, the
+        # tool wanting `4.1 the Argument` (2026-11-20).
+        ("4.1 The Argument in Full", "4.1 The Argument in Full",
+         'a multi-level section number is not the first word'),
+        ("2.3.1. the plan", "2.3.1. The Plan", 'nor with a closing mark'),
+        ("A. the plan", "A. The Plan", 'a lettered label is an enumerator'),
+        ("12 Angry Men", "12 Angry Men", 'a bare number is left as a word'),
     ]
     bad = []
     for text, must, why in cases:
