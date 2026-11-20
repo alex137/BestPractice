@@ -47,6 +47,14 @@ level where a person is the subject is exactly right — a *non-technical
 contributor* is a person, and a spec about their access is correctly named
 for them. The error is only in attaching it to a thing.
 
+**A field's own term is not a skill label either.** Where "technical" joins a
+noun to name a kind of writing or a trade's work -- technical prose,
+technical debt, a technical drawing, a technical standard, a technical audit,
+technical SEO (search engine optimization) -- it says nothing about who reads the file, and the check
+lets the bare word through directly before one of those nouns. A "technical
+guide" is still labelled for its reader, and "non-technical" anything always
+is.
+
 ## Why
 A name is the shortest description a reader ever gets, and it does most of
 the work of framing what follows. A container named for a person's skill
