@@ -1800,6 +1800,87 @@ class _BackslashBreak(markdown.extensions.Extension):
         md.inlinePatterns.register(SubstituteTagInlineProcessor(r"(?<!\\)\\\n", "br"), "backslash_break", 185)
 
 
+_LIST_ITEM_RE = re.compile(r"^( *)([-*+]|\d{1,9}[.)])( +|$)")
+_HRULE_RE = re.compile(r"^ {0,3}([-*_])(?: *\1){2,} *$")
+_FENCE_RE = re.compile(r"^ *(`{3,}|~{3,})")
+
+
+def nest_lists_as_commonmark(lines):
+    """Re-indent list blocks so Python-Markdown nests them as CommonMark does.
+
+    CommonMark (and GitHub, and most editors) makes a list item a child of the
+    one above when it is indented to that item's content -- two spaces under
+    "- ", three under "1. ". Python-Markdown nests only at four spaces a level,
+    so a list nested two spaces a level came out flat: every item at the top
+    level (2026-11-20, a published guide's contents list showed each section
+    beside the four Parts). This rewrites each item's indentation to four
+    spaces per CommonMark depth, and moves the lines that continue an item by
+    the same amount, before Python-Markdown parses. A list already nested four
+    spaces a level is left exactly as written, and lines inside a ``` or ~~~
+    fence are never touched."""
+    out, stack, fence, prev_blank, in_code = [], [], None, True, False
+    # stack: one (content_col, old_indent, new_indent) per open list item.
+    for line in lines:
+        if fence:
+            out.append(line)
+            if re.match(r"^ *" + re.escape(fence[0]) + r"{%d,} *$" % len(fence), line):
+                fence = None
+            prev_blank = False
+            continue
+        m_fence = _FENCE_RE.match(line)
+        if m_fence:
+            fence = m_fence.group(1)
+            out.append(line)
+            prev_blank = False
+            continue
+        if not line.strip():
+            out.append(line)
+            prev_blank = True
+            continue
+        expanded = line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(" "))
+        # An indented code block outside any list: kept as written, through
+        # to the first line indented less than four spaces.
+        if not stack and indent >= 4 and (prev_blank or in_code):
+            in_code = True
+            out.append(line)
+            prev_blank = False
+            continue
+        in_code = False
+        item = None if _HRULE_RE.match(expanded) else _LIST_ITEM_RE.match(expanded)
+        if item:
+            while stack and indent < stack[-1][0]:
+                stack.pop()
+            new_indent = 4 * len(stack)
+            content_col = indent + len(item.group(2)) + max(1, len(item.group(3)))
+            stack.append((content_col, indent, new_indent))
+            out.append(" " * new_indent + expanded[indent:])
+        elif stack and indent > 0:
+            owner = next((s for s in reversed(stack) if indent >= s[0]), stack[0])
+            # After a blank line, a paragraph inside an item needs four
+            # spaces per level in Python-Markdown; a wrapped line does not.
+            shifted = max(indent + owner[2] - owner[1],
+                          owner[2] + 4 if prev_blank and indent >= owner[0] else 0)
+            out.append(" " * shifted + expanded[indent:])
+        else:
+            if prev_blank or indent == 0 and expanded.lstrip().startswith(("#", "|", ">")):
+                stack = []
+            out.append(line)
+        prev_blank = False
+    return out
+
+
+class _CommonMarkListNesting(markdown.extensions.Extension):
+    """Nest lists by CommonMark's rule (nest_lists_as_commonmark)."""
+
+    def extendMarkdown(self, md):
+        class _Pre(markdown.preprocessors.Preprocessor):
+            def run(self, lines):
+                return nest_lists_as_commonmark(lines)
+        # After normalize_whitespace (30), before html_block (20).
+        md.preprocessors.register(_Pre(md), "commonmark_list_nesting", 25)
+
+
 def render(src, out_path, title):
     """Render one markdown document to its sortable-table HTML product."""
     src, out_path = Path(src), Path(out_path)
@@ -1814,7 +1895,7 @@ def render(src, out_path, title):
                  f"`--list` prints what is registered.")
     md_text = expand_includes(src.read_text(encoding="utf-8"), src.parent)
     page_css = _page_styles(md_text, src.parent)
-    body = markdown.markdown(md_text, extensions=["tables", _BackslashBreak()])
+    body = markdown.markdown(md_text, extensions=["tables", _BackslashBreak(), _CommonMarkListNesting()])
     body = _add_heading_ids(body)
     body = _wire_contents(body)
     body = retitle_file_links(body, src.parent)
