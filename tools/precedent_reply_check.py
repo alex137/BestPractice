@@ -1070,6 +1070,242 @@ def _linked_spans(s):
 _TRIVIAL_CHECKIN_RE = re.compile(r'^[\s*_]*unchanged since the last update:', re.I)
 
 
+# require_references_shown (Morgan, 2026-11-20, strength: decided: "how do
+# we solve the general problem that you keep on referencing things that I
+# have no idea what you're referencing since you don't put it there or link
+# it"). A reply pointed at "Five new rule and process candidates from last
+# night" and never listed the five. Everything a reply points at -- a
+# counted set, a numbered item, a named question, something said earlier --
+# is in the reply, or linked from the line that points at it.
+# practice: show-what-you-point-at
+_NUMBER_WORDS = ('two|three|four|five|six|seven|eight|nine|ten|eleven|twelve')
+_WORD_TO_INT = {w: i for i, w in enumerate(_NUMBER_WORDS.split('|'), start=2)}
+_LIST_ITEM_RE = re.compile(r'^(\s*)(?:[-*+]|\d{1,2}[.)])\s+\S')
+_URL_RE = re.compile(r'https?://\S|\]\([^)\s]+\)')
+_PLAIN_ADJECTIVES = frozenset(
+    'full narrow actual right wrong hard harder easy key central obvious whole '
+    'general broader wider deeper real underlying honest interesting important '
+    'good better best simple fair legitimate natural same'.split())
+
+
+def _reference_lines(text):
+    """-> [(index, original line, matchable text)] for each prose line of
+    `text`: fenced blocks and blockquotes left out, code spans and
+    double-quoted citations blanked, link text kept and emphasis dropped."""
+    out = []
+    for i, line in enumerate(_without_fenced_blocks(text).split('\n')):
+        if not line.strip() or line.lstrip().startswith('>'):
+            continue
+        s = _CODE_SPAN_RE.sub(' ', line)
+        s = _strip_quoted_spans(s)
+        s = re.sub(r'\[([^\]]*)\]\([^)\n]*\)', r'\1', s)
+        out.append((i, line, _strip_markdown_emphasis(s)))
+    return out
+
+
+def _list_blocks(text):
+    """-> [set of line indexes] -- each list of `text` (bullets or numbered
+    items at one indent under one parent) and each table's body rows. A
+    heading or an unindented paragraph line ends a list."""
+    blocks, open_ = {}, []          # open_: stack of (indent, key)
+    table, out = [], []
+    for i, line in enumerate(_without_fenced_blocks(text).split('\n')):
+        if line.strip().startswith('|'):
+            if not re.match(r'^\s*\|[\s:|-]+\|?\s*$', line):
+                table.append(i)
+            continue
+        if table:
+            out.append(set(table[1:]))   # the first row is the header
+            table = []
+        if re.match(r'^#{1,6}\s', line):
+            open_ = []
+            continue
+        m = _LIST_ITEM_RE.match(line)
+        if not m:
+            if line.strip() and not line.startswith((' ', '\t')):
+                open_ = []
+            continue
+        ind = len(m.group(1).expandtabs())
+        while open_ and open_[-1][0] > ind:
+            open_.pop()
+        if open_ and open_[-1][0] == ind:
+            key = open_[-1][1]
+        else:
+            key = i
+            open_.append((ind, key))
+        blocks.setdefault(key, set()).add(i)
+    if table:
+        out.append(set(table[1:]))
+    return out + list(blocks.values())
+
+
+def _block_of(blocks, i):
+    return next((b for b in blocks if i in b), set())
+
+
+def _questions_outside(lines, i, words=(), after=None):
+    """-> how many questions (sentences ending in "?") the reply's prose
+    asks outside line `i` -- plus, given `after`, those on line `i` past
+    that offset ("Ask three questions of it. Does it ...?") -- counting
+    only those that contain one of `words` when given."""
+    n = 0
+    for j, _, s in lines:
+        if j == i:
+            if after is None:
+                continue
+            s = s[after:]
+        for q in re.findall(r'[^.?!]*\?', s):
+            if words and not any(re.search(r'\b' + re.escape(w), q, re.I)
+                                 for w in words):
+                continue
+            n += 1
+    return n
+
+
+def unshown_references(text, spec):
+    """-> [(line, what it points at, why it is not shown)] for each pointer
+    in `text`'s prose that the reply neither shows nor links. See
+    reply_check.json's `boildown-references-shown` for `spec`'s keys."""
+    lines = _reference_lines(text)
+    blocks = _list_blocks(text)
+    found = []
+    count_nouns = spec.get('count_nouns')
+    numbered_nouns = spec.get('numbered_nouns')
+    named = spec.get('named_nouns')
+    thread_ptr = spec.get('thread_pointers')
+    above_ptr = spec.get('in_reply_pointers')
+    # A count is two to twelve, standing alone (never a piece of a date,
+    # a version or a time: "2026-09-22 it also ..."), then up to four
+    # modifiers that are not function words, then a PLURAL set noun:
+    # "Five new rule and process candidates" -- never "the three private
+    # practice sets", whose noun is "sets". Larger counts are statistics
+    # ("81 findings"), not a set the reader is asked to look at.
+    count_re = (re.compile(
+        r'(?<![\w./:#-])(?<!\bof )(' + _NUMBER_WORDS + r'|[2-9]|1[0-2])(?![\w./:%-])\s+'
+        r'(?:(?!(?:for|of|in|a|an|the|to|from|with|on|at|by|is|are|was|were|it'
+        r'|its|that|this|than|per|or)\b)[\w-]+\s+){0,4}?('
+        + count_nouns + r')\b(?![\w-])', re.I) if count_nouns else None)
+    num_re = (re.compile(
+        r'\b(?i:(' + numbered_nouns + r'))\s+(?:#\s*|no\.\s*)?(\d{1,2}|[A-H])\b(?!\s*of\s+\d)')
+        if numbered_nouns else None)
+    named_re = (re.compile(
+        r'\bthe\s+((?:[\w\'-]+\s+){0,3}?[\w\'-]+)\s+(?:' + named + r')\b(?!\s*[:?])', re.I)
+        if named else None)
+    generic = {'open', 'last', 'next', 'same', 'other', 'one', 'first', 'second',
+               'third', 'earlier', 'previous', 'big', 'main', 'real', 'remaining',
+               'outstanding', 'pending', 'old', 'new', 'only', 'final'}
+
+    def linked(line):
+        return bool(_URL_RE.search(line))
+
+    def listed_inline(s, end, n):
+        rest = s[end:]
+        m = re.match(r'\s*(?:\([^)]*\)\s*)?(?:[:(]|\s[—–-]{1,2}\s)(.*)', rest)
+        if not m:
+            return False
+        body = m.group(1)
+        if n <= 1:
+            return bool(body.strip())
+        seps = len(re.findall(r'[,;]|\s(?:and|or)\s|\s\d[.)]\s', body))
+        return seps >= n - 1
+
+    def list_elsewhere(i, n, before=None):
+        own = _block_of(blocks, i)
+        for b in blocks:
+            if i in b or b == own or len(b) < n:
+                continue
+            if before is True and min(b) > i:
+                continue
+            if before is False and max(b) < i:
+                continue
+            return True
+        return False
+
+    for i, line, s in lines:
+        if linked(line):
+            continue
+        if count_re:
+            for m in count_re.finditer(s):
+                word = m.group(1).lower()
+                n = _WORD_TO_INT.get(word) or int(word)
+                if listed_inline(s, m.end(), n):
+                    continue
+                # an enumeration in prose after it -- "(a) ... (b) ..."
+                rest = s[m.end():] + '\n' + '\n'.join(
+                    t for j, _, t in lines if j > i)
+                if len(re.findall(r'\((?:[a-l]|[1-9]|i{1,3}|iv|vi{0,3})\)', rest)) >= n:
+                    continue
+                if re.match(r'questions?$', m.group(2), re.I) and \
+                        _questions_outside(lines, i, after=m.end()) >= n:
+                    continue
+                if list_elsewhere(i, n):
+                    continue
+                found.append((s.strip(), m.group(0),
+                              f'names {n} things and the reply lists no {n} of them'))
+        if num_re:
+            for m in num_re.finditer(s):
+                ident = m.group(2)
+                if listed_inline(s, m.end(), 1):
+                    continue
+                mark = re.compile(
+                    r'^\s*(?:[-*+]\s+|#{1,6}\s+)?(?:(?i:' + numbered_nouns
+                    + r')\s+)?#?' + re.escape(ident) + r'\s*(?:[.):—–-]|$)')
+                if mark.match(s) or any(j != i and mark.match(t) for j, _, t in lines):
+                    continue                 # this line is the item itself
+                found.append((s.strip(), m.group(0),
+                              'points at a numbered item the reply never shows'))
+        if named_re:
+            for m in named_re.finditer(s):
+                if '?' in s[m.end():] or listed_inline(s, m.end(), 1):
+                    continue
+                head = m.group(1).split()
+                # "the full question", "the reader's question": a kind of
+                # question, not a pointer to one. A person's own question
+                # ("Morgan's question") still points.
+                if any(w.lower() in ('a', 'an', 'the', 'one') for w in head) or (
+                        len(head) == 1 and head[0].lower() in _PLAIN_ADJECTIVES) or (
+                        head[-1].lower().endswith(("'s", "’s")) and head[-1][:1].islower()):
+                    continue
+                words = [w for w in re.findall(r"[\w'-]+", m.group(1))
+                         if len(w) >= 4 and w.lower() not in generic]
+                if not words and m.group(1).lower() in (
+                        'a', 'an', 'this', 'that', 'your', 'my', 'his', 'her'):
+                    continue
+                if _questions_outside(lines, i, words) >= 1:
+                    continue
+                found.append((s.strip(), m.group(0),
+                              'names a question the reply never asks'))
+        if thread_ptr:
+            for m in re.finditer(thread_ptr, s, re.I):
+                if listed_inline(s, m.end(), 1):
+                    continue
+                found.append((s.strip(), m.group(0),
+                              'points back into the thread, with no link and '
+                              'nothing shown'))
+        if above_ptr:
+            for m in re.finditer(above_ptr, s, re.I):
+                below = 'below' in m.group(0).lower()
+                if re.search(r'question', m.group(0), re.I):
+                    ok = any(('?' in t) and ((j > i) if below else (j < i))
+                             for j, _, t in lines)
+                elif re.search(r'\b(?:items?|list|options?|candidates?|points?|reasons?)\b',
+                               m.group(0), re.I):
+                    # a named set above or below is a list there, never a
+                    # sentence: "approve the items above" under one line of
+                    # prose points into the thread
+                    ok = list_elsewhere(i, 1, before=not below)
+                else:
+                    ok = list_elsewhere(i, 1, before=not below) or any(
+                        ((j > i) if below else (j < i)) for j, _, t in lines
+                        if not _LIST_ITEM_RE.match(t) and j not in _block_of(blocks, i)
+                        and not re.match(r'^#{1,6}\s', t))
+                if not ok:
+                    found.append((s.strip(), m.group(0),
+                                  'points ' + ('below' if below else 'above')
+                                  + ' at something this reply does not hold'))
+    return found
+
+
 def _strip_markdown_emphasis(s):
     """`**The work**` reads as `The work` -- bold and code marks are
     formatting, not wording, so a pattern should never have to allow for
@@ -1539,6 +1775,7 @@ KNOWN_REQUIREMENT_KEYS = frozenset({
     'require_prompt_block_header',
     'require_reason_on_gap_line',
     'require_ask_states_its_question',
+    'require_references_shown',
     'require_finished_plan_asks_to_act',
     'require_hold_names_what_runs',
     # printed by the reply gate before the reply, never evaluated here
@@ -2017,6 +2254,27 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                     f"being decided, what yes and no each do, and your pick, "
                     f"all in that bullet -- never \"the X question\" or "
                     f"\"yes or no on X\" alone"
+                    + (f" -- {r.get('why')}" if r.get('why') else '') + "."
+                    + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
+
+        # require_references_shown (Morgan, 2026-11-20, strength: decided):
+        # a reply that points at a counted set, a numbered item, a named
+        # question or something said earlier shows it or links it, on any
+        # line of the reply, not only Your next steps. See
+        # unshown_references(). practice: show-what-you-point-at
+        refs = r.get('require_references_shown')
+        if isinstance(refs, dict):
+            hits = unshown_references(text, refs)
+            if hits:
+                shown = '; '.join(f'"{w}" in "{l[:110]}" ({why})'
+                                  for l, w, why in hits[:3])
+                out.append({'kind': 'reference_not_shown', 'advisory': advisory,
+                            'message': (
+                    f"[{r.get('_source', '?')}] this reply points at things it "
+                    f"does not show: {shown}. Put each one in the reply, at "
+                    f"least a line apiece, or link straight to it from that "
+                    f"line -- never \"the five candidates\", \"question 2\", "
+                    f"\"as above\" or \"the X question\" on their own"
                     + (f" -- {r.get('why')}" if r.get('why') else '') + "."
                     + (f" (practice: {r['practice']})" if r.get('practice') else ''))})
 
@@ -3021,6 +3279,10 @@ def main():
                             f"/{_ask['item']}/i item that asks for an answer "
                             f"also carries: "
                             + ', '.join(_ask.get('must_also_match') or {}))
+            if isinstance(r.get('require_references_shown'), dict):
+                bits.append('a counted set, a numbered item, a named question or '
+                            'a pointer above or into the thread is shown in the '
+                            'reply or linked from its line')
             _rep = r.get('require_section_not_repeated') or {}
             if _rep.get('heading'):
                 bits.append(f"section /{_rep['heading']}/i not a repeat of the "
