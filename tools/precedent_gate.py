@@ -1004,6 +1004,14 @@ def _print_hard_requirements(root):
                   f"suggestion this session raised itself, not taken up, is "
                   f"asked once and then left out (file it as a quiet open "
                   f"item if it is worth keeping).")
+        if isinstance(r.get('require_references_shown'), dict):
+            print(f"- [{src}] everything the reply points at is in the reply, "
+                  f"at least a line apiece, or linked from the line that "
+                  f"points at it: a counted set (\"the five candidates\"), a "
+                  f"numbered item (\"question 2\"), a named question (\"the X "
+                  f"question\"), something above or said earlier (\"as "
+                  f"discussed\", \"the items above\"). On any line of the "
+                  f"reply, not only Your next steps.")
         # require_section_not_repeated: the previous reply's section is
         # knowable here, before a word is written -- and here is the only
         # place the repeat can still be avoided, since the stop hook fires

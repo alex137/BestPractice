@@ -2661,6 +2661,88 @@ def check_reply_check_wants_an_ask_to_state_its_question():
     return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
 
 
+def check_reply_check_wants_what_a_reply_points_at_shown():
+    """`require_references_shown` refuses a reply that points at a counted
+    set, a numbered item, a named question or something said earlier
+    without showing it in the reply or linking it from that line.
+
+    Morgan, 2026-11-20 (strength: decided): "how do we solve the general
+    problem that you keep on referencing things that I have no idea what
+    you're referencing since you don't put it there or link it". The first
+    refused case is the sentence that session actually wrote; it passed
+    boildown-ask-states-its-question, which reads stakes and a pick, not
+    whether the five were shown.
+
+    practice: control-asserts-which-failure -- each refusal asserts the
+    guard's own kind; the controls prove a list elsewhere in the reply, an
+    inline listing, a link, a question asked elsewhere, and the Boildown's
+    own counted first line all pass.
+    """
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_reply_check as _rc
+    reqs = [r for r in json.loads((ROOT / 'reply_check.json').read_text(
+        encoding='utf-8')) if r.get('id') == 'boildown-references-shown']
+    if not reqs:
+        return (False, '', 'reply_check.json no longer declares '
+                           'boildown-references-shown')
+
+    def kinds(body, steps):
+        reply = (body + '\n\n## The Boildown\n- The work of this session is '
+                 'now on: staging (you have finished step 3 of 5, Booked)\n'
+                 + steps + '- You can archive this session.\n')
+        return [v['kind'] for v in _rc.violations(reply, reqs)]
+
+    refused = ['reference_not_shown']
+    today = ('- **Your next steps:** Five new rule and process candidates '
+             'from last night: keep marks each in force, drop parks it. My '
+             'pick is keep all five.\n')
+    five = ''.join(f'  - Candidate {n}: a rule.\n' for n in 'ABCDE')
+    cases = [
+        ("today's sentence, the five never listed, is refused",
+         kinds('Done.', today) == refused),
+        ('the same sentence with the five as sub-bullets passes',
+         kinds('Done.', today + five) == []),
+        ('the five listed earlier in the reply count as shown',
+         kinds('The five:\n\n' + ''.join(f'- Rule {n}.\n' for n in 'ABCDE'),
+               today) == []),
+        ('a list of four does not show five',
+         kinds('Done.', today + ''.join(f'  - Rule {n}.\n' for n in 'ABCD'))
+         == refused),
+        ('a link on the line counts as shown',
+         kinds('Done.', '- **Your next steps:** the five candidates are in '
+               '[the file](todo/c.md). My pick is keep all five.\n') == []),
+        ('an inline listing counts as shown',
+         kinds('Done.', '- Three options: merge now, wait for the run, or '
+               'drop it.\n') == []),
+        ('"question 2" with no question 2 shown is refused',
+         kinds('Done.', '- **Your next steps:** answer question 2. My pick is '
+               'yes.\n') == refused),
+        ('"question 2" beside a numbered question 2 passes',
+         kinds('1. Read tables?\n2. Read sub-bullets?', '- **Your next '
+               'steps:** answer question 2: yes reads them. My pick is yes.\n')
+         == []),
+        ('"the voice pack question" never asked is refused',
+         kinds('Done.', '- Still open: the voice pack question.\n') == refused),
+        ('a named question asked elsewhere in the reply passes',
+         kinds('Should the voice pack sync from the voice repo?',
+               '- Still open: the voice pack question.\n') == []),
+        ('"as discussed" with no link is refused',
+         kinds('As discussed, the gate moves.', '') == refused),
+        ('"the items above" with nothing above is refused',
+         kinds('Done.', '- **Your next steps:** approve the items above. Yes '
+               'lands them. My pick is yes.\n') == refused),
+        ('negative control: the counted first line passes',
+         kinds('Done.', '- 4 of 5 changes NOT on the landing branch yet; 2 '
+               'commits that change files.\n') == []),
+        ('negative control: a count inside a fence block is not read',
+         kinds('Paste into: a new session rooted in BestPractice.\n\n```\n'
+               'Fix the five candidates.\n```', '') == []),
+        ('negative control: a quoted citation is not read',
+         kinds('The gate refuses "the five candidates" on its own.', '') == []),
+    ]
+    bad = [n for n, ok in cases if not ok]
+    return (not bad, f'{len(cases)} stated cases', '; '.join(bad))
+
 def check_reply_check_wants_a_finished_plan_to_ask_and_a_hold_to_say_why():
     """`require_finished_plan_asks_to_act` refuses a reply that finishes a
     plan without asking to act on it; `require_hold_names_what_runs`
