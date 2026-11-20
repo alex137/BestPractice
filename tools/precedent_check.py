@@ -4930,6 +4930,20 @@ def _practice_is_reachable(ctx):
                 continue
         unreachable.append((slug, s['level'], s['name']))
 
+    # AN ADDITION LOADS WITH ITS BASE. A practice carrying `adds_to: BASE` is
+    # printed under BASE's Rule by precedent_show.py ("Addition in force
+    # here"), and build_views leaves it out of the occasion index for that
+    # reason. So it is reachable exactly when its base is: in force here and
+    # not itself unreachable. Missing from this model, five testing practices
+    # folded under prediction-before-the-run read as reachable by nothing and
+    # turned main's test red (2026-11-20, issue #1586).
+    _adds_to = getattr(_bv_index, 'adds_to', None) if _bv_index else None
+    if _adds_to is not None:
+        dark = {u[0] for u in unreachable}
+        unreachable = [u for u in unreachable
+                       if not ((base := _adds_to(in_force[u[0]][0]))
+                               and base in in_force and base not in dark)]
+
     if not in_force:
         raise NotApplicable('no practice resolved from any declared source, '
                             'so there is nothing to judge reachability for')
