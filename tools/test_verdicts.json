@@ -8310,6 +8310,15 @@
       "seconds": 0.0,
       "leads": [],
       "importance": "low"
+    },
+    "check_proper_names_and_date_formats_are_not_acronyms": {
+      "verdict": "keep",
+      "why": "Proper names led by capitals (ATCO Pest Control) and date formats (YYYY-MM-DD) are not reported as unglossed acronyms; a consumer's Produce was blocked by them.",
+      "date": "2026-11-19",
+      "by": "agent",
+      "seconds": 0.0,
+      "leads": [],
+      "importance": "low"
     }
   }
 }
