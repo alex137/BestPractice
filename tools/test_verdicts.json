@@ -3136,6 +3136,15 @@
       "leads": [],
       "importance": "high"
     },
+    "check_a_missing_individual_source_cannot_drop_its_manifest_record": {
+      "verdict": "keep",
+      "why": "A session without the individual source rewrote a consumer's MANIFEST.json without its record and the views check preferred the damaged file; every merge conflicted for a day (2026-11-20).",
+      "date": "2026-11-20",
+      "by": "agent",
+      "seconds": 2.0,
+      "leads": [],
+      "importance": "high"
+    },
     "check_stale_views_say_why_and_stop_at_the_push": {
       "verdict": "keep",
       "why": "Stale generated views must name their cause and stop the landing push; otherwise sessions chase missing sources.",
