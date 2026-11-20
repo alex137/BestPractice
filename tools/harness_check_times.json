@@ -555,6 +555,7 @@
   "check_render_contents_can_be_switched_off": 0.1,
   "check_render_filters_come_from_the_sets": 0.0,
   "check_render_names_files_by_title": 0.1,
+  "check_render_nests_lists_as_commonmark": 0.1,
   "check_rendered_docs_are_current": 0.1,
   "check_repin_kept_records_the_persons_words": 0.0,
   "check_reply_check_keeps_a_refusal_ledger": 0.5,
