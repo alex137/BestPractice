@@ -3057,9 +3057,14 @@ _PERSON_NOUNS = ('contributor', 'contributors', 'person', 'people', 'user',
 # "technical guide" or a "technical setup" is still a document labelled for
 # its reader, and "non-technical" anything always is (2026-11-18: a
 # consumer's source text `...-technical-prose.txt` was refused, and the
-# rename broke the job that had written it).
+# rename broke the job that had written it). A technical audit, and
+# technical SEO, are a trade's own names for its work -- auditing a site's
+# crawlability, speed and indexing -- and name no reader either
+# (2026-11-20: a consumer's `weekly-technical-audit.md` was refused, which
+# held up its staging-to-main promotion).
 _SUBJECT_NOUNS = ('prose', 'writing', 'debt', 'term', 'terms', 'vocabulary',
-                  'standard', 'standards', 'drawing', 'drawings')
+                  'standard', 'standards', 'drawing', 'drawings',
+                  'audit', 'audits', 'seo')
 
 _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?',
                              re.IGNORECASE)
@@ -3072,7 +3077,7 @@ _SKILL_LABEL_RE = re.compile(r'(?:^|[/_\-])(non[_\-]?technical|technical)[/_\-]?
        'by a person-noun (a nontechnical-contributor-guide names a person '
        'and is correct), and bare "technical" directly before a noun it '
        'joins to name a kind of writing or a field\'s term (technical-prose, '
-       'technical-debt). It reads names only -- it cannot see a per-person '
+       'technical-debt, technical-audit, technical-seo). It reads names only -- it cannot see a per-person '
        'rule written into a shared file, which is the failure the name leads '
        'to.',
        # A practice filename is a published path.
