@@ -43,8 +43,8 @@ are [reduction-pass](reduction-pass.md)'s.
 and record their own words in the registry's `approved_budgets`. A formula,
 fallback or newly summed source that makes a number bigger is a raise too.
 Never raise one to make a red check green, never before you are blocked,
-and when one blocks you, do a reduction pass first. The one exception is an
-offset, recorded as `"strength": "offset"` ("Raising a budget"). Say any
+and when one blocks you, do a reduction pass first. The exceptions are an
+offset and a set the person asked to add ("Raising a budget"). Say any
 budget change in the reply's Boildown.
 
 **Over a cap, the quick check warns and the full check refuses.** Tell the
@@ -203,11 +203,16 @@ and say any change to a budget in that reply's Boildown.
 you, do a [reduction pass](reduction-pass.md), not a raise** -- every token
 budget, in every source: a ceiling, a cap, a set's `occasion_share_tokens`, a
 person's `brought_sets_tokens`. Ask for a raise only after the pass, with its
-report, and only the person's own words for that raise allow it. **The one
-exception is an offset:** tokens a change frees elsewhere -- a supporting set
+report, and only the person's own words for that raise allow it. **Two
+exceptions.** An offset: tokens a change frees elsewhere -- a supporting set
 removed, its share given to the set that replaces it -- may pay for a raise
 of up to what they freed, recorded as `"strength": "offset"` with
-`offset_from`, `freed` and `previous_max`, and said with both numbers.
+`offset_from`, `freed` and `previous_max`, and said with both numbers. And
+**a set the person asked to add**: the set's `occasion_share_tokens` is a cap
+its own approvers already hold it to, so the person's request for the set is
+the approval for that much and no more. Record it as `"strength":
+"source-added"` with `source`, `share` (no more than the set declares) and
+`previous_max`, quoting the person asking for the set, and say both numbers.
 
 ### Warn at the quick check, refuse at the full one
 
@@ -317,6 +322,24 @@ changes to remove tokens elsewhere so it evens out then that's fine (such as
 if we remove a supporting set repo then it's okay to allocate its tokens to
 the new repo etc)."* The budget went back to 700, the check now reads it,
 and an offset is recorded with what it freed. Strength: decided.
+
+**A set the person asked for, 2026-11-20.** A consumer installed the
+patent practice set at its owner's request. The set declared no
+`occasion_share_tokens`, so it counted at its measured size, about 480
+tokens; the consumer's derived occasion cap rose by that much, past the
+baseline in `approved_budgets`, and `budget-within-approval` refused the
+install. Alex: *"I don't understand why we have that limit. So please raise
+it. ... Perhaps we need to fix whatever rule is deciding we should have a
+limit like that."* Two fixes, one in each place that owns part of it. The
+set routes its rules by path and declares a small share, so it no longer
+costs every session an index line. And the request to add a set now counts
+as the approval for the share that set declares (`source-added`), the
+mirror of the 2026-10-08 offset: a consumer can neither be blocked by a set
+the person asked for nor take more than the set's own cap. A consumer-side
+override of a set's `applies_to` in `precedent.json` was considered and not
+built: it would be a second place deciding where a rule fires, and the
+set's own file is the one its approvers review. Proposed on a branch,
+awaiting the owner (strength: unknown).
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 878 words; it now holds the ceilings, the one total, who raises a budget and what a cap does at each check, in 320 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 

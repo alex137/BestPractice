@@ -4775,6 +4775,63 @@ def check_budget_approvals_see_computed_raises():
                       failure_detail(out, 600)))
         reset()
 
+        # 2026-11-20: installing a set the person asked for raised a
+        # consumer's derived occasion cap past its baseline, and only the
+        # person could raise it. Their request for the set now covers the
+        # share that set declares, and no more.
+        pj_p = repo / 'precedent.json'
+        pj_text = pj_p.read_text(encoding='utf-8')
+        added = pathlib.Path(tmp) / 'added-set'
+        added.mkdir()
+        (added / 'precedent-source.json').write_text(json.dumps(
+            {'name': 'added-set', 'level': 'shared',
+             'occasion_share_tokens': 300}), encoding='utf-8')
+        pj = json.loads(pj_text)
+        pj['sources'] = [x for x in pj['sources'] if x.get('level') != 'shared'] + [
+            {'level': 'shared', 'name': 'added-set', 'path': str(added)}]
+        pj_p.write_text(json.dumps(pj), encoding='utf-8')
+
+        def source_added(name, share, top=7250,
+                         words='"install the added set"'):
+            def fn(d):
+                d['surfaces']['AGENTS.md']['ceiling'] = top
+                d['approved_budgets']['surfaces/AGENTS.md'] = {
+                    'max': top, 'strength': 'source-added', 'previous_max': 6950,
+                    'source': name, 'share': share,
+                    'approved_by': f'Fixture Person, 2026-11-20: {words}'}
+            return fn
+
+        edit_reg(source_added('added-set', 300))
+        rc, out = run()
+        cases.append(('a raise covered by a set the person asked to add passes',
+                      rc == 0 and '1 passed' in out, failure_detail(out, 600)))
+        reset()
+        edit_reg(source_added('added-set', 300, top=7500))
+        rc, out = run()
+        cases.append(('...one larger than the set\'s share is refused',
+                      rc != 0 and "more than the 300 tokens 'added-set' brings"
+                      in out, failure_detail(out, 600)))
+        reset()
+        edit_reg(source_added('added-set', 500, top=7450))
+        rc, out = run()
+        cases.append(('...so is a share bigger than the set declares',
+                      rc != 0 and "which declares 300" in out,
+                      failure_detail(out, 600)))
+        reset()
+        edit_reg(source_added('never-declared', 300))
+        rc, out = run()
+        cases.append(('...and one naming a set precedent.json does not declare',
+                      rc != 0 and 'which precedent.json does not declare' in out,
+                      failure_detail(out, 600)))
+        reset()
+        edit_reg(source_added('added-set', 300, words='asked for it'))
+        rc, out = run()
+        cases.append(('...and one quoting nobody asking for the set',
+                      rc != 0 and 'quotes nobody asking for the set' in out,
+                      failure_detail(out, 600)))
+        reset()
+        pj_p.write_text(pj_text, encoding='utf-8')
+
         edit_reg(lambda d: d.pop('approved_budgets'))
         rc, out = run()
         cases.append(('with no approvals list and no main to compare, the '
