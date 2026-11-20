@@ -4806,6 +4806,7 @@ def main():
     check_source_bootstrap_keeps_what_git_said()
     check_runbook_names_the_postcondition_after_a_merge()
     check_update_done_names_the_branch_to_commit_on()
+    check_update_nothing_new_says_what_still_waits()
     check_update_done_names_the_update_branches_it_replaces()
     check_session_check_stamps_at_session_start()
     check_vdc_is_a_known_acronym_everywhere()
