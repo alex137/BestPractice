@@ -5370,6 +5370,63 @@ def check_render_names_files_by_title():
           f'({len(cases)} stated cases)', not bad)
 
 
+def check_render_nests_lists_as_commonmark():
+    """A render nests a list the way CommonMark and GitHub do: an item
+    indented to the content of the item above it is that item's child.
+
+    THE INCIDENT (2026-11-20). Python-Markdown nests only at four spaces a
+    level, so a published guide whose contents list was nested two spaces
+    a level (Parts, sections, sub-sections) rendered every section beside
+    the four Parts. render() now re-indents list blocks first
+    (doc_html.nest_lists_as_commonmark). Stated: two-space and four-space
+    nesting, unordered and ordered, come out nested the same; a fenced
+    block holding list-like lines is left exactly as written."""
+    import importlib.util, tempfile, shutil
+    spec = importlib.util.spec_from_file_location(
+        '_doc_html_lists', ROOT / 'tools' / 'doc_html.py')
+    try:
+        dh = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(dh)
+    except Exception as e:
+        not_applicable('a render nests lists as CommonMark does',
+                       f'tools/doc_html.py could not be imported ({e}) -- '
+                       f'not a pass')
+        return
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='render-lists-', dir=ROOT))
+    cases = []
+
+    def body_of(md):
+        (tmp / 'page.md').write_text('# Page\n\n' + md, encoding='utf-8')
+        dh.render(tmp / 'page.md', tmp / 'page.html', 'Page')
+        body = (tmp / 'page.html').read_text(encoding='utf-8')
+        body = body.split('<main>', 1)[1].split('</main>', 1)[0]
+        return re.sub(r'\s+', '', body)
+
+    nested_ul = '<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li><li>d</li></ul>'
+    nested_ol = '<ol><li>a<ol><li>b<ol><li>c</li></ol></li></ol></li><li>d</li></ol>'
+    try:
+        for name, md, want in (
+                ('two-space unordered', '- a\n  - b\n    - c\n- d\n', nested_ul),
+                ('four-space unordered', '- a\n    - b\n        - c\n- d\n', nested_ul),
+                ('three-space ordered', '1. a\n   1. b\n      1. c\n2. d\n', nested_ol),
+                ('four-space ordered', '1. a\n    1. b\n        1. c\n2. d\n', nested_ol)):
+            got = body_of(md)
+            cases.append((f'{name} nesting comes out nested', want in got, got[:300]))
+        fenced = '```\n- a\n  - b\n```\n'
+        got = dh.nest_lists_as_commonmark(fenced.splitlines())
+        cases.append(('a fenced block is left exactly as written',
+                      got == fenced.splitlines(), repr(got)))
+        got = body_of(fenced)
+        cases.append(('a fenced block renders no list', '<li>' not in got, got[:300]))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    bad = [(n, d) for n, ok, d in cases if not ok]
+    for n, d in bad:
+        print(f"  render-list case did not behave as stated: {n} -- {d}")
+    check(f'a render nests lists as CommonMark does ({len(cases)} stated cases)',
+          not bad)
+
+
 def check_rendered_docs_are_current():
     """Every committed HTML render still matches its markdown source.
 

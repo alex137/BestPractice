@@ -5368,6 +5368,15 @@
       "leads": [],
       "importance": "low"
     },
+    "check_render_nests_lists_as_commonmark": {
+      "verdict": "keep",
+      "why": "doc_html renders nest a two-space list the way GitHub does, not flat.",
+      "date": "2026-11-20",
+      "by": "agent",
+      "seconds": 0.3,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_rendered_docs_are_current": {
       "verdict": "keep",
       "why": "Real-tree check that committed renders match their source; BestPractice tracks one render today, spec/PREFORK_AUDIT.html.",

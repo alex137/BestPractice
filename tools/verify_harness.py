@@ -5136,6 +5136,7 @@ def main():
           'clobbered',
           *check_individual_set_diverged_copies_are_reported_not_clobbered())
     check_render_names_files_by_title()
+    check_render_nests_lists_as_commonmark()
     check_rendered_docs_are_current()
     check_install_names_every_not_vendored_dir()
     check_philosophy_readme_lists_every_file()
