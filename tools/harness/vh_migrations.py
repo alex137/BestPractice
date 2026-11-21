@@ -1345,7 +1345,7 @@ def check_acronym_scan_skips_wrapped_code_spans():
     finally:
         sys.path.pop(0)
     name = ('the acronym scan skips code spans that wrap across lines, and '
-            'a shouted phrase')
+            'a shouted phrase, in a quotation on one line or wrapped')
     toks = lambda t: [tok for _i, tok in dl.scan_unglossed(t, set(), 'x.md')
                       if tok in ('QZXA', 'QZXB', 'QZXC', 'QZXD')]
     cases = [
@@ -1367,6 +1367,26 @@ def check_acronym_scan_skips_wrapped_code_spans():
          toks('Me: *"since it is just QZXA QZXB, skip it"*.\n') == []),
         ('one capitalized word alone inside a quotation is still scanned',
          toks('He said "use QZXC here" once.\n') == ['QZXC']),
+        ('a quotation wrapping onto the next line still makes a shout '
+         '(a consumer recipe, 2026-11-20: "the MS WORD version\\nONLY")',
+         toks('(Me: "on the QZXA QZXB version\nONLY, add it"). QZXC.\n')
+         == ['QZXC']),
+        ('a shout broken across the line inside a quotation is skipped',
+         toks('He said "use the QZXA\nQZXB here" once.\n') == []),
+        ('one capitalized word alone in a wrapped quotation is still scanned',
+         toks('He said "use QZXC\nhere" once.\n') == ['QZXC']),
+        ('a quotation never crosses a paragraph break',
+         toks('An open " quote.\n\nQZXA QZXB and a close " quote.\n')
+         == ['QZXA', 'QZXB']),
+        ('a quote mark inside a code span opens no quotation',
+         toks('Run `a"b` QZXA QZXB then "x\ny".\n') == ['QZXA', 'QZXB']),
+        ('an expansion that wraps onto the next line glosses its acronym '
+         '(a consumer guide, 2026-11-20: "DISC (Dominance, Influence,\\n...")',
+         toks('Our QZXA (Quick Zebra Xylophone\nAnts) test.\n') == []),
+        ('a heading never runs on into the paragraph under it',
+         toks('## Why QZXA\n"QZXB QZXC" said.\n') == ['QZXA']),
+        ('each line of YAML front matter is read on its own',
+         toks('---\nstatus: "a stray\nwhy: "QZXA QZXB"\n---\nBody.\n') == []),
         ('a comma list of acronyms is still scanned',
          toks('Use QZXA, QZXB and QZXC.\n') == ['QZXA', 'QZXB', 'QZXC']),
         ('line numbers still point at the right line',
