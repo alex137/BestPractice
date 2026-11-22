@@ -517,6 +517,20 @@ def check_reach_key_self_check():
     check(name, p.returncode == 0 and 'PASS' in p.stdout, failure_detail((p.stdout + p.stderr).strip(), 400))
 
 
+def check_precedent_python_self_check():
+    """tools/py runs the declared Python with no Python on PATH, refuses
+    (127) rather than fall back when it is missing, and agrees with
+    precedent_python.py on the default; `upgrade` keeps a clean move and
+    puts every file back after a failed one (practice: one-python)."""
+    name = 'tools/py runs the declared Python without PATH, and upgrade undoes a failed move'
+    tool = ROOT / 'tools' / 'precedent_python.py'
+    if not (ROOT / 'tools' / 'py').is_file():
+        not_applicable(name, 'tools/py is absent')
+        return
+    p = subprocess.run([sys.executable, str(tool), 'self-check'], capture_output=True, text=True)
+    check(name, p.returncode == 0 and 'PASS' in p.stdout, failure_detail((p.stdout + p.stderr).strip(), 400))
+
+
 def check_content_record_self_check():
     """content_record.py's own property checks: a fresh record holds; a
     changed file, listing, existence or environment variable is each

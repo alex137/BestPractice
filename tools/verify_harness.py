@@ -4736,6 +4736,7 @@ def main():
     check_repo_attach_gate_refuses_a_sweep_nobody_asked_for()
     check_outbound_privacy_gate_refuses_and_scan_finds()
     check_reach_key_self_check()
+    check_precedent_python_self_check()
     check_ledger_ignores_checkout_layout()
     check_content_record_self_check()
     check_doc_sync_ledger()

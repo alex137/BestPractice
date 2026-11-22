@@ -34,9 +34,20 @@ every place that starts Python gets that one.**
    session. So a command, a document or a person typing `python3` gets the
    right one. A person's own machine is only checked and told, never
    changed.
-3. **A tool starts a tool with the Python it is running in:**
+3. **A document, runbook or person runs a file with `tools/py FILE`**,
+   not `python3 FILE`. [`tools/py`](https://github.com/alex137/BestPractice/blob/staging/tools/py) is a small shell script: it reads
+   the declaration of the repository holding the file, finds that
+   interpreter, checks its version and runs it, and never falls back to
+   another Python. Point 2 is a convenience that a lost session file
+   undoes; this is the guarantee.
+4. **A tool starts a tool with the Python it is running in:**
    `[sys.executable, 'tools/x.py']`, never `['python3', 'tools/x.py']`.
-4. **GitHub's workflows set the same version** with `python-version`.
+5. **GitHub's workflows set the same version** with `python-version`.
+6. **Move to a newer Python with `python3 tools/precedent_python.py
+   upgrade X.Y`**, never by editing the version by hand: it installs the
+   packages into X.Y, rewrites precedent.json and the workflows, runs the
+   full check under X.Y, and keeps the change only if that is clean. It
+   never commits.
 
 ## Detail
 **A hook gets the declared Python from a link, not from the session
@@ -49,6 +60,13 @@ identical. No link -- setup has never run here -- and the hook runs on the
 default, as before; it is never refused. For that first run, setup also
 installs the engine's packages into the Python running it, which is the
 default the session-start hook was given.
+
+**The memo key says so when the Python is wrong.** A memo key carries the
+interpreter's major.minor, so a solve run on another Python misses every
+shared memo and stores one nobody else will use. The memo key prints one
+warning per process when the running Python is not the one the
+repository holding the solve declares
+([`tools/reach_key.py`](https://github.com/alex137/BestPractice/blob/staging/tools/reach_key.py)); a host need not carry its own.
 
 `python3 tools/precedent_python.py check` says whether this shell's
 `python3` is the declared one and can import the declared packages. A
@@ -97,11 +115,25 @@ older than the declared version it would fail to parse newer syntax, the
 Python into the checkout and every hook script began putting that link
 first.
 
+2026-11-18, a consumer: after container restarts, one session's `python3`
+was 3.13 while the declared 3.12 sat in the cache directory setup links
+from; the session file that puts that link first on PATH had not reached
+the session's commands. Every model the session ran by hand missed every
+shared memo and solved cold under 3.13 keys: two 80-minute solves wasted,
+and a false diagnosis chased across two sessions. The consumer added a
+warning to its own memo host. On 2026-11-22 the warning moved into the
+engine's memo key, and `tools/py` became the way to run a file, since it
+reads the declaration itself.
+
 ## Install
 Declare the Python in `precedent.json` -- `"python": {"version": "3.12",
 "packages": [...]}`, listing what the repository's own code imports -- and
-take Update Vendors: it brings [`tools/precedent_python.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py), the lander that
+take Update Vendors: it brings [`tools/precedent_python.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_python.py), `tools/py`, the lander that
 runs on it, and the session-start hook that calls it. A repository whose
 `tools/bootstrap.sh` it has edited takes the package block from Precedent's
 `templates/bootstrap.sh` by hand, since Update Vendors never rewrites that
 file.
+
+Then switch the repository's documents and runbooks from `python3 x.py`
+to `tools/py x.py`, and drop any host-side version warning: the memo key
+gives it now. Every memo key that reached a memo loader changes once.
