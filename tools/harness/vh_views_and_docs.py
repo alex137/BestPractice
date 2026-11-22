@@ -1920,6 +1920,86 @@ def check_stale_views_say_why_and_stop_at_the_push():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_a_missing_individual_source_cannot_drop_its_manifest_record():
+    """A session where the individual source does not resolve neither
+    rewrites MANIFEST.json without that source's record nor passes a branch
+    that already did (2026-11-20: three worker sessions committed a
+    consumer's manifest seven lines short, the views check agreed with the
+    damaged file, and every merge conflicted). The failures that matter: a
+    write that drops the record, a check that passes the damaged file, and
+    a check that fails a whole one only because the source is not here."""
+    import tempfile, json as _json
+    name = 'a missing individual source cannot drop its MANIFEST.json record'
+    tool = ROOT / 'tools' / 'precedent_sync_views.py'
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        universal, indiv, consumer = tmp / 'u', tmp / 'i', tmp / 'consumer'
+
+        def practice(root, slug, rule, tier='on-demand'):
+            (root / 'practices').mkdir(parents=True, exist_ok=True)
+            (root / 'practices' / f'{slug}.md').write_text(
+                f'---\nslug: {slug}\ntitle: Fixture\ntier: {tier}\nseverity: default\n'
+                f'applies_to: ["**"]\noccasion: "x"\ngates: []\nindex_clause: "x"\n'
+                f'checked_by: null\ndefines: []\nstatus: active\nsupersedes: []\n'
+                f'overrides: null\nadded: null\napproved_by: "x"\nsource_practice_number: null\n'
+                f'---\n## Rule\n{rule}\n\n## Why\nx\n\n## Story\nx\n\n## Install\nx\n',
+                encoding='utf-8')
+        practice(universal, 'uni-fixture', 'A universal fixture rule.', 'resident')
+        practice(indiv, 'my-fixture', 'A personal fixture rule.')
+        consumer.mkdir()
+        (consumer / 'precedent.json').write_text(_json.dumps({
+            'visibility': 'private',
+            'sources': [{'level': 'universal', 'name': 'precedent', 'path': str(universal)}]}),
+            encoding='utf-8')
+        (consumer / 'AGENTS.md').write_text('# fixture\n\n<!-- BEGIN GENERATED: precedent-loader -->\n'
+                                            '<!-- END GENERATED -->\n', encoding='utf-8')
+        with_me = tmp / 'with.json'
+        with_me.write_text(_json.dumps({'format_version': 1, 'individual': {
+            'name': 'precedent-individual', 'path': str(indiv)}}), encoding='utf-8')
+        without = tmp / 'none.json'
+
+        def git(*a):
+            return subprocess.run(['git', '-C', str(consumer), *a],
+                                  capture_output=True, text=True)
+
+        def run(cfg, *extra):
+            r = subprocess.run([sys.executable, str(tool), '--repo', str(consumer),
+                                '--user-config', str(cfg), *extra],
+                               capture_output=True, text=True)
+            return r.returncode, r.stdout + r.stderr
+        rc, out = run(with_me)
+        mf = consumer / 'MANIFEST.json'
+        whole = mf.read_text(encoding='utf-8') if mf.is_file() else ''
+        recorded = any(e.get('level') == 'individual'
+                       for e in (_json.loads(whole or '{}').get('sources') or []))
+        cases.append(('the fixture sync records the individual source', rc == 0 and recorded))
+        git('init', '-q'); git('add', '-A')
+        git('-c', 'user.name=f', '-c', 'user.email=f@x', 'commit', '-qm', 'sync')
+        git('update-ref', 'refs/remotes/origin/staging', 'HEAD')
+        rc, out = run(without)
+        cases.append(('a write with no individual source refuses rather than drop the record',
+                      rc != 0 and 'records the individual source' in out
+                      and mf.read_text(encoding='utf-8') == whole))
+        rc, out = run(without, '--check')
+        cases.append(('the whole manifest is not verifiable here, never stale',
+                      rc == 0 and 'NOT VERIFIABLE' in out))
+        damaged = _json.loads(whole)
+        damaged['sources'] = [e for e in damaged['sources'] if e.get('level') != 'individual']
+        mf.write_text(_json.dumps(damaged, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        for extra in ((), ('--skip-unresolved',)):
+            rc, out = run(without, '--check', *extra)
+            cases.append((f'a damaged manifest fails the check {extra or "(full)"}, '
+                          f'naming the fix', rc != 0 and 'has lost the record' in out
+                          and 'git checkout origin/staging -- MANIFEST.json' in out))
+        mf.write_text(whole, encoding='utf-8')
+        rc, out = run(with_me, '--check')
+        cases.append(('where the source resolves, the whole manifest passes', rc == 0
+                      and 'NOT VERIFIABLE' not in out))
+    failed = [n for n, ok in cases if not ok]
+    check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
+
+
 def check_generated_views_regenerate():
     # "hand-editing a generated view fails a check" (Sequence row 2, done-when).
     # Runs build_views.py --check as a real subprocess, not an in-process

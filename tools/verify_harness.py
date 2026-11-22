@@ -4165,6 +4165,8 @@ def main():
     check_stale_view_names_its_real_cause()
     check_tracked_views_read_the_same_whoever_regenerates()
     check_stale_views_say_why_and_stop_at_the_push()
+    check_a_first_source_copy_needs_no_manifest()
+    check_a_missing_individual_source_cannot_drop_its_manifest_record()
     check_stale_freshness_also_says_delete_it()
     check_build_views_summary_matches_what_it_wrote()
     check_resident_rule_links_are_placed_for_the_block()

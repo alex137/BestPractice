@@ -191,3 +191,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A long job running in the background of a cloud session dies with no error, and `uptime` shows the machine has been up for a minute. The conversation carries a notice that instruction files "were re-read when this session started". Nothing in the job's log explains it.** [story](gotcha-2026-11-18-attaching-a-repository-restarts-a-cloud-session-and-kills-its-jobs.md)
 
 - **A session that tasks other sessions sends one a change of plan. The send reports "delivered". The other session carries on with the old plan, and hours later says the message "never arrived", or that several arrived at once.** [story](gotcha-2026-11-19-messages-to-a-busy-session-arrive-hours-late.md)
+
+- **A session has an action waiting to go out (a tool call, often one that asks for approval). It comes back as "the user doesn't want to take this action", and the session stops or changes course, though the person declined nothing and may not have been looking at all.** [story](gotcha-2026-11-20-a-message-arriving-mid-turn-reads-as-the-user-declining-an-action.md)

@@ -414,7 +414,16 @@ def _protect_code_spans(text):
 # first WORD after that marker, and headline style capitalizes the first
 # word. Without this, `## 5. the Manifest Schema` kept a lowercase "the",
 # because "5." counted as token zero and "the" was merely token one.
-ENUMERATOR = re.compile(r"^(\d+|[ivxlIVXL]+)[.)]$")
+#
+# A SECTION NUMBER is an enumerator too, with or without a closing mark:
+# `4.1 The Argument in Full` was refused on 2026-11-20 in a consuming
+# repository, the tool wanting `4.1 the Argument...`, because "4.1" has no
+# trailing "." and so counted as the first word. Multi-level numbers
+# (`4.1`, `4.1.`, `2.3.1)`) and a lettered label (`A.`, `b)`) now count. A
+# bare whole number does not (`12 Angry Men` starts with a word that
+# happens to be a number), and the enumerator itself is left as written.
+ENUMERATOR = re.compile(
+    r"^(?:\d+(?:\.\d+)+[.)]?|\d+[.)]|[ivxlIVXL]+[.)]|[A-Za-z][.)])$")
 
 
 # A token that names a FILE OR PATH is content, exactly like a code span --
@@ -481,8 +490,12 @@ def title_case(text: str) -> str:
             out.append(token)
             continue
         after_break = i > 0 and tokens[i - 1].endswith(OPENS_PHRASE)
-        first_word = i == 0 or (i == 1 and ENUMERATOR.match(tokens[0] or ""))
-        if _is_pathish(token):
+        numbered = bool(ENUMERATOR.match(tokens[0] or ""))
+        first_word = (i == 0 and not numbered) or (i == 1 and numbered)
+        if i == 0 and numbered:
+            # The number or label itself: no case to choose.
+            out.append(token)
+        elif _is_pathish(token):
             # A path or filename, whatever position it sits in.
             out.append(token)
         elif first_word or i == last or after_break:

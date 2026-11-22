@@ -2208,6 +2208,40 @@ def source_levels_from_manifest(root):
     return levels or None
 
 
+def recorded_individual_sources(root, ref=None):
+    """-> sorted names of the individual-level sources a MANIFEST.json
+    records in its `sources`, [] when none or no readable file.
+
+    `ref` reads the file as a git ref holds it (`origin/staging`) instead of
+    the working tree. WHY (2026-11-20): a session with no individual source
+    rewrote a consumer's MANIFEST.json without that source's record -- seven
+    lines short, no practice file lost, so committed_individual_count() saw
+    nothing -- and the views check then agreed with the damaged file and
+    refused the whole one. Three worker sessions committed it and every
+    merge conflicted. The record is evidence of a source this environment
+    cannot see, the same evidence the practice levels are."""
+    root = pathlib.Path(root)
+    if ref:
+        r = subprocess.run(['git', '-C', str(root), 'show',
+                            f'{ref}:MANIFEST.json'],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return []
+        text = r.stdout
+    else:
+        try:
+            text = (root / 'MANIFEST.json').read_text(encoding='utf-8')
+        except OSError:
+            return []
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    srcs = data.get('sources') if isinstance(data, dict) else None
+    return sorted({str(e.get('name')) for e in (srcs or [])
+                   if isinstance(e, dict) and e.get('level') == 'individual'})
+
+
 class _BlockNotVerifiable(Exception):
     """A source the block was built from is unreachable here, so the block
     cannot be judged. The reason, when there is one, is its first argument."""
@@ -2273,6 +2307,12 @@ def individual_not_verifiable(root, sources):
         return None
     n = committed_individual_count(root)
     if not n:
+        recorded = recorded_individual_sources(root)
+        if recorded:
+            return (f"MANIFEST.json records the individual source "
+                    f"{', '.join(recorded)}, which resolves through a "
+                    f"person's user-level config, and none resolves in this "
+                    f"environment")
         return None
     return (f"the committed views carry {n} practice(s) from an individual "
             f"source, which resolves through a person's user-level config, "

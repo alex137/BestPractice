@@ -12749,7 +12749,16 @@ def _parallel_artifact_ledger(ctx):
     # directory it does not have and should not have. Finding that repo's
     # OWN parallel-artifact families is not something a static check can
     # do, so it says so rather than guessing.
-    if not any((ROOT / d).is_dir() for d in _LEDGER_MEMBER_DIRS):
+    # ONE member is not a family (2026-11-20): a shared practice set that
+    # ships only a claude-code adapter template was told to keep a ledger of
+    # changes across adapters it does not have, and had to declare the
+    # check not binding to get past it.
+    present = [d for d in _LEDGER_MEMBER_DIRS if (ROOT / d).is_dir()]
+    if len(present) == 1:
+        raise NotApplicable(
+            f'this repo has one harness adapter ({present[0]}) and no other, '
+            f'so there is no family of parallel artifacts to keep in step')
+    if not present:
         raise NotApplicable(
             'this repo has none of the harness-adapter directories this '
             'check knows how to walk (' + ', '.join(_LEDGER_MEMBER_DIRS) +
@@ -14736,7 +14745,29 @@ _BUDGET_REGISTRY = 'tools/session_load_budgets.json'
 # the same change -- "if we remove a supporting set repo then it's okay to
 # allocate its tokens to the new repo". It names what was removed and how
 # many tokens that freed, and is never larger than what it freed.
-_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline', 'offset')
+_BUDGET_STRENGTHS = ('decided', 'assented', 'baseline', 'offset',
+                     'source-added')
+
+
+def _declared_source_share(name):
+    """-> (declared: bool, share: int|None) for a source this repository's
+    precedent.json declares by `name`, its share read from that source's own
+    precedent-source.json where its clone is here."""
+    try:
+        import precedent_resolve as _pr
+        for src in _pr.load_config(str(ROOT)):
+            if src.get('name') != name:
+                continue
+            try:
+                m = _pr.read_source_manifest(src['path']) or {}
+            except Exception:                                # noqa: BLE001
+                m = {}
+            v = m.get('occasion_share_tokens')
+            return True, (v if isinstance(v, int) and not isinstance(v, bool)
+                          else None)
+    except (Exception, SystemExit):                          # noqa: BLE001
+        pass
+    return False, None
 
 
 def _budget_approval_problem(entry):
@@ -14761,6 +14792,35 @@ def _budget_approval_problem(entry):
             return (f'raises {was:,} to {entry["max"]:,}, more than the '
                     f'{freed:,} tokens its offset freed -- the rest needs '
                     f'the person\'s own words')
+        return None
+    if strength == 'source-added':
+        # A practice set the person asked to add brings the share its own
+        # approvers already capped (occasion_share_tokens, held by this same
+        # check in the set). Their request for the set is the approval for
+        # that much and no more (Alex, 2026-11-20: "I don't understand why
+        # we have that limit. So please raise it. ... Perhaps we need to fix
+        # whatever rule is deciding we should have a limit like that.").
+        name, share, was = (entry.get('source'), entry.get('share'),
+                            entry.get('previous_max'))
+        if not (isinstance(share, int) and isinstance(was, int)
+                and str(name or '').strip()):
+            return ('is source-added with no "source" (the set added), '
+                    '"share" (its declared occasion_share_tokens) and '
+                    '"previous_max" (the approved number before it)')
+        if not _APPROVAL_QUOTE.search(who):
+            return ('is source-added but approved_by quotes nobody asking '
+                    'for the set')
+        declared, actual = _declared_source_share(name)
+        if not declared:
+            return (f'is source-added for {name!r}, which precedent.json does '
+                    f'not declare')
+        if actual is not None and share > actual:
+            return (f'claims a share of {share:,} for {name!r}, which '
+                    f'declares {actual:,}')
+        if entry['max'] - was > share:
+            return (f'raises {was:,} to {entry["max"]:,}, more than the '
+                    f'{share:,} tokens {name!r} brings -- the rest needs the '
+                    f"person's own words")
         return None
     if strength != 'baseline' and not _APPROVAL_QUOTE.search(who):
         return ('is marked decided/assented but approved_by quotes nobody\'s '
@@ -14847,8 +14907,12 @@ def _budget_within_approval(ctx):
                 f'for THIS raise, set approved_budgets["{key}"] to '
                 f'{{"max": {value if value is not None else "N"}, '
                 f'"approved_by": "<Name>, <YYYY-MM-DD>: \\"<their words>\\"", '
-                f'"strength": "decided"}}. Otherwise undo the change that '
-                f'raised it (practice: session-load-budget)'))
+                f'"strength": "decided"}}. If the rise is a practice set '
+                f'the person asked to add, their request is the approval for '
+                f'that set\'s declared share: record "strength": '
+                f'"source-added" with "source", "share" and "previous_max" '
+                f'and their quoted words asking for it. Otherwise undo the '
+                f'change that raised it (practice: session-load-budget)'))
     return out
 
 

@@ -87,6 +87,64 @@ class NotVerifiable(Exception):
     words -- neither drift nor a pass."""
 
 
+class RecordDropped(Exception):
+    """The working MANIFEST.json has lost an individual source's record that
+    the base branch still carries, and no individual source resolves here
+    to say whether that is right. A failure on every tier, never a skip: a
+    session without the source wrote it (2026-11-20; see
+    _dropped_individual_records)."""
+
+
+def _base_refs(repo):
+    """origin/<branch> for the branches this repository lands on, newest
+    rung first, each only if the ref resolves here."""
+    names = []
+    try:
+        import precedent_branches as pb
+        for fn in (pb.staging_branch, pb.base_branch):
+            try:
+                b = fn(pathlib.Path(repo))
+            except Exception:                                # noqa: BLE001
+                b = None
+            if b and b not in names:
+                names.append(b)
+    except Exception:                                        # noqa: BLE001
+        pass
+    for b in ('staging', 'main'):
+        if b not in names:
+            names.append(b)
+    out = []
+    for b in names:
+        r = subprocess.run(['git', '-C', str(repo), 'rev-parse', '--verify',
+                            '--quiet', f'origin/{b}'],
+                           capture_output=True, text=True)
+        if r.returncode == 0:
+            out.append(f'origin/{b}')
+    return out
+
+
+def _dropped_individual_records(repo, loaded):
+    """-> (ref, [name]) for the individual source records a base branch's
+    MANIFEST.json carries and this tree's has lost, when no individual
+    source resolves here; (None, []) otherwise.
+
+    2026-11-20: three worker sessions with no individual source regenerated
+    a consumer's views, committed a MANIFEST.json seven lines short (the
+    source's record, no practice file), and the check agreed with the
+    damaged file because it could only see what they saw. Where the source
+    does resolve, a sync puts the record back by itself, so this is asked
+    only where it does not."""
+    if any(pr.declared_level(s) == 'individual' for s in loaded):
+        return None, []
+    have = set(bv.recorded_individual_sources(repo))
+    for ref in _base_refs(repo):
+        lost = [n for n in bv.recorded_individual_sources(repo, ref)
+                if n not in have]
+        if lost:
+            return ref, lost
+    return None, []
+
+
 
 def _lost_practices(repo, res, sources, withheld):
     """-> {'blocking': [(slug, source)], 'source_dropped': [(slug, source)]}.
@@ -416,6 +474,34 @@ def _sync(repo, loaded, user_config=None, check=False, allow_missing=False,
             f"precedent.json; a person declares their own individual set in "
             f"their user-level config ({pr.DEFAULT_USER_CONFIG}, or "
             f"{pr.USER_CONFIG_ENV}).")
+    ref, lost = _dropped_individual_records(repo, loaded)
+    # --allow-missing-sources is the person saying the drop is meant: a
+    # write goes through, and the base branch stops carrying the record
+    # once that change lands.
+    if lost and (check or not allow_missing):
+        raise RecordDropped(
+            f"MANIFEST.json here has lost the record of the individual "
+            f"source {', '.join(lost)}, which {ref}'s MANIFEST.json carries, "
+            f"and no individual source resolves in this environment. A "
+            f"session without that source rewrote the file. Put the record "
+            f"back -- `git checkout {ref} -- MANIFEST.json`, then re-run "
+            f"where the source resolves if anything else changed -- and do "
+            f"not regenerate views here until the individual source is "
+            f"attached")
+    # A WRITE where the committed record names an individual source that
+    # does not resolve here would drop that record: refuse, the same way an
+    # unresolved declared source is refused below.
+    if not check and not allow_missing and not any(
+            pr.declared_level(s) == 'individual' for s in loaded):
+        recorded = bv.recorded_individual_sources(repo)
+        if recorded:
+            raise pm.MaterializeError(
+                f"refusing to WRITE: MANIFEST.json records the individual "
+                f"source {', '.join(recorded)}, and none resolves in this "
+                f"environment, so this sync would rewrite the file without "
+                f"its record (and every merge after it would conflict). "
+                f"Attach the individual source and re-run, or pass "
+                f"--allow-missing-sources if dropping it is what you mean")
     if check:
         why = bv.individual_not_verifiable(pathlib.Path(repo), loaded)
         if why:
@@ -1448,6 +1534,8 @@ def main():
             allow_removals=allow_removals, skip_unresolved=skip_unresolved,
             for_branch=for_branch, allow_rollback=allow_rollback,
             allow_removal_of=allow_removal_of)
+    except RecordDropped as e:
+        sys.exit(f"precedent_sync_views FAIL: {e}")
     except NotVerifiable as e:
         print(f"precedent_sync_views --check NOT VERIFIABLE: {e}, so whether "
               f"the generated views are current was not checked. Re-run where "

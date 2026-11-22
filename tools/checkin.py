@@ -1545,7 +1545,12 @@ def _stamp_synced_from(commit):
     # shared set's commit into the universal manifest's synced_from, which
     # then named a commit the universal upstream does not have (2026-09-29).
     path = MANIFEST
-    m = json.loads(path.read_text(encoding='utf-8'))
+    try:
+        m = json.loads(path.read_text(encoding='utf-8'))
+    except FileNotFoundError:
+        # Never a crash over a record that does not exist yet: start it.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        m = {}
     m.setdefault('upstream', {})['synced_from'] = commit
     path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n",
                     encoding='utf-8')
@@ -1843,7 +1848,27 @@ def update(clone, force=False, allow_pinned=False, ref=None):
         sys.exit(f"checkin FAIL: {clone} has no {branch} or origin/{branch} to "
                  f"mirror from. This install records upstream.branch = "
                  f"{branch!r}; fetch that branch in the clone first.")
-    if not force:
+    # A FIRST COPY has no manifest and no tree, so there is no local work to
+    # protect and nothing to refuse over. Until 2026-11-20 `update --source`
+    # refused it ("no upstream.commit recorded"), and with --force crashed
+    # writing synced_from into a manifest that did not exist yet. The
+    # manifest is started here, so every step after this one has a file to
+    # write to.
+    first_copy = (not MANIFEST.is_file()) and not UPSTREAM.exists()
+    if first_copy:
+        MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+        MANIFEST.write_text(json.dumps({'upstream': {'branch': branch}},
+                                       indent=2) + "\n", encoding='utf-8')
+        print(f"checkin update: first copy of "
+              f"{SOURCE or 'the universal set'} -- started "
+              f"{MANIFEST.relative_to(ROOT).as_posix()}.")
+        if SOURCE:
+            print("checkin update: a repository on the Precedent loader does "
+                  "not need this copy: it declares the set in precedent.json "
+                  "and reads it from the sibling clone. Copy a set in only "
+                  "when its source entry says \"vendored\": true "
+                  "(spec/VENDORED_SHARED_SETS.md).")
+    if not force and not first_copy:
         recorded = _manifest().get('upstream', {}).get('commit')
         if not recorded:
             sys.exit("checkin FAIL: no upstream.commit recorded in the manifest — "
@@ -2652,6 +2677,15 @@ def _main():
         i = args.index('--source')
         if i + 1 >= len(args):
             sys.exit('checkin FAIL: --source needs the set\'s name')
+        # Run from the BestPractice clone with no --repo, ROOT is that clone,
+        # and the set was copied into BestPractice's own process/ (seen
+        # 2026-11-20 reproducing this tool's first-copy crash). A shared set
+        # is never copied into the engine's home.
+        if (ROOT / 'tools' / 'checkin.py').resolve() == HERE \
+                and (ROOT / SOURCE_MANIFEST).is_file():
+            sys.exit('checkin FAIL: --source copies a set into a consuming '
+                     'repository; this is the engine\'s own clone. Pass '
+                     '--repo <consumer>.')
         _select_source(args[i + 1])
         args = args[:i] + args[i + 2:]
     if len(args) < 2 or args[0] not in ('status', 'update', 'push', 'record'):
