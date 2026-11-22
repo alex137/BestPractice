@@ -1,0 +1,8 @@
+URL: https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md (file docs/agents_md.md in the openai/codex GitHub repository)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+Note: this is the entire file; the repository's own doc only points to the website page.
+
+## AGENTS.md
+
+> For information about AGENTS.md, see [this documentation](https://developers.openai.com/codex/guides/agents-md).

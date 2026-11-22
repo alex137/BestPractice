@@ -1,0 +1,15 @@
+URL: https://openai.com/index/better-prompt-caching-for-gpt-6/
+Retrieved: 2026-11-22
+Publisher: OpenAI
+Page date shown: September 22, 2026 (OpenAI Product announcement).
+Note: text extracted from the page HTML with tags stripped.
+
+## (introduction)
+
+> GPT‑6 enables persistent agents to work for hours on complex tasks, from refactoring codebases to producing well-researched documents and presentations. The applications behind these agents make a series of API requests that build on one another, often carrying forward the same instructions, tool definitions, and context from earlier turns. OpenAI caches that shared context to reuse computation across requests, reducing response times and giving developers discounts of up to 90% on cached input tokens.
+
+> With the GPT‑6 family, we launched an improved prompt caching system that delivers higher cache hit rates by default. We now give cache discounts for eligible shared prefixes reused within a 30-minute window. We’re also introducing new tools to help developers monitor cache performance, diagnose misses, and choose how much of a prompt to cache.
+
+## Optimize caching for your application
+
+> Prewarm the cache to reduce latency. Prewarming⁠(opens in a new window) prepares known context ahead of time so the model can start responding sooner when a request arrives. For example, an application can prewarm shared instructions, tool definitions, or reference material during startup, before the user asks their first question. This moves processing out of the user’s wait time.

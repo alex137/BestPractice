@@ -1,0 +1,58 @@
+URL: https://ai.google.dev/gemini-api/docs/pricing
+Retrieved: 2026-11-22
+Publisher: Google (Gemini API documentation, ai.google.dev)
+Fetched as the page's own markdown source: https://ai.google.dev/gemini-api/docs/pricing.md.txt. Two representative model rows only; the page has one such table per model.
+
+## Gemini 4 Carbon (Standard tab; columns: Feature / Free Tier / Paid Tier, per 1M tokens in USD)
+
+> 
+>   ---
+> 
+>   * Input price
+>   * Not available
+>   * $2.00 through November 30, 2026.   
+>   $4.00 starting December 1, 2026.
+> 
+>   ---
+> 
+>   * Output price (including thinking tokens)
+>   * Not available
+>   * $10.00 through November 30, 2026.   
+>   $20.00 starting December 1, 2026.
+> 
+>   ---
+> 
+>   * Context caching price
+>   * Not available
+>   * $0.10 through November 30, 2026.   
+>   $0.20 starting December 1, 2026.   
+>   Implicit caching only (explicit caching is not supported).
+
+## Gemini 3.8 Flash (Standard tab; a model that supports explicit caching, so the row carries a storage price)
+
+>   * Feature
+>   * Free Tier
+>   * Paid Tier, per 1M tokens in USD
+> 
+>   ---
+> 
+>   * Input price
+>   * Free of charge
+>   * $0.75 through December 31, 2026.   
+>   $1.50 starting January 1, 2027.
+> 
+>   ---
+> 
+>   * Output price (including thinking tokens)
+>   * Free of charge
+>   * $3.75 through December 31, 2026.   
+>   $7.50 starting January 1, 2027.
+> 
+>   ---
+> 
+>   * Context caching price
+>   * Free of charge
+>   * $0.075 through December 31, 2026.   
+>   $0.15 starting January 1, 2027.   
+>   $0.50 / 1,000,000 tokens per hour (storage price) through December 31, 2026.   
+>   $1.00 / 1,000,000 tokens per hour (storage price) starting January 1, 2027.

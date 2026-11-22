@@ -1,0 +1,12 @@
+URL: https://docs.x.ai/developers/model-capabilities/text/generate-text
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/model-capabilities/text/generate-text.md. 
+
+(Responses API, stateful conversations: stored responses, which is separate from the prompt cache)
+
+> where **previous input prompts, reasoning content, and model responses are saved and stored on SpaceXSI's servers**. You can continue the interaction by appending new
+> prompt messages instead of resending the full conversation. This behavior is on by default. If you would like to store your request/response locally, please see [Disable storing previous request/response on server](#disable-storing-previous-requestresponse-on-server).
+> 
+> **The responses will be stored for 30 days, after which they will be removed. This means you can use the response ID to retrieve or continue a conversation within 30 days of sending the request.**
+> If you want to continue a conversation after 30 days, please store your responses history and the encrypted thinking content locally, and pass them in a new request body.

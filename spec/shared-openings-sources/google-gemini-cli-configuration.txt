@@ -1,0 +1,95 @@
+URL: https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md
+Retrieved: 2026-11-22
+Publisher: Google (official google-gemini/gemini-cli repository, docs/ directory, main branch)
+Fetched raw from raw.githubusercontent.com.
+
+## Context files (hierarchical instructional context)
+
+> While not strictly configuration for the CLI's _behavior_, context files
+> (defaulting to `GEMINI.md` but configurable via the `context.fileName` setting)
+> are crucial for configuring the _instructional context_ (also referred to as
+> "memory") provided to the Gemini model. This powerful feature lets you give
+> project-specific instructions, coding style guides, or any relevant background
+> information to the AI, making its responses more tailored and accurate to your
+> needs. The CLI includes UI elements, such as an indicator in the footer showing
+> the number of loaded context files, to keep you informed about the active
+> context.
+> 
+> - **Purpose:** These Markdown files contain instructions, guidelines, or context
+>   that you want the Gemini model to be aware of during your interactions. The
+>   system is designed to manage this instructional context hierarchically.
+
+> - **Hierarchical loading and precedence:** The CLI implements a sophisticated
+>   hierarchical memory system by loading context files (for example, `GEMINI.md`)
+>   from several locations. Content from files lower in this list (more specific)
+>   typically overrides or supplements content from files higher up (more
+>   general). The exact concatenation order and final context can be inspected
+>   using the `/memory show` command. The typical loading order is:
+>   1.  **Global context file:**
+>       - Location: `~/.gemini/<configured-context-filename>` (for example,
+>         `~/.gemini/GEMINI.md` in your user home directory).
+>       - Scope: Provides default instructions for all your projects.
+>   2.  **Project root and ancestors context files:**
+>       - Location: The CLI searches for the configured context file in the
+>         current working directory and then in each parent directory up to either
+>         the project root (identified by a `.git` folder) or your home directory.
+>       - Scope: Provides context relevant to the entire project or a significant
+>         portion of it.
+>   3.  **Sub-directory context files (contextual/local):**
+>       - Location: The CLI also scans for the configured context file in
+>         subdirectories _below_ the current working directory (respecting common
+>         ignore patterns like `node_modules`, `.git`, etc.). The breadth of this
+>         search is limited to 200 directories by default, but can be configured
+>         with the `context.discoveryMaxDirs` setting in your `settings.json`
+>         file.
+>       - Scope: Allows for highly specific instructions relevant to a particular
+>         component, module, or subsection of your project.
+> - **Concatenation and UI indication:** The contents of all found context files
+>   are concatenated (with separators indicating their origin and path) and
+>   provided as part of the system prompt to the Gemini model. The CLI footer
+>   displays the count of loaded context files, giving you a quick visual cue
+>   about the active instructional context.
+> - **Importing content:** You can modularize your context files by importing
+>   other Markdown files using the `@path/to/file.md` syntax. For more details,
+>   see the [Memory Import Processor documentation](./memport.md).
+> - **Commands for memory management:**
+>   - Use `/memory refresh` to force a re-scan and reload of all context files
+>     from all configured locations. This updates the AI's instructional context.
+>   - Use `/memory show` to display the combined instructional context currently
+>     loaded, allowing you to verify the hierarchy and content being used by the
+>     AI.
+>   - See the [Commands documentation](./commands.md#memory) for full details on
+>     the `/memory` command and its sub-commands (`show` and `reload`).
+
+## Available settings in settings.json: context.* (excerpt)
+
+> - **`context.discoveryMaxDirs`** (number):
+> 
+>   - **Description:** Maximum number of directories to search for memory.
+>   - **Default:** `200`
+> 
+> - **`context.memoryBoundaryMarkers`** (array):
+> 
+>   - **Description:** File or directory names that mark the boundary for
+>     GEMINI.md discovery. The upward traversal stops at the first directory
+>     containing any of these markers. An empty array disables parent traversal.
+>   - **Default:**
+> 
+>     ```json
+>     [".git"]
+>     ```
+> 
+>   - **Requires restart:** Yes
+> 
+> - **`context.includeDirectories`** (array):
+> 
+>   - **Description:** Additional directories to include in the workspace context.
+>     Missing directories will be skipped with a warning.
+>   - **Default:** `[]`
+> 
+> - **`context.loadMemoryFromIncludeDirectories`** (boolean):
+> 
+>   - **Description:** Controls how /memory reload loads GEMINI.md files. When
+>     true, include directories are scanned; when false, only the current
+>     directory is used.
+>   - **Default:** `false`

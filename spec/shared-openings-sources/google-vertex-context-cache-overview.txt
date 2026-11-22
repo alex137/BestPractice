@@ -1,0 +1,119 @@
+URL: https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-overview (redirects to https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/context-cache/context-cache-overview)
+Retrieved: 2026-11-22
+Publisher: Google Cloud (Vertex AI documentation; cloud.google.com now redirects to docs.cloud.google.com and the product is titled Gemini Enterprise Agent Platform)
+Text extracted from the page HTML; words verbatim, line breaks follow the HTML source, links and code samples dropped.
+
+# Context caching overview
+
+> Context caching helps reduce the cost and latency of requests to
+> Gemini that contain repeated content. Gemini Enterprise Agent Platform offers two
+> types of caching:
+> Implicit caching: Automatic caching enabled by default that provides
+> cost savings when cache hits occur. Implicit caching includes in-memory
+> caching and durable caching.
+> Explicit caching: Manual caching enabled using the Gemini Enterprise API,
+> where you explicitly declare the content you want to cache and whether or
+> not your prompts should refer to the cached content.
+> For both implicit and explicit caching, the cachedContentTokenCount
+> field in your response's metadata indicates the number of tokens in the cached
+> part of your input.
+
+## Caching storage costs
+
+> Unless cache write pricing applies (see the following note), you're billed for
+> the input tokens used to create an implicit or explicit cache at the standard
+> input token price. For explicit caching, there are also storage costs based on
+> how long caches are stored. There are no separate storage costs for implicit
+> caching. For more information, see Agent Platform pricing.
+> Note: Starting on January 12, 2027,
+> Gemini 4 Hydrogen and later models support
+> cache control features with TTL configuration. You choose what to cache and how
+> long cached content stays valid through TTL configuration. For these models,
+> cache writes are billed at 1.25x the standard input token price by default, and
+> longer retention costs more. For details, see Pricing.
+
+## Implicit caching
+
+> All Google Cloud projects have implicit caching enabled by default. Implicit
+> caching provides a 90% discount on cached tokens compared to standard
+> input tokens. When enabled, implicit cache hit cost savings are automatically
+> passed on to you.
+> Implicit caching stores prefixes in two storage tiers:
+> In-memory caching: Cached prefixes are kept in memory. Memory capacity
+> is limited, so prefixes are evicted as capacity is reclaimed.
+> Durable caching: When a prefix is evicted from in-memory storage, it
+> moves to durable storage instead of being discarded. A later request that
+> reuses the prefix can still get a cache hit, which raises cache hit rates
+> for workloads that reuse the same context over longer intervals.
+> Both tiers are enabled by default. A cached prefix expires no later than 24
+> hours after it's created, and most entries are evicted earlier. You can disable
+> durable caching and keep in-memory caching, or you can disable implicit caching
+> entirely. If you have data retention concerns, see Zero data retention,
+> which describes how cached data is handled and how to disable each tier.
+> To increase the likelihood of an implicit cache hit, do the following:
+> Place large and common contents at the beginning of your prompt.
+> Send requests with a similar prefix in a short amount of time.
+
+## Explicit caching
+
+> Explicit caching offers more control and ensures a discount on input tokens
+> that reference an existing context cache. On Gemini 2.5 or later
+> models, this discount is 90%; on Gemini 2.0 models, this discount is 75%.
+> Using the Gemini Enterprise API, you can perform the following
+> tasks:
+> Create context caches and control them more effectively.
+> Use a context cache by referencing its contents in a prompt request
+> with its resource name.
+> Update a context cache's expiration time (Time to Live, or TTL) past
+> the default 60 minutes.
+> Delete a context cache when no longer needed.
+> You can also use the Gemini Enterprise API to
+> retrieve information about a context cache.
+> Explicit caches interact with implicit caching, potentially leading to
+> additional caching beyond the specified contents when creating a cache. To
+> prevent cache data retention, disable implicit caching and avoid creating
+> explicit caches. For more information, see Enable and disable caching.
+
+## When to use context caching (last paragraph)
+
+> Implicit and explicit caching are supported with Provisioned Throughput
+> in Preview. Refer to the Provisioned Throughput guide
+> for more details. Caches work across traffic types. For example, a cache created
+> while using Provisioned Throughput also works with
+> PayGo.
+
+## Limits
+
+> Context caching adheres to the limits in the following table:
+>  Context caching limits | 
+>  Minimum cache token count for implicit and explicit caching
+>  | 
+>  Gemini 3 (with exceptions) and Gemini 4 models: 4,096 tokens
+>  Gemini 3.0 Flash Preview, 3.1 Pro Preview, 3.7 Flash, and 3.8 Flash (implicit caching only): 6,144 tokens
+>  Gemini 2 family models: 2,048 tokens
+>  | 
+>  Maximum size of content you can cache using a blob or text
+>  | 
+>  10 MB | 
+>  Minimum time before a cache expires after it's created
+>  | 
+>  1 minute | 
+>  Maximum time before a cache expires after it's created
+>  | 
+>  There isn't a maximum cache duration | 
+>  Maximum lifetime of an implicitly cached prefix
+>  | 
+>  Up to 24 hours | 
+> Important: When caching objects that are stored in a Cloud Storage bucket,
+> don't make changes to objects until the cached contents are expired or deleted.
+> Updates to Cloud Storage objects can cause the associated cached
+> contents to be unusable.
+
+## Cache data isolation and security for agentic workloads
+
+> Google Cloud uses your project number to isolate cached data, and cached
+> content is never shared across projects.
+> To prevent cross-user data leakage in agentic workloads, scope cached prompt
+> data and outputs to each user session. When you run background agents or
+> multi-tenant proxies, align cache boundaries with end-user permissions so an
+> agent can't reuse cached credentials or data across users.

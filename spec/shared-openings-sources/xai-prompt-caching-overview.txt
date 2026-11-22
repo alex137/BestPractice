@@ -1,0 +1,16 @@
+URL: https://docs.x.ai/developers/advanced-api-usage/prompt-caching
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/advanced-api-usage/prompt-caching.md. 
+
+# Prompt Caching
+
+> When consecutive requests share the same starting messages, the xAI API automatically caches them. On the next request, messages at the beginning that match exactly are served from cache:
+> 
+> * **Faster time-to-first-token** — the model skips re-computing cached messages
+> * **Lower cost** — cached tokens are billed at a reduced rate
+> 
+> > [!NOTE]
+> >
+> > The xAI API performs prompt caching **automatically**. However, we recommend setting the `x-grok-conv-id` HTTP header to maximize your cache hit rate.
+> 

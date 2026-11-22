@@ -1,0 +1,67 @@
+URL: https://cloud.google.com/vertex-ai/generative-ai/pricing (redirects to https://cloud.google.com/model-garden/pricing, titled 'Agent Platform Pricing')
+Retrieved: 2026-11-22
+Publisher: Google Cloud (Vertex AI documentation; cloud.google.com now redirects to docs.cloud.google.com and the product is titled Gemini Enterprise Agent Platform)
+Text extracted from the page HTML; words verbatim, line breaks follow the HTML source, links and code samples dropped. Table cells are separated by ' | ' and line breaks as extracted; only the cache rows relied on are kept.
+
+## Google models > Gemini 4 (Standard tab; column headers, then the Gemini 4 Neon input rows)
+
+>  | Type
+>  | Region
+>  | Price (/1M tokens)
+>  | Price (/1M tokens) *
+> Cache read
+>  | Price (/1M tokens)
+> Cache write
+>  | 
+> Gemini 4 Neon
+>  | Input (text, image, video, audio)
+>  | Global
+>  | $3.00 | $0.15 | $3.75 ***
+>  | 
+>  | | Non-global
+>  | $3.30 | $0.165 | $4.125 ***
+>  | 
+>  | Text output (response and reasoning)
+
+(footnote under the same table)
+
+> *** Pricing for cache write effective January 12, 2027
+
+## Context Cache Storage price for Explicit Caching (Hourly view)
+
+> Context Cache Storage price for Explicit Caching
+> This table contains the pricing for Context Cache Storage based on Input (text, image, video, audio)
+> Show discount options
+> Hourly
+> Hourly
+> Monthly
+> Monthly
+> Model
+>  | Price Tok/hr<= 200K input tokens
+>  | Price Tok/hr > 200K input tokens
+>  | 
+> Gemini ER 2.0*
+> (through December 31, 2026)
+>  | $0.0000005
+>  | $0.0000005
+>  | 
+> Gemini ER 2.0
+> (Starting January 1, 2027)
+>  | $0.000001 | $0.000001 | 
+> Gemini 3.1 Pro
+>  | $0.0000045 | $0.0000045 | 
+> Gemini 3.8 Flash Cyber, Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash, Gemini 3 Flash
+>  | $0.000001 | $0.000001 | 
+> Gemini 3.5 Flash Lite, Gemini 3.1 Flash Lite
+>  | $0.000001 | $0.000001 | 
+> Gemini 3 Pro
+>  | $0.0000045 | $0.0000045 | 
+> Gemini 2.5 Pro
+>  | $0.0000045 | $0.0000045 | 
+> Gemini 2.5 Flash
+>  | $0.000001 | $0.000001 | 
+> Gemini 2.5 Flash Lite
+>  | $0.000001
+>  | $0.000001
+>  | 
+> Gemini 2.0 Models

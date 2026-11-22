@@ -1,0 +1,43 @@
+URL: https://learn.chatgpt.com/docs/config-file/config-reference (markdown rendering fetched with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+Note: the page stores its reference table as key/type/description records; they are copied as they appear in the markdown rendering.
+
+## config.toml keys
+
+>       key: "instructions",
+>       type: "string",
+>       description:
+>         "Reserved for future use; prefer `model_instructions_file` or `AGENTS.md`.",
+>     },
+>     {
+>       key: "developer_instructions",
+>       type: "string",
+>       description:
+>         "Additional developer instructions injected into the session (optional).",
+>     },
+
+>       key: "model_instructions_file",
+>       type: "string (path)",
+>       description:
+>         "Replacement for built-in instructions instead of `AGENTS.md`.",
+>     },
+
+>       key: "project_doc_max_bytes",
+>       type: "number",
+>       description:
+>         "Maximum bytes read from `AGENTS.md` when building project instructions.",
+>     },
+>     {
+>       key: "project_doc_fallback_filenames",
+>       type: "array<string>",
+>       description: "Additional filenames to try when `AGENTS.md` is missing.",
+>     },
+
+## requirements.toml keys
+
+>       key: "additional_developer_instructions",
+>       type: "string",
+>       description:
+>         "Managed developer instructions added as a separate developer message. Codex rejects instructions that exceed a limit of 10,000 estimated tokens, including context markers.",
+>     },

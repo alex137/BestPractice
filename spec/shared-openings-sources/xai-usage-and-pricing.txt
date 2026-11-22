@@ -1,0 +1,45 @@
+URL: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/usage-and-pricing
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/usage-and-pricing.md. 
+
+## Verifying cache hits
+
+> 
+> To determine whether your request benefitted from prompt caching, check the `cached_tokens` value in the response:
+> 
+> | `cached_tokens` value | What it means |
+> |---|---|
+> | `0` | **Cache miss** — the entire prompt was computed from scratch. This is expected on the first request or after cache eviction. |
+> | `> 0` | **Cache hit** — some or all of your prompt prefix was served from cache. The number indicates how many tokens were reused. |
+> | Equal to `prompt_tokens` | **Full cache hit** — your entire prompt was served from cache (rare, typically happens when resending the exact same request). |
+> 
+> A typical multi-turn conversation shows increasing `cached_tokens` over time:
+> 
+> ```text
+> Turn 1: prompt_tokens=50,  cached_tokens=0    # First request, cache established
+> Turn 2: prompt_tokens=120, cached_tokens=50   # Previous 50 tokens cached
+> Turn 3: prompt_tokens=200, cached_tokens=120  # Previous 120 tokens cached
+> ```
+> 
+> > [!NOTE]
+> >
+> > If `cached_tokens` is consistently 0 across multiple requests in the same conversation, verify that you're setting `x-grok-conv-id` (or `prompt_cache_key`) and that you're not modifying earlier messages between requests.
+> 
+
+## Pricing
+
+> 
+> Cached tokens are billed at the **cached prompt token price**, which is substantially lower than the regular prompt token price. The exact rates vary by model — check the [Pricing](/developers/pricing) page for current prices.
+> 
+> | Token type | Billing rate |
+> |---|---|
+> | Prompt tokens (non-cached) | Full prompt token price |
+> | Cached prompt tokens | Reduced cached prompt token price |
+> | Completion tokens | Full completion token price |
+> | Reasoning tokens | Full completion token price |
+> 
+> > [!NOTE]
+> >
+> > Long context pricing applies when total prompt tokens (including cached tokens) exceed the model's long context threshold. Both cached and non-cached tokens use their respective long-context rates in this case.
+> 

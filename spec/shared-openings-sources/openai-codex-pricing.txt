@@ -1,0 +1,58 @@
+URL: https://learn.chatgpt.com/docs/pricing (https://developers.openai.com/codex/pricing redirects here; markdown rendering fetched with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+Note: the token-rate table is HTML on the page; copied as HTML source lines: header row, the GPT-6.2 Astra and GPT-5.6 Sol rows, and the footer; other rows are on the page.
+
+## Included usage
+
+> Tasks that look similar can consume different amounts of your allowance. Model
+> choice, context, reasoning, tool use, retrieval, and caching all affect usage,
+> so prompt length alone isn't a reliable estimate.
+
+## Token rates
+
+> The rates below are for Standard speed, quoted in credits per million input
+> tokens, cached input tokens, and output tokens. [Learn more about
+> tokens](https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them).
+> Codex credit billing has no separate cache-write charge. API-key usage follows
+> [API pricing](https://developers.openai.com/api/docs/pricing).
+
+>         <th scope="col">Credits per 1M tokens</th>
+>         <th scope="col" style="text-align:center">
+>           Input Tokens
+>         </th>
+>         <th scope="col" style="text-align:center">
+>           Cached input tokens
+>         </th>
+>         <th scope="col" style="text-align:center">
+>           Output Tokens
+>         </th>
+>       </tr>
+>     </thead>
+>     <tbody>
+>       <tr>
+>         <td>GPT-6.2 Astra</td>
+>         <td style="text-align:center">200 credits</td>
+>         <td style="text-align:center">10 credits</td>
+>         <td style="text-align:center">1,000 credits</td>
+>       </tr>
+
+>         <td>GPT-5.6 Sol</td>
+>         <td style="text-align:center">100 credits</td>
+>         <td style="text-align:center">10 credits</td>
+>         <td style="text-align:center">500 credits</td>
+>       </tr>
+
+>         <td colspan="4" style="text-align:center">
+>           For USD usage-based billing, GPT-6.2 Astra at Standard speed costs $8
+>           per million input tokens, $0.40 per million cached input tokens, and
+>           $40 per million output tokens. GPT-6.2 Sol costs $2, $0.10, and $10
+>           per million input, cached input, and output tokens, respectively. See
+>           [Speed](https://learn.chatgpt.com/docs/agent-configuration/speed) for availability
+>           and billing details.
+
+## Frequently asked questions > What can I do to make my usage limits last longer?
+
+> - **Reduce the size of your AGENTS.md.** If you work on a larger project, you
+>   can control how much context you inject through AGENTS.md files by [nesting
+>   them within your repository](https://learn.chatgpt.com/docs/agent-configuration/agents-md#layer-project-instructions).

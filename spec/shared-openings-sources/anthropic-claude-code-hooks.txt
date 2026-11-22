@@ -1,0 +1,39 @@
+URL: https://code.claude.com/docs/en/hooks
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://code.claude.com/docs/en/hooks.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+## (exit code 0 / plain-text stdout)
+
+> On these events, your plain-text stdout reaches Claude or the compaction summary:
+>
+> * **`UserPromptSubmit`, `UserPromptExpansion`, `SessionStart`, and `PostModelSwitch`**: Claude Code adds plain-text stdout as context that Claude can see and act on. It doesn't add stdout it failed to parse.
+> * **`PreCompact`**: your stdout becomes [instructions for the compaction summary](#precompact-output)
+
+
+#### Add context for Claude
+
+> The `additionalContext` field passes a string from your hook into Claude's context window. Claude Code wraps the string in a [system reminder](https://code.claude.com/docs/en/glossary.md#system-reminder) and inserts it into the conversation at the point where the hook fired. Claude reads the reminder on the next model request, but it doesn't appear as a chat message in the interface.
+
+> When several hooks return `additionalContext` for the same event, Claude receives all of the values.
+
+
+#### SessionStart decision control
+
+> | `additionalContext` | String added to Claude's context at the start of the conversation, before the first prompt. See [Add context for Claude](#add-context-for-claude) for how the text is delivered and what to put in it |
+
+> A hook that only adds context can print it without building JSON, because Claude Code adds a SessionStart hook's [plain-text stdout](#exit-code-0) to Claude's context.
+
+
+#### UserPromptSubmit decision control
+
+> There are two ways to add context to the conversation on exit code 0:
+>
+> * **Plain text stdout**: Claude Code adds stdout it [treats as plain text](#exit-code-0) to Claude's context
+> * **JSON with `additionalContext`**: use the JSON format below for more control. The `additionalContext` field is added as context
+>
+> Neither channel produces a visible transcript entry. Plain stdout and the `additionalContext` value are each injected as a system reminder that starts with the hook's name; Claude reads both. To confirm delivery, check the [debug log](#debug-hooks).
+
+> | `additionalContext` | String added to Claude's context alongside the submitted prompt. See [Add context for Claude](#add-context-for-claude) |
+

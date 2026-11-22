@@ -1,0 +1,11 @@
+URL: https://learn.chatgpt.com/docs/config-file/config-advanced (markdown rendering fetched with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+
+## Project instructions discovery
+
+> Codex reads `AGENTS.md` (and related files) and includes a limited amount of project guidance in the first turn of a session. Two knobs control how this works:
+
+> - `project_doc_max_bytes`: how much to read from each `AGENTS.md` file
+
+> - `project_doc_fallback_filenames`: additional filenames to try when `AGENTS.md` is missing at a directory level
