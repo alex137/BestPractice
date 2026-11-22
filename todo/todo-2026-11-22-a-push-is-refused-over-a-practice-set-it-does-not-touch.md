@@ -30,6 +30,8 @@ closed:            null
 
 **The cost of leaving it.** Every session started in a project with a set it cannot reach can push nothing. The sessions do not go around the check, so their work travels as pasted text, and a person or a second session re-applies it by hand. The trigger is common: a set under a different account than the token's, a set whose access lapsed, or a set somebody retired while a project still declares it.
 
+**A second way a set goes missing, reported the same day.** A session had read access to a declared set and its own `git clone` was stopped by a permission prompt, which the session rightly did not go around. The settings Precedent installs ([templates/harness/claude-code/settings.json](../templates/harness/claude-code/settings.json)) allow attaching a repository and allow any `python3 tools/precedent_*` command without a prompt; they do not allow a bare `git clone`. So the route that needs no prompt is the engine's own: `python3 tools/precedent_session_check.py --apply`, which clones each declared set to the place it belongs. That only works when the set's address is right, which is the [two-accounts item](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md). Where the instructions say "attach it and clone it", they should name that command, so that no session is sent to type a clone its settings will stop.
+
 **Reproduced 2026-11-22** in a throwaway project declaring one shared set that was not on disk: the views-only check printed the line and exited clean; with the set cloned beside the project the line was gone.
 
 ## How It Closes

@@ -113,6 +113,7 @@ as_of: 2026-11-22
 | [`todo-2026-10-29-root-issues-from-the-landing-check-session`](todo-2026-10-29-root-issues-from-the-landing-check-session.md) | Found by the session that fixed | 24d | wait | item 3: Morgan runs Update Vendors in each repository that brings the ladder set… |
 | [`todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice`](todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice.md) | Left from the Root issues of the 2026-10-28 Update Vendors run across seven | 24d | wait | the two voice repositories could not be attached to the session that fixed the r… |
 | [`todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session`](todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session.md) | Root issues found by the session that fixed the 2026-10-30 vendor-update | 23d | wait | out of scope for the session that found them (session_01Xcy6U1UBGg4Vvg5QFAE1Mz,… |
+| [`todo-2026-11-22-a-cited-papers-title-is-flagged-as-lineage-wording`](todo-2026-11-22-a-cited-papers-title-is-flagged-as-lineage-wording.md) | The check that keeps "what replaced what" out of documents flags a cited paper's own title. | 0d | wait |  |
 
 ## Decisions (the Person's Call)
 
