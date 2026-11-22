@@ -338,8 +338,9 @@ mirror of the 2026-10-08 offset: a consumer can neither be blocked by a set
 the person asked for nor take more than the set's own cap. A consumer-side
 override of a set's `applies_to` in `precedent.json` was considered and not
 built: it would be a second place deciding where a rule fires, and the
-set's own file is the one its approvers review. Proposed on a branch,
-awaiting the owner (strength: unknown).
+set's own file is the one its approvers review. Alex, 2026-11-22, asked
+whether this was the right way to settle it, with that as the pick: *"yes,
+open both PRs"* (strength: assented).
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 878 words; it now holds the ceilings, the one total, who raises a budget and what a cap does at each check, in 320 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
