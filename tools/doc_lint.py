@@ -105,7 +105,7 @@ Run:  python3 tools/doc_lint.py             # changed-vs-default-branch, gate
 (In a repo that vendors this the classic way, the path is
 process/upstream/tools/doc_lint.py.)
 """
-import json, re, sys, subprocess, pathlib, unicodedata
+import bisect, json, re, sys, subprocess, pathlib, unicodedata
 import frontmatter_yaml
 import generated_blocks
 
@@ -859,6 +859,58 @@ def blank_wrapped_code_spans(text):
     return '\n'.join(out)
 
 
+# A line that starts a new unit of its own, never the continuation of the
+# paragraph above it: a heading, a table row, a list item.
+_UNIT_START_RE = re.compile(r'\s*(?:#|\||[-*+] |\d+[.)] )')
+_UNIT_ALONE_RE = re.compile(r'\s*(?:#|\|)')
+
+
+def paragraphs(text):
+    """[(first line number, joined text, offset of each line in it)] -- the
+    prose of `text` one paragraph at a time, its wrapped lines joined with a
+    space, so a check that reads a unit at a time sees a quotation, a code
+    span, an expansion or a name that a line break splits. Fenced blocks and
+    blockquotes are left out (the scan skips both); headings, table rows,
+    list items and each line of YAML front matter start a unit of their own.
+
+    A blockquote is somebody else's words, quoted verbatim: a document
+    cannot gloss an acronym inside one without altering the quote, and
+    shouting inside one is the quoted person's emphasis (precedent-
+    individual's name-the-branch practice quotes an all-caps message, and
+    PLEASE, DO and LIKE were reported as unglossed acronyms).
+
+    Found 2026-11-20: a consumer quoted Morgan's "the MS WORD version ONLY"
+    with the line break inside the quotation, and a line-at-a-time scan
+    never saw the quotation, so MS was refused and a Produce stopped. A
+    line-at-a-time read gets every wrapped construct wrong the same way;
+    joining the paragraph fixes the family, not the one case."""
+    units, cur, fenced, front = [], None, False, False
+    for i, line in enumerate((text or '').split('\n'), 1):
+        if line.strip() == '---' and (i == 1 or front):
+            # YAML front matter: every line is a field of its own.
+            front, cur = i == 1, None
+            continue
+        if front:
+            units.append((i, line, [0]))
+            continue
+        if line.lstrip().startswith('```'):
+            fenced, cur = not fenced, None
+            continue
+        if fenced or not line.strip() or line.lstrip().startswith('>'):
+            cur = None
+            continue
+        if cur is None or _UNIT_START_RE.match(line):
+            cur = [i, line, [0]]
+            units.append(cur)
+            if _UNIT_ALONE_RE.match(line):
+                # A heading or a table row never runs on into the next line.
+                cur = None
+        else:
+            cur[2].append(len(cur[1]) + 1)
+            cur[1] += ' ' + line.strip()
+    return [tuple(u) for u in units]
+
+
 def scan_unglossed(text, known, path=None):
     """[(lineno, TOKEN)] — every ALL-CAPS token in `text` that is not a
     known acronym, not glossed inline as `LONG FORM (TOK)`, not a filename
@@ -880,25 +932,8 @@ def scan_unglossed(text, known, path=None):
     # numbers still point at the right line.
     text = HTML_COMMENT_RE.sub(lambda m: '\n' * m.group(0).count('\n'), text or '')
     text = blank_wrapped_code_spans(text)
-    out, seen, incode = [], set(), False
-    for i, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith('```'):
-            incode = not incode
-            continue
-        if incode:
-            continue
-        if line.lstrip().startswith('>'):
-            # A blockquote is somebody else's words, quoted verbatim. A
-            # document cannot gloss an acronym inside a quotation without
-            # altering the quote, and shouting inside one is the quoted
-            # person's emphasis, not the document's -- precedent-individual's
-            # name-the-branch practice quotes an all-caps message, and PLEASE,
-            # DO and LIKE were all reported as unglossed acronyms, landing on
-            # whichever consumer repo materialized that practice first. Same
-            # reasoning as the fenced-block skip above; the alternative, a
-            # hand-kept list of ordinary words somebody shouted, is wrong the
-            # first time somebody shouts a word nobody thought of.
-            continue
+    out, seen = [], set()
+    for first, line, starts in paragraphs(text):
         clean = _decontent(line)
         shouted = [r.span() for r in SHOUTED_RUN_RE.finditer(clean)]
         # A date or time format (YYYY-MM-DD): see DATE_FORMAT_RE.
@@ -964,7 +999,8 @@ def scan_unglossed(text, known, path=None):
                 continue
             if expanded_after(tok, clean, m.end()):
                 continue
-            out.append((i, tok))
+            out.append((first + bisect.bisect_right(starts, m.start()) - 1,
+                        tok))
     return out
 
 
