@@ -1,5 +1,5 @@
 ---
-title:         Shared openings and the providers' prompt caches
+title:         Shared Openings and the Providers' Prompt Caches
 kind:          proposal
 status:        drafted
 opened:        2026-11-22

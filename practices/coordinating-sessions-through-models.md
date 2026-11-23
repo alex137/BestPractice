@@ -1,0 +1,49 @@
+---
+slug:        coordinating-sessions-through-models
+title:       A project worked by several sessions is coordinated through a registry and a build tool, never by hand
+tier:        on-demand
+severity:    default
+applies_to:  ["**"]
+applies_to_why: "Coordinating several sessions is a moment, not a file; the occasion index reaches it."
+occasion:    "coordinating several sessions on one repository"
+gates:       []
+index_clause: "shared choices in one registry; a tool orders the build; report computed figures"
+checked_by:  null
+defines:     []
+status:      active
+in_force_at: null
+supersedes:  []
+overrides:   null
+added:       "2026-11-23"
+approved_by: "Alex, 2026-11-23, relayed by the coordinating session of the project where this was learned: 'Yes update precedent', to the proposal for one practice on coordinating several sessions"
+strength: assented
+---
+## Rule
+**When several sessions work on one repository, what they share is written once, in a file a tool reads, and never carried in messages or kept in the coordinator's head.**
+
+1. **A choice every worker depends on lives in one registry file every script reads** ([registry-source-of-truth](registry-source-of-truth.md)). A decision is a one-line change there. No message to a worker carries the value, and no script types it in.
+2. **A quantity two notes need has one home.** The second note reads it from the first, or asserts that its own equals the first's ([scripts-assert-properties](scripts-assert-properties.md)).
+3. **One committed command rebuilds everything, in an order it works out itself** from what each step reads and writes. The order is never kept by hand, and never in a scratch folder ([repo-is-memory](repo-is-memory.md)).
+4. **A session takes another session's files as they are.** It never regenerates them on its own branch.
+5. **A check for anything dropped runs before every push:** a figure, marker or block another script reads that this change removed.
+6. **The coordinator reports only figures a script printed, and only settled ones.** Anything else is called "not yet computed". A headline names the unverified assumptions it rests on ([numbers-are-sourced](numbers-are-sourced.md)).
+
+## Detail
+**The registry is for choices, not results.** Which design leads, what it is measured against, which variant is the baseline: these are decisions the person makes and changes. Each script reads them and computes from them. A check flags any note that quotes a figure computed for a different choice than the registry now holds, so a changed decision shows up as a list of notes to rebuild, not as a round of messages.
+
+**The build command learns its order.** It records what each step read and wrote on a real run and orders the steps from that. Where two steps feed each other, it reruns them until nothing changes, and stops with both named if they never settle. A step added later needs no entry in anybody's list.
+
+**Why a session never regenerates another's files.** A branch that rebuilds a file its session does not own carries that file as of its own starting point. Merged, it resets the owner's later work without a conflict, because to git it is simply the newer change.
+
+**Settled, not first.** A worker's first figure is often revised within the hour. A coordinator that passes each first figure on has the person reading a number that is already gone. Report what the build printed after the pieces were put together.
+
+This sits beside [working-in-parallel](working-in-parallel.md), which is about people claiming work in a shared repository, and [tasked-session-stays-reachable](tasked-session-stays-reachable.md), which is about whether a change of plan arrives. This rule makes most changes of plan a registry edit instead of a message.
+
+## Why
+Each worker's own work can be a sound model while everything between the workers is done by hand. Then the project's weakest parts are exactly the ones nobody modelled: which choice is current, what order things rebuild in, whose file is whose, and which figure the person was told. Those fail quietly, and they fail every time a decision changes.
+
+## Story
+2026-11-23, in a project run by one coordinating session and about fifteen workers. Every worker kept a note and a script that printed and checked its own figures. The design's choices were changed several times in one day, each time by a message to every worker, and each worker re-pointed its own script by hand. The rebuild order lived in a script in the coordinator's scratch folder. Several landings in a row failed: on rebuild order, on a dropped marker, on a branch that reset other workers' files. The coordinator's reports carried arithmetic done in the chat when a worker's figure was not ready. The person asked whether the work was being done by inference where it should have been a model. The project then built the registry, the build command and the dropped-marker check; the check caught a removed figure another script read before it reached the trunk.
+
+## Install
+Nothing to install from here. The registry file, the build command and the dropped-marker check are the project's own, written for what it builds. A coordinating session loads this rule when it starts tasking workers, and says in each worker's brief where the registry is and that no message will carry a choice.

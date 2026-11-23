@@ -1,3 +1,14 @@
+---
+title:         Stored Pages for the Shared Openings Note
+kind:          record
+status:        closed
+opened:        2026-11-22
+closed:        2026-11-22
+superseded_by: null
+supersedes:    []
+audience:      contributor
+summary:       "What the plain-text files in this folder are: passages from each provider's own documentation, copied word for word on 2026-11-22, that the shared openings note quotes."
+---
 # Stored Pages for the Shared Openings Note
 
 The passages [SHARED_OPENINGS.md](../SHARED_OPENINGS.md) quotes, one file

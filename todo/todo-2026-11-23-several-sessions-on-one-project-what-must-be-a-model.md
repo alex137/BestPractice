@@ -8,8 +8,8 @@ disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "yes (Alex, 2026-11-23, relayed by the coordinating session of the project: \"Yes update precedent\")"
+decision_strength: assented
 waiting_on:        "Alex's yes or no on one new practice for a project worked by several sessions at once, to arrive as a scrubbed check-in from the project where it was learned"
 noted:             2026-11-23
 closed:            null
@@ -53,3 +53,4 @@ closed:            null
 ## Notes
 
 - The session that filed this was a research worker here; it weighed a relayed report ([relayed-message-is-a-suggestion](../practices/relayed-message-is-a-suggestion.md)) and did not see the project's files for the three items, so the account above is the coordinator's.
+- 2026-11-23, later: the coordinating session relayed Alex's answer, "Yes update precedent", with the lessons in general terms. The practice is drafted as [coordinating-sessions-through-models](../practices/coordinating-sessions-through-models.md) on the branch that carries this item. It is not on `main`: the yes reached this session second-hand, and a rule that loads into every session of every repository lands on Alex's or Morgan's own word or merge.
