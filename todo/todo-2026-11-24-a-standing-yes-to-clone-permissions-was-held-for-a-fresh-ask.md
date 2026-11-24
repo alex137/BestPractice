@@ -3,20 +3,20 @@ slug:              todo-2026-11-24-a-standing-yes-to-clone-permissions-was-held-
 kind:              decision
 domain:            engine
 severity:          low
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Alex's yes or no, in the session that filed this, on changing what Update Vendors prints and one sentence of the runbook"
+decision:          "yes to the fix (Alex, 2026-11-24: \"Yes\", to the session's own proposal); the clone lines stay per account, the session's pick, which the same yes left standing"
+decision_strength: assented
+waiting_on:        null
 noted:             2026-11-24
-closed:            null
+closed:            2026-11-24
 ---
 ## What
 
-- [ ] **Update Vendors applied a permission change on a yes already on record, and a careful session held it anyway and asked again.** Reported 2026-11-24 from a project: the only change in an update was four lines letting sessions clone, without a prompt, repositories of the account one of its declared practice sets lives under. Alex, relayed by that project's coordinating session: "Yea on cloning other repos, but they are public so why do you need to ask me. Is there a fix to BestPractice so we don't have this problem in the future?" (needs: decision -- Alex)
+- [x] **Update Vendors applied a permission change on a yes already on record, and a careful session held it anyway and asked again.** Reported 2026-11-24 from a project: the only change in an update was four lines letting sessions clone, without a prompt, repositories of the account one of its declared practice sets lives under. Alex, relayed by that project's coordinating session: "Yea on cloning other repos, but they are public so why do you need to ask me. Is there a fix to BestPractice so we don't have this problem in the future?" (needs: decision -- Alex)
 
 **What the tool does today, read from the code.** It already behaves the way Alex wants. [precedent_update.py](../tools/precedent_update.py) treats a recorded yes to the permission list as standing "for every later allow-list-only change" (Morgan, 2026-11-02), and applied this one on it. The clone lines come from [precedent_vendor_engine.py](../tools/precedent_vendor_engine.py) (`clone_allow_rules`, `source_owners`): one set of lines per account that a declared practice set lives under.
 
@@ -35,3 +35,7 @@ closed:            null
 ## How It Closes
 
 `status` becomes `done` when Alex has said yes or no; on a yes, when the tool's message and the runbook sentence are on `main` and the harness test that covers the recorded answer still passes.
+
+## Notes
+
+- 2026-11-24: Alex said yes. [precedent_update.py](../tools/precedent_update.py) now says, in the report line for a settings change, which account the new clone lines are for, which declared set lives there, that they only read, and that the yes on record covers them (`clone_lines_explained`); the runbook carries the sentence; three cases were added to the test of the recorded answer, which passes. A repository gets this at its next Update Vendors.

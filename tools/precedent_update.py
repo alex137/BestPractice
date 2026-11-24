@@ -5156,6 +5156,56 @@ def allow_list_what(cases):
             'in the file changes' + (f'. The rules: {rules}' if rules else ''))
 
 
+# WHAT EACH NEW CLONE LINE IS FOR, IN THE TOOL'S OWN OUTPUT (Alex,
+# 2026-11-24: "they are public so why do you need to ask me. Is there a fix
+# to BestPractice so we don't have this problem in the future?"). A
+# repository's declared practice set lived under a second GitHub account, so
+# an update added four clone lines for that account and applied them on the
+# yes already on record, as allow_list_only() and ALLOW_LIST_KEY say it
+# should. The report said only that settings changed "with the person's
+# recorded yes", quoting a yes given weeks earlier for other lines; the
+# session reading it could not tell the new lines were in the class that yes
+# covers, held the update and asked the person again. The behaviour was
+# right and the message was not. So the message names the account, the
+# declared set that lives there, that the lines only let a session read,
+# and that the yes on record covers them.
+_CLONE_LINE_OWNER_RE = re.compile(
+    r'git clone (?:--depth 1 )?https://github\.com/([\w.-]+)/\*\)')
+
+
+def clone_lines_explained(repo, cases):
+    """-> one sentence saying what the clone lines among `cases` permit and
+    which declared practice set each account serves, or '' when the change
+    adds none. Never raises: an account whose set cannot be named here is
+    still named, without one."""
+    owners = sorted({o for c in cases for o in _CLONE_LINE_OWNER_RE.findall(c)})
+    if not owners:
+        return ''
+    sets = {}
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import precedent_hooks
+        for name, where in precedent_hooks._attach_hints(pathlib.Path(repo)).items():
+            if where and '/' in where:
+                sets.setdefault(where.split('/')[0], []).append(name)
+    except Exception:                                        # noqa: BLE001
+        sets = {}
+    parts = []
+    for o in owners:
+        names = sorted(sets.get(o) or [])
+        parts.append(f'{o}' + (f' (where the declared practice set'
+                               f'{"s" if len(names) > 1 else ""} '
+                               f'{", ".join(names)} live'
+                               f'{"" if len(names) > 1 else "s"})'
+                               if names else ''))
+    return ('the clone lines let a session clone, without a permission '
+            f'prompt, repositories of {"; ".join(parts)}. They only read: a '
+            'clone needs access the session already has, and nothing is '
+            'pushed. They are derived from the practice sets declared here, '
+            'so a yes on record for the allow-list covers them and no fresh '
+            'ask is owed')
+
+
 def allow_list_words(repo):
     """-> the words of the recorded yes (precedent.json ALLOW_LIST_KEY)."""
     try:
@@ -7328,6 +7378,8 @@ def update(repo, skip_check=False, ref=None, move=False, take=None, code=None,
                         f'(precedent.json {pve.ALLOW_LIST_KEY}): ' if standing
                         else 'the person\'s go-ahead: ')
                      + f'"{words}"'
+                     + (f'; {_c}' if (_c := clone_lines_explained(repo, cases))
+                        else '')
                      + (f'; recorded the hash of {", ".join(rehashed)} in '
                         f'{ENGINE_MANIFEST_REL}' if rehashed else '')
                      + (f'; re-recorded the baseline of {", ".join(rebased)}'
