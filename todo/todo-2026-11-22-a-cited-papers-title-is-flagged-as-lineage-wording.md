@@ -10,7 +10,7 @@ blocked_on:        null
 batch:             null
 decision:          null
 decision_strength: null
-waiting_on:        null
+waiting_on:        "Alex or Morgan saying to change the check; it changes what a check refuses, so no session lands it on its own"
 noted:             2026-11-22
 closed:            null
 ---
