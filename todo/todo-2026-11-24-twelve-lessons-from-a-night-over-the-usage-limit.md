@@ -16,7 +16,7 @@ closed:            null
 ---
 ## What
 
-- [ ] **Twelve lessons from a night in which about fourteen worker sessions and a coordinator ran past a weekly usage limit, proposed for Precedent.** Sent 2026-11-24 by that project's coordinating session, with Alex's relayed words: "Yes let's update. But first do a review and see if you see improvements on your ideas before sending". Each was weighed against the rules already in force. Ten are drafted on the branch that carries this item, folded into existing practices where they fit; two are declined as already covered. (needs: decision -- Alex)
+- [ ] **Twelve lessons from a night in which about fourteen worker sessions and a coordinator ran all night and usage went past a weekly limit, proposed for Precedent.** Sent 2026-11-24 by that project's coordinating session, with Alex's relayed words: "Yes let's update. But first do a review and see if you see improvements on your ideas before sending". Each was weighed against the rules already in force. Ten are drafted on the branch that carries this item, folded into existing practices where they fit; two are declined as already covered. (needs: decision -- Alex)
 
 **Taken, and where each went.**
 
