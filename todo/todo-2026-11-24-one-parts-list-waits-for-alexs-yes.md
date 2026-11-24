@@ -3,20 +3,20 @@ slug:              todo-2026-11-24-one-parts-list-waits-for-alexs-yes
 kind:              decision
 domain:            practice
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
-blocked_on:        "access -- this session cannot reach one declared practice set, so its push is refused"
+blocked_on:        null
 batch:             null
 decision:          "yes (Alex, 2026-11-24: \"Yes and granted\", to the drafted rule as written)"
 decision_strength: assented
-waiting_on:        Alex
+waiting_on:        null
 noted:             2026-11-24
-closed:            null
+closed:            2026-11-24
 ---
 ## What
 
-- [ ] **A new practice, [one-parts-list](../practices/one-parts-list.md), is drafted on the branch `claude/parts-list-practice` and waits for Alex's yes** (needs: decision -- Alex). Proposed 2026-11-24 by the coordinating session of a dependent project, which relayed Alex asking "Why are we only now discovering all the missing parts? Do we need a practice for this?". That is a question, so the draft is held and not landed.
+- [x] **A new practice, [one-parts-list](../practices/one-parts-list.md), is drafted on the branch `claude/parts-list-practice` and waits for Alex's yes** (needs: decision -- Alex). Proposed 2026-11-24 by the coordinating session of a dependent project, which relayed Alex asking "Why are we only now discovering all the missing parts? Do we need a practice for this?". That is a question, so the draft is held and not landed.
 
 **What it says.** Anything built or tested in pieces keeps one parts list in its registry, each part marked real, stand-in or missing, with the basis it was built on. A run that leaves a part out updates the list in the same commit. "What is left before X?" is answered by reading the list.
 
@@ -33,4 +33,4 @@ closed:            null
 ## Notes
 
 - 2026-11-24: drafted; no pull request opened.
-- 2026-11-24: Alex said yes, to the rule as drafted. It lands when the branch can be pushed.
+- 2026-11-24: Alex said yes, to the rule as drafted. It lands with the pull request that carries this line.
