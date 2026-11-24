@@ -32,6 +32,8 @@ closed:            null
 | A pass mark says whether it was measured or assumed | [score-the-incumbent-first](../practices/score-the-incumbent-first.md), Detail |
 | A setting the code does not carry out stops the run; one setting name, one meaning | new: [settings-are-carried-out](../practices/settings-are-carried-out.md), an addition to prediction-before-the-run |
 
+**A thirteenth, sent later the same day, also taken.** Alex, relayed: "when I come back, I see a blizzard of your messages back and forth and your running commentary and this is very un-processable. Can we have a system where you do all that conversation with the other threads in another thread and we have a thread that is purely between us?" Drafted as a paragraph of the coordinating practice, "the person's thread is never the switchboard". The session drafting it had the same fault in its own thread, which is some evidence for it.
+
 **Declined, as already covered.**
 
 - **"A coordinator does not rebuild a worker's note before that worker has its inputs."** The coordinating practice already says a session never regenerates another session's files, and [prediction-before-the-run](../practices/prediction-before-the-run.md) already puts the prediction before the result.
