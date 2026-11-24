@@ -1,0 +1,48 @@
+---
+slug:              todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured
+kind:              decision
+domain:            engine
+severity:          medium
+status:            open
+disposition:       ask
+remind_on:         null
+blocked_on:        "decision -- Alex or Morgan: which of the four cuts to build"
+batch:             null
+decision:          null
+decision_strength: null
+waiting_on:        Alex or Morgan
+noted:             2026-11-24
+closed:            null
+---
+## What
+
+- [ ] **A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts.** Sent 2026-11-24 by that session, from its own stored record. None is built: each changes what every session in every repository is shown, which is Alex's or Morgan's to cut. (needs: decision -- Alex or Morgan)
+
+**What it measured, in that project.** The figures are that session's, not re-measured here. It says tokens are estimated from characters at about four to one, except the first total, which it read directly.
+
+- A fresh session there starts at about 92,800 tokens. About 24,000 of that comes from the repository and its tooling.
+- Of the 24,000, about 14,000 is the always-loaded instructions file with its occasion index, paid on every call. About 8,000 is what the session-start checks print, most of it about practice sets that did not load.
+- Over 90 minutes, about a fifth of the coordinator's context growth was text printed by automatic checks. The largest piece was the end-of-reply check, which printed its whole rule list on each refusal: about 10,000 characters, about fifteen times.
+
+**What this session saw for itself, the same day.** One refusal by the end-of-reply check here printed the full list, and it was about that size. Session start and every turn after it repeated a long paragraph about one set that had not loaded. The instructions file here is smaller than theirs: [precedent_session_check.py](../tools/precedent_session_check.py) put the whole opening at about 6,290 tokens, so their 14,000 comes from the sets that project adds.
+
+**The four cuts proposed, largest first.**
+
+1. **A refusal prints only the requirement that failed.** The full list stays behind a flag. This is the same text as [the open item on what is printed every turn](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md), which waits on the same people; a yes here settles that one too.
+2. **A turn that only answers a wake needs no full closing section.** The rule already says so for a background job that is still running. It does not for a message from another session or a notification, where a line is all anyone wants.
+3. **The occasion index loads by task for a session doing one narrow job.** A worker sent to do one thing pays for every occasion in the index on every call.
+4. **Session start prints one line per set that loaded, and detail only for one that failed.**
+
+**How they weigh against the rules in force.** [session-load-budget](../practices/session-load-budget.md) caps the opening and counts nothing printed after it, so cuts 1 and 2 are outside any ceiling today. Cut 3 is the largest change: the index is how a session finds a rule it does not know to look for, so a narrower index needs a stated rule for which occasions a worker may go without. Cuts 1, 2 and 4 remove repeated text and lose nothing a session cannot ask for again.
+
+**This session's pick.** Build 1, 2 and 4. Leave 3 until someone proposes which occasions a narrow worker keeps.
+
+**The cost of leaving it.** Every session in every repository that uses Precedent pays for the repeated text on every turn, and a session that is refused several times pays the most.
+
+## How It Closes
+
+`status` becomes `done` when Alex or Morgan has said yes or no to each cut; for each yes, when the change is on `main` with a test that shows the shorter output and that the full text is still reachable.
+
+## Notes
+
+- 2026-11-24: recorded from the relayed message. No engine file changed.
