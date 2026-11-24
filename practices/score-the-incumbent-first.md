@@ -27,6 +27,8 @@ A mark chosen from first principles ("no more than this much worse than exact") 
 
 **Same rules means the same handicaps.** If the design under test gets no tuning, no calibration and no retries, the incumbent is scored that way too, and then again the way it is normally run. Both scores go in the write-up, labeled. The gap between them is itself a finding: it says how much of the incumbent's standing comes from help the design has not yet been given.
 
+**A pass mark says whether it was measured or assumed.** A target written down early gets designed to as if somebody had derived it. Wherever the mark appears it carries one word, measured or assumed, and an assumed mark that work is being steered by is measured before more work is steered by it.
+
 **Do it early.** The incumbent's score is cheap next to the work the mark will go on to steer, and it recalibrates every result that came before it.
 
 This is the test-side companion of [check-source-architecture](check-source-architecture.md), which checks that both options exist before they are costed.
