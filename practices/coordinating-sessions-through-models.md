@@ -23,15 +23,18 @@ strength: assented
 
 1. **A choice every worker depends on lives in one registry file every script reads** ([registry-source-of-truth](registry-source-of-truth.md)). A decision is a one-line change there. No message to a worker carries the value, and no script types it in.
 2. **A quantity two notes need has one home.** The second note reads it from the first, or asserts that its own equals the first's ([scripts-assert-properties](scripts-assert-properties.md)).
-3. **One committed command rebuilds everything, in an order it works out itself** from what each step reads and writes. The order is never kept by hand, and never in a scratch folder ([repo-is-memory](repo-is-memory.md)).
-4. **A session takes another session's files as they are.** It never regenerates them on its own branch.
-5. **A check for anything dropped runs before every push:** a figure, marker or block another script reads that this change removed.
-6. **The coordinator reports only figures a script printed, and only settled ones.** Anything else is called "not yet computed". A headline names the unverified assumptions it rests on ([numbers-are-sourced](numbers-are-sourced.md)).
+3. **One quantity has one name.** A new entry is compared with every entry already there before it is added, and a check lists any two differently named entries that carry the same value and unit. Each pair listed is merged, or recorded as different with the reason.
+4. **One committed command rebuilds everything, in an order it works out itself** from what each step reads and writes. The order is never kept by hand, and never in a scratch folder ([repo-is-memory](repo-is-memory.md)).
+5. **A session takes another session's files as they are.** It never regenerates them on its own branch.
+6. **A check for anything dropped runs before every push:** a figure, marker or block another script reads that this change removed.
+7. **The coordinator reports only figures a script printed, and only settled ones.** Anything else is called "not yet computed". A headline names the unverified assumptions it rests on ([numbers-are-sourced](numbers-are-sourced.md)).
 
 ## Detail
 **The registry is for choices, not results.** Which design leads, what it is measured against, which variant is the baseline: these are decisions the person makes and changes. Each script reads them and computes from them. A check flags any note that quotes a figure computed for a different choice than the registry now holds, so a changed decision shows up as a list of notes to rebuild, not as a round of messages.
 
 **An assumption's evidence belongs to the design it was run on.** Each assumption a headline rests on is listed in the registry beside the design its evidence came from. When the design changes, that evidence is marked as an earlier design's until it is run again. Evidence gathered on one design and quoted for another looks exactly like evidence.
+
+**Twins are caught when they are born, or not at all.** Two workers who each need the same quantity will each name it, differently, and both names then live on: every rule about one home is satisfied twice. On the day the second is added the two are still equal, and a comparison of value and unit finds them. Once one has been updated and the other has not, they differ, and no comparison of values will ever pair them again. So the check runs when an entry is added and before every push, each entry says in a line what it measures so a reader can match by meaning, and a pair found equal by coincidence is recorded as different so it is not raised twice. Where the build is cheap enough, a stronger test: change each choice in turn and rebuild; two entries that move together under every change are one quantity.
 
 **The build command learns its order.** It records what each step read and wrote on a real run and orders the steps from that. Where two steps feed each other, it reruns them until nothing changes, and stops with both named if they never settle. A step added later needs no entry in anybody's list.
 
