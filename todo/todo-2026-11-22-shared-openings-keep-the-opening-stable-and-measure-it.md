@@ -3,7 +3,7 @@ slug:              todo-2026-11-22-shared-openings-keep-the-opening-stable-and-m
 kind:              decision
 domain:            engine
 severity:          low
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
@@ -12,11 +12,11 @@ decision:          "yes to the short thread (Alex, 2026-11-23: \"Yes on both\")"
 decision_strength: assented
 waiting_on:        null
 noted:             2026-11-22
-closed:            null
+closed:            2026-11-23
 ---
 ## What
 
-- [ ] **Shared openings: is there anything to build?** Alex asked, 2026-11-22, whether Precedent could host openings that many people share so their sessions start faster, as a feature or a separate product. The research and the pick are in [spec/SHARED_OPENINGS.md](../spec/SHARED_OPENINGS.md): no provider shares a cache across customers, so there is nothing to host; what is left is keeping Precedent's own always-loaded text identical and first. (needs: decision -- Alex)
+- [x] **Shared openings: is there anything to build?** Alex asked, 2026-11-22, whether Precedent could host openings that many people share so their sessions start faster, as a feature or a separate product. The research and the pick are in [spec/SHARED_OPENINGS.md](../spec/SHARED_OPENINGS.md): no provider shares a cache across customers, so there is nothing to host; what is left is keeping Precedent's own always-loaded text identical and first. (needs: decision -- Alex)
 
 **If the answer is yes to the short thread, it is three steps, in order:**
 
@@ -35,3 +35,5 @@ closed:            null
 ## Notes
 
 - Nothing in the engine was changed by the session that wrote the note.
+- 2026-11-23: Alex said yes to the short thread. Step 1 was run for cloud sessions and is recorded in the note under "What Was Measured": the tracked instructions file looks to be read warm already, and what follows it differs for a reason outside Precedent. Step 2 is declined for that reason: reordering Precedent's session-start text cannot help text that comes after a line naming the session. Step 3, stop. Not done: the same measurement on a person's own computer, which no cloud session can run; it is listed in the note as unknown.
+- The per-turn text (2,177 tokens on one turn) is the larger lever; it has [an item of its own](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md).

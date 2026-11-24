@@ -30,6 +30,7 @@ and that settles most of it.
 - [What a Session's Opening Looks Like to the Cache](#what-a-sessions-opening-looks-like-to-the-cache)
 - [What Precedent Could Do, Smallest First](#what-precedent-could-do-smallest-first)
 - [Product, Feature or Neither](#product-feature-or-neither)
+- [What Was Measured](#what-was-measured)
 - [What Is Not Known](#what-is-not-known)
 
 **Where the numbers come from.** Every provider figure is quoted from the
@@ -41,7 +42,8 @@ the files themselves and from
 [tools/session_load_budgets.json](../tools/session_load_budgets.json),
 counted the rough way the load budget counts (words times 1.3). Two figures
 are single measurements of the session that wrote this note and are
-labelled so. Nothing here is an estimate.
+labelled so, and the figures under What Was Measured are read from two
+sessions' own usage records. Nothing here is an estimate.
 
 ## What the Answer Is
 
@@ -61,8 +63,8 @@ labelled so. Nothing here is an estimate.
   about 11,500 to 19,750 for a repository at the 10,000-token ceiling.
   Inside a session the assistant program already caches every turn.
 - **Pick:** a small feature of Precedent, namely keep its own text
-  byte-for-byte stable and keep what changes last, plus one measurement
-  before building anything. Not a product.
+  byte-for-byte stable and keep what changes last. Not a product. The measurement
+  that was to come first has been run; it is under What Was Measured.
 
 ## How the Providers Cache
 
@@ -298,20 +300,52 @@ the same account, and under Claude Code on the same machine and folder.
   than any arrangement of the opening. It belongs to the load budget, and
   is filed with the open item.
 
-Should there be a Precedent thread to explore it? One short one: run the
-measurement below, do items 1 and 2 if it shows a miss, and stop.
+The measurement has been run, and it says to stop: see What Was Measured.
 The open item is
 [todo-2026-11-22-shared-openings](../todo/todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md).
 
+## What Was Measured
+
+Two cloud sessions were started four minutes apart on this repository, on
+2026-11-23, with the same one-line task and no tools run. Each session's
+own record says how much of its first request was read from cache and how
+much was written new.
+
+| | First session | Second session |
+|---|---|---|
+| First request, tokens in all | 94,650 | 94,104 |
+| Read from cache | 63,379 | 69,004 |
+| Written new, at the one-hour price | 31,269 | 25,098 |
+
+**Most of an opening is the assistant program's own text, and most of that
+is already warm.** About two thirds of each first request was read from
+cache, by sessions that had never run before.
+
+**The second session read 5,625 tokens more than the first, and then
+stopped matching.** That is close to the size of the tracked instructions
+file (5,832 by this repository's rough count), which sits next in the
+request, so the likely reading is that the instructions file was read warm
+and the first thing after it differed. The record does not say which text
+the tokens were; this is an inference from the sizes and the order.
+
+**About 25,000 tokens after that point were written new by a session
+identical in every way Precedent controls.** In the session that wrote this
+note, the text straight after the instructions file was the assistant
+program's own and named the session. If that is where the match ends, no
+ordering of Precedent's session-start text can make it warm in a cloud
+session, because it comes after a line that is different every time.
+
+**So the two small changes in the list above would not help here, and were
+not made.** Keeping the tracked file stable is already paying. The rest of
+the opening is the program's to fix.
+
+One pair of sessions, so the figures are a measurement and not a rate.
+
 ## What Is Not Known
 
-- **Whether the opening is being read from cache at all today.** Every
-  request's reply says how many tokens were read from cache. Two sessions
-  started back to back in the same checkout, with the first reply's count
-  compared against the 5,832 above, would say. Not done here.
-- **Whether two cloud sessions of one repository share a beginning.** Each
-  runs in a new machine; Anthropic's pages say cloud sessions leave out
-  the repository snapshot and do not say whether the rest matches.
+- **The same measurement on a person's own computer.** The one above was
+  two cloud sessions; a local session also carries a snapshot of the
+  repository, which may break the match earlier.
 - **Whether today's date sits in the request, and where.** Not documented
   for Claude Code or Codex.
 - **How cached reads count against a subscription's limits.** Anthropic

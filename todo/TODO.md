@@ -55,6 +55,7 @@ as_of: 2026-11-23
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 43d | ask |  |
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 34d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
 | [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 24d | wait | every line under Left names why this run left it |
+| [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 0d | wait |  |
 
 ## Verify Before External Use
 
@@ -130,7 +131,6 @@ as_of: 2026-11-23
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | 19d | ask |  |
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 1d | wait |  |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 1d | wait |  |
-| [`todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it`](todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md) | Shared openings: is there anything to build? | 1d | ask |  |
 
 ## Unblocked Work
 
@@ -156,6 +156,7 @@ as_of: 2026-11-23
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 56d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 49d |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 43d |
+| [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 0d |
 
 ## Open Decisions
 
@@ -172,7 +173,6 @@ as_of: 2026-11-23
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | Alex's or Morgan's yes or no on the one-line change below; it changes what a gate refuses, so no session lands it on its own |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | Alex's or Morgan's pick among the three options below |
-| [`todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it`](todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md) | Shared openings: is there anything to build? |  |
 
 ## Due Reminders
 
