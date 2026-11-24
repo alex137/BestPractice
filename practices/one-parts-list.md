@@ -16,7 +16,8 @@ supersedes:  []
 overrides:   null
 adds_to:     prediction-before-the-run
 added:       "2026-11-24"
-approved_by: "Not yet approved. Proposed 2026-11-24 by the coordinating session of the project where it was learned, which relayed Alex asking 'Why are we only now discovering all the missing parts? Do we need a practice for this?' -- a question, not a yes to this text. Drafted on a branch and held there for his yes."
+approved_by: "Alex, 2026-11-24: 'Yes and granted', to the drafted rule as written, joined runs with stand-ins allowed and labelled; proposed the same day by the coordinating session of the project where it was learned"
+strength: assented
 ---
 ## Rule
 **Anything built, modelled or tested in pieces keeps one parts list in its registry** ([registry-source-of-truth](registry-source-of-truth.md)): every part between input and output, each marked **real** (built and run, naming the run that shows it), **stand-in** (idealized, saying what it stands for) or **missing**.

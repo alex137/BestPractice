@@ -131,7 +131,7 @@ as_of: 2026-11-24
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | 20d | ask |  |
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 2d | wait |  |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 2d | wait |  |
-| [`todo-2026-11-24-one-parts-list-waits-for-alexs-yes`](todo-2026-11-24-one-parts-list-waits-for-alexs-yes.md) | A new practice, one-parts-list, is drafted on the branch `claude/parts-list-practice` and waits for Alex's yes | 0d | ask | decision -- Alex: yes or no to the drafted rule |
+| [`todo-2026-11-24-one-parts-list-waits-for-alexs-yes`](todo-2026-11-24-one-parts-list-waits-for-alexs-yes.md) | A new practice, one-parts-list, is drafted on the branch `claude/parts-list-practice` and waits for Alex's yes | 0d | ask | access -- this session cannot reach one declared practice set, so its push is re… |
 
 ## Unblocked Work
 

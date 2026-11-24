@@ -6,10 +6,10 @@ severity:          medium
 status:            open
 disposition:       ask
 remind_on:         null
-blocked_on:        "decision -- Alex: yes or no to the drafted rule"
+blocked_on:        "access -- this session cannot reach one declared practice set, so its push is refused"
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "yes (Alex, 2026-11-24: \"Yes and granted\", to the drafted rule as written)"
+decision_strength: assented
 waiting_on:        Alex
 noted:             2026-11-24
 closed:            null
@@ -32,4 +32,5 @@ closed:            null
 
 ## Notes
 
-- 2026-11-24: drafted and pushed to its branch; no pull request opened.
+- 2026-11-24: drafted; no pull request opened.
+- 2026-11-24: Alex said yes, to the rule as drafted. It lands when the branch can be pushed.
