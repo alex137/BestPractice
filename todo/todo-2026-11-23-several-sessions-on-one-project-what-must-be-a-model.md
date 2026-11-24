@@ -3,20 +3,20 @@ slug:              todo-2026-11-23-several-sessions-on-one-project-what-must-be-
 kind:              decision
 domain:            practice
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          "yes (Alex, 2026-11-23, relayed by the coordinating session of the project: \"Yes update precedent\")"
+decision:          "yes (Alex, 2026-11-23: \"Yes on both\", to landing the practice on main)"
 decision_strength: assented
 waiting_on:        "Alex's yes or no on one new practice for a project worked by several sessions at once, to arrive as a scrubbed check-in from the project where it was learned"
 noted:             2026-11-23
-closed:            null
+closed:            2026-11-23
 ---
 ## What
 
-- [ ] **When one coordinating session runs many worker sessions on one project, what has to be written as a model, and what is still done by hand?** Raised by Alex, 2026-11-23, relayed by the coordinating session of one of his projects: "I am concerned that you are doing a lot of work by AI inference rather than writing code to model different aspects of the system ... If we don't have models in virtually every thread, is this a major bestpractice violation? If it is, why did this happen and how do we fix here and going forward with other users of bestpractice?" and "I am worried about all the work you appear to be doing by hand as well integrating their work." (needs: decision -- Alex)
+- [x] **When one coordinating session runs many worker sessions on one project, what has to be written as a model, and what is still done by hand?** Raised by Alex, 2026-11-23, relayed by the coordinating session of one of his projects: "I am concerned that you are doing a lot of work by AI inference rather than writing code to model different aspects of the system ... If we don't have models in virtually every thread, is this a major bestpractice violation? If it is, why did this happen and how do we fix here and going forward with other users of bestpractice?" and "I am worried about all the work you appear to be doing by hand as well integrating their work." (needs: decision -- Alex)
 
 **What the project reported.** Each worker's own work was a model: a note plus a script that prints its figures and checks itself, as [numbers-are-sourced](../practices/numbers-are-sourced.md) and [scripts-assert-properties](../practices/scripts-assert-properties.md) ask. Three things were not:
 
@@ -54,3 +54,4 @@ closed:            null
 
 - The session that filed this was a research worker here; it weighed a relayed report ([relayed-message-is-a-suggestion](../practices/relayed-message-is-a-suggestion.md)) and did not see the project's files for the three items, so the account above is the coordinator's.
 - 2026-11-23, later: the coordinating session relayed Alex's answer, "Yes update precedent", with the lessons in general terms. The practice is drafted as [coordinating-sessions-through-models](../practices/coordinating-sessions-through-models.md) on the branch that carries this item. It is not on `main`: the yes reached this session second-hand, and a rule that loads into every session of every repository lands on Alex's or Morgan's own word or merge.
+- 2026-11-23, later still: Alex said yes in the session that drafted it, and added two rules in his own words (one quantity has one name; the full check comes due when the registry changes). The practice lands on `main` with the pull request that carries this line. It was written here from the project's general-terms account, not sent as a check-in.

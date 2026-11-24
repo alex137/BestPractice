@@ -8,9 +8,9 @@ disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Alex's answer to his own question of 2026-11-22, \"Should we create a BestPractice thread to explore this?\"; the note's pick is one short thread: measure, then the two small changes if the measurement shows a miss"
+decision:          "yes to the short thread (Alex, 2026-11-23: \"Yes on both\")"
+decision_strength: assented
+waiting_on:        null
 noted:             2026-11-22
 closed:            null
 ---

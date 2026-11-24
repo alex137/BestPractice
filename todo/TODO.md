@@ -131,7 +131,6 @@ as_of: 2026-11-23
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 1d | wait |  |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 1d | wait |  |
 | [`todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it`](todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md) | Shared openings: is there anything to build? | 1d | ask |  |
-| [`todo-2026-11-23-several-sessions-on-one-project-what-must-be-a-model`](todo-2026-11-23-several-sessions-on-one-project-what-must-be-a-model.md) | When one coordinating session runs many worker sessions on one project, what has to be written as a model, and what is s | 0d | ask |  |
 
 ## Unblocked Work
 
@@ -173,8 +172,7 @@ as_of: 2026-11-23
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | Alex's or Morgan's yes or no on the one-line change below; it changes what a gate refuses, so no session lands it on its own |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | Alex's or Morgan's pick among the three options below |
-| [`todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it`](todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md) | Shared openings: is there anything to build? | Alex's answer to his own question of 2026-11-22, "Should we create a BestPractice thread to explore this?"; the note's pick is one short thread: measure, then the two small changes if the measurement shows a miss |
-| [`todo-2026-11-23-several-sessions-on-one-project-what-must-be-a-model`](todo-2026-11-23-several-sessions-on-one-project-what-must-be-a-model.md) | When one coordinating session runs many worker sessions on one project, what has to be written as a model, and what is s | Alex's yes or no on one new practice for a project worked by several sessions at once, to arrive as a scrubbed check-in from the project where it was learned |
+| [`todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it`](todo-2026-11-22-shared-openings-keep-the-opening-stable-and-measure-it.md) | Shared openings: is there anything to build? |  |
 
 ## Due Reminders
 

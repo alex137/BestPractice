@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-11-23"
-approved_by: "Alex, 2026-11-23, relayed by the coordinating session of the project where this was learned: 'Yes update precedent', to the proposal for one practice on coordinating several sessions"
+approved_by: "Alex, 2026-11-23: 'Yes on both', to landing this practice on main and to the shared-openings thread; first relayed the same day as 'Yes update precedent'"
 strength: assented
 ---
 ## Rule
