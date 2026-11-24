@@ -1,0 +1,17 @@
+URL: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/system-prompt.md
+Retrieved: 2026-11-22
+Publisher: Google (official google-gemini/gemini-cli repository, docs/ directory, main branch)
+Fetched raw from raw.githubusercontent.com.
+
+## Best practices: system.md vs GEMINI.md
+
+> - system.md (firmware):
+>   - Non‑negotiable operational rules: safety, tool‑use protocols, approvals, and
+>     mechanics that keep the CLI reliable.
+>   - Stable across tasks and projects (or per project when needed).
+> - GEMINI.md (strategy):
+>   - Persona, goals, methodologies, and project/domain context.
+>   - Evolves per task; relies on system.md for safe execution.
+> 
+> Keep system.md minimal but complete for safety and tool operation. Keep
+> GEMINI.md focused on high‑level guidance and project specifics.

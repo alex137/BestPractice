@@ -1,0 +1,14 @@
+URL: https://docs.x.ai/cookbook/examples/prompt-caching
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/cookbook/examples/prompt-caching.md. 
+
+# Prompt Caching (cookbook example)
+
+> Every turn of a chat sends the whole chat again, so each turn costs more than the last. When a prompt starts the same way as the last one, Grok reads that part from the prompt cache at a quarter of the price. This example plays the same 30 messages in three chats at once and charts what every turn cost. All three tell Grok the current time. The first puts it at the top of the latest message. The second puts it at the top of the system prompt, as many apps do, and that one line keeps the rest of the prompt from coming from the cache. The third is like the first, but compacts the chat as it grows.
+
+(results section; these are xAI's own observations from its example run, not a specification)
+
+> - **Caching works in blocks of 128 tokens.** Every cached count was a multiple of 128, so the last partial block of a prompt is always new.
+> - **The cache key makes a hit likelier, not certain.** The first chat missed the cache on three turns besides its first while the API was busy. When we also played the chat without `prompt_cache_key`, the API still cached most turns, between 64% and 95% of the input with or without a key. Without a key, a request can land on a server that doesn't have the chat cached, and the key makes that less likely. To try it, remove `prompt_cache_key` from `sendMessage()`.
+> - **Time to first token barely changed.** At 2,400 to 6,900 tokens, reading the prompt is a small part of the wait, and turns took up to 80 seconds to start when the API was busy, cached or not.

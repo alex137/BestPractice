@@ -1,0 +1,19 @@
+URL: https://learn.chatgpt.com/docs/config-file/config-sample (markdown rendering fetched with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+
+## Instruction Overrides (comments in the sample config.toml)
+
+> # Additional user instructions are injected before AGENTS.md. Default: unset.
+> # developer_instructions = ""
+> # Inline override for the history compaction prompt. Default: unset.
+> # compact_prompt = ""
+> # Override built-in base instructions with a file path. Default: unset.
+> # model_instructions_file = "/absolute/or/relative/path/to/instructions.txt"
+
+## (project doc settings in the sample config.toml)
+
+> # Max bytes from AGENTS.md to embed into first-turn instructions. Default: 32768
+> project_doc_max_bytes = 32768
+> # Ordered fallbacks when AGENTS.md is missing at a directory level. Default: []
+> project_doc_fallback_filenames = []

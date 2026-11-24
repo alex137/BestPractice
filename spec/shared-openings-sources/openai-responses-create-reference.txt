@@ -1,0 +1,37 @@
+URL: https://developers.openai.com/api/reference/resources/responses/methods/create (markdown rendering fetched from the same URL with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+
+## Body parameters: prompt_cache_key
+
+> - `prompt_cache_key: optional string or null`
+>   Used by OpenAI to cache responses for similar requests to optimize your cache hit rates. Replaces the `user` field. [Learn more](/api/docs/guides/prompt-caching).
+
+## Body parameters: prompt_cache_options
+
+> - `prompt_cache_options: optional object { comparison_response_id, mode, prewarm, ttl }`
+>   Options for prompt caching. Supported for `gpt-5.6` and later models. By default, OpenAI automatically chooses one implicit cache breakpoint. You can add explicit breakpoints to content blocks with `prompt_cache_breakpoint`. Each request can write up to four breakpoints. For cache matching, OpenAI considers up to the latest 80 breakpoints in the conversation, without a content-block lookback limit. Set `mode` to `explicit` to disable the implicit breakpoint. The `ttl` defaults to `30m`. Supported lifetimes depend on the API. See the [prompt caching guide](/api/docs/guides/prompt-caching) for current details.
+
+>   - `prewarm: optional boolean`
+>     Prepares the prompt cache without generating output. Defaults to `false`. When set to `true`, overrides the `generate` field to `false`.
+>   - `ttl: optional "30m" or "12h"`
+>     The minimum lifetime applied to every implicit and explicit cache breakpoint written by the request. Supported values are `30m` (the default) and `12h`. The backend may retain cache entries for longer.
+
+## Body parameters: prompt_cache_retention
+
+> - `prompt_cache_retention: optional "in_memory" or "24h" or null`
+>   Deprecated. Use `prompt_cache_options.ttl` instead.
+>   The retention policy for the prompt cache. Set to `24h` to enable extended prompt caching, which keeps cached prefixes active for longer, up to a maximum of 24 hours. [Learn more](/api/docs/guides/prompt-caching#prompt-cache-retention).
+>   This field expresses a maximum retention policy, while
+>   `prompt_cache_options.ttl` expresses a minimum cache lifetime. The two
+>   fields are independent and do not interact.
+>   For `gpt-5.5`, `gpt-5.5-pro`, and future models, only `24h` is supported.
+>   For older models that support both `in_memory` and `24h`, the default depends on your organization's data retention policy:
+>   - Organizations without ZDR enabled default to `24h`.
+>   - Organizations with ZDR enabled default to `in_memory` when `prompt_cache_retention` is not specified.
+
+## Body parameters: user
+
+> - `user: optional string or null`
+>   This field is being replaced by `safety_identifier` and `prompt_cache_key`. Use `prompt_cache_key` instead to maintain caching optimizations.
+>   A stable identifier for your end-users.

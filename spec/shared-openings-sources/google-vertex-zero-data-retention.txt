@@ -1,0 +1,46 @@
+URL: https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/zero-data-retention (linked from the context caching overview as 'Zero data retention')
+Retrieved: 2026-11-22
+Publisher: Google Cloud (Vertex AI documentation; cloud.google.com now redirects to docs.cloud.google.com and the product is titled Gemini Enterprise Agent Platform)
+Text extracted from the page HTML; words verbatim, line breaks follow the HTML source, links and code samples dropped.
+
+### Implicit data caching
+> By default, Google's published Gemini models cache Customer Data to
+> reduce latency and accelerate responses. Implicit caching uses two storage
+> tiers:
+> In-memory caching: Enabled by default for supported Gemini
+> models.
+> Durable caching: Enabled by default for supported Gemini
+> models. For the list of supported models, see
+> Context caching overview.
+#### In-memory data caching
+> Implicit caching stores Customer Data (inputs, outputs, and derived data) in
+> memory. In-memory cached data has the following properties:
+> It's stored only in memory, not at rest.
+> It's scoped to your project and is never served to another project.
+> It's deleted no later than 24 hours after it's written.
+> It's processed in the region that serves the request.
+> It's used only to serve your requests faster, and is never used to train or
+> fine-tune models.
+#### Durable data caching
+> On models that support durable caching, when in-memory cache capacity is
+> exhausted, Google stores derived cache data (key-value representations computed
+> from your inputs) in durable storage within the Agent Platform serving
+> environment. Durable cached data has the following properties:
+> It's stored at rest and encrypted with Google default encryption.
+> It's scoped to your project and is never served to another project.
+> It's deleted no later than 24 hours after it's written, and is often evicted
+> sooner.
+> It stays within the selected location and adheres to its Data Residency
+> requirements when you use a regional or multi-regional endpoint. When you use
+> the global endpoint, requests and their cached data can be served from any
+> region.
+> It's used only to serve your requests faster, and is never used to train or
+> fine-tune models.
+> Customer-managed encryption keys (CMEK) aren't supported for durable caching.
+#### Control data caching
+> If your organization's policy does not permit Customer Data to be stored at
+> rest, you can
+> disable durable caching on a per-project basis
+> and maintain in-memory caching. Alternatively, you can disable caching
+> entirely. To disable durable caching across your organization rather than on a
+> project level, contact your account team.

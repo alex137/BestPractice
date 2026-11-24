@@ -1,0 +1,17 @@
+URL: https://cloud.google.com/vertex-ai/generative-ai/docs/context-cache/context-cache-update (redirects to https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/context-cache/context-cache-update)
+Retrieved: 2026-11-22
+Publisher: Google Cloud (Vertex AI documentation; cloud.google.com now redirects to docs.cloud.google.com and the product is titled Gemini Enterprise Agent Platform)
+Text extracted from the page HTML; words verbatim, line breaks follow the HTML source, links and code samples dropped.
+
+# Update a context cache (page opening)
+
+> You can update when a context cache expires. The default expiration time of a
+> context cache is 60 minutes after its creation time. An expired context cache is
+> deleted during a garbage collection process and can't be used or updated. To
+> update the time when an unexpired context cache expires, update one of its
+> following properties:
+> ttl - The number of seconds and nanoseconds that the cache lives after it's
+> created or after the ttl is updated before it expires. When you set the
+> ttl, the expireTime of the cache is updated.
+> expire_time - A Timestamp that specifies the absolute date and time when
+> the context cache expires.

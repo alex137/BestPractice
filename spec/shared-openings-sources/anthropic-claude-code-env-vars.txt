@@ -1,0 +1,20 @@
+URL: https://code.claude.com/docs/en/env-vars
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://code.claude.com/docs/en/env-vars.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+# (environment variable table rows)
+
+> | `DISABLE_PROMPT_CACHING` | Set to `1` to disable [prompt caching](https://code.claude.com/docs/en/prompt-caching.md#disable-prompt-caching) for all models (takes precedence over per-model settings) |
+> | `DISABLE_PROMPT_CACHING_FABLE` | Set to `1` to disable prompt caching for Fable models |
+> | `DISABLE_PROMPT_CACHING_HAIKU` | Set to `1` to disable prompt caching for the [default Haiku model](https://code.claude.com/docs/en/prompt-caching.md#disable-prompt-caching), wherever it runs |
+> | `DISABLE_PROMPT_CACHING_OPUS` | Set to `1` to disable prompt caching for the [default Opus model](https://code.claude.com/docs/en/prompt-caching.md#disable-prompt-caching) |
+> | `DISABLE_PROMPT_CACHING_SONNET` | Set to `1` to disable prompt caching for the [default Sonnet model](https://code.claude.com/docs/en/prompt-caching.md#disable-prompt-caching) |
+
+> | `ENABLE_PROMPT_CACHING_1H` | Set to `1` to request a 1-hour [prompt cache TTL](https://code.claude.com/docs/en/prompt-caching.md#cache-lifetime) instead of the default 5 minutes. Intended for API key, [Amazon Bedrock](https://code.claude.com/docs/en/amazon-bedrock.md), [Google Cloud's Agent Platform](https://code.claude.com/docs/en/google-vertex-ai.md), [Microsoft Foundry](https://code.claude.com/docs/en/microsoft-foundry.md), and [Claude Platform on AWS](https://code.claude.com/docs/en/claude-platform-on-aws.md) users. For subscription users within included usage, Claude Code requests the 1-hour TTL automatically on the [main conversation](https://code.claude.com/docs/en/prompt-caching.md#which-ttl-each-request-gets). Subscription users drawing on [usage credits](https://support.claude.com/en/articles/12429409-extra-usage-for-paid-claude-plans) can set it to keep the 1-hour TTL. 1-hour cache writes are billed at a higher rate. To choose the TTL separately for the main conversation and for requests outside it, use `CLAUDE_CODE_PROMPT_CACHE_TTL` and `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, which take precedence over this variable |
+
+> | `FORCE_PROMPT_CACHING_5M` | Set to `1` to force the 5-minute prompt cache TTL even when 1-hour TTL would otherwise apply. Overrides `CLAUDE_CODE_PROMPT_CACHE_TTL`, `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, `ENABLE_PROMPT_CACHING_1H`, and the `promptCacheTtl` and `subagentPromptCacheTtl` settings |
+
+> | `CLAUDE_CODE_PROMPT_CACHE_TTL` | Set `5m` or `1h`, the only values Claude Code accepts, to choose the [prompt cache TTL](https://code.claude.com/docs/en/prompt-caching.md#cache-lifetime) for the main conversation: your interactive, `-p`, and SDK turns, plus the helpers that run inline with them. Takes precedence over the `promptCacheTtl` setting and over `ENABLE_PROMPT_CACHING_1H`, and `FORCE_PROMPT_CACHING_5M` overrides it. The API bills 1-hour cache writes at a higher rate. Requires Claude Code v2.1.242 or later |
+

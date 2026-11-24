@@ -597,6 +597,10 @@
     {
       "looking_for": "Skeletons dependent repos instantiate",
       "go_to": "[templates/](templates/) (+ per-agent adapters in [templates/harness/](templates/harness/))"
+    },
+    {
+      "looking_for": "Whether Precedent can make sessions start warm by sharing one opening across people, how each provider's prompt cache works, and what the opening costs",
+      "go_to": "[spec/SHARED_OPENINGS.md](spec/SHARED_OPENINGS.md); its figures come from [spec/shared_openings_figures.py](spec/shared_openings_figures.py), and the provider pages it quotes are stored under [spec/shared-openings-sources/](spec/shared-openings-sources/)"
     }
   ]
 }

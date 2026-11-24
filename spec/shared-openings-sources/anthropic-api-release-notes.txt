@@ -1,0 +1,26 @@
+URL: https://platform.claude.com/docs/en/release-notes/overview
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://platform.claude.com/docs/en/release-notes/overview.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+Note: This page was searched for any dated entry announcing workspace-level cache isolation. None was found: no line on the page mentions both "workspace" and "cache".
+
+
+### February 19, 2026
+
+> * We’ve launched **automatic caching** for the Messages API. Add a single `cache_control` field to your request body and the system automatically caches the last cacheable block, moving the cache point forward as conversations grow. No manual breakpoint management required. Works alongside existing block-level cache control for fine-grained optimization. Available on the Claude API and Microsoft Foundry. Learn more in [Automatic caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#automatic-caching).
+
+
+### August 13, 2025
+
+> * The 1-hour cache duration for prompt caching no longer requires a beta header. Learn more in [1-hour cache duration](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#1-hour-cache-duration).
+
+
+### December 17, 2024
+
+>   * [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching): Reduce costs by up to 90 percent and latency by up to 80 percent by caching and reusing prompt content.
+
+
+### August 14, 2024
+
+> * [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) is now available as a beta feature in the Claude API. Cache and reuse prompts to reduce latency by up to 80 percent and costs by up to 90 percent.
+

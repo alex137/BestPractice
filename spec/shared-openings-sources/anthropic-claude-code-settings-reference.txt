@@ -1,0 +1,12 @@
+URL: https://code.claude.com/docs/en/settings-reference
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://code.claude.com/docs/en/settings-reference.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+### `includeGitInstructions`
+
+> Claude Code gives Claude two git-related pieces of context: its built-in instructions for how to write commits and pull requests, in the Bash tool's description, and a git status snapshot of your repository. The snapshot holds the current branch, the main branch, `git status` output, and recent commits. Claude Code reads it when a conversation starts.
+
+>   * `true`: Claude Code includes its built-in commit and pull request workflow instructions and the git status snapshot. Cloud sessions never include the snapshot
+
