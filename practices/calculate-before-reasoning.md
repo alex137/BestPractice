@@ -16,7 +16,7 @@ supersedes:  []
 overrides:   null
 adds_to:     numbers-are-sourced
 added:       "2026-11-24"
-approved_by: "Alex, 2026-11-24, relayed by the coordinating session of the project where it was learned: 'Yes let's update. But first do a review and see if you see improvements on your ideas before sending'"
+approved_by: "Alex, 2026-11-24: 'Yes.', to merging the drafted lessons; first relayed the same day as 'Yes let's update. But first do a review and see if you see improvements on your ideas before sending'"
 strength: assented
 ---
 ## Rule

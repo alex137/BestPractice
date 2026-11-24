@@ -3,20 +3,20 @@ slug:              todo-2026-11-24-twelve-lessons-from-a-night-over-the-usage-li
 kind:              decision
 domain:            practice
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
 blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        "Alex's yes or no, in the session that drafted them, on landing the drafted rules; his yes so far is relayed"
+decision:          "yes (Alex, 2026-11-24: \"Yes.\", to merging the drafted lessons)"
+decision_strength: assented
+waiting_on:        null
 noted:             2026-11-24
-closed:            null
+closed:            2026-11-24
 ---
 ## What
 
-- [ ] **Twelve lessons from a night in which about fourteen worker sessions and a coordinator ran all night and usage went past a weekly limit, proposed for Precedent.** Sent 2026-11-24 by that project's coordinating session, with Alex's relayed words: "Yes let's update. But first do a review and see if you see improvements on your ideas before sending". Each was weighed against the rules already in force. Ten are drafted on the branch that carries this item, folded into existing practices where they fit; two are declined as already covered. (needs: decision -- Alex)
+- [x] **Twelve lessons from a night in which about fourteen worker sessions and a coordinator ran all night and usage went past a weekly limit, proposed for Precedent.** Sent 2026-11-24 by that project's coordinating session, with Alex's relayed words: "Yes let's update. But first do a review and see if you see improvements on your ideas before sending". Each was weighed against the rules already in force. Ten are drafted on the branch that carries this item, folded into existing practices where they fit; two are declined as already covered. (needs: decision -- Alex)
 
 **Taken, and where each went.**
 
@@ -50,3 +50,7 @@ closed:            null
 ## How It Closes
 
 `status` becomes `done` when Alex has said yes or no; on a yes, when the drafted rules are on `main` and GitHub's test on `main` passes.
+
+## Notes
+
+- 2026-11-24: Alex said yes in the session that drafted them. They land with the pull request that carries this line, after GitHub's check on it passes.
