@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 187 practice files (6 resident, 181 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 189 practice files (6 resident, 183 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -28,6 +28,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [branch-delete-links](practices/branch-delete-links.md) | on-demand | telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's |
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
 | [built-from-is-checked](practices/built-from-is-checked.md) | on-demand | a source exports files it compiles from a source of its own, or a repository copies in both |
+| [calculate-before-reasoning](practices/calculate-before-reasoning.md) | on-demand | about to estimate, by ratio or from memory, something a script or a short run would answer |
 | [capture-gate](practices/capture-gate.md) | on-demand | finishing substantial work, or merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
 | [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism some document describes, or finding a document that no longer matches what is true |
@@ -162,6 +163,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
+| [settings-are-carried-out](practices/settings-are-carried-out.md) | on-demand | adding a setting, variant or option to code that produces results |
 | [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | adding to, or merging, a file many threads append to (index, registry, log) |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [show-what-you-point-at](practices/show-what-you-point-at.md) | on-demand | ** |
