@@ -46,7 +46,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on a constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires, or any test or check that reports a failure |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
-| [coordinating-sessions-through-models](practices/coordinating-sessions-through-models.md) | on-demand | coordinating several sessions on one repository |
+| [coordinating-sessions-through-models](practices/coordinating-sessions-through-models.md) | on-demand | tasking a session with long work, changing its plan, or working for one |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
 | [curly-quotes](practices/curly-quotes.md) | on-demand | building output for outside readers, or typing quotes or dashes in Markdown |
 | [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
