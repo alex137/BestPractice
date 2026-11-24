@@ -148,6 +148,12 @@ His yes, given through the rerun with his words, is recorded in
 `precedent.json`'s `allow_list_answer` and stands for every later
 allow-list-only change; a no is recorded with `--allow-list no
 --answered-by '...'`, and the refresh then never adds those rules here.
+**A change applied on that recorded yes is not held for a fresh ask.**
+That covers the lines letting a session clone the repositories of an
+account a declared practice set lives under: they only read, the engine
+derives them from the sets declared here, and the report names the account
+and the set. Ask fresh for a line the engine did not derive, or one that
+permits more than reading.
 
 **Upstream's version is the default, applied without asking**, in every
 vendored layer and every kind of conflict ("Upstream's version is the
