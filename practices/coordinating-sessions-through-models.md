@@ -4,10 +4,10 @@ title:       A project worked by several sessions is coordinated through a regis
 tier:        on-demand
 severity:    default
 applies_to:  ["**"]
-applies_to_why: "Coordinating several sessions is a moment, not a file; the occasion index reaches it."
-occasion:    "coordinating several sessions on one repository"
+applies_to_why: "Coordinating several sessions is a moment, not a file; the occasion index reaches it, under the occasion it shares with tasked-session-stays-reachable because the universal set's index allowance had 15 tokens left."
+occasion:    "tasking a session with long work, changing its plan, or working for one"
 gates:       []
-index_clause: "shared choices in one registry; a tool orders the build; report computed figures"
+index_clause: "several sessions: one registry, one build tool, computed figures"
 checked_by:  null
 defines:     []
 status:      active

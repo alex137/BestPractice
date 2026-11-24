@@ -236,8 +236,6 @@ When computing, quoting or tabulating figures:
   scripts-assert-properties — a script a document cites asserts its own properties and cited anchors
   tabular-shared-renderer — a sortable multi-column table ships from the one shared renderer
   verify-decomposition — check the parts, not the total; never assert an impossibility
-When coordinating several sessions on one repository:
-  coordinating-sessions-through-models — shared choices in one registry; a tool orders the build; report computed figures
 When creating, renaming or retagging a session:
   session-spend-follows-the-task — pick the model for the job -- reading runs small, judgment doesn't
   session-tags — tag at creation: subject, repo, role, wants; never retrofitted
@@ -279,6 +277,7 @@ When starting work the repository or another session may already cover:
 When starting work, or packaging a change for review, in a repository several members work in:
   working-in-parallel — claim first; flag who the diff touches; warn your own member first
 When tasking a session with long work, changing its plan, or working for one:
+  coordinating-sessions-through-models — several sessions: one registry, one build tool, computed figures
   tasked-session-stays-reachable — a change of plan interrupts and is acknowledged; check messages each wake
 When testing a design, or choosing what a result is scored on:
   prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, batches

@@ -80,7 +80,8 @@ identical. One changed character near the top loses everything after it.
 | **What a read costs** | 0.1 times ordinary input; 0.05 and 0.025 times on the newest models. | 0.1 times on most newest models, 0.05 times on some; older models vary by model. | Vertex: 90% off. Gemini API: "a reduced rate", per model on the price page. | Per model on the price page; the listed models work out between 15% and 25% of input. |
 | **Keep it alive or pin it** | No pin. A read refreshes it; a request that asks for no output can warm it. | No pin. A read refreshes it; a warm-up request exists on the newest models. | A created cache: yes, its lifetime can be extended without limit. Automatic: no. | No. A header keeps requests on the same server, which makes a hit likelier, not certain. |
 
-The words behind each cell:
+The words behind each cell. Two abbreviations appear in them: time to live
+(TTL), how long a cached entry is kept, and Amazon Web Services (AWS).
 
 **Anthropic.** "Different organizations never share caches, even if they
 use identical prompts." "On the Claude API, Claude Platform on AWS, and
