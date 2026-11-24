@@ -7,7 +7,7 @@ applies_to:  ["**"]
 applies_to_why: "Choosing how a result will be tested is a moment, not a file; the occasion index reaches it."
 occasion:    "testing a design, or choosing what a result is scored on"
 gates:       []
-index_clause: "predict first; its additions cover pass marks, data, stand-ins, batches"
+index_clause: "predict first; its additions cover pass marks, data, stand-ins, parts, batches"
 checked_by:  null
 defines:     []
 status:      active

@@ -15,7 +15,7 @@ in_force_at: null
 supersedes:  []
 overrides:   null
 added:       "2026-10-08"
-approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the repository limit on clause 1 added on Morgan F's words of 2026-10-17, set at three (Story); clause 1 loosened for named repositories and groups, and its sweep gated, on Morgan's words of 2026-10-29 (Story)"
+approved_by: "Alex, 2026-10-08: \"Why not adopt a practice of asking if you need access rather than simply passively announcing you can't\" (strength: decided); amended 2026-10-14, Morgan -- ask for push access by name before trying, and stop at a safety-check refusal -- from a handoff he confirmed as his (\"you said that you're stopped from doing something that shouldn't be stopped. So include this issue and your suggested fixes\"; strength: assented); the repository limit on clause 1 added on Morgan F's words of 2026-10-17, set at three (Story); clause 1 loosened for named repositories and groups, and its sweep gated, on Morgan's words of 2026-10-29 (Story); check-before-asking added 2026-11-24 on Alex's words (Story)"
 ---
 ## Rule
 **A reply never stops at "could not reach it."** When a check, a tool or
@@ -40,6 +40,12 @@ answers in full"):
 run nothing else in that batch, never retry it, alone or reworded, and ask
 the person in one line, naming the exact action and the words that would
 clear it, while working on whatever does not depend on it.
+
+**Before asking the person for access, check that it is not already
+yours.** Look up where the thing really lives: the address the repository's
+own files give for it, and the [gotchas](https://github.com/alex137/BestPractice/blob/staging/gotchas/INDEX.md) for the
+refusal you got. Then try the plain public read. A refusal at a guessed
+address says nothing about the right one.
 
 "Not verified", "unknown this session" and "could not reach" are findings
 to act on, never a final answer.
@@ -127,6 +133,8 @@ the sweep as the careful case, and a gate holds it. strength: decided.
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 388 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three answers, the sweep exception and what to do on a refusal, in 261 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 **2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
+
+**2026-11-24: check before asking.** A session here could not push because one shared set had not loaded. Session start had printed "owner not known here". The session guessed the repository owner's own account, was refused there twice, and asked the person to grant access. He said he had, and nothing changed, because there was nothing to grant: the set is public and lives under another account, which this repository's own files name several times, and the trap was already written up in the gotchas. One search of the clone would have found it. Alex: *"It is publicly readable. You should have checked before asking me. That I think it a preeexisting practice. If not it should be"*. strength: decided.
 
 ## Install
 Clause 1's sweep has a gate: [`tools/repo_attach_gate.py`](https://github.com/alex137/BestPractice/blob/staging/tools/repo_attach_gate.py), run at

@@ -95,7 +95,7 @@ practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
 
 <!-- Regenerate with: python3 tools/build_views.py -- do not hand-edit this block; `python3 tools/build_views.py --check` exits non-zero on drift. Source: practices/ -- edit the practice file, never this block. -->
 
-## Resident block (~794 of 1750 token budget, 6 of 164 practices (6 universal))
+## Resident block (~794 of 1750 token budget, 6 of 165 practices (6 universal))
 
 **answer-first-ask-before-long-work.** **(1) What the person can have now goes to them now** (an answer, a
 document, a figure), before landing, testing or any slower work; only what
@@ -280,7 +280,7 @@ When tasking a session with long work, changing its plan, or working for one:
   coordinating-sessions-through-models — several sessions: one registry, one build tool, computed figures
   tasked-session-stays-reachable — a change of plan interrupts and is acknowledged; check messages each wake
 When testing a design, or choosing what a result is scored on:
-  prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, batches
+  prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, parts, batches
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When working on an open item, or writing a next-step list or unchecked box anywhere:
