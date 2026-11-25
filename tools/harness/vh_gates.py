@@ -730,8 +730,19 @@ def check_gate_channel():
             _t = pathlib.Path(_td) / 't.jsonl'
             _t.write_text(json.dumps({'type': 'user', 'message': {
                 'role': 'user', 'content': 'hi'}}) + '\n', encoding='utf-8')
+            # A reply the check refuses (no closing heading), for the
+            # refusal-prints-only-what-failed cases further down.
+            _tr = pathlib.Path(_td) / 'refused.jsonl'
+            _tr.write_text(
+                json.dumps({'type': 'user', 'message': {
+                    'role': 'user', 'content': 'please do the thing'}}) + '\n'
+                + json.dumps({'type': 'assistant', 'message': {
+                    'role': 'assistant', 'content': [
+                        {'type': 'text', 'text': 'Done, all of it.'}]}}) + '\n',
+                encoding='utf-8')
             for k, payload in (('with', json.dumps({'transcript_path': str(_t)})),
-                               ('without', '{}')):
+                               ('without', '{}'),
+                               ('refused', json.dumps({'transcript_path': str(_tr)}))):
                 _stop_runs[k] = subprocess.run(
                     ['bash', str(ROOT / 'tools' / 'stop-reply-check.sh')], input=payload,
                     capture_output=True, text=True, cwd=str(ROOT), timeout=120)
@@ -841,6 +852,29 @@ def check_gate_channel():
                   and no_path in _runs['without'].stdout + _runs['without'].stderr,
                   f"with: {failure_detail(_runs['with'].stderr, 300)!r}; without: "
                   f"{failure_detail(_runs['without'].stderr, 300)!r}"))
+
+    # A REFUSAL PRINTS ONLY WHAT FAILED (Alex, 2026-11-24). A refused Stop is
+    # the one whose stderr is fed back to the session, and until then it
+    # carried the whole brief list ahead of the failing line: measured here at
+    # 10,899 characters against 773 for the refusal alone. Asserted on the
+    # printed text in both directions (practice: control-asserts-which-failure):
+    # the refusal names what failed and how to get the full rules, and leaves
+    # the list out; a clean Stop, the control, still prints the list.
+    _list_head = '# Practices for the reply gate'
+    _ref = _runs['refused']
+    cases.append(('a refused Stop prints what failed and the full-rules command, '
+                  'and not the whole reply-gate list',
+                  _ref.returncode == 2
+                  and 'The reply gate blocked this turn' in _ref.stderr
+                  and 'precedent_gate.py reply' in _ref.stderr
+                  and _list_head not in _ref.stderr,
+                  f'exit {_ref.returncode}, {len(_ref.stderr)} characters: '
+                  f'{failure_detail(_ref.stderr, 200)!r}'))
+    cases.append(('control: a Stop that is not refused still prints the '
+                  'reply-gate list',
+                  _runs['with'].returncode == 0 and _list_head in _runs['with'].stderr,
+                  f"exit {_runs['with'].returncode}: "
+                  f"{failure_detail(_runs['with'].stderr, 200)!r}"))
 
     # --brief is the per-turn form, and its promise is that it is CHEAP. A
     # regression that printed full Rules there would not fail any case above.
@@ -2436,6 +2470,69 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
                       'refused, naming it',
                       r11.returncode == 2 and 'agtwo' in r11.stderr,
                       f'exit {r11.returncode}: {r11.stderr[:300]}'))
+
+        # A SHORT NOTE ANSWERS A WAKE (Alex, 2026-11-24, decided: "yes to
+        # 1,2, and 4"). A turn something other than a person started, with
+        # nothing still running, may answer in a few plain lines and no
+        # closing section -- where a source declares `short_note`. The same
+        # transcripts are run against the fixture above, which declares none,
+        # as the control: there the heading is still owed.
+        fx2 = tmp / 'repo-short-note'
+        fx2.mkdir()
+        (fx2 / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'universal', 'name': 'precedent', 'path': '.'}]}),
+            encoding='utf-8')
+        (fx2 / 'reply_check.json').write_text(json.dumps([
+            {'practice': 'fixture-quiet', 'require_heading_matching': 'boildown'},
+            {'practice': 'fixture-quiet',
+             'require_quiet_while_background_runs': {
+                 'why': 'reports once',
+                 'short_note': {'max_lines': 3, 'max_chars': 400}}},
+        ]), encoding='utf-8')
+
+        def run_in(repo, path):
+            return subprocess.run(
+                [sys.executable, str(ROOT / 'tools' / 'precedent_reply_check.py'),
+                 '--repo', str(repo)],
+                input=json.dumps({'transcript_path': str(path)}),
+                capture_output=True, text=True, cwd=str(tmp),
+                env={**os.environ,
+                     'PRECEDENT_USER_CONFIG': str(tmp / 'no-such-config.json')})
+
+        peer = ('A message from another session: here is a finding, tell me '
+                'in a line what you did.')
+        note = 'Recorded it as an open item; nothing for you to do.'
+        t_note = transcript('peer-note.jsonl', [
+            human('carry on'), said('Done.\n\n## Boildown\n- x\n'),
+            wake(peer), said(note)])
+        r12 = run_in(fx2, t_note)
+        cases.append(('a short note answering another session\'s message '
+                      'passes with no closing section',
+                      r12.returncode == 0, f'exit {r12.returncode}: {r12.stderr[:300]}'))
+        r13 = run_in(fx, t_note)
+        cases.append(('control: where no source declares the short note, the '
+                      'same reply still owes its heading',
+                      r13.returncode == 2 and 'boildown' in r13.stderr.lower(),
+                      f'exit {r13.returncode}: {r13.stderr[:300]}'))
+        r14 = run_in(fx2, transcript('person-note.jsonl', [
+            human('what did you do?'), said(note)]))
+        cases.append(('the same short reply to a PERSON still owes the closing '
+                      'section: only a wake earns the note',
+                      r14.returncode == 2 and 'boildown' in r14.stderr.lower(),
+                      f'exit {r14.returncode}: {r14.stderr[:300]}'))
+        r15 = run_in(fx2, transcript('peer-long.jsonl', [
+            human('carry on'), said('Done.\n\n## Boildown\n- x\n'),
+            wake(peer), said('One.\nTwo.\nThree.\nFour.')]))
+        cases.append(('a wake answered at more than the declared lines is a '
+                      'report, and owes the closing section',
+                      r15.returncode == 2 and 'boildown' in r15.stderr.lower(),
+                      f'exit {r15.returncode}: {r15.stderr[:300]}'))
+        r16 = run_in(fx2, transcript('peer-while-running.jsonl', opening + [
+            wake(peer), said(note)]))
+        cases.append(('while a batch still runs, the wait line is still what '
+                      'is owed: the short note does not replace it',
+                      r16.returncode == 2 and 'Output ONE line naming the wait' in r16.stderr,
+                      f'exit {r16.returncode}: {r16.stderr[:300]}'))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

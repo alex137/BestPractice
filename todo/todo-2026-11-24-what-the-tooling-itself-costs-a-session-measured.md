@@ -6,10 +6,10 @@ severity:          medium
 status:            open
 disposition:       ask
 remind_on:         null
-blocked_on:        "decision -- Alex or Morgan: which of the four cuts to build"
+blocked_on:        "decision -- Alex or Morgan: cut 3, the index"
 batch:             null
-decision:          null
-decision_strength: null
+decision:          "yes to cuts 1, 2 and 4 (Alex, 2026-11-24: \"yes to 1,2, and 4\"); cut 3 open"
+decision_strength: decided
 waiting_on:        Alex or Morgan
 noted:             2026-11-24
 closed:            null
@@ -46,3 +46,4 @@ closed:            null
 ## Notes
 
 - 2026-11-24: recorded from the relayed message. No engine file changed.
+- 2026-11-24: Alex said yes to cuts 1, 2 and 4. Cuts 1 and 2 are built and tested: a refused stop measured 10,899 characters before and 773 after on one planted reply, and a wake may be answered in up to three plain lines with no closing section ([the-boildown](../practices/the-boildown.md), "A short note for a wake"). Cut 4 follows. On cut 3 Alex asked for a better way to reach its goal; proposed to him: fold families of occasions into one index line each, stop listing the spoken commands twice, and have the tasking session name the rules in its brief (needs: decision -- Alex).
