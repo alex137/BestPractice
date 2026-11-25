@@ -56,6 +56,7 @@ as_of: 2026-11-25
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 36d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
 | [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 26d | wait | every line under Left names why this run left it |
 | [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 2d | wait |  |
+| [`todo-2026-11-25-clean-the-record-out-of-the-instructions`](todo-2026-11-25-clean-the-record-out-of-the-instructions.md) | Clean names, dates and history out of everything a session is told to follow or that ships to another repository. | 0d | ask |  |
 | [`todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size`](todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size.md) | Have the tooling tell a session when it has passed the size its project declared for handing over. | 0d | wait | evidence -- a second project trying the handover rule by hand |
 
 ## Verify Before External Use
@@ -159,6 +160,7 @@ as_of: 2026-11-25
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 51d |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 45d |
 | [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 2d |
+| [`todo-2026-11-25-clean-the-record-out-of-the-instructions`](todo-2026-11-25-clean-the-record-out-of-the-instructions.md) | Clean names, dates and history out of everything a session is told to follow or that ships to another repository. | 0d |
 
 ## Open Decisions
 

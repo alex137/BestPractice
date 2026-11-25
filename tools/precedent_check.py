@@ -4589,6 +4589,100 @@ _GENERATED_SPANS = re.compile(
     r'|<!--\s*BEGIN GENERATED.*?END GENERATED[^>]*-->', re.S)
 
 
+# record-not-instruction: the two shapes a piece of the record takes when it
+# leaks into an instruction. A capitalised name (optionally "A. B", or
+# "X, relayed by Y") and then a date; and a history opener and then a date.
+_RECORD_STAMP_RE = re.compile(
+    r"\b[A-Z][a-z]+(?: [A-Z]\.)?(?: [A-Z][a-z]+)?(?:, relayed by [A-Z][a-z]+)?"
+    r", 20\d\d-\d\d-\d\d\b"
+    r"|\(strength: (?:decided|assented)\)"
+    r"|\b(?:Until|Since|Before|As of|Rewritten|Retired|Added|Changed|Moved|"
+    r"Found|Fixed|Split|Renamed) 20\d\d-\d\d-\d\d\b")
+_INSTRUCTIONS_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md')
+_TEMPLATE_TEXT = ('.md', '.template', '.sh', '.txt', '.json', '.yml', '.yaml', '.py')
+
+
+def _record_stamps(root):
+    """-> [(rel, line number, the stamp)] for every piece of the record
+    found in an instruction under `root`: the hand-written part of an
+    instructions file, an active practice's `## Rule`, and any text file
+    under templates/. Generated blocks are blanked, never matched by hand
+    (generated_blocks.blank)."""
+    found = []
+
+    def scan(rel, text):
+        for n, line in enumerate(text.split('\n'), 1):
+            for m in _RECORD_STAMP_RE.finditer(line):
+                found.append((rel, n, m.group(0)))
+
+    for name in _INSTRUCTIONS_FILES:
+        f = root / name
+        if f.is_file():
+            scan(name, generated_blocks.blank(
+                f.read_text(encoding='utf-8', errors='ignore')))
+    for d in ('practices', 'local/practices'):
+        for f in sorted((root / d).glob('*.md')) if (root / d).is_dir() else ():
+            text = f.read_text(encoding='utf-8', errors='ignore')
+            if not re.search(r'^status:\s*"?active', text, re.M):
+                continue
+            lines = text.split('\n')
+            inrule = False
+            for n, line in enumerate(lines, 1):
+                if line.startswith('## '):
+                    inrule = line.strip() == '## Rule'
+                    continue
+                if inrule:
+                    for m in _RECORD_STAMP_RE.finditer(line):
+                        found.append((f'{d}/{f.name}', n, m.group(0)))
+    tdir = root / 'templates'
+    if tdir.is_dir():
+        for f in sorted(tdir.rglob('*')):
+            if f.is_file() and f.name.endswith(_TEMPLATE_TEXT):
+                scan(f.relative_to(root).as_posix(),
+                     f.read_text(encoding='utf-8', errors='ignore'))
+    return found
+
+
+@check('record-not-instruction', 'tree',
+       'no instruction carries a piece of the record: the hand-written part '
+       'of an instructions file, an active practice\'s Rule and every text '
+       'file under templates/ have no "Name, date" stamp, no '
+       '"(strength: ...)" marker and no dated history opener',
+       'a name with no date beside it, history told without a date, a '
+       'practice\'s Detail (left for a later decision), and a message a tool '
+       'prints, which the rule covers and no scan here reads',
+       advisory=True,
+       advisory_term={'term': 'temporary',
+                      'waiting_for': 'the instructions file, the rule texts '
+                                     'and the templates that predate this '
+                                     'rule to be cleaned, in this repository '
+                                     'and in each practice set that takes '
+                                     'the engine',
+                      'owner': 'a code owner of this repository',
+                      'revisit': '2026-12-23'},
+       selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
+                   'local/practices/**/*.md', 'templates/**'))
+def _record_not_instruction(ctx):
+    # WHY (Alex, 2026-11-25): the instructions file here opened by naming
+    # whose sign-off a merge did not need, relayed by whom and on what date.
+    # Checks required the citations and nothing kept them out of what a
+    # session is told to follow or what ships to other repositories.
+    # Advisory while the files that predate it are cleaned: 3 stamps in
+    # AGENTS.md, 9 in 7 Rules and 56 in 35 template files on the day it
+    # landed, and a practice set that takes this engine has its own.
+    has_practices = any((ROOT / d).is_dir() for d in ('practices', 'local/practices'))
+    if not has_practices and not (ROOT / 'templates').is_dir():
+        raise NotApplicable('no practices and no templates here, so this '
+                            'repository writes no instruction of its own')
+    vendored = _vendored_trees()
+    return [Finding(f'{rel}:{n}',
+                    f'{stamp!r} is the record, in an instruction -- say the '
+                    f'rule by role, and leave who and when to the approval '
+                    f'line, the Story or the commit', path=rel)
+            for rel, n, stamp in _record_stamps(ROOT)
+            if not rel.startswith(vendored)]
+
+
 @check('shared-index-is-a-directory', 'change',
        'a change that adds rows to a hand-written Markdown table already '
        f'{SHARED_INDEX_ROWS} rows long is told the file can be kept as a '

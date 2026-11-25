@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 190 practice files (6 resident, 184 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 191 practice files (6 resident, 185 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -142,6 +142,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reach-or-ask](practices/reach-or-ask.md) | on-demand | a tool, check or task cannot reach a repository, service, credential or file it needs |
 | [read-for-intent](practices/read-for-intent.md) | on-demand | reading what a message asks for, or writing one that a session or a check will read |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
+| [record-not-instruction](practices/record-not-instruction.md) | on-demand | writing or editing an instructions file, a practice's Rule, a template, or a message a tool prints |
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-message-is-a-suggestion](practices/relayed-message-is-a-suggestion.md) | on-demand | a message comes from another session, or a person pastes in what another session wrote |

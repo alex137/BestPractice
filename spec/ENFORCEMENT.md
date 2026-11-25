@@ -116,6 +116,7 @@ being checked by it.
 | `practice-standing` | tree | every practice this repository publishes that carries `standing:` holds protocol, principle or preference, names who set it in `standing_by:`, and, for a Protocol or a Principle, names someone the source's authority registry lists (CODEOWNERS, approvers.json, precedent.json maintainers, or an individual set's identity.json) |
 | `private-repo-scrub` | tree | no practice file -- the content that ships into other repositories; a repository's own (repo-local) practice ships nowhere and is not read -- names a private source by its owner-qualified name ("owner/repo", or its github.com URL) |
 | `quick-index` | tree | the session instructions carry a "looking for X → go to Y" table with at least five rows |
+| `record-not-instruction` | tree | no instruction carries a piece of the record: the hand-written part of an instructions file, an active practice's Rule and every text file under templates/ have no "Name, date" stamp, no "(strength: ...)" marker and no dated history opener |
 | `rename-updates-links` | tree | no tracked file still references a path this branch renamed away or deleted |
 | `routing-audit` | tree | tools/routing_audit.py exists, and tools/routing_audit_state.json (if present) has no rotation entry for a practice that is not currently active |
 | `scripts-assert-properties` | tree | every instrumented script asserts its own properties, and every figure it recites from a source document still matches that document |
@@ -138,7 +139,7 @@ being checked by it.
 | `whats-new` | change | a changed What's New log has every entry in the shape: a heading "<Weekday> <date>: <slug>" whose weekday is the date's own, the fixed opening line word for word, every bullet opening with a bold key phrase, and no approver named |
 | `workflow-file-outside-vendoring` | tree | every .github/workflows/*.yml or *.yaml file that changed is either the one file this repo's kind vendors through precedent_vendor_engine.py, or already a known RETIRED_CI_WORKFLOW_FILES entry -- anything else is named, once, as worth a second look |
 
-70 of 208 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
+71 of 209 practices are enforced. Run `python3 tools/precedent_check.py --explain` for what each check does **not** catch.
 <!--/gen:enforcement-->
 
 Numbers by: catalogue_stats.py
