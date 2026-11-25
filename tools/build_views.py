@@ -1304,6 +1304,14 @@ def index_is_redundant(fm):
     return _routes_by_path(fm) or bool(gates)
 
 
+# The one occasion line every spoken command sits under in a tracked block
+# (build_loader_block), and the width its entries wrap at.
+SPOKEN_INDEX_HEAD = ('When a person says one of these, or plainly asks for what it '
+                     'does, load its practice before acting '
+                     '(`precedent_vocabulary.py` says what each does):')
+SPOKEN_INDEX_WIDTH = 96
+
+
 def lands_in_occasion_index(fm, omit_commands=False):
     """Whether this practice costs an occasion-index line in a block that
     carries it -- the one test build_loader_block applies, kept here so
@@ -1650,15 +1658,37 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
     routed_out = []
+    spoken = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
-        if lands_in_occasion_index(fm, omit_commands):
+        if lands_in_occasion_index(fm, omit_commands) and command_phrases(fm):
+            # A SPOKEN COMMAND IS LISTED BY ITS WORDS, ALL OF THEM IN ONE
+            # ENTRY (Alex, 2026-11-25: "yes", to folding them). Each used to
+            # take an occasion line and a clause line of its own: thirteen
+            # of them were 2,124 of the index's 12,279 characters, on every
+            # call of every session. What a session needs from the index is
+            # to recognise the words and know which practice to load; the
+            # clause it gets with the practice. The words stay here because
+            # the index is the only channel a spoken trigger has
+            # (index_is_redundant says why).
+            spoken.append((command_phrases(fm), fm['slug']))
+        elif lands_in_occasion_index(fm, omit_commands):
             by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
         elif occasion and not adds_to(fm) \
                 and not (omit_commands and command_phrases(fm)):
             routed_out.append(fm['slug'])       # index_is_redundant
 
     index_lines = []
+    if spoken:
+        index_lines.append(SPOKEN_INDEX_HEAD)
+        row = ''
+        for words, slug in sorted(spoken, key=lambda t: t[1]):
+            item = ' / '.join(f'"{w}"' for w in words) + f' {slug}'
+            if row and len(row) + len(item) + 2 > SPOKEN_INDEX_WIDTH:
+                index_lines.append('  ' + row)
+                row = ''
+            row = f'{row}; {item}' if row else item
+        index_lines.append('  ' + row)
     for occasion in sorted(by_occasion):
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):
