@@ -162,13 +162,20 @@ words, at the length it earns.**
 ## Occasion index
 
 ```
-When a person says one of these, or plainly asks for what it does, load its practice before acting (`precedent_vocabulary.py` says what each does):
-  "What's waiting for me?" / "Add project members" administrator-requests
-  "Archive" / "Archive?" archive-status-check; "My options" my-options; "Drop it" park-it
-  "Simple please" plain-words; "Prompt Please" prompt-please; "Reduction pass" reduction-pass
-  "Root issues" / "Root fixes" root-issues; "Three Things" three-things
-  "Todo reminder" todo-reminder; "Vocabulary" vocabulary; "Weak yes" weak-yes
-  "What's new?" whats-new
+When a person says one of these, or plainly asks for what it does:
+  "What's waiting for me?" / "Add project members": administrator-requests — list what waits, with stakes and collisions; or guide adding a member
+  "Archive" / "Archive?": archive-status-check — check pending; archive if clear, else say what isn't
+  "My options": my-options — every real option, plainer, costs said flatly, your pick and why
+  "Drop it": park-it — mark the item `parked` now; never raise it unprompted again
+  "Simple please": plain-words — say it as you would out loud; same substance
+  "Prompt Please": prompt-please — one paste-ready prompt for a new session; open it only when asked
+  "Reduction pass": reduction-pass — work the menu in order; move, never delete; report what moved
+  "Root issues" / "Root fixes": root-issues — what this session hit that belongs upstream, in one prompt across those repos
+  "Three Things": three-things — the three that matter now, one bold phrase and two lines each
+  "Todo reminder": todo-reminder — write it with disposition ask and remind_on; never a trigger
+  "Vocabulary": vocabulary — list every command in force; read it, never recall it
+  "Weak yes": weak-yes — do it, and record the approval as `assented`
+  "What's new?": whats-new — write every missing day, quiet ones named; the reply opens with the link
 When a branch has done its job, or a person says to delete branches:
   never-delete-a-remote-branch — never delete a remote branch; the branch cleanup page lists it
 When a computation books a transfer between two parties:

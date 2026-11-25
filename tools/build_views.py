@@ -1305,11 +1305,9 @@ def index_is_redundant(fm):
 
 
 # The one occasion line every spoken command sits under in a tracked block
-# (build_loader_block), and the width its entries wrap at.
-SPOKEN_INDEX_HEAD = ('When a person says one of these, or plainly asks for what it '
-                     'does, load its practice before acting '
-                     '(`precedent_vocabulary.py` says what each does):')
-SPOKEN_INDEX_WIDTH = 96
+# (build_loader_block).
+SPOKEN_INDEX_HEAD = ('When a person says one of these, or plainly asks for what '
+                     'it does:')
 
 
 def lands_in_occasion_index(fm, omit_commands=False):
@@ -1662,16 +1660,16 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
         if lands_in_occasion_index(fm, omit_commands) and command_phrases(fm):
-            # A SPOKEN COMMAND IS LISTED BY ITS WORDS, ALL OF THEM IN ONE
-            # ENTRY (Alex, 2026-11-25: "yes", to folding them). Each used to
-            # take an occasion line and a clause line of its own: thirteen
-            # of them were 2,124 of the index's 12,279 characters, on every
-            # call of every session. What a session needs from the index is
-            # to recognise the words and know which practice to load; the
-            # clause it gets with the practice. The words stay here because
-            # the index is the only channel a spoken trigger has
-            # (index_is_redundant says why).
-            spoken.append((command_phrases(fm), fm['slug']))
+            # THE SPOKEN COMMANDS SHARE ONE OCCASION LINE (2026-11-25). Each
+            # used to open with a "When a person says X, or asks for ..."
+            # line of its own, thirteen of them, which said the command's
+            # words a second time. Under one line, each keeps its words,
+            # its practice and its clause. The clause stays because a
+            # session has to know what the words set in motion before it
+            # loads anything: check_park_it.py holds "Drop it" to that, and
+            # a first cut that kept only the words failed it.
+            spoken.append((command_phrases(fm), fm['slug'],
+                           _index_clause(fm, sections)))
         elif lands_in_occasion_index(fm, omit_commands):
             by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
         elif occasion and not adds_to(fm) \
@@ -1681,14 +1679,9 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     index_lines = []
     if spoken:
         index_lines.append(SPOKEN_INDEX_HEAD)
-        row = ''
-        for words, slug in sorted(spoken, key=lambda t: t[1]):
-            item = ' / '.join(f'"{w}"' for w in words) + f' {slug}'
-            if row and len(row) + len(item) + 2 > SPOKEN_INDEX_WIDTH:
-                index_lines.append('  ' + row)
-                row = ''
-            row = f'{row}; {item}' if row else item
-        index_lines.append('  ' + row)
+        for words, slug, clause in sorted(spoken, key=lambda t: t[1]):
+            said = ' / '.join(f'"{w}"' for w in words)
+            index_lines.append(f"  {said}: {slug} — {clause}")
     for occasion in sorted(by_occasion):
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):
