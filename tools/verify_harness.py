@@ -4684,6 +4684,7 @@ def main():
     check_refresh_sources_leaves_an_attached_consumer_alone()
     check_refresh_sources_path_names_the_whole_target()
     check_refresh_sources_pulls_a_set_behind_its_own_origin()
+    check_refresh_sources_says_a_clean_refresh_in_one_line()
     check_refresh_sources_never_fetches_the_branch_a_clone_sits_on()
     check_refresh_sources_branch_line_only_when_the_tree_is_older()
     check_refresh_sources_reads_a_fetched_main()

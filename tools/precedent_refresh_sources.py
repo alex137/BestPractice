@@ -5,6 +5,10 @@ precedent_refresh_sources.py -- find the practice-set sources attached to
 this session and tell whether their vendored engine is out of date; with
 --apply, bring them up to date.
 
+With --apply, a source whose refresh passed every step is reported in one
+line; a source with a skipped or failing step prints every row. --verbose
+prints every row for every source (2026-11-24; main() says why).
+
 WHY THIS EXISTS, AND THE INCIDENT THAT PRODUCED IT (practice:
 cite-the-incident). A source set -- someone's own precedent-individual, a
 team's precedent-team-* -- vendors this repo's engine as tracked files.
@@ -1543,9 +1547,31 @@ def main(argv):
                     failed = True
                     break
 
+    # ONE LINE FOR A SOURCE THAT REFRESHED CLEANLY (Alex, 2026-11-24,
+    # strength: decided: "yes to 1,2, and 4"). Every session start runs this
+    # with --apply, and until then each source printed a header and one row
+    # per step, all of them `ok` on an ordinary day: about 800 characters a
+    # source, read by every session and acted on by none. A project's
+    # coordinator measured session start's printed output at about 8,000
+    # tokens. A source whose every step passed now gets its last row alone,
+    # which already says where the refresh is. Any SKIP or FAIL prints the
+    # whole block as before, and --verbose prints it for every source.
+    verbose = '--verbose' in argv
+
+    def _flush(label, rows):
+        """Print one source's rows: all of them when anything is not `ok`
+        or --verbose asks, else the closing row alone."""
+        if verbose or any(mark != 'ok ' for mark, _n, _t in rows):
+            print(f"\n--- {label}")
+            for mark, name, text in rows:
+                print(f"  {mark} {name}: {text}" if name else f"  {mark} {text}")
+        elif rows:
+            _mark, name, text = rows[-1]
+            print(f"  ok     {label}: {name}: {text}")
+
     for e in stale:
         e['tip'] = tip
-        print(f"\n--- {_label(e['repo'])}")
+        rows = []
         # practice: upstream-fix -- session-start.sh now calls --apply
         # unconditionally, every session, so this guard is what keeps that
         # safe. Without it, a person's own uncommitted edit in this source
@@ -1556,11 +1582,12 @@ def main(argv):
         # having clobbered it outright.
         _engine_dirt, other_dirt = classify_dirt(e['repo'])
         if other_dirt:
-            print(f"  SKIP refresh: uncommitted changes present in this "
-                  f"source that the engine does not own "
-                  f"({', '.join(other_dirt[:4])}"
-                  f"{'...' if len(other_dirt) > 4 else ''}) -- commit or "
-                  f"stash there, then re-run")
+            rows.append(('SKIP', '', f"refresh: uncommitted changes present in this "
+                         f"source that the engine does not own "
+                         f"({', '.join(other_dirt[:4])}"
+                         f"{'...' if len(other_dirt) > 4 else ''}) -- commit or "
+                         f"stash there, then re-run"))
+            _flush(_label(e['repo']), rows)
             skipped.append(_label(e['repo']))
             continue
 
@@ -1573,22 +1600,26 @@ def main(argv):
         want = _pinned_branch(e['repo'])
         if want:
             ok_cur, note = make_current(e['repo'], want)
-            print(f"  {'ok ' if ok_cur else 'FAIL'} current: {note}")
+            rows.append(('ok ' if ok_cur else 'FAIL', 'current', note))
             if not ok_cur:
+                _flush(_label(e['repo']), rows)
                 skipped.append(_label(e['repo']))
                 continue
         else:
-            print(f"  SKIP refresh: cannot tell which branch this source "
-                  f"belongs on, so it cannot be brought current -- declare "
-                  f"base_branch in its precedent.json")
+            rows.append(('SKIP', '', "refresh: cannot tell which branch this source "
+                         "belongs on, so it cannot be brought current -- declare "
+                         "base_branch in its precedent.json"))
+            _flush(_label(e['repo']), rows)
             skipped.append(_label(e['repo']))
             continue
 
         steps = (apply_to(e, commit=True) if '--commit' in argv
                  else apply_on_its_own_branch(e, want))
         for name, ok, out in steps:
-            print(f"  {'ok ' if ok else 'FAIL'} {name}: {out.splitlines()[-1] if out else ''}")
+            rows.append(('ok ' if ok else 'FAIL', name,
+                         out.splitlines()[-1] if out else ''))
             failed = failed or not ok
+        _flush(_label(e['repo']), rows)
 
     # A SKIP IS NOT A SUCCESS. This line used to read `applied.` however many
     # sources had been declined, and the exit code ignored them entirely --
