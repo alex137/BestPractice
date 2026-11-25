@@ -52,7 +52,7 @@
       "go_to": "[documentation/SHARED_PRACTICE_SETS.md](documentation/SHARED_PRACTICE_SETS.md)"
     },
     {
-      "looking_for": "Whether an open item may be raised with Morgan at all, and what \"Drop it\" writes",
+      "looking_for": "Whether an open item may be raised with the person at all, and what \"Drop it\" writes",
       "go_to": "[practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md)",
       "quick": 2
     },
@@ -113,11 +113,11 @@
       "go_to": "[spec/CANDIDATE_FORMAT.md](spec/CANDIDATE_FORMAT.md)"
     },
     {
-      "looking_for": "The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for Morgan",
+      "looking_for": "The phase-5 deep-check before phase 6: real bugs found and fixed, real candidates landed, open questions for the person",
       "go_to": "[spec/PHASE5_DEEPCHECK.md](spec/PHASE5_DEEPCHECK.md)"
     },
     {
-      "looking_for": "The phase-6 brief: what's closed, what's blocked and needs Morgan, what's still ahead and needs the target repo attached",
+      "looking_for": "The phase-6 brief: what's closed, what's blocked and needs the person, what's still ahead and needs the target repo attached",
       "go_to": "[spec/PHASE6_BRIEF.md](spec/PHASE6_BRIEF.md)"
     },
     {
@@ -463,12 +463,12 @@
       "go_to": "[PRACTICES.md](PRACTICES.md)"
     },
     {
-      "looking_for": "Repo map, generated (phase 2)",
+      "looking_for": "Repo map, generated",
       "go_to": "[MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit",
       "quick": 9
     },
     {
-      "looking_for": "Canonical names, generated (phase 2)",
+      "looking_for": "Canonical names, generated",
       "go_to": "[GLOSSARY.md](GLOSSARY.md) — built from every practice's `defines:` field"
     },
     {

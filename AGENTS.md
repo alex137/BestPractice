@@ -1,95 +1,37 @@
 # Repository notes for agents
 
-<!-- These are the instructions for sessions working ON the BestPractice
-     repo itself (the upstream). Inside a dependent repo's vendored copy
-     (process/upstream/AGENTS.md) this file is inert — the dependent repo
-     has its own instantiated AGENTS.md at ITS root. -->
+<!-- For sessions working on this repository itself. A repository that
+     installs Precedent has its own AGENTS.md at its root. -->
 
-**Read before opening or merging any pull request (PR) here: every PR
-targets your landing branch** (`python3 tools/precedent_branches.py
---landing` says which). **No merge needs Alex's
-sign-off, `main` included** (Alex, relayed by Morgan, 2026-09-26) -- once its
-deep check passes, a session may merge a PR into the landing branch. **Where
-that is `main` (the direct route), merge without waiting on the full local
-check:** the pull request's GitHub check reports any problem
-afterwards, and the session fixes it then (Alex, 2026-10-08:
-"Didn't we decide that we would merge and get notified of problems
-instead?"). A
-general "PR and merge it" authorization, with no branch named, means the
-landing branch, and a merge is not done until a fetch confirms the pushed
-content is actually there
-([verify-postcondition](practices/verify-postcondition.md)). Check the base
-branch explicitly before acting -- do not assume one because it is the
-repository's configured default branch, not even when `main` and `staging`
-point at the same commit.
+**Pull requests.** Every pull request targets your landing branch.
+`python3 tools/precedent_branches.py --landing` says which it is: check it,
+and never assume the repository's default branch. A session may merge its own
+pull request into the landing branch once the push check passes; no sign-off
+is needed. Where the landing branch is `main`, merge without waiting for the
+full suite: GitHub's check reports afterwards, and the session fixes what it
+reports. A merge is done when a fetch shows the content is there
+([verify-postcondition](practices/verify-postcondition.md)).
 
-**Precedent commands.** A session recognizes each by what the message is
-asking for, not by a keyword, and confirms a hard-to-reverse read out loud
-([read-for-intent](practices/read-for-intent.md)). **Each line below
-is an index entry: load the practice (`python3 tools/precedent_show.py
-SLUG`) before acting on one**, and the long form each used to carry here is
-in [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md).
+**Spoken commands** are the first entry of the occasion index below.
+Recognise one by what the message asks for, not by a keyword
+([read-for-intent](practices/read-for-intent.md)), load its practice before
+acting, and confirm a hard-to-reverse reading out loud.
 
-- **"Drop it"** ([park-it](practices/park-it.md)) — park the item now with
-  `tools/todo_disposition.py park`, which writes the frontmatter and the
-  dated, named body line together, and never raise it again; kept to the
-  literal word.
-- **"Three Things"** ([three-things](practices/three-things.md)) — the three
-  things the person needs to know now, a bolded phrase and two sentences each,
-  nothing else.
-- **"Simple please"** ([plain-words](practices/plain-words.md)) — say it the
-  way you would out loud, for the rest of the conversation, same substance.
-- **"Weak yes"** ([weak-yes](practices/weak-yes.md)) — go ahead and record
-  `strength: assented`; an unmarked approval means unknown, and a bare "ok"
-  to your own proposal is `assented`
-  ([decision-strength](practices/decision-strength.md)).
-- **"Prompt Please"** ([prompt-please](practices/prompt-please.md)) — one
-  paste-ready block for a new session, opened with a tool only when the person
-  asks for that in their own words; no merge authorization unless they gave one for
-  this handoff.
-- **"Root issues"** ([root-issues](practices/root-issues.md))
-  — every bug, warning, fix or band-aid from this session that also belongs
-  in Precedent, a precedent-* repo, a template or a related repo, in one
-  Prompt Please block for a session rooted in all of them.
-- **"My options"** ([my-options](practices/my-options.md)) — every real
-  choice in plain words, costs said flatly, then your pick and why.
-- **"Vocabulary"** ([vocabulary](practices/vocabulary.md)) — read the list
-  from `python3 tools/precedent_vocabulary.py`, never recall it.
-- **"Update Vendors"** ([vendor-update-runbook](practices/vendor-update-runbook.md))
-  — `python3 ../BestPractice/tools/precedent_update.py --repo .` from the
-  consuming repo (the clone may be lowercase, `../bestpractice`, where the
-  attach tool made it); it carries the merge too. Best said "Update Vendors and
-  merge"; **"Update All Vendors"** ([update-all-vendors](practices/update-all-vendors.md))
-  does every repo you use it in without loading theirs.
+**Session setup.** Session start attaches the practice sources this
+repository declares ([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)).
+If it reports one missing, attach it
+([attach-never-clone-individual](practices/attach-never-clone-individual.md)),
+then run `python3 tools/precedent_session_check.py` and follow a failing
+row's own remedy. A session rooted above the repositories it works in runs
+none of their hooks; `python3 tools/precedent_run_session_hooks.py` runs them
+by hand.
 
-The three dispositions an open item can carry are
-[open-item-disposition](practices/open-item-disposition.md)'s; it reaches a
-session through `precedent_paths.py` on any todo file and through the `reply`
-gate.
-
-**Session setup.** The private sources normally arrive by the
-SessionStart hook when the environment carries `PRECEDENT_GIT_TOKEN` and
-`PRECEDENT_SOURCE_BASE_URL`
-([PER_MACHINE_SETUP.md](documentation/PER_MACHINE_SETUP.md)); when it does
-not, `add_repo` (read access) for `precedent-individual` and each declared
-shared set, silently, and attach the individual source, never clone it by hand
-([attach-never-clone-individual](practices/attach-never-clone-individual.md)).
-**Then run [tools/precedent_session_check.py](tools/precedent_session_check.py)**
-before trusting any "the hook does this" claim, and read a failing row's own
-remedy before `--apply`. A session rooted above the repos it works in runs
-none of their hooks
-([gotcha-2026-09-25](gotchas/gotcha-2026-09-25-a-session-rooted-above-every-repo-it-touches-gets-hooks-and.md));
-`python3 tools/precedent_run_session_hooks.py` runs their SessionStart
-hooks by hand.
-The long form, with its history, is in
-[spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#session-setup).
-
-**This repo is Precedent**, restructured from BestPractice by the plan of
-record [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) (phases
-0-7, merged into `main` 2026-09-14) — read it to learn why a mechanism
-exists, not before every task.
-[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) documents the
-practice-file format; [spec/LOADER.md](spec/LOADER.md) the loader.
+**This repository is Precedent**, the practice layer other repositories
+install. [MAP.md](MAP.md) is the map,
+[spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) the practice-file format
+and [spec/LOADER.md](spec/LOADER.md) the loader.
+[spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) says why a
+mechanism exists.
 
 <!-- BEGIN GENERATED: precedent-loader -->
 
@@ -307,116 +249,78 @@ Before starting work of a kind named in the occasion index above, run `python3 t
 
 ---
 
-**Orientation: read [MAP.md](MAP.md) first**; [README.md](README.md) is
-the pitch for people. This repo is
-BestPractice itself — the upstream practice layer that dependent repos
-vendor. Practices you follow here are the ones this repo teaches; a session
-that skips them in this repo of all places is the joke writing itself.
+**Orientation: read [MAP.md](MAP.md) first.** [README.md](README.md) is the
+pitch for people. The practices you follow here are the ones this repository
+teaches.
 
-## Where things are (quick index — check here BEFORE searching)
+## Where things are
 
-**The dozen rows sessions reach for constantly are below. The full
-index is [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md)** — check it
-before searching the repo. Both tables are generated from
-[where_things_are.json](where_things_are.json): add or change a row there,
-never in either table.
+Check here before searching. The full index is
+[WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md); both tables are generated from
+[where_things_are.json](where_things_are.json), so a row is added or changed
+there.
 
 <!-- BEGIN GENERATED: where-things-are -->
 | Looking for… | Go to |
 |---|---|
 | The plan Precedent was built from (phases 0-7) | [spec/PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) |
-| Whether an open item may be raised with Morgan at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
+| Whether an open item may be raised with the person at all, and what "Drop it" writes | [practices/open-item-disposition.md](practices/open-item-disposition.md), phrase at [practices/park-it.md](practices/park-it.md) |
 | What a session pays before its first turn, the declared ceiling on each always-loaded file, and how to reduce one without deleting what still bites | [practices/session-load-budget.md](practices/session-load-budget.md), registry at [tools/session_load_budgets.json](tools/session_load_budgets.json) — `python3 tools/precedent_check.py --only session-load-budget` |
 | Practices that fire at a moment rather than in a file | [tools/precedent_gate.py](tools/precedent_gate.py) — `merge`, `review`, `push`, `reply` |
 | Why the closing **Boildown** section of a reply is not optional, and what refuses a turn without one | [tools/precedent_reply_check.py](tools/precedent_reply_check.py) — `--explain` says what is declared here; the same requirements are printed at the start of every turn by [tools/precedent_gate.py](tools/precedent_gate.py)'s reply gate |
 | Which practices are enforced, and running one check | [tools/precedent_check.py](tools/precedent_check.py) — `--list`, `--explain`, `--only SLUG` |
 | Which practice libraries are in force in this repo | [precedent.json](precedent.json) |
 | What each practice is and why — **the live catalogue** | [practices/](practices/), indexed by [MAP.md](MAP.md); one rule at a time with `python3 tools/precedent_show.py SLUG` |
-| Repo map, generated (phase 2) | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
+| Repo map, generated | [MAP.md](MAP.md) — regenerate with [`tools/build_views.py`](tools/build_views.py), never hand-edit |
 | Install / update / check-in playbook (dependent repos) | [INSTALL.md](INSTALL.md) — the assistant-facing runbook; the person-facing routes are [SETUP.md](SETUP.md) (guided, non-technical) and [documentation/FOR_DEVELOPERS.md](documentation/FOR_DEVELOPERS.md) (short form plus what actually bites) |
 | Upstream open items / roadmap | [todo/TODO.md](todo/TODO.md) (open) and [todo/CLOSED.md](todo/CLOSED.md); one file per item under [todo/](todo/). [`TODO.md`](TODO.md) at the root is a redirect stub, and a new item added to it is refused by the deep check. |
 | The full story behind any environment trap, and the generated overview of all of them | [gotchas/](gotchas/), [gotchas/INDEX.md](gotchas/INDEX.md) |
 | Anything else — the full index | [WHERE_THINGS_ARE.md](WHERE_THINGS_ARE.md) |
 <!-- END GENERATED: where-things-are -->
 
+## Build-environment gotchas
 
-## Build-environment gotchas — search before you rediscover one
+Traps are catalogued one file each under [gotchas/](gotchas/), with an
+overview at [gotchas/INDEX.md](gotchas/INDEX.md). Nothing loads them for you:
+on a failure you cannot explain, search there first
+(`grep -ril '<a word from what you see>' gotchas/`). A new one is written as
+`gotchas/gotcha-<date>-<slug>.md`, then `python3 tools/build_gotcha_index.py`
+([environment-gotchas](practices/environment-gotchas.md)).
 
-Environment and tooling traps are catalogued, one file per trap, under
-[gotchas/](gotchas/) — each with its own Symptom, Story and Fix (practice:
-[environment-gotchas](practices/environment-gotchas.md)). Nothing here loads
-that catalogue for you: **hit a confusing, hard-to-explain failure? Before
-concluding it's new, grep for it** —
-`grep -ril '<a keyword from what you are seeing>' gotchas/` — rather than
-spending an hour on the wrong hypothesis (practice: `grep-before-search`).
+## Working in this repository
 
-A generated overview — symptom plus link, one line per live trap — is at
-[gotchas/INDEX.md](gotchas/INDEX.md) for the deliberate read: browsing the
-whole catalogue during a `very-deep-check` sweep, or when a grep comes up
-empty and a wider look is warranted. It is not `@`-included here and nothing
-loads it automatically, which is the whole point of this split.
-
-**Adding one?** Write it as `gotchas/gotcha-<date>-<slug>.md`
-([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md) Part
-2), then regenerate the overview: `python3 tools/build_gotcha_index.py`. A
-trap that can no longer fire gets `status: retired` in its own file, in
-place — nothing is ever deleted, and nothing moves.
-
-## Working in this repo
-
-- **Not running under Claude Code (Codex, Gemini CLI, or another agent)?
-  Run `bash tools/bootstrap.sh` at session start.** Claude Code gets this
-  automatically from its SessionStart hook; every other harness only gets
-  it if the agent actually runs it, per
-  [templates/harness/README.md](templates/harness/README.md)'s adapter
-  table — [GEMINI.md](GEMINI.md) at the root already says so for Gemini
-  CLI, and [templates/harness/codex/README.md](templates/harness/codex/README.md)
-  covers Codex.
-- **Schedules in force: one.**
+- **Not running under Claude Code?** Run `bash tools/bootstrap.sh` at session
+  start ([templates/harness/README.md](templates/harness/README.md)).
+- **One schedule is in force:**
   [deep-check.yml](.github/workflows/deep-check.yml) runs the whole suite
-  daily at 07:17 UTC (`cron: '17 7 * * *'`, Alex, 2026-10-12: "yes on daily
-  run"); its header says why. Nothing else here runs on a clock. A commit
-  that adds, changes, pauses or removes a schedule updates this line.
-- **Some changes arrive as check-in PRs from dependent repos** (INSTALL.md
-  §4). Reviewing one, you are the **second scrub line**: the contributing
-  repo's blocklist caught its known private vocabulary; you catch what it
-  didn't know yet. A name, number, or incident detail that reads
-  subject-specific rather than generic should be challenged before merge —
-  and added to the contributor's blocklist, not fixed up here after
-  publication.
-- **Direct edits are fine** for content about this repo itself (README,
-  practice wording, engine code); abstracted lessons still only enter via
-  a scrubbed check-in from where they were learned.
-- **A new item added to [`TODO.md`](TODO.md) after the 2026-09-16 todo/gotcha
-  migration is refused by the deep check** (`precedent_check.py --only
-  todo-gotcha-stale-reference`). File the item under `todo/` instead
-  ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)).
+  daily at 07:17 UTC. A commit that adds, changes, pauses or removes a
+  schedule updates this line.
+- **A check-in pull request from a dependent repository gets a second
+  scrub.** Challenge any name, number or incident detail that reads as that
+  repository's own before merging, and have it added to the contributor's
+  blocklist ([INSTALL.md](INSTALL.md), section 4).
+- **Edit directly** what is about this repository: its README, practice
+  wording, engine code. A lesson learned elsewhere arrives by a scrubbed
+  check-in from where it was learned.
+- **Open items go under [todo/](todo/)**, one file each. The root
+  [`TODO.md`](TODO.md) is a redirect, and the deep check refuses an item
+  added to it.
 - **After touching the deck engine**, rebuild the sample both ways:
   `python3 deck/build_deck.py deck/sample` and `--send`.
-- **Two check levels** ([two-check-levels](practices/two-check-levels.md)):
-  **light check** is `python3 tools/doc_lint.py` on the markdown you touched,
-  before every commit (it needs `cmarkgfm`, which the session-start hook
-  installs); **deep check** is `python3 tools/precedent_push_check.py`,
-  before push or merge, **always run bare**: it checks at the tier a push
-  to your landing branch gets -- seconds, for `staging` and for `main`
-  alike; the full suite runs at `python3 tools/precedent_branches.py --run-tests`
-  and after a push into `main`.
-  What matters is `0 failed` and `0 violated`.
-  **A pass pushes to origin:** a small receipt (file hashes, no content)
-  on the receipt branch, so other checkouts skip those files;
-  `PRECEDENT_NO_SHARED_PASS=1` turns that off. Which one a push gets, `--as-ci`, and failing tests a
-  source shipped:
-  [spec/AGENTS_COMMANDS_IN_FULL.md](spec/AGENTS_COMMANDS_IN_FULL.md#two-check-levels).
+- **Two check levels** ([two-check-levels](practices/two-check-levels.md)).
+  The light check is `python3 tools/doc_lint.py` on the Markdown you touched,
+  before every commit. The deep check is
+  `python3 tools/precedent_push_check.py`, run bare, before a push or a
+  merge; it takes seconds. The full suite is
+  `python3 tools/precedent_branches.py --run-tests`, and GitHub runs it after
+  a push into `main`. What matters is `0 failed` and `0 violated`.
 
-## Conventions (every session, every reply)
+## Conventions
 
-- **Outward-facing documents use the reader's words**
-  ([readers-vocabulary](practices/readers-vocabulary.md)), checked in a
-  pass of its own after drafting: this repo's README,
-  [SETUP.md](SETUP.md), and
-  [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) are read by
-  people who are not developers.
-- **Built decks are delivered** ([deck/README.md](deck/README.md)
-  convention 3): a session that builds a deck attaches the HTML into the
-  conversation as a viewable file in the same reply, and only ever sends
-  the `--send` build externally.
+- **Documents for outside readers use the reader's words**
+  ([readers-vocabulary](practices/readers-vocabulary.md)), checked in a pass
+  of its own: the README, [SETUP.md](SETUP.md) and
+  [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md).
+- **A built deck is delivered** ([deck/README.md](deck/README.md)): attach
+  the HTML to the reply that builds it, and send only the `--send` build
+  outside.
