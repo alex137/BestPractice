@@ -3160,6 +3160,94 @@ def check_refresh_sources_pulls_a_set_behind_its_own_origin():
           not bad, '; '.join(f"{n} -- {d[:400]}" for n, d in bad))
 
 
+def check_refresh_sources_says_a_clean_refresh_in_one_line():
+    """A source whose refresh passed every step gets one line at session
+    start; a source with a failing step gets every row.
+
+    Alex, 2026-11-24 (strength: decided: "yes to 1,2, and 4"). Session start
+    runs --apply in every session, and each stale source printed a header
+    and a row per step, all `ok` on an ordinary day. A project's coordinator
+    measured session start's printed output at about 8,000 tokens, most of
+    it about practice sources. Hermetic: the steps are stubbed, since what
+    is under test is what gets printed about them.
+
+    practice: control-asserts-which-failure -- the clean case asserts the
+    one line and the absence of the step rows; the failing case, the
+    control, asserts that every row is back, the passing ones included;
+    --verbose prints them all for a clean source too."""
+    import contextlib, io, json as _j, tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_refresh_sources as prs
+    cases = []
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='refresh-one-line-'))
+    names = ('candidate_dirs', 'head_commit', 'ensure_source_credentials',
+             '_repairable', 'branch_state', 'classify_dirt', '_pinned_branch',
+             'make_current', 'apply_on_its_own_branch')
+    saved = {n: getattr(prs, n) for n in names}
+    try:
+        src = tmp / 'set'
+        (src / 'tools').mkdir(parents=True)
+        (src / 'tools' / 'ENGINE_MANIFEST.json').write_text(_j.dumps(
+            {'kind': 'source', 'source_commit': 'an-older-engine'}), encoding='utf-8')
+        (src / 'precedent.json').write_text('{"base_branch": "main"}\n', encoding='utf-8')
+        subprocess.run(['git', 'init', '-q', '-b', 'main', str(src)], capture_output=True)
+
+        prs.candidate_dirs = lambda extra=(): [src.resolve()]
+        prs.head_commit = lambda: ('the-newest-engine', 'origin/fixture')
+        prs.ensure_source_credentials = lambda found: []
+        prs._repairable = lambda e: False
+        prs.branch_state = lambda repo: None
+        prs.classify_dirt = lambda repo: ([], [])
+        prs._pinned_branch = lambda repo: 'main'
+        prs.make_current = lambda repo, want: (True, 'already current')
+        closing = 'main, clean; the refresh is on local branch fixture-refresh, not pushed'
+        steps = {'rows': [('refresh', True, 'wrote 3 files'),
+                          ('build_views', True, 'build_views OK'),
+                          ('back on base', True, closing)]}
+        prs.apply_on_its_own_branch = lambda e, want: list(steps['rows'])
+
+        def run(*argv):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = prs.main(['--apply', *argv])
+            return rc, buf.getvalue()
+
+        label = prs._label(src.resolve())
+        rc, out = run()
+        mine = [l for l in out.splitlines() if closing in l]
+        cases.append(('a source whose every step passed is one line, naming '
+                      'the source and where its refresh is',
+                      rc == 0 and len(mine) == 1 and label in mine[0],
+                      failure_detail(out, 600)))
+        cases.append(('...and the passing step rows are not printed',
+                      'wrote 3 files' not in out and 'build_views OK' not in out
+                      and f'--- {label}' not in out, failure_detail(out, 600)))
+
+        rc, out = run('--verbose')
+        cases.append(('--verbose prints every row for the same clean source',
+                      'wrote 3 files' in out and 'build_views OK' in out
+                      and f'--- {label}' in out, failure_detail(out, 600)))
+
+        steps['rows'] = [('refresh', True, 'wrote 3 files'),
+                         ('build_views', False, 'build_views FAIL: planted'),
+                         ('back on base', True, closing)]
+        rc, out = run()
+        cases.append(('CONTROL: one failing step brings every row back, the '
+                      'passing ones included, and the run fails',
+                      rc == 1 and 'FAIL build_views: build_views FAIL: planted' in out
+                      and 'wrote 3 files' in out and f'--- {label}' in out
+                      and 'NOT APPLIED' in out, failure_detail(out, 600)))
+    finally:
+        for n, v in saved.items():
+            setattr(prs, n, v)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad = [(c[0], c[2]) for c in cases if not c[1]]
+    check(f'a source that refreshed cleanly is one line at session start, and '
+          f'a failing step prints them all ({len(cases)} stated cases)',
+          not bad, '; '.join(f"{n} -- {d[:600]}" for n, d in bad))
+
+
 def check_removed_engine_path_is_found_in_the_sets_beside():
     """An engine path this branch removes, still named in a practice set
     beside the checkout, is reported -- and the set's own vendored copy of
