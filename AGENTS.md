@@ -280,7 +280,7 @@ When tasking a session with long work, changing its plan, or working for one:
   coordinating-sessions-through-models — several sessions: one registry, one build tool, computed figures
   tasked-session-stays-reachable — a change of plan interrupts and is acknowledged; check messages each wake
 When testing a design, or choosing what a result is scored on:
-  prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, parts, batches
+  prediction-before-the-run — predict first; its additions cover pass marks, data, stand-ins, batches
 When tracking state several documents must agree on:
   registry-source-of-truth — state lives in one machine-readable registry; documents derive
 When working on an open item, or writing a next-step list or unchecked box anywhere:
