@@ -1,13 +1,13 @@
 ---
 title:         Proposed Hand-Written Text For AGENTS.md
 kind:          proposal
-status:        drafted
+status:        executed
 opened:        2026-11-25
 closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
-summary:       "The hand-written half of AGENTS.md rewritten to say what is true now, by role, with no names, dates or history. A proposal: nothing here is in force until it replaces the text in AGENTS.md."
+summary:       "The hand-written half of AGENTS.md rewritten to say what is true now, by role, with no names, dates or history. Accepted and carried out on 2026-11-25; AGENTS.md now holds this text."
 ---
 # Proposed Hand-Written Text For AGENTS.md
 
