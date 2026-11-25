@@ -4793,6 +4793,11 @@ def _practice_is_reachable(ctx):
     # matched the ordinary English word "install" anywhere in the file and
     # called the practice reachable when nothing indexed it.
     named = set(re.findall(r'^\s+([a-z0-9][a-z0-9-]*) \u2014 ', instructions, re.M))
+    # A spoken command's line leads with its words: `  "Drop it": park-it
+    # \u2014 ...` (build_views.SPOKEN_INDEX_HEAD, 2026-11-25). Without this
+    # a command reachable only through the index read as reachable nowhere.
+    named |= set(re.findall(r'^\s+"[^\n]*?": ([a-z0-9][a-z0-9-]*) \u2014 ',
+                            instructions, re.M))
     named |= set(re.findall(r'^\*\*([a-z0-9][a-z0-9-]*)\.\*\*', instructions, re.M))
 
     # THE FIFTH CHANNEL, and why it is judged structurally rather than by
