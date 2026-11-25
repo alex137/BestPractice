@@ -22,7 +22,7 @@ closed:            null
 
 **The order, agreed with Alex.**
 
-- [ ] The instructions file, [AGENTS.md](../AGENTS.md). The rewrite is proposed to Alex before it replaces the current one (needs: decision -- Alex, on the proposed text).
+- [ ] The instructions file, [AGENTS.md](../AGENTS.md). The rewrite is proposed in [spec/AGENTS_REWRITE_PROPOSAL.md](../spec/AGENTS_REWRITE_PROPOSAL.md) and replaces the current text only on his yes (needs: decision -- Alex, on the proposed text).
 - [ ] The templates, which ship into other people's repositories.
 - [ ] The rule text of the 7 practices. Each stamp moves to that practice's Story or approval line, where it is not already there.
 - [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session (needs: this session, after the three above).
