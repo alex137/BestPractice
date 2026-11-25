@@ -213,9 +213,13 @@
     "practice": "the-boildown",
     "id": "quiet-while-a-batch-runs",
     "require_quiet_while_background_runs": {
-      "why": "a batch reports once, when it is done or something fails"
+      "why": "a batch reports once, when it is done or something fails",
+      "short_note": {
+        "max_lines": 3,
+        "max_chars": 400
+      }
     },
-    "why": "Morgan, 2026-10-05 (strength: decided): four Debuts run one after another reported themselves one at a time, each reply with its own Boildown -- 'Note that you have sent me 4 boildowns in this session.' Agreed the same day: a reply to a job finishing carries no Boildown unless the job is done, and a batch reports once ('#1 and #2 are GREAT'). Blocking, and the refusal asks for one waiting line, never nothing (2026-10-06: an empty turn makes the harness ask for visible output): the reply is already on screen, and what the refusal buys is the next wake handled right. tools/precedent_reply_check.py's turn_wake() reads what woke the turn and which background commands are still running from the transcript.",
+    "why": "Morgan, 2026-10-05 (strength: decided): four Debuts run one after another reported themselves one at a time, each reply with its own Boildown -- 'Note that you have sent me 4 boildowns in this session.' Agreed the same day: a reply to a job finishing carries no Boildown unless the job is done, and a batch reports once ('#1 and #2 are GREAT'). Blocking, and the refusal asks for one waiting line, never nothing (2026-10-06: an empty turn makes the harness ask for visible output): the reply is already on screen, and what the refusal buys is the next wake handled right. tools/precedent_reply_check.py's turn_wake() reads what woke the turn and which background commands are still running from the transcript. Extended 2026-11-24 (Alex, strength: decided: 'yes to 1,2, and 4'): `short_note` -- a turn something other than a person started, with no batch still running, may answer in a few plain lines with no closing section. A project's coordinator had measured the closing section, and the refusals demanding it, as the largest piece of what its automatic checks printed. Only the heading is waived: an archive line in a short note is still judged.",
     "checks_practice_at": "practices/the-boildown.md",
     "_examples": [
       {

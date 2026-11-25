@@ -73,15 +73,6 @@ fi
 reasons=()
 
 if [[ -n "$tools" ]]; then
-  # The advisory print — --brief, not the full Rules: this fires on every
-  # single Stop, unconditionally, and the un-briefed form prints every
-  # reply-gate practice's entire text, every time, whether or not anything
-  # is wrong. reply-gate.sh (UserPromptSubmit) already prints the same list
-  # in brief form at the START of the turn -- this call was reprinting it in
-  # full at the END of every turn, on top of that, which is what "printing
-  # is advisory and costs nothing" missed: it costs the person reading it.
-  python3 "$tools/precedent_gate.py" reply --brief >&2 || true
-
   # …and the BLOCKING half. The advisory print above goes to stderr on a
   # clean exit, which Claude Code does not feed back to the model — so for a
   # rule about how the reply is WRITTEN it arrives after the only moment it
@@ -109,9 +100,28 @@ if [[ -n "$tools" ]]; then
   fi
 fi
 
+# A REFUSAL PRINTS ONLY WHAT FAILED (Alex, 2026-11-24: "yes to 1,2, and 4").
+# Until then the advisory print below ran first, on every Stop, and a
+# refusal is the one Stop whose stderr IS fed back to the session: so each
+# refusal carried the whole brief list, about 10,000 characters, ahead of
+# the one line that mattered. A project's coordinator measured it at about
+# fifteen refusals in ninety minutes. The list is already printed at the
+# start of every turn by reply-gate.sh, and each refusal ends with the
+# command that prints the full rules.
 if [[ ${#reasons[@]} -gt 0 ]]; then
   printf '%s\n' "${reasons[@]}" >&2
   exit 2
+fi
+
+if [[ -n "$tools" ]]; then
+  # The advisory print — --brief, not the full Rules: this fires on every
+  # single Stop, unconditionally, and the un-briefed form prints every
+  # reply-gate practice's entire text, every time, whether or not anything
+  # is wrong. reply-gate.sh (UserPromptSubmit) already prints the same list
+  # in brief form at the START of the turn -- this call was reprinting it in
+  # full at the END of every turn, on top of that, which is what "printing
+  # is advisory and costs nothing" missed: it costs the person reading it.
+  python3 "$tools/precedent_gate.py" reply --brief >&2 || true
 fi
 
 exit 0
