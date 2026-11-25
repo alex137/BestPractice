@@ -16,9 +16,9 @@ closed:            null
 ---
 ## What
 
-- [ ] **Clean names, dates and history out of everything a session is told to follow or that ships to another repository.** [record-not-instruction](../practices/record-not-instruction.md) is the rule, and `python3 tools/precedent_check.py --only record-not-instruction` lists what is left. Alex asked for it on 2026-11-25 after reading the instructions file.
+- [ ] **Clean names, dates and history out of everything a session is told to follow or that ships to another repository.** [record-not-instruction](../practices/record-not-instruction.md) is the rule, and the list of what is left is `record_in_instructions_before_the_rule` in [precedent.json](../precedent.json), which the check holds each file to. Alex asked for it on 2026-11-25 after reading the instructions file.
 
-**What the check found the day it landed:** 3 in the instructions file, 9 in the rule text of 7 practices, 56 in 35 files under `templates/`.
+**What the check counted the day it landed:** 68 in 43 files: 3 in the instructions file, 9 in the rule text of 7 practices, 56 in 35 files under `templates/`.
 
 **The order, agreed with Alex.**
 
@@ -28,7 +28,7 @@ closed:            null
 - [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session (needs: this session, after the three above).
 - [ ] The header of the resident block, which shows a token count and a practice count to every session. The figure moves to the output of the check that measures it.
 - [ ] Decide whether a practice's `## Detail` is covered (needs: decision -- Alex or Morgan).
-- [ ] Switch the check from warning to refusing, once this repository is clean and each practice set that takes the engine has had the chance to clean its own.
+- [ ] Have each practice set that takes the engine declare its own list, so the check holds it too (needs: this session or that set's own, at its next engine update).
 
 **Not checked yet and probably needing the same:** root documents such as the README, where 5 of 11 files name a person, and `documentation/`.
 
@@ -36,8 +36,8 @@ closed:            null
 
 ## How It Closes
 
-`status` becomes `done` when the check reports nothing in this repository and has been switched to refusing, or when Alex or Morgan says to stop.
+`status` becomes `done` when the list in `precedent.json` is empty, or when Alex or Morgan says to stop.
 
 ## Notes
 
-- 2026-11-25: the rule and its check landed first, with the check warning only.
+- 2026-11-25: the rule and its check landed first. The check refuses any rise from the day's counts.

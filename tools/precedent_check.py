@@ -4643,44 +4643,77 @@ def _record_stamps(root):
     return found
 
 
+RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
+
+
 @check('record-not-instruction', 'tree',
-       'no instruction carries a piece of the record: the hand-written part '
+       'no instruction gains a piece of the record: the hand-written part '
        'of an instructions file, an active practice\'s Rule and every text '
-       'file under templates/ have no "Name, date" stamp, no '
-       '"(strength: ...)" marker and no dated history opener',
+       'file under templates/ carry no "Name, date" stamp, no '
+       '"(strength: ...)" marker and no dated history opener beyond the '
+       'count precedent.json records for that file from before the rule',
        'a name with no date beside it, history told without a date, a '
-       'practice\'s Detail (left for a later decision), and a message a tool '
-       'prints, which the rule covers and no scan here reads',
-       advisory=True,
-       advisory_term={'term': 'temporary',
-                      'waiting_for': 'the instructions file, the rule texts '
-                                     'and the templates that predate this '
-                                     'rule to be cleaned, in this repository '
-                                     'and in each practice set that takes '
-                                     'the engine',
-                      'owner': 'a code owner of this repository',
-                      'revisit': '2026-12-23'},
+       'practice\'s Detail (left for a later decision), a message a tool '
+       'prints, which the rule covers and no scan here reads, and a stamp '
+       'that replaces another in a file whose count does not rise',
        selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
-                   'local/practices/**/*.md', 'templates/**'))
+                   'local/practices/**/*.md', 'templates/**', 'precedent.json'))
 def _record_not_instruction(ctx):
     # WHY (Alex, 2026-11-25): the instructions file here opened by naming
     # whose sign-off a merge did not need, relayed by whom and on what date.
     # Checks required the citations and nothing kept them out of what a
     # session is told to follow or what ships to other repositories.
-    # Advisory while the files that predate it are cleaned: 3 stamps in
-    # AGENTS.md, 9 in 7 Rules and 56 in 35 template files on the day it
-    # landed, and a practice set that takes this engine has its own.
-    has_practices = any((ROOT / d).is_dir() for d in ('practices', 'local/practices'))
-    if not has_practices and not (ROOT / 'templates').is_dir():
-        raise NotApplicable('no practices and no templates here, so this '
-                            'repository writes no instruction of its own')
+    #
+    # A COUNT PER FILE, NEVER A WARNING. On the day it landed there were 3
+    # stamps in AGENTS.md, 9 in 7 Rules and 56 in 35 template files. A
+    # check that only warned would have let more in while those were
+    # cleaned, and the harness holds an unplanted tree to no findings at
+    # all. So precedent.json records each file's count from before the
+    # rule; a file may fall below its count and never rise above it, and a
+    # file not listed may carry none. Cleaning a file means lowering or
+    # removing its entry in the same commit.
+    #
+    # A repository that declares no such list is skipped, with the remedy:
+    # a practice set receives this check with the engine, and its own
+    # stamps are its own to count before the check can hold it to them.
+    try:
+        declared = json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get(RECORD_BASELINE_KEY)
+    except (OSError, ValueError):
+        declared = None
+    if not isinstance(declared, dict):
+        raise NotApplicable(
+            f'precedent.json declares no {RECORD_BASELINE_KEY!r}. Add it as '
+            f'{{}} to hold this repository to none, or with each file\'s '
+            f'present count to hold it to no more')
     vendored = _vendored_trees()
-    return [Finding(f'{rel}:{n}',
-                    f'{stamp!r} is the record, in an instruction -- say the '
-                    f'rule by role, and leave who and when to the approval '
-                    f'line, the Story or the commit', path=rel)
-            for rel, n, stamp in _record_stamps(ROOT)
-            if not rel.startswith(vendored)]
+    by_file = {}
+    for rel, n, stamp in _record_stamps(ROOT):
+        if not rel.startswith(vendored):
+            by_file.setdefault(rel, []).append((n, stamp))
+    out = []
+    for rel, hits in sorted(by_file.items()):
+        allowed = declared.get(rel, 0) if isinstance(declared.get(rel, 0), int) else 0
+        if len(hits) > allowed:
+            n, stamp = hits[-1]
+            out.append(Finding(
+                f'{rel}:{n}',
+                f'{len(hits)} piece(s) of the record in this instruction, '
+                f'and {allowed} recorded from before the rule -- the last is '
+                f'{stamp!r}. Say the rule by role, and leave who and when to '
+                f'the approval line, the Story or the commit', path=rel))
+    for rel, allowed in sorted(declared.items()):
+        if rel.startswith('_') or not isinstance(allowed, int):
+            continue
+        have = len(by_file.get(rel, ()))
+        if have < allowed:
+            out.append(Finding(
+                'precedent.json',
+                f'{RECORD_BASELINE_KEY} allows {rel} {allowed} and it now '
+                f'has {have}: lower the entry to {have}'
+                + (', or remove it' if not have else '')
+                + ', so the count cannot drift back up', path='precedent.json'))
+    return out
 
 
 @check('shared-index-is-a-directory', 'change',

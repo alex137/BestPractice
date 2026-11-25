@@ -36,6 +36,8 @@ strength: assented
 
 **`## Detail` is not covered yet.** A practice's Detail sits between the two: it loads on demand and many of them cite incidents by name. It is left as it is until the places above are clean, and then decided.
 
+**The check counts, and the count only goes down.** The files that predate the rule are not clean yet, so each has its present count recorded, and the check refuses a file that rises above its count or a new file that carries any.
+
 **What the check sees.** In an instructions file's hand-written part, in every active practice's `## Rule` and in every text file under `templates/`: a capitalised name followed by a date, a `(strength: ...)` marker, and a history opener such as "Until", "Since" or "Rewritten" followed by a date. It cannot see a name with no date beside it, or history told without one.
 
 ## Why
@@ -45,4 +47,4 @@ Two rules here pull against each other. One says a rule records the incident beh
 2026-11-25. The person this repository belongs to opened its instructions file to look at the occasion index and read the rest. Its first paragraph said whose sign-off a merge did not need, relayed by whom, on what date, with a quoted question from two weeks later. He wrote: "It has specific mention of Alex and Morgan in the top, references to random history. It looks like it violates a bunch of best practices itself. BestPractice is not just for alex and morgan." A count the same day found a name-and-date stamp or a dated history line in the instructions file, in seven practices' rule text and in 35 files under `templates/`, which ship into other people's repositories. The session doing the count had added several itself that week, in tool comments and in the text a reply rule prints, by copying what the surrounding files did.
 
 ## Install
-Nothing to install. `python3 tools/precedent_check.py --only record-not-instruction` lists what it finds. It warns and does not stop work while the files that predate it are cleaned.
+`precedent.json` carries `record_in_instructions_before_the_rule`: each instruction file's count from before the rule. A file may fall below its count and never rise above it, and a file not listed may carry none. Cleaning a file lowers or removes its entry in the same commit. A repository that declares no such list is skipped by the check until it adds one, as `{}` or with its own counts.
