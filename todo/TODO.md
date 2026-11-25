@@ -132,6 +132,7 @@ as_of: 2026-11-25
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 3d | wait |  |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 3d | wait |  |
 | [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | 1d | ask | decision -- Alex or Morgan: cut 3, the index |
+| [`todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current`](todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current.md) | Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead | 0d | ask | decision -- Alex: yes or no to the rule, and whether to build the size prompt |
 
 ## Unblocked Work
 
@@ -175,6 +176,7 @@ as_of: 2026-11-25
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | Alex's or Morgan's yes or no on the one-line change below; it changes what a gate refuses, so no session lands it on its own |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | Alex's or Morgan's pick among the three options below |
 | [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | Alex or Morgan |
+| [`todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current`](todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current.md) | Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead | Alex |
 
 ## Due Reminders
 
