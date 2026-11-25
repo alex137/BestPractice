@@ -3,7 +3,7 @@ title:         Proposed Hand-Written Text For AGENTS.md
 kind:          proposal
 status:        executed
 opened:        2026-11-25
-closed:        2026-11-25
+closed:        null
 superseded_by: null
 supersedes:    []
 audience:      contributor
