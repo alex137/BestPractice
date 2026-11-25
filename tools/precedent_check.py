@@ -4589,6 +4589,133 @@ _GENERATED_SPANS = re.compile(
     r'|<!--\s*BEGIN GENERATED.*?END GENERATED[^>]*-->', re.S)
 
 
+# record-not-instruction: the two shapes a piece of the record takes when it
+# leaks into an instruction. A capitalised name (optionally "A. B", or
+# "X, relayed by Y") and then a date; and a history opener and then a date.
+_RECORD_STAMP_RE = re.compile(
+    r"\b[A-Z][a-z]+(?: [A-Z]\.)?(?: [A-Z][a-z]+)?(?:, relayed by [A-Z][a-z]+)?"
+    r", 20\d\d-\d\d-\d\d\b"
+    r"|\(strength: (?:decided|assented)\)"
+    r"|\b(?:Until|Since|Before|As of|Rewritten|Retired|Added|Changed|Moved|"
+    r"Found|Fixed|Split|Renamed) 20\d\d-\d\d-\d\d\b")
+_INSTRUCTIONS_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md')
+_TEMPLATE_TEXT = ('.md', '.template', '.sh', '.txt', '.json', '.yml', '.yaml', '.py')
+
+
+def _record_stamps(root):
+    """-> [(rel, line number, the stamp)] for every piece of the record
+    found in an instruction under `root`: the hand-written part of an
+    instructions file, an active practice's `## Rule`, and any text file
+    under templates/. Generated blocks are blanked, never matched by hand
+    (generated_blocks.blank)."""
+    found = []
+
+    def scan(rel, text):
+        for n, line in enumerate(text.split('\n'), 1):
+            for m in _RECORD_STAMP_RE.finditer(line):
+                found.append((rel, n, m.group(0)))
+
+    for name in _INSTRUCTIONS_FILES:
+        f = root / name
+        if f.is_file():
+            scan(name, generated_blocks.blank(
+                f.read_text(encoding='utf-8', errors='ignore')))
+    for d in ('practices', 'local/practices'):
+        for f in sorted((root / d).glob('*.md')) if (root / d).is_dir() else ():
+            text = f.read_text(encoding='utf-8', errors='ignore')
+            if not re.search(r'^status:\s*"?active', text, re.M):
+                continue
+            lines = text.split('\n')
+            inrule = False
+            for n, line in enumerate(lines, 1):
+                if line.startswith('## '):
+                    inrule = line.strip() == '## Rule'
+                    continue
+                if inrule:
+                    for m in _RECORD_STAMP_RE.finditer(line):
+                        found.append((f'{d}/{f.name}', n, m.group(0)))
+    tdir = root / 'templates'
+    if tdir.is_dir():
+        for f in sorted(tdir.rglob('*')):
+            if f.is_file() and f.name.endswith(_TEMPLATE_TEXT):
+                scan(f.relative_to(root).as_posix(),
+                     f.read_text(encoding='utf-8', errors='ignore'))
+    return found
+
+
+RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
+
+
+@check('record-not-instruction', 'tree',
+       'no instruction gains a piece of the record: the hand-written part '
+       'of an instructions file, an active practice\'s Rule and every text '
+       'file under templates/ carry no "Name, date" stamp, no '
+       '"(strength: ...)" marker and no dated history opener beyond the '
+       'count precedent.json records for that file from before the rule',
+       'a name with no date beside it, history told without a date, a '
+       'practice\'s Detail (left for a later decision), a message a tool '
+       'prints, which the rule covers and no scan here reads, and a stamp '
+       'that replaces another in a file whose count does not rise',
+       selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
+                   'local/practices/**/*.md', 'templates/**', 'precedent.json'))
+def _record_not_instruction(ctx):
+    # WHY (Alex, 2026-11-25): the instructions file here opened by naming
+    # whose sign-off a merge did not need, relayed by whom and on what date.
+    # Checks required the citations and nothing kept them out of what a
+    # session is told to follow or what ships to other repositories.
+    #
+    # A COUNT PER FILE, NEVER A WARNING. On the day it landed there were 3
+    # stamps in AGENTS.md, 9 in 7 Rules and 56 in 35 template files. A
+    # check that only warned would have let more in while those were
+    # cleaned, and the harness holds an unplanted tree to no findings at
+    # all. So precedent.json records each file's count from before the
+    # rule; a file may fall below its count and never rise above it, and a
+    # file not listed may carry none. Cleaning a file means lowering or
+    # removing its entry in the same commit.
+    #
+    # A repository that declares no such list is skipped, with the remedy:
+    # a practice set receives this check with the engine, and its own
+    # stamps are its own to count before the check can hold it to them.
+    try:
+        declared = json.loads((ROOT / 'precedent.json').read_text(
+            encoding='utf-8')).get(RECORD_BASELINE_KEY)
+    except (OSError, ValueError):
+        declared = None
+    if not isinstance(declared, dict):
+        raise NotApplicable(
+            f'precedent.json declares no {RECORD_BASELINE_KEY!r}. Add it as '
+            f'{{}} to hold this repository to none, or with each file\'s '
+            f'present count to hold it to no more')
+    vendored = _vendored_trees()
+    by_file = {}
+    for rel, n, stamp in _record_stamps(ROOT):
+        if not rel.startswith(vendored):
+            by_file.setdefault(rel, []).append((n, stamp))
+    out = []
+    for rel, hits in sorted(by_file.items()):
+        allowed = declared.get(rel, 0) if isinstance(declared.get(rel, 0), int) else 0
+        if len(hits) > allowed:
+            n, stamp = hits[-1]
+            out.append(Finding(
+                f'{rel}:{n}',
+                f'{len(hits)} piece(s) of the record in this instruction, '
+                f'and {allowed} recorded from before the rule -- the last is '
+                f'{stamp!r}. Say the rule by role, and leave who and when to '
+                f'the approval line, the Story or the commit', path=rel))
+    for rel, allowed in sorted(declared.items()):
+        if rel.startswith('_') or not isinstance(allowed, int):
+            continue
+        have = len(by_file.get(rel, ()))
+        if have < allowed:
+            out.append(Finding(
+                'precedent.json',
+                f'{RECORD_BASELINE_KEY} allows {rel} {allowed} and it now '
+                f'has {have}: lower the entry to {have}'
+                + (', or remove it' if not have else '')
+                + ', so the count cannot drift back up', path='precedent.json'))
+    return out
+
+
 @check('shared-index-is-a-directory', 'change',
        'a change that adds rows to a hand-written Markdown table already '
        f'{SHARED_INDEX_ROWS} rows long is told the file can be kept as a '
