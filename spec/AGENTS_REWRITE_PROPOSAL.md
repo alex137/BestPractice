@@ -1,7 +1,7 @@
 ---
 title:         Proposed Hand-Written Text For AGENTS.md
 kind:          proposal
-status:        current
+status:        drafted
 opened:        2026-11-25
 closed:        null
 superseded_by: null
