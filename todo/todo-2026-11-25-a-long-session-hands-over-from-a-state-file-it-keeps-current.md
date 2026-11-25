@@ -3,20 +3,20 @@ slug:              todo-2026-11-25-a-long-session-hands-over-from-a-state-file-i
 kind:              decision
 domain:            practice
 severity:          medium
-status:            open
+status:            done
 disposition:       ask
 remind_on:         null
-blocked_on:        "decision -- Alex: yes or no to the rule, and whether to build the size prompt"
+blocked_on:        null
 batch:             null
-decision:          null
-decision_strength: null
-waiting_on:        Alex
+decision:          "yes (Alex, 2026-11-25: \"yes ot both\", to the rule with the size declared per project; the size prompt waits for a second project)"
+decision_strength: assented
+waiting_on:        null
 noted:             2026-11-25
-closed:            null
+closed:            2026-11-25
 ---
 ## What
 
-- [ ] **Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead of compacting?** Sent 2026-11-25 by a project's coordinating session, which relayed Alex asking: "Should we or do we have a BestPractice function that has each thread periodically save a short bit of what it is currently doing so it can be restarted whenever a coordinator thinks it is running too long? Or perhaps it can restart itself when it recognizes it has run too long? Maybe as it sees its context getting big, it does a restart? Is this better than context compression?" Nothing is drafted into a practice yet. (needs: decision -- Alex)
+- [x] **Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead of compacting?** Sent 2026-11-25 by a project's coordinating session, which relayed Alex asking: "Should we or do we have a BestPractice function that has each thread periodically save a short bit of what it is currently doing so it can be restarted whenever a coordinator thinks it is running too long? Or perhaps it can restart itself when it recognizes it has run too long? Maybe as it sees its context getting big, it does a restart? Is this better than context compression?" Nothing is drafted into a practice yet. (needs: decision -- Alex)
 
 **The short answer to his question.** Part of it exists. [coordinating-sessions-through-models](../practices/coordinating-sessions-through-models.md) already says a long-lived worker is replaced by a fresh session at the end of a unit, after committing a short handoff. What does not exist: the file being kept current all along, a size at which a session retires itself, and anything that tells a session it has reached that size.
 
@@ -49,3 +49,4 @@ closed:            null
 ## Notes
 
 - 2026-11-25: recorded from the relayed message.
+- 2026-11-25: Alex said yes. The rule is in [coordinating-sessions-through-models](../practices/coordinating-sessions-through-models.md), Detail, and lands with the pull request that carries this line. The size prompt is filed as [its own item](todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size.md).

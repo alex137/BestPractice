@@ -56,6 +56,7 @@ as_of: 2026-11-25
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 36d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
 | [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 26d | wait | every line under Left names why this run left it |
 | [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 2d | wait |  |
+| [`todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size`](todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size.md) | Have the tooling tell a session when it has passed the size its project declared for handing over. | 0d | wait | evidence -- a second project trying the handover rule by hand |
 
 ## Verify Before External Use
 
@@ -132,7 +133,6 @@ as_of: 2026-11-25
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 3d | wait |  |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 3d | wait |  |
 | [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | 1d | ask | decision -- Alex or Morgan: cut 3, the index |
-| [`todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current`](todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current.md) | Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead | 0d | ask | decision -- Alex: yes or no to the rule, and whether to build the size prompt |
 
 ## Unblocked Work
 
@@ -176,7 +176,6 @@ as_of: 2026-11-25
 | [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | Alex's or Morgan's yes or no on the one-line change below; it changes what a gate refuses, so no session lands it on its own |
 | [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | Alex's or Morgan's pick among the three options below |
 | [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | Alex or Morgan |
-| [`todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current`](todo-2026-11-25-a-long-session-hands-over-from-a-state-file-it-keeps-current.md) | Should every long-lived session keep a short state file current, and hand over to a fresh session at a set size instead | Alex |
 
 ## Due Reminders
 
