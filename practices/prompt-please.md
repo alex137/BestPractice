@@ -174,8 +174,8 @@ the session for the person"): the same prompt word for word, tags and title
 in the create call, every other repository and its access named at the top
 of the prompt, and the reply gives the new session's link and the same
 prompt as a paste block. **The new session opens beside this one, never
-under it**: the coordinator opens it, or the person does ("A sibling, not
-a child").
+under it**: this session's coordinator opens it, or the person does ("A
+sibling, not a child").
 
 **The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first. (Absorbed from `seeded-prompt-names-its-origin`, 2026-11-05.)
 
@@ -445,15 +445,16 @@ one, each handoff nests a level deeper, and the nesting has a limit.
 
 **So the session that hands over does not make the call.** In order:
 
-1. **A coordinator exists** -- the one session tagged `role:cos`
-   ([session-tags](session-tags.md)), or failing that this session's own
-   parent, if it is still running. Send it the prompt, word for word, and
-   ask it to open the session; it replies with the link. This is the one
-   message to a running session the handoff allows, and it asks for
-   nothing but the open.
-2. **No coordinator** -- a session the person opened themselves, with no
-   parent and no `role:cos` session. Give the person the prompt as a paste
-   block; a session they open is at the top level.
+1. **This session has a coordinator**
+   ([coordinating-sessions-through-models](coordinating-sessions-through-models.md),
+   "Who the coordinator is"): the session that created it, still running,
+   or the successor that session handed over to. Send it the prompt, word
+   for word, and ask it to open the session; it replies with the link.
+   This is the one message to a running session the handoff allows, and it
+   asks for nothing but the open.
+2. **It has none** -- the person opened it themselves, or its coordinator
+   is archived. Give the person the prompt as a paste block; a session
+   they open is at the top level.
 
 **The coordinator opens what it is sent and decides nothing.** It checks
 the prompt is the one the person asked to have opened, makes the create
@@ -730,7 +731,12 @@ archived. The new thread creation should start as a sibling. If this is a
 practice, then perhaps the convention is that the new thread creation
 should route through whatever is the current coordinator thread?" The
 first part is decided; routing through the coordinator was his suggestion,
-written up here and put to him before it landed.
+written up and put to him before it landed. His answer, the same day: "If
+we already have the concept of a coordinator as a best-practice then yes
+go ahead on the sibing rule. If not then we need both." (strength:
+decided). The word was in use and never defined, so the definition went
+into [coordinating-sessions-through-models](coordinating-sessions-through-models.md)
+with this.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
