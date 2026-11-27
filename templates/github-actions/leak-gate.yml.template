@@ -105,10 +105,7 @@ on:
   workflow_dispatch:
 
 # A second push on the same ref before this finishes cancels the first, so
-# an overlapping pair bills one job-minute instead of two. Added 2026-09-21:
-# every other template here already had one and this did not, which is the
-# kind of gap nobody finds by reading -- a harness case asserting the
-# installed workflow carries a concurrency block is what surfaced it.
+# an overlapping pair bills one job-minute instead of two.
 #
 # NOT cancel-in-progress on the branch that receives merges? It is safe
 # here: this gate reads the tree and writes nothing, so a cancelled run has

@@ -64,8 +64,7 @@ on:
   # repository's one GitHub test: staging and working branches are checked by the local push check before
   # every push, and GitHub's job is only to re-check what is about to reach
   # main on a clean machine that has none of the session's private sources.
-  # Morgan: "to main, you get all those local tests AND the most important
-  # GitHub test" (strength: decided).
+  # A change into main gets every local check and this one too.
   #
   # No `paths:` filter: a pull request into main is rare, and the one check
   # that guards main should not skip a change because of which files it
@@ -83,9 +82,9 @@ on:
   # gap on 2026-09-25, installing this file).
   #
   # The `[skip ci]` line the commit hook adds in a private repo is kept as a
-  # backstop until every install has this file (Morgan, 2026-09-25: "Backstops
-  # are good especially on this issue. We'll keep it until we're 100% sure
-  # all have been updated"). While it is, a pull request whose head carries
+  # backstop until every install has this file: a second guard
+  # costs little here and is kept until every install is known to have this
+  # file. While it is, a pull request whose head carries
   # it gets no run -- start one by hand with workflow_dispatch.
   pull_request:
     branches: [main]
@@ -95,10 +94,8 @@ on:
   # main"). The pull request above tests a change before it lands; this
   # tests what actually landed, and it is the only GitHub test a commit gets
   # when it reaches main without that pull request -- a direct push, an edit
-  # on github.com, a bot commit. Morgan: "all pushes to main, on repos that
-  # are public, should get the GitHub ci/cd. It doesn't matter that the same
-  # check happened (on our server) on local before that, it's a good double
-  # check" (strength: decided).
+  # on github.com, a bot commit. That the same check
+  # already ran locally does not matter: this is the second look.
   #
   # When the pushed files are exactly the ones a run of this workflow
   # already passed -- the ordinary merge of a pull request whose head held
@@ -143,9 +140,9 @@ jobs:
     # pull request from any other branch -- one nobody judged -- is skipped
     # too. A skip here happens before a runner starts and bills nothing, and
     # a skipped job counts as passing for a required check. A public
-    # repository is never skipped this way. Morgan: "if and only if the
-    # setting is turned on ... AND the number of hours is more than the
-    # number defined since the last successful test" (strength: decided).
+    # repository is never skipped this way. The skip applies if and
+    # only if the setting is on and fewer hours than it names have passed
+    # since the last successful test.
     #
     # THE main-test MARKER BELOW IS WRITTEN BY THE ENGINE, never by hand.
     # Install and Update Vendors put `always` in place of its `individual`
@@ -155,8 +152,7 @@ jobs:
     # a Promote, a pull request merged by hand, a direct push, a web edit --
     # and never a pull request, so a change is tested exactly once, after
     # it lands. Every other value leaves this file byte-identical to the
-    # template. Morgan: "no we don't want it run twice, no no no, not at
-    # all" (strength: decided).
+    # template. It is never run twice for one change.
     if: >-
       (github.event_name != 'push' || github.event.repository.private != true
       || 'main-test:individual' == 'main-test:always')
@@ -182,9 +178,8 @@ jobs:
           fetch-depth: 0
 
       # A PUSH TO MAIN RE-RUNS NOTHING THAT ALREADY PASSED (2026-09-27,
-      # spec/BRANCH_TIERS_PLAN.md). Morgan: "we're very cautious about the
-      # minutes ... it should not run the second time ... if it had just
-      # run before, and nothing had changed" (strength: decided).
+      # spec/BRANCH_TIERS_PLAN.md). Billed minutes are spent with care: a
+      # run that just passed is not repeated when nothing has changed.
       #
       # "Nothing changed" is decided by git, exactly: the pushed commit's
       # files are identical to a commit this same workflow already passed

@@ -14,8 +14,8 @@
 # spec/BRANCH_CLEANUP_BUTTON_PLAN.md). The only trigger is workflow_dispatch:
 # the "Delete every merged branch" button on the branch cleanup page opens
 # this workflow's page on GitHub, where the person clicks Run workflow. So
-# the file bills nothing while it sits here. Morgan: "on both [private] and
-# public, NEVER run the cleanup automatically" (strength: decided). A
+# the file bills nothing while it sits here. It never runs
+# automatically, in a private repository or a public one. A
 # session never starts it (practice: never-delete-a-remote-branch), and
 # --delete-merged refuses to run anywhere but in this workflow.
 #
