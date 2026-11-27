@@ -3787,8 +3787,6 @@ def _session_load(repo_dir):
 # and is the finding this section exists for.
 
 _SESSION_FILE = '.precedent/SESSION_PRACTICES.md'
-_RESIDENT_HEAD = re.compile(
-    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
 
 
 def _charged_session_file(repo_dir, n):
@@ -3886,10 +3884,10 @@ def budget_rows(repo_dir, label=None):
         if isinstance(target, int):
             row(rel, n, target, 'target', f'surfaces/{rel}/target',
                 'over it warns every session; never refuses')
-    m = _RESIDENT_HEAD.search(agents_text)
+    m = bv.resident_block_measure(agents_text, root)
     res_cap = force.get('resident_block_tokens')
     if isinstance(res_cap, int):
-        row('resident block', int(m.group(1).replace(',', '')) if m else None,
+        row('resident block', m[0] if m else None,
             res_cap, 'cap', 'resident_block_tokens',
             '' if m else 'no resident block in AGENTS.md')
     occ_cap = force.get('occasion_index')

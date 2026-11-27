@@ -105,10 +105,18 @@ def _repo_label(repo):
 # The surfaces the ceiling check itself measures, kept in that order so the two
 # tools cannot disagree about what "always loaded" means.
 SURFACES = ('AGENTS.md', 'CLAUDE.md', '.precedent/SESSION_PRACTICES.md')
-# build_views.py's heading for the generated resident block, e.g.
-# "## Resident block (~539 of 550 token budget, 4 of 17 practices)".
-RESIDENT_HEADING = re.compile(
-    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
+
+
+def resident_block_measure(text, root=None):
+    """-> (tokens, budget) for the resident block in `text`, or None: no
+    block, or build_views.py is not beside this tool. The one definition is
+    build_views.resident_block_measure, which reads a heading that still
+    carries its figures and measures one that does not."""
+    try:
+        import build_views
+        return build_views.resident_block_measure(text, root)
+    except Exception:                                         # noqa: BLE001
+        return None
 
 
 def as_measured(rel, text):
@@ -398,14 +406,14 @@ def headroom_notice(root=None, floor_pct=None):
     # build past it -- so a set can sit at 98% of it with the FILE nowhere
     # near its own ceiling, and learn only when a practice edit fails to
     # build. Very deep check, 2026-09-28: an individual set's block was at
-    # ~539 of 550 and nothing said so. build_views writes both numbers into
-    # the block's own heading, which is what is read here.
+    # ~539 of 550 and nothing said so. The block is measured here, and its
+    # budget read, by resident_block_measure.
     agents = base / 'AGENTS.md'
     if agents.is_file():
-        m = RESIDENT_HEADING.search(
-            agents.read_text(encoding='utf-8', errors='replace'))
+        m = resident_block_measure(
+            agents.read_text(encoding='utf-8', errors='replace'), base)
         if m:
-            n, budget = (int(g.replace(',', '')) for g in m.groups())
+            n, budget = m
             if budget > 0:
                 pct = 100.0 * (budget - n) / budget
                 if pct <= floor_pct:

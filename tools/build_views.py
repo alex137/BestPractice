@@ -1774,8 +1774,14 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     # fails, and the honest rendering of "this source has nothing here" is
     # silence, not an empty heading.
     if resident:
-        lines.append(f"## Resident block (~{token_count} of {budget} token budget, "
-                     f"{count_detail})")
+        # THE HEADING CARRIES NO FIGURES. It showed the block's token count,
+        # its budget and the practice counts to every session on every
+        # call, and none of them tells a session what to do (practice:
+        # record-not-instruction). The figures are in the output of what
+        # measures them: this tool's own summary line, the resolver's and
+        # the materializer's, and resident_block_measure below for a tool
+        # that needs them from a committed file.
+        lines.append(RESIDENT_HEADING)
         lines.append('')
         # SAY WHEN THIS TREE IS MACHINE-DEPENDENT, and only then.
         #
@@ -2236,9 +2242,50 @@ class _BlockNotVerifiable(Exception):
     cannot be judged. The reason, when there is one, is its first argument."""
 
 
+RESIDENT_HEADING = '## Resident block'
+# The heading as it was written while it carried figures. A repository whose
+# block has not been regenerated since still has it, so it is still read.
+_RESIDENT_HEADING_FIGURES = re.compile(
+    r'^## Resident block \(~([\d,]+) of ([\d,]+) token budget', re.M)
+
+
+def resident_block_measure(text, root=None):
+    """-> (tokens, budget) for the resident block in `text`, an instructions
+    file or a generated block, or None when it has no resident block.
+
+    The one reader of a committed block's size. A heading that still
+    carries figures is believed. A bare heading is measured the way
+    build_loader_block measures before it writes: _approx_tokens over the
+    practices under the heading, without the disclosure paragraph an
+    individual source adds. The budget is the one in force for `root`: its
+    own tools/session_load_budgets.json when it has one, else this
+    engine's."""
+    m = _RESIDENT_HEADING_FIGURES.search(text)
+    if m:
+        return tuple(int(g.replace(',', '')) for g in m.groups())
+    m = re.search(r'^## Resident block[ \t]*$', text, re.M)
+    if not m:
+        return None
+    body = text[m.end():]
+    for stop in (re.search(r'^## ', body, re.M), ):
+        if stop:
+            body = body[:stop.start()]
+    if END_MARKER in body:
+        body = body[:body.index(END_MARKER)]
+    paras = [para for para in body.strip().split('\n\n')
+             if not _INDIVIDUAL_PARAGRAPH.match(para.strip())]
+    registry = (pathlib.Path(root) / 'tools' / 'session_load_budgets.json'
+                if root is not None else None)
+    budget = (_budget('resident_block_tokens', 2000, registry)
+              if registry is not None and registry.is_file()
+              else RESIDENT_BUDGET_TOKENS)
+    return _approx_tokens('\n\n'.join(paras)), budget
+
+
 # The two marks render_agents_md leaves of individual-level practices in a
-# block: the "machine-dependent" disclosure paragraph, and the resident
-# header's level breakdown, "(5 individual, 6 universal)".
+# block: the "machine-dependent" disclosure paragraph, and the level
+# breakdown a resident heading carried while it showed counts,
+# "(5 individual, 6 universal)".
 _INDIVIDUAL_PARAGRAPH = re.compile(
     r'\*\*(\d+) of the practices in this generated\s+tree came from an '
     r'INDIVIDUAL source\*\*')

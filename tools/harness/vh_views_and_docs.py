@@ -2075,18 +2075,27 @@ def check_build_views_summary_matches_what_it_wrote():
         m_out = re.search(r'resident (\d+)/(\d+) practices, ~(\d+) tokens',
                           r.stdout)
         header = (repo / 'AGENTS.md').read_text(encoding='utf-8')
-        m_file = re.search(
-            r'## Resident block \(~(\d+) of \d+ token budget, '
-            r'(\d+) of (\d+) practices', header)
-        if not m_out or not m_file:
+        # The heading carries no figures (practice: record-not-instruction),
+        # so what was written is measured: the token count by the one
+        # reader of a committed block, the resident count by the practices
+        # under the heading.
+        sys.path.insert(0, str(ROOT / 'tools'))
+        import build_views as _bv
+        measured = _bv.resident_block_measure(header, repo)
+        bare = re.search(r'^## Resident block[ \t]*$', header, re.M)
+        if not m_out or not measured or not bare:
             check('build_views summary reports the block it wrote', False,
-                  f'could not parse both figures (stdout matched: '
-                  f'{bool(m_out)}, AGENTS.md matched: {bool(m_file)})')
+                  f'could not read both (stdout matched: {bool(m_out)}, '
+                  f'AGENTS.md measured: {measured}, bare heading: '
+                  f'{bool(bare)})')
             return
-        printed = (int(m_out.group(1)), int(m_out.group(2)), int(m_out.group(3)))
-        written = (int(m_file.group(2)), int(m_file.group(3)), int(m_file.group(1)))
-        check('build_views summary reports the block it wrote '
-              '(resident, total and token count all match AGENTS.md)',
+        section = header[bare.end():].split('\n## ', 1)[0]
+        n_written = len(re.findall(r'^\*\*[a-z0-9-]+\.\*\* ', section, re.M))
+        printed = (int(m_out.group(1)), int(m_out.group(3)))
+        written = (n_written, measured[0])
+        check('build_views summary reports the block it wrote, under a '
+              'heading with no figures (resident count and token count '
+              'both match AGENTS.md as measured)',
               printed == written,
               f'printed {printed}, wrote {written}')
     finally:
