@@ -2541,6 +2541,106 @@ def check_reply_check_keeps_quiet_while_a_batch_runs():
             '; '.join(f'{n}: {d}' for n, d in bad_cases))
 
 
+def check_turn_start_rules_are_a_pointer_after_the_first_turn():
+    """The reply gate's per-turn list leaves out, after a session's first
+    turn, every rule it already printed word for word, and says how many.
+
+    2026-11-27, on the repository owner's yes: the list was printed whole at
+    the start of every turn, about 11,000 characters of new text each time.
+    precedent_gate.unchanged_as_pointer() is judged here on planted output,
+    and reply-gate.sh on its wiring.
+
+    practice: control-asserts-which-failure -- the first turn, a turn after
+    a compaction and a transcript nobody can read each print everything (the
+    controls); a later turn leaves the unchanged rules out, and still prints
+    a rule whose text changed, an item that states the container's state,
+    and every line that is not a rule.
+    """
+    import tempfile
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import precedent_gate as pg
+    tmp = pathlib.Path(tempfile.mkdtemp(prefix='precedent-pointer-'))
+    cases = []
+    try:
+        state = tmp / 'state' / 'shown.json'
+
+        def brief(last='- x', archive='one file is only here'):
+            return (
+                'precedent gate: 1 SessionStart guarantee(s) NOT in effect\n'
+                '\n# Practices for the reply gate\n\n'
+                '- **the-boildown** (universal) — every reply ends with it\n'
+                '- **weak-yes** (universal) — do it, and record it\n'
+                '\n## Hard requirements\n\n'
+                '- [universal/precedent] the reply carries a heading\n'
+                '- [universal/precedent] the section is refused when it '
+                'repeats the last reply\'s. The last reply\'s said:\n'
+                f'    {last}\n'
+                '- [universal/precedent] DO NOT SAY "You can archive this '
+                f'session" IN THIS REPLY YET\n    {archive}\n'
+                '- NOT YET LANDED: this checkout: 2 commit(s)\n'
+                '\nFull text: `python3 tools/precedent_gate.py reply`.\n')
+
+        first = pg.unchanged_as_pointer(brief(), state, 0)
+        cases.append(('a session\'s first turn prints everything',
+                      first == brief(), first[-200:]))
+
+        second = pg.unchanged_as_pointer(brief(), state, 0)
+        cases.append(('the next turn leaves out the rules already printed, '
+                      'and says how many',
+                      '**the-boildown**' not in second and '**weak-yes**' not in second
+                      and 'the reply carries a heading' not in second
+                      and '4 reply rule(s) printed earlier' in second
+                      and 'reply --brief' in second, second))
+        cases.append(('...and still prints what is not a rule: the session '
+                      'warning and what is not yet landed',
+                      'SessionStart guarantee(s) NOT in effect' in second
+                      and 'NOT YET LANDED' in second, second))
+        cases.append(('...and the item that states what this container '
+                      'holds, unchanged or not',
+                      'DO NOT SAY' in second and 'one file is only here' in second,
+                      second))
+
+        third = pg.unchanged_as_pointer(brief(last='- y'), state, 0)
+        cases.append(('a requirement whose text changed is printed again, '
+                      'and only that one',
+                      'The last reply\'s said:' in third and '    - y' in third
+                      and '**weak-yes**' not in third
+                      and '3 reply rule(s) printed earlier' in third, third))
+
+        after = pg.unchanged_as_pointer(brief(last='- y'), state, 1)
+        cases.append(('CONTROL: after a compaction everything prints again',
+                      after == brief(last='- y'), after[-200:]))
+
+        blind = pg.unchanged_as_pointer(brief(last='- y'), state, None)
+        cases.append(('CONTROL: a transcript that cannot be read prints '
+                      'everything, and leaves the record alone',
+                      blind == brief(last='- y')
+                      and json.loads(state.read_text())['compactions'] == 1, blind[-200:]))
+
+        t = tmp / 't.jsonl'
+        t.write_text(json.dumps({'type': 'user', 'message': {
+            'role': 'user', 'content': 'hi'}}) + '\n' + json.dumps({
+                'type': 'user', 'isCompactSummary': True, 'message': {
+                    'role': 'user', 'content': 'summary'}}) + '\n', encoding='utf-8')
+        cases.append(('a compaction is counted from the transcript, and a '
+                      'missing transcript is "cannot tell", never zero',
+                      pg._compactions(t) == 1 and pg._compactions(tmp / 'no.jsonl') is None,
+                      f'{pg._compactions(t)!r}, {pg._compactions(tmp / "no.jsonl")!r}'))
+
+        hook = (ROOT / 'tools' / 'reply-gate.sh').read_text(encoding='utf-8')
+        stop = (ROOT / 'tools' / 'stop-reply-check.sh').read_text(encoding='utf-8')
+        cases.append(('the turn-start hook asks for the pointer form, and the '
+                      'stop hook does not',
+                      'reply --brief ' + pg.POINTER_FLAG in hook
+                      and pg.POINTER_FLAG not in stop, ''))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    bad_cases = [(n, d) for n, ok, d in cases if not ok]
+    return (not bad_cases, f'{len(cases)} stated cases',
+            '; '.join(f'{n}: {d}' for n, d in bad_cases))
+
+
 def check_reply_check_requires_the_boildown_first_line():
     """`require_first_item_under_heading` refuses a Boildown whose first
     bullet does not say where the work is.
