@@ -140,6 +140,17 @@ started without being priced, and never repeated for nothing:
   never hits). Load the cache lazily at **every** entry point, not
   only the first one written, and keep an environment switch that forces a
   fresh solve: the cache is an accelerator, never a dependency.
+- **A solve that reads another solve's memo re-keys when that solve's code
+  changes.** A memo loader carries `# reach-key: io` so its plumbing is
+  not in its own solve's key; when another solve calls it, the key follows
+  its body, and so the upstream solve, by default. A loader that names
+  what it returns -- `# reach-key: io returns _solve` -- is followed
+  through that name alone, and `returns nothing` marks a writer whose value
+  no solve uses. Until 2026-11-22 a reached loader was skipped: a
+  consumer's published page kept a figure well short of what the model
+  computed, because the downstream memo never moved when the upstream one
+  was re-solved, and hosts carried the upstream memo's file name in
+  `extra` by hand to make up for it.
 
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its

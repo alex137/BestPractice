@@ -4594,6 +4594,15 @@
       "leads": [],
       "importance": "medium"
     },
+    "check_precedent_python_self_check": {
+      "verdict": "keep",
+      "why": "tools/py is what every runbook and document runs a model with; a launcher that fell back to whatever python3 is would bring back memo keys under the wrong interpreter (2026-11-18).",
+      "date": "2026-11-22",
+      "by": "agent",
+      "seconds": 0.5,
+      "leads": [],
+      "importance": "medium"
+    },
     "check_reach_key_self_check": {
       "verdict": "keep",
       "why": "reach_key.py keys the shared result cache; a key that does not move on a reachable change would skip a test that should run.",

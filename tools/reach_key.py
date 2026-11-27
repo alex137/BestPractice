@@ -61,8 +61,23 @@ Two things are left out on purpose, both named in the code they touch:
   modules are found, not what they compute;
 * a definition whose `def` line carries `# reach-key: io` -- memo loaders
   and writers, whose only effect is to fetch or store the result of the
-  function the key covers. Mark nothing else: a marked function's body is
-  never hashed.
+  function the key covers. Mark nothing else. A marked function the solve
+  never reaches (its own memo's loader) is not hashed at all.
+
+A marked function the solve DOES reach is another solve's memo feeding this
+one, and is never silently skipped (2026-11-22: a consumer's page kept a
+stale figure because a downstream key did not move when the memo it read was
+re-solved). By default its body is followed like any other code, so the
+upstream solve it calls is in this key. A loader can say exactly what it
+returns instead, and its plumbing then re-keys nothing:
+
+    def rows():  # reach-key: io returns _solve
+    def stash(v):  # reach-key: io returns nothing
+
+`returns NAME, ...` follows those names in the loader's module in place of
+its body; `returns nothing` follows nothing (a writer or progress hook whose
+value the solve never uses). A trace row of kind `io-body` names a reached
+loader followed whole for want of a declaration.
 
     key = reach_key(path, ["solve_rows"], search_dirs=[...], extra=b"v2")
 
@@ -81,10 +96,23 @@ the importing file's own directory, in the order the program puts them on
 """
 import ast
 import hashlib
+import json
+import re
 import sys
 from pathlib import Path
 
 IO_MARK = "# reach-key: io"
+_IO_RETURNS = re.compile(r"# reach-key: io\s+returns\s+([A-Za-z_][\w ,]*)")
+
+
+def _io_returns(line):
+    """What an io-marked def line declares it returns: a tuple of names in
+    its module, () for `returns nothing`, or None when it declares nothing."""
+    m = _IO_RETURNS.search(line)
+    if not m:
+        return None
+    names = tuple(n for n in re.split(r"[\s,]+", m.group(1)) if n)
+    return () if names == ("nothing",) else names
 _DYNAMIC_CALLS = {"globals", "vars", "exec", "eval", "__import__"}
 
 
@@ -224,6 +252,7 @@ class _Module:
         self.lines = self.src.splitlines()
         self.tree = ast.parse(self.src)
         self.defs, self.assigns, self.imports, self.effects, self.io = {}, {}, {}, [], set()
+        self.io_returns = {}
         self.dumps = {}
         for stmt in self.tree.body:
             self._classify(stmt, top=True)
@@ -244,6 +273,7 @@ class _Module:
             self.defs[stmt.name] = stmt
             if IO_MARK in self.lines[stmt.lineno - 1]:
                 self.io.add(stmt.name)
+                self.io_returns[stmt.name] = _io_returns(self.lines[stmt.lineno - 1])
             return
         if isinstance(stmt, (ast.Import, ast.ImportFrom)):
             self._collect_imports(stmt)
@@ -787,12 +817,58 @@ def _path_loads(R, m, node):
     return names, files
 
 
+_WARNED = set()
+
+
+def declared_python(start):
+    """-> ('X.Y', precedent.json path) the repository holding `start`
+    declares, or None when no precedent.json is found above it. A file
+    without a "python" version gets precedent_python.py's default, read
+    from the copy beside this file."""
+    start = Path(start).resolve()
+    for d in [start, *start.parents]:
+        cfg = d / "precedent.json"
+        if cfg.is_file():
+            break
+    else:
+        return None
+    try:
+        v = (json.loads(cfg.read_text(encoding="utf-8")).get("python") or {}).get("version")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not v:
+        try:
+            src = (Path(__file__).resolve().parent / "precedent_python.py").read_text(encoding="utf-8")
+            v = re.search(r"^DEFAULT_VERSION = '([0-9.]+)'", src, re.M).group(1)
+        except (OSError, AttributeError):
+            return None
+    return str(v), cfg
+
+
+def _warn_version(start):
+    """Say once per process, on stderr, when this Python is not the one the
+    repository declares: the key carries the interpreter's major.minor, so
+    every key made here misses every memo made under the declared one
+    (practice one-python; 2026-11-18, a consumer: two 80-minute solves run
+    cold under 3.13 beside a declared 3.12)."""
+    got = declared_python(start)
+    have = "%d.%d" % sys.version_info[:2]
+    if not got or got[0] == have or got in _WARNED:
+        return
+    _WARNED.add(got)
+    print(f"reach_key: WARNING -- this is Python {have} and {got[1]} declares {got[0]}: every memo "
+          f"key made here carries py{have} and misses every memo made under {got[0]}, and what it "
+          f"stores nobody else will use. Run it as `tools/py <file>` (practice one-python).",
+          file=sys.stderr)
+
+
 def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, stop=(), files=None):
     """The key: see the module docstring. `trace`, a list, receives what
     was hashed as (file, kind, symbol, digest) for inspection. `files`, a
     set, receives every repository module the key accounts for: the static
     import closure (whatever of it can run is hashed, and the rest cannot
     change a result) plus every module hashed in part or whole."""
+    _warn_version(root or Path(path).resolve().parent)
     R = _Resolver(path, search_dirs, root)
     items, whole, done = [], set(), {(R.entry.path, s) for s in stop}
     classes, attrs, widen = [], set(), [False]   # reached classes; attribute names used; dynamic attribute access seen
@@ -884,7 +960,17 @@ def reach_key(path, entries, search_dirs=(), extra=b"", root=None, trace=None, s
             done.add((p, sym))
             m = R.load(p)
             if sym in m.io:
-                continue
+                # reached: another memo feeds this solve (see the docstring)
+                ret = m.io_returns.get(sym)
+                if ret is not None:
+                    items.append((p, "io", sym, "returns " + ",".join(ret)))
+                    work.extend((p, r) for r in ret)
+                    continue
+                if isinstance(m.defs.get(sym), _FUNCS):
+                    node = m.defs[sym]
+                    items.append((p, "io-body", sym, _digest(m, "def", sym, node)))
+                    refs(m, node)
+                    continue
             if sym in m.defs and isinstance(m.defs[sym], ast.ClassDef):
                 shell = m.dumps.get(("shell", sym))
                 if shell is None:
@@ -1219,6 +1305,65 @@ def self_check():
                 if moved != should:
                     fails.append(f"{what}, {fn} {old_t!r} -> {new_t!r}: the key "
                                  f"{'moved' if moved else 'held'}, it should have {'moved' if should else 'held'}")
+    # another solve's memo read through an io-marked loader (2026-11-22): the
+    # downstream key moves when the upstream solve's code does
+    UP = ("import cachelib as _rc  " + IO_MARK + "\n"
+          "def _solve():\n    return [2 * 3]\n"
+          "def _key():  " + IO_MARK + "\n    return _rc.key(__file__)\n"
+          "def rows():  {mark}\n    _note = 1\n    return _solve()\n"
+          "def stash(v):  {smark}\n    _s = 1\n    return v\n")
+    DOWN = "import up\ndef solve():\n    return up.stash(up.rows()[0])\n"
+    io_cases = [
+        # (what, rows mark, stash mark, trace kinds expected, [(old, new, should move)])
+        ("an undeclared io loader the solve reaches is followed",
+         IO_MARK, IO_MARK, {"io-body"},
+         [("2 * 3", "2 * 4", True), ("_note = 1", "_note = 2", True)]),
+        ("an io loader that declares what it returns follows that alone",
+         IO_MARK + " returns _solve", IO_MARK + " returns nothing", {"io"},
+         [("2 * 3", "2 * 4", True), ("_note = 1", "_note = 2", False), ("_s = 1", "_s = 2", False),
+          ("returns _solve", "returns nothing", True)]),
+    ]
+    for what, mark, smark, kinds, edits in io_cases:
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            up_src = UP.replace("{mark}", mark).replace("{smark}", smark)
+            (d / "cachelib.py").write_text("def key(f):\n    return f\n")
+            (d / "up.py").write_text(up_src)
+            (d / "down.py").write_text(DOWN)
+            tr = []
+            a = reach_key(d / "down.py", ["solve"], [str(d)], root=d, trace=tr)
+            got = {t[1] for t in tr if t[0] == "up.py" and t[1].startswith("io")}
+            if got != kinds:
+                fails.append(f"{what}: io trace rows {sorted(got)}, expected {sorted(kinds)}")
+            if any(t[0] == "cachelib.py" for t in tr):
+                fails.append(f"{what}: the io-marked cache module entered the key")
+            for old_t, new_t, should in edits:
+                if old_t not in up_src:
+                    fails.append(f"test edit did not apply: {what}: {old_t!r}")
+                    continue
+                (d / "up.py").write_text(up_src.replace(old_t, new_t))
+                moved = reach_key(d / "down.py", ["solve"], [str(d)], root=d) != a
+                (d / "up.py").write_text(up_src)
+                if moved != should:
+                    fails.append(f"{what}, up.py {old_t!r} -> {new_t!r}: the key "
+                                 f"{'moved' if moved else 'held'}, it should have {'moved' if should else 'held'}")
+            # the upstream's own key, made from its own solve, still skips its loaders
+            b = reach_key(d / "up.py", ["_solve"], [str(d)], root=d)
+            (d / "up.py").write_text(up_src.replace("_note = 1", "_note = 2"))
+            if reach_key(d / "up.py", ["_solve"], [str(d)], root=d) != b:
+                fails.append(f"{what}: an edit to a loader its own solve never reaches moved that solve's key")
+    # the version warning reads the declaration of the repository holding the file
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "precedent.json").write_text('{"python": {"version": "2.7"}}')
+        (d / "sub").mkdir()
+        got = declared_python(d / "sub")
+        if not got or got[0] != "2.7":
+            fails.append(f"declared_python: read {got}, expected 2.7 from the precedent.json above")
+        (d / "precedent.json").write_text("{}")
+        got = declared_python(d / "sub")
+        if not got or not re.fullmatch(r"3\.\d+", got[0]):
+            fails.append(f"declared_python: with no version declared read {got}, expected the default")
     return fails
 
 

@@ -548,6 +548,9 @@ ENGINE_FILES = [
     # one-python: what makes python3 the declared Python in a session, and
     # says so when it is not (added 2026-10-15)
     'precedent_python.py',
+    # the launcher every document and runbook runs a file with: reads the
+    # declared Python itself, so it needs no PATH line (added 2026-11-22)
+    'py',
     'precedent_time.py',
     # Files a failure an unattended job could not report anywhere else as an
     # open item under todo/, and lists the open ones at session start
