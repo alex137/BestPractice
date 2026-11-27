@@ -1673,24 +1673,25 @@ def main():
                      if not any(f"on '{b}' " in l for b in _gone)]
         for _line in _unlanded:
             if PROMOTE_RUNNING_MARK in _line:
+                # Morgan, 2026-09-27.
                 print(f"- {_line}. Do NOT recommend, suggest or mention a "
                       f"Promote for it in this reply -- not in The Boildown, "
                       f"not as a plain line. At most say that one is already "
-                      f"running (Morgan, 2026-09-27).")
+                      f"running.")
                 continue
             if 'a Promote can move them' in _line:
                 # Not a hard requirement and not a call to action: one plain
                 # line, so the person knows, with no pressure to act now.
                 # Never an archive blocker either (Morgan, 2026-09-25): the
                 # work is already on origin, and a Promote can run from any
-                # session later.
+                # session later. The archive wording: Morgan, 2026-10-18.
                 print(f"- For The Boildown, one plain line, not bolded and "
                       f"without urgency: {_line}. Mention it; do not press "
                       f"for it, and never let it hold the archive line: "
                       f"when this session's own work is in it, the line is "
                       f"\"You can archive this session\", with a note such "
                       f"as \"Your changes are on staging, but not main\" "
-                      f"(Morgan, 2026-10-18; practice: the-boildown).")
+                      f"(practice: the-boildown).")
                 continue
             print(f"- NOT YET LANDED: {_line}. The Boildown MUST say so and "
                   f"recommend merging it -- do not close a turn leaving this "

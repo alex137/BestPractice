@@ -9831,10 +9831,11 @@ def _stage_lines(name, r):
 
 def _stage_markdown(results):
     """-> the `## Checks by stage` block for the run's write-up."""
+    # The quick tier's limit: Morgan, 2026-10-16 and 2026-10-17.
     md = ['Read from each repository\'s own push check and branch tool by '
           'this run (`tools/very_deep_check.py`, CHECKS BY STAGE). Before a '
           'push to staging or main only the quick tier may run: the bare '
-          'essentials and the leak gate (Morgan, 2026-10-16 and 2026-10-17).',
+          'essentials and the leak gate.',
           '']
     for name, r in results:
         md.append(f'### {name}')
