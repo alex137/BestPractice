@@ -101,7 +101,7 @@ still get its own session ([prompt-please](prompt-please.md)). Twenty of them
 cost twenty sessions' start-up, twenty sessions to archive and twenty
 merges to ask auto mode for, and the run above avoids all of that.
 
-Everything under the headings below from "Who starts it" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "Who starts it" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Who starts it
 

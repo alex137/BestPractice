@@ -45,7 +45,7 @@ unresolved-source note is a fact about the list's completeness; a theory
 about its cause is an investigation nobody asked for.
 
 ## Detail
-Everything under the headings below from "The answer in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The answer in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The command field, the word list and the count
 **The field is the registry** (practice:

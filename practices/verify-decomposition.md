@@ -42,7 +42,7 @@ error in as an invariant. Both failure modes, with their examples, are
 under Detail, *The two failure modes in full*.
 
 ## Detail
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives that part of the Rule in full. The Rule names each one where it needs it.
 
 ### The two failure modes in full
 **The practice.** A model earns trust through how it is built, not through whether

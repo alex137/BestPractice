@@ -76,7 +76,7 @@ handled" covers what the session was already allowed to do. When the
 environment blocks an action, the verdict is a recommendation, and the
 session does not route around the block.
 
-Everything under the headings below from "The verdict in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The verdict in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The verdict in full
 

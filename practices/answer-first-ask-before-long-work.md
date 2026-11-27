@@ -47,14 +47,11 @@ has lost track of when it was said, and chat surfaces show no timestamps,
 so "15 minutes" leaves the person no way to know when to look back. The
 zone is the person's declared timezone, else the one their own commits
 carry; never the container's unless it is theirs, and always written out,
-since the person, a colleague and the machine are often in three. S.
-Alexander Jacobson, 2026-10-07 (strength: decided): "let's also make a
-practice of reporting a future time not just a duration estimate".
+since the person, a colleague and the machine are often in three.
 **The clock comes from [tools/precedent_time.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_time.py)**, which reads the zone
 from the person's identity.json; never recalled, and never the zone of an
-example. Until 2026-10-13 this Rule's example named New York, and a
-session working for someone in Buenos Aires gave its times in New York's
-for two days, reading the clock by hand in the example's zone.
+example: a session that reads the clock by hand in an example's zone
+gives the person another city's times.
 
 **Part 3 to a person who is not a code owner** is the outcome in everyday
 words, never the mechanism: what is being checked and that they can say
@@ -74,10 +71,8 @@ committed does not wait for the commit. **Sent early and then changed** by
 the later work (a check that forced an edit, a merge that brought in someone
 else's change), it is sent again, with one line saying what changed.
 
-**Part 3's wait is never a bare "still running"**; that phrase was in the
-Rule until 2026-10-14 and moved here when part 1 widened. **What part 2 means by a long task:** a
-cold solve, a search family, a re-solve cascade, a whole-tree gate. Both
-were in the Rule until 2026-09-21 (see `## Story`).
+**Part 3's wait is never a bare "still running".** **What part 2 means by a long task:** a
+cold solve, a search family, a re-solve cascade, a whole-tree gate.
 
 "A few minutes" is the boundary at which a person would rather have been
 asked: below it the run is cheaper than the exchange; above it the run

@@ -128,7 +128,7 @@ carried source's `occasion_share_tokens` plus its `resident_block_tokens`,
 plus the entry's `fixed_allowance`, to add up to at most the hard ceiling,
 and each source's own build refuses to grow past those numbers.
 
-Everything under the headings below from "The registry and its findings" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The registry and its findings" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The registry and its findings
 

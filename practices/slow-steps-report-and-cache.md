@@ -50,7 +50,7 @@ nothing** ("The three mechanics in full"):
 - **Keep a ledger of verified facts, one per unit, and skip a unit whose fact still holds.** A gate that re-runs a script to prove nothing changed spends nearly all its time on that proof. A fact records the fingerprint of the code the unit can reach (the same key as the memo above, from the unit's own entry point), the files the run actually read and the modules it loaded outside that closure, each by content hash and recorded by an audit hook in the process that did the work, never declared by hand, and the hash of the result. Content hashes, never timestamps: a checkout rewrites every file's time. (Absorbed from `gate-ledger`, 2026-11-05.)
 
 ## Detail
-Everything under the headings below from "The three mechanics in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The three mechanics in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Profiling, memo keys and fallbacks
 **Profile before declaring the remainder "the next lever."** A two-minute

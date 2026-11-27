@@ -147,7 +147,7 @@ one-off typo has no upstream. Don't invent a template to blame, and don't
 make a change just so the answer looks thorough
 ([no-invented-specifics](no-invented-specifics.md)).
 
-Everything under the headings below from "The opening in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The opening in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The opening in full
 

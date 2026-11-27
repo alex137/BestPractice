@@ -83,7 +83,7 @@ not. Root issues looks back over the whole session for anything whose cause
 or fix belongs elsewhere, fixed here or not, and returns it as handoffs; it
 is the sweep that catches what upstream-fix missed at the time.
 
-Everything under the headings below from "The command and the question in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The command and the question in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The command and the question in full
 

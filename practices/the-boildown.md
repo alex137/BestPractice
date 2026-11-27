@@ -169,7 +169,7 @@ restates the moment is moved to the name in the same change, or in its own
 source by a handoff the change links.
 
 ## Detail
-Everything under the headings below from "The heading and the list in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a reply must carry, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+Everything under the headings below from "The heading and the list in full" on is the full text behind the Rule, which holds only what a reply must carry, in order. The Rule names each heading where it needs it.
 
 ### Why one section, and where its items came from
 **Why one section instead of several practices.** The six things this replaces were six separately-triggered rules, most of them reachable only through the reply gate, several of them enforced only in prose. Reading them side by side, they describe one artifact -- the closing block of a reply -- not six independent occasions. Naming it once, with a fixed name and a fixed order, is what makes it checkable: a bullet either appears in the right slot or it does not, which "a reply that made a commit should restate outstanding items" never quite was.

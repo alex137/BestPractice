@@ -125,7 +125,7 @@ end up taking the pick anyway. `Prompt Please` is for *after* that point: a
 recommendation already exists, and what's wanted is the clean handoff text
 to act on it, not another comparison.
 
-Everything under the headings below from "The question and the four things in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The question and the four things in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The question and the four things in full
 
