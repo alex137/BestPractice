@@ -874,13 +874,6 @@
     "so when an entry is higher than the file. The list is meant to reach {}."
   ],
   "record_in_instructions_before_the_rule": {
-    "practices/change-updates-its-docs.md": 1,
-    "practices/decommission-deletes-files.md": 1,
-    "practices/inner-workings-for-code-owners.md": 1,
-    "practices/never-delete-a-remote-branch.md": 1,
-    "practices/record-not-instruction.md": 1,
-    "practices/source-sets-run-no-ci.md": 2,
-    "practices/the-boildown.md": 2,
     "templates/github-actions/branch-cleanup.yml.template": 1,
     "templates/github-actions/leak-gate.yml.template": 1,
     "templates/github-actions/light-check.yml.template": 6,
