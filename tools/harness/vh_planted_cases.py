@@ -3065,6 +3065,30 @@ def check_precedent_check_fires():
                           _rc_rl != 0
                           and 'documentation/planted-history.md' in _out_rl))
             shutil.rmtree(_rl, ignore_errors=True)
+            # A date standing on its own is the record too: an aside
+            # tagged with its day fails; the same day as a freshness stamp
+            # on an outside fact, or in a code span, does not.
+            _rb = fresh('record-not-instruction-bare-date')
+            (_rb / 'documentation' / 'planted-aside.md').write_text(
+                '# Guide\n\nRun the step twice (2026-01-15: a run was '
+                'lost).\n', encoding='utf-8')
+            _rc_rb, _out_rb = run(_rb, 'record-not-instruction')
+            cases.append(('record-not-instruction: a date standing on its '
+                          'own in a document fails',
+                          _rc_rb != 0
+                          and 'documentation/planted-aside.md' in _out_rb))
+            shutil.rmtree(_rb, ignore_errors=True)
+            _rv = fresh('record-not-instruction-dated-content')
+            (_rv / 'documentation' / 'planted-stamped.md').write_text(
+                '# Guide\n\nThe host allows it (verified 2026-01-15). A '
+                'heading reads `Wednesday 2026-01-15: a-slug`.\n',
+                encoding='utf-8')
+            _rc_rv, _out_rv = run(_rv, 'record-not-instruction')
+            cases.append(('record-not-instruction: a "verified" date and a '
+                          'date in a code span do NOT fail',
+                          _rc_rv == 0 and 'VIOLATION' not in _out_rv))
+            shutil.rmtree(_rv, ignore_errors=True)
+
             _ra = fresh('record-not-instruction-as-of')
             (_ra / 'documentation' / 'planted-fact.md').write_text(
                 '# Guide\n\nThe host allows this (as of 2026-01-15). Items '
