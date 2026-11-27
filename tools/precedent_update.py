@@ -1908,6 +1908,7 @@ def _repin_installed_workflow(repo, rel, old_sha, new_sha, source):
     if not isinstance(entry, dict) or entry.get('sha256') != old_sha:
         return False
     entry['sha256'] = new_sha
+    # record-not-instruction: the record -- an approval line.
     entry['approved_by'] = (
         f'{entry.get("approved_by") or ""}; Update Vendors, '
         f'{precedent_time.today(repo)}: refreshed from {source}\'s template, '
@@ -3451,6 +3452,7 @@ def upstream_changes_block(repo, old, new, sets=()):
     note = (f'could not be read here: {", ".join(unread)}.\n' if unread else '')
     if not sections:
         return f'WHAT OTHERS CHANGED UPSTREAM: {note}' if note else ''
+    # "Always makes the cut": Morgan, 2026-10-12.
     return '\n'.join([
         f'WHAT OTHERS CHANGED UPSTREAM in what this update brings in -- '
         f'{total} commit(s) by people other than you.',
@@ -3460,7 +3462,7 @@ def upstream_changes_block(repo, old, new, sets=()):
         'key phrase in bold, saying who did it and what it changes for this '
         'repository and its sessions. A change to a rule or to how sessions '
         'behave always makes the cut (the others-did practice, in the ladder '
-        'set; Morgan, 2026-10-12).',
+        'set).',
         '']) + '\n' + '\n'.join(sections) + note
 
 

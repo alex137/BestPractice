@@ -395,11 +395,16 @@ OPTIONAL = {'deep_check', 'commit_author', 'commit_dates', 'session_trailer',
 # does not run (ci_workflows, light_check, views_sync, scrub_gate,
 # practice_export_loop, rename_links) were measured on 2026-10-17 in two
 # consuming repositories, three runs each, from the slower repo's median.
+# record-not-instruction: the record -- each check's approval, in the
+# person's words, as the table below keeps it.
 _IN_FORCE_AT_CLOSING = ('in force when Morgan closed the tier, 2026-10-16: '
                         '"all the testing EXCEPT THE BARE ESSENTIAL AND LEAK '
                         'GATES SHOULD GO INTO DEBUT"')
+# record-not-instruction: the record
 _LEAKS = 'Morgan, 2026-09-25: "Good on nothing private going out"'
+# record-not-instruction: the record
 _WORKFLOWS = 'Morgan, 2026-09-25: "we need to absolutely put a hard stop to this"'
+# record-not-instruction: the record
 BASIC_CHECKS_APPROVED = {
     'leak_gate': (_LEAKS, 16),
     'leak_gate_commits': (_LEAKS, 4),

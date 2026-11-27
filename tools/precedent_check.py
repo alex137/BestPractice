@@ -2116,11 +2116,12 @@ _SPEC_SHAPE_RE = re.compile(r'^## The Shape\n.*?^```\n---\n(.*?)\n---\n', re.S |
        'never a refusal: an old practice is tidied, never stopped '
        '(practice: format-rules-grandfather).',
        advisory=True,
+       # Never refused: Morgan, 2026-10-05.
        advisory_term={'term': 'permanent',
                       'why': 'field order is a shape rule: a practice out '
                              'of order loads and works exactly the same, so '
                              'it is tidied by the commit hook and Update '
-                             'Vendors, never refused (Morgan, 2026-10-05)'},
+                             'Vendors, never refused'},
        practice_backed=False, binds_publishers=True,
        selects_on=('practices/*.md', 'spec/PRACTICE_FORMAT.md',
                    'tools/frontmatter_yaml.py'))
@@ -4605,9 +4606,10 @@ _TEMPLATE_TEXT = ('.md', '.template', '.sh', '.txt', '.json', '.yml', '.yaml', '
 def _record_stamps(root):
     """-> [(rel, line number, the stamp)] for every piece of the record
     found in an instruction under `root`: the hand-written part of an
-    instructions file, an active practice's `## Rule`, and any text file
-    under templates/. Generated blocks are blanked, never matched by hand
-    (generated_blocks.blank)."""
+    instructions file, an active practice's `## Rule`, any text file
+    under templates/, and a message a tool can print
+    (_record_stamps_printed). Generated blocks are blanked, never matched
+    by hand (generated_blocks.blank)."""
     found = []
 
     def scan(rel, text):
@@ -4652,6 +4654,104 @@ def _record_stamps(root):
                     head = text[:m.start(1)].count('\n')
                     text = '\n' * head + m.group(1)
                 scan(f.relative_to(root).as_posix(), text)
+    found.extend(_record_stamps_printed(root))
+    return found
+
+
+# What marks a string in a tool as the record on purpose: an approval line a
+# tool writes into `approved_by:`, a Story it writes into an open item, a
+# table of who approved what. The comment sits on the statement holding the
+# string, or in the three lines above it.
+RECORD_MARKER = 'record-not-instruction: the record'
+_RECORD_MARKER_ABOVE = 3
+_PRINTED_RULES_FILE = 'reply_check.json'
+
+
+def _record_stamps_printed(root):
+    """-> [(rel, line number, the stamp)] for every piece of the record in
+    a message a tool can print: a string in a script directly under tools/
+    (a .py file's string literals other than docstrings; a .sh file's lines
+    that are not comments), and every value in reply_check.json outside a
+    key that opens with an underscore.
+
+    A string is passed over when the line of it holding the stamp is itself
+    a comment in code the tool emits (it opens with // or #), and when its
+    statement carries RECORD_MARKER. Tests are not read: their fixtures
+    plant stamps on purpose."""
+    found = []
+    tdir = root / 'tools'
+    for f in sorted(tdir.glob('*')) if tdir.is_dir() else ():
+        if not f.is_file() or f.name in ('verify_harness.py',) \
+                or f.name.startswith('test_'):
+            continue
+        rel = f.relative_to(root).as_posix()
+        if f.suffix == '.sh':
+            for n, line in enumerate(f.read_text(
+                    encoding='utf-8', errors='ignore').split('\n'), 1):
+                if not line.lstrip().startswith('#'):
+                    for m in _RECORD_STAMP_RE.finditer(line):
+                        found.append((rel, n, m.group(0)))
+            continue
+        if f.suffix != '.py':
+            continue
+        src = f.read_text(encoding='utf-8', errors='ignore')
+        if not _RECORD_STAMP_RE.search(src):
+            continue                       # nothing to find: skip the parse
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        lines = src.split('\n')
+        docstrings = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Module, ast.FunctionDef, ast.ClassDef,
+                                 ast.AsyncFunctionDef)):
+                b = node.body
+                if b and isinstance(b[0], ast.Expr) \
+                        and isinstance(b[0].value, ast.Constant) \
+                        and isinstance(b[0].value.value, str):
+                    docstrings.add(id(b[0].value))
+
+        def visit(node, stmt):
+            if isinstance(node, ast.stmt):
+                stmt = node
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                    and id(node) not in docstrings:
+                marked = None
+                for vline in node.value.split('\n'):
+                    if vline.lstrip().startswith(('//', '#')):
+                        continue
+                    for m in _RECORD_STAMP_RE.finditer(vline):
+                        if marked is None:
+                            lo = max(0, (stmt.lineno if stmt else node.lineno)
+                                     - 1 - _RECORD_MARKER_ABOVE)
+                            hi = (stmt.end_lineno if stmt else node.end_lineno)
+                            marked = any(RECORD_MARKER in l for l in lines[lo:hi])
+                        if not marked:
+                            found.append((rel, node.lineno, m.group(0)))
+            for child in ast.iter_child_nodes(node):
+                visit(child, stmt)
+        visit(tree, None)
+    f = root / _PRINTED_RULES_FILE
+    if f.is_file():
+        try:
+            rules = json.loads(f.read_text(encoding='utf-8'))
+        except ValueError:
+            rules = None
+
+        def walk(o, n):
+            if isinstance(o, dict):
+                for k, v in o.items():
+                    if not str(k).startswith('_'):
+                        walk(v, n)
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v, n)
+            elif isinstance(o, str):
+                for m in _RECORD_STAMP_RE.finditer(o):
+                    found.append((_PRINTED_RULES_FILE, n, m.group(0)))
+        for n, rule in enumerate(rules if isinstance(rules, list) else (), 1):
+            walk(rule, n)
     return found
 
 
@@ -4660,17 +4760,24 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
 
 @check('record-not-instruction', 'tree',
        'no instruction gains a piece of the record: the hand-written part '
-       'of an instructions file, an active practice\'s Rule and every text '
-       'file under templates/ carry no "Name, date" stamp, no '
-       '"(strength: ...)" marker and no dated history opener beyond the '
-       'count precedent.json records for that file from before the rule',
-       'a name with no date beside it, history told without a date, a '
-       'template that declares itself a dated record with the record-doc '
-       'marker, a practice\'s Detail (left for a later decision), a message a tool '
-       'prints, which the rule covers and no scan here reads, and a stamp '
-       'that replaces another in a file whose count does not rise',
+       'of an instructions file, an active practice\'s Rule, every text '
+       'file under templates/, every string a script directly under tools/ '
+       'can print and every reason in reply_check.json carry no "Name, '
+       'date" stamp, no "(strength: ...)" marker and no dated history '
+       'opener beyond the count precedent.json records for that file from '
+       'before the rule',
+       'a name with no date beside it, history told without a date or '
+       'opening in lower case ("retired 2026-..."), a template that '
+       'declares itself a dated record with the record-doc marker, a '
+       'practice\'s Detail (left for a later decision), a tool\'s comments '
+       'and docstrings, a string a tool marks as the record it writes (an '
+       'approval line, a Story), a message a test or a script in a '
+       'subdirectory of tools/ prints, a registry other than '
+       'reply_check.json, and a stamp that replaces another in a file whose '
+       'count does not rise',
        selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
-                   'local/practices/**/*.md', 'templates/**', 'precedent.json'))
+                   'local/practices/**/*.md', 'templates/**', 'precedent.json',
+                   'tools/*.py', 'tools/*.sh', 'reply_check.json'))
 def _record_not_instruction(ctx):
     # WHY (Alex, 2026-11-25): the instructions file here opened by naming
     # whose sign-off a merge did not need, relayed by whom and on what date.
@@ -9702,6 +9809,7 @@ def _set_names_in_strings(path, wanted, set_only, names):
 # Names the engine keeps on purpose though a set also uses them, each with
 # the words that kept it (spec/ENFORCEMENT_LIVES_WITH_ITS_PRACTICE_PLAN.md,
 # part 4). A new entry needs the person's words, as these have.
+# record-not-instruction: the record -- the approval beside each kept name.
 _SET_NAMES_KEPT = {
     'go-merge': 'Morgan, 2026-10-16: a name BestPractice itself retired, '
                 'used by the tests of retirement',
@@ -13977,11 +14085,11 @@ def _open_item_disposition(ctx):
        'and are tidied with tools/todo_disposition.py, never stopped '
        '(practice: format-rules-grandfather).',
        advisory=True,
+       # Never stopped: Morgan, 2026-10-05.
        advisory_term={'term': 'permanent',
                       'why': 'a shape rule over records written before it '
                              'existed: the item still works, and the tool '
-                             'that writes parks fixes it in one command '
-                             '(Morgan, 2026-10-05)'},
+                             'that writes parks fixes it in one command'},
        practice_backed=False,
        selects_on=('todo/todo-*.md', 'tools/todo_disposition.py'))
 def _open_item_disposition_copies(ctx):

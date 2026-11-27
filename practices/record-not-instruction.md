@@ -3,8 +3,8 @@ slug:        record-not-instruction
 title:       A person's name and a dated incident belong in the record, never in the instruction
 tier:        on-demand
 severity:    default
-applies_to:  ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "practices/**", "local/practices/**", "templates/**"]
-applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule and anything under templates/. The path channel reaches it, so it costs no index line."
+applies_to:  ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "practices/**", "local/practices/**", "templates/**", "tools/*.py", "tools/*.sh", "reply_check.json"]
+applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule, anything under templates/, and the scripts and reply rules whose messages a session is shown. The path channel reaches it, so it costs no index line."
 occasion:    "writing or editing an instructions file, a practice's Rule, a template, or a message a tool prints"
 gates:       []
 index_clause: "who decided and when goes in the record; an instruction says the rule, by role"
@@ -38,7 +38,9 @@ strength: assented
 
 **The check counts, and the count only goes down.** The files that predate the rule are not clean yet, so each has its present count recorded, and the check refuses a file that rises above its count or a new file that carries any.
 
-**What the check sees.** In an instructions file's hand-written part, in every active practice's `## Rule` and in every text file under `templates/`: a capitalised name followed by a date, a `(strength: ...)` marker, and a history opener such as "Until", "Since" or "Rewritten" followed by a date. It cannot see a name with no date beside it, or history told without one.
+**What the check sees.** In an instructions file's hand-written part, in every active practice's `## Rule`, in every text file under `templates/`, in every string a script directly under `tools/` can print, and in every reason `reply_check.json` holds: a capitalised name followed by a date, a `(strength: ...)` marker, and a history opener such as "Until", "Since" or "Rewritten" followed by a date. It cannot see a name with no date beside it, history told without one, or a history opener in lower case ("retired 2026-..."). It does not read a test, a script in a subdirectory of `tools/`, or a registry other than `reply_check.json`.
+
+**A tool's own record stays in the tool.** A comment and a docstring are the record, and so is a comment in code a tool emits. A string that is the record on purpose (an approval line a tool writes into `approved_by:`, a Story it writes into an open item, a table of who approved a check) carries the comment `# record-not-instruction: the record` on its statement or in the three lines above, and the check passes it over. In `reply_check.json` the reason a refusal prints is `why`; who asked for the rule, when, and the incident go in `_story` beside it, which nothing prints.
 
 ## Why
 Two rules here pull against each other. One says a rule records the incident behind it and who approved it. Another says a document states what is true now. Nothing said where the first stops, so the citations spread from the stories into the rules, the instructions file and the templates, and only the first rule had a check.

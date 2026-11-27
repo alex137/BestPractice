@@ -678,9 +678,11 @@ def bot_author_findings() -> tuple[list[str], set[str]]:
             f"commit {sha[:12]}: author is {name!r} <{email}>, the harness's "
             f"own bot address -- a commit nobody authored")
     if findings:
+        # Decided by Morgan, 2026-10-06 (strength: decided): a fallback in an
+        # emergency, never the routine.
         findings.append(
-            "allowed as an emergency fallback, never as the routine (Morgan, "
-            "2026-10-06, strength: decided): tell the person, and record an "
+            "allowed as an emergency fallback, never as the routine: tell "
+            "the person, and record an "
             "open item under todo/ naming the commit(s) and why no identity "
             "was set, so the cause is fixed. An unpublished one can still be "
             "re-authored (fix `git config user.email`, then `git rebase "
