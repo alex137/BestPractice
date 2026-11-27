@@ -3729,6 +3729,27 @@ def check_headroom_notice_watches_the_resident_block():
             cases.append((f'a block at {used} of 550 is '
                           + ('reported' if want else 'left quiet'),
                           said == want, repr(note)))
+        # The same two blocks under the heading as it is written now, with
+        # no figures: the notice measures the block and reads the budget
+        # from the repository's own registry.
+        for words, want in ((415, True), (330, False)):
+            d = pathlib.Path(tempfile.mkdtemp())
+            try:
+                (d / 'tools').mkdir()
+                (d / 'tools' / 'session_load_budgets.json').write_text(
+                    json.dumps({'resident_block_tokens': 550}), encoding='utf-8')
+                (d / 'AGENTS.md').write_text(
+                    '# x\n\n## Resident block\n\n**a-rule.** '
+                    + 'word ' * (words - 2) + '\n\n## Occasion index\n\n'
+                    + 'more ' * 500 + '\n', encoding='utf-8')
+                note = slt.headroom_notice(root=d)
+            finally:
+                shutil.rmtree(d, ignore_errors=True)
+            said = bool(note) and 'resident block' in note
+            cases.append((f'a block of {words} words under a bare heading, '
+                          f'budget 550, is '
+                          + ('reported' if want else 'left quiet'),
+                          said == want, repr(note)))
     finally:
         slt.registry = real
     bad = [(c[0], c[2]) for c in cases if not c[1]]

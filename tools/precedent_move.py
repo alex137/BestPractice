@@ -946,10 +946,10 @@ def _ceiling_warnings(root):
                        f'pushing; the session-load-budget check refuses it')
     agents = root / 'AGENTS.md'
     if agents.is_file():
-        m = slt.RESIDENT_HEADING.search(agents.read_text(encoding='utf-8',
-                                                         errors='replace'))
+        m = slt.resident_block_measure(
+            agents.read_text(encoding='utf-8', errors='replace'), root)
         if m:
-            n, budget = (int(g.replace(',', '')) for g in m.groups())
+            n, budget = m
             if n > budget:
                 out.append(f'its resident block is ~{n:,} tokens, over its '
                            f'{budget:,}-token budget')
