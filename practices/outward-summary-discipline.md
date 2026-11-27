@@ -38,7 +38,7 @@ diligence record. The record is part of the deliverable.
 reporting the work done** — do not queue it, offer it as an option, or defer
 it to "before external use".
 
-**(0) Before any of it, build the document around the question the audience actually has, not around the material you just produced.** The tell is a headline shaped like your recent work rather than like the reader's problem; if a one-sentence statement of the audience's question is not near the top, this step was skipped. (Absorbed from `frame-from-audience-question`, 2026-11-05.)
+**(0) Before any of it, build the document around the question the audience actually has, not around the material you just produced.** The tell is a headline shaped like your recent work rather than like the reader's problem; if a one-sentence statement of the audience's question is not near the top, this step was skipped.
 
 ## Detail
 Only genuinely external blockers (an unreachable source, a number needing a

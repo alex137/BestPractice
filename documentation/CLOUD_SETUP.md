@@ -21,8 +21,8 @@ Open [claude.ai/code](https://claude.ai/code), go to the environment this
 project runs in, and find its **environment variables** — the exact screen
 is in Anthropic's own guide at
 [code.claude.com/docs/en/claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
-worth checking directly if the layout has moved since it was last confirmed
-there, 2026-09-11. Add each line below as its own variable, with your own
+worth checking directly if the layout has moved (last
+verified 2026-09-11). Add each line below as its own variable, with your own
 values substituted in.
 
 ```sh
@@ -163,11 +163,10 @@ Nothing else is added, and nothing already in the file changes, with one
 exception: the ask rules an earlier version of the runner wrote, which it
 takes back out.
 
-**First added to a real environment on 2026-09-28, not yet confirmed in a
-session started after it.** The runner itself was run by hand in a real
-session opened in `/home/user` and ran all 25 hooks across six repositories;
-whether the hosted harness reads the user-level settings the setup script
-writes is what the next new session shows. In it,
+**Not yet confirmed in a hosted session started with the script in place
+(as of 2026-09-28).** Whether
+the hosted harness reads the user-level settings the setup script
+writes is what your next new session shows. In it,
 `python3 tools/precedent_session_check.py` reports whether
 `.precedent/SESSION_PRACTICES.md` exists and whether commits are authored by
 you, and both are red when no hook ran.
@@ -198,9 +197,8 @@ a Claude-authored commit as Verified. **If the project, or your own
 practices, also require every commit to carry a real person's identity, the
 two collide on every single commit, forever**: the stop hook flags each one
 as Unverified and recommends switching to the bot identity, and a
-human-authorship guard immediately refuses that switch. Measured
-2026-09-17: this fired on three consecutive commits in one session before
-anyone traced why, on a repo whose own commit-identity backstop explicitly
+human-authorship guard immediately refuses that switch.
+Precedent's own commit-identity backstop is such a guard: it
 refuses `noreply@anthropic.com` as an author by design.
 
 **The fix has to survive a fresh container, so it belongs in whatever
@@ -229,11 +227,11 @@ there.
 ## Keep the Checkout From Going Stale
 
 A session's container can start from cached state instead of a genuinely
-fresh clone. **Verified 2026-09-15:** one environment, running since
-2026-04-17, had every session start from a container frozen at a single
-commit days old — diverged from live origin — which then tripped the
+fresh clone (verified 2026-09-15): a long-running environment
+can have every session start from a container frozen at a single
+commit days old — diverged from live origin — which then trips the
 freshness guard and the Stop hook on every session as if real unpushed work
-existed. Recreating the environment cleared it that one time; whether the
+existed. Recreating the environment clears it; whether the
 same environment drifts again on a schedule is still open
 ([TODO.md's `check-default-cc-environment-staleness` item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-15-check-default-cc-environment-staleness.md)).
 
@@ -253,11 +251,11 @@ checkout it's run against, so the same line works whatever repository and
 branch the environment happens to open — not just this one.
 
 **The guard is load-bearing, not defensive padding.** A bare
-`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"` (the form in use then)
-errored the first time it was tried, 2026-09-15: the Setup command runs
-before the checkout is ready, so `git branch --show-current` had nothing to
+`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"`
+errors: the Setup command runs
+before the checkout is ready (verified 2026-09-15), so `git branch --show-current` has nothing to
 read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
-of failing, and it confirmed working the same day once added.
+of failing.
 
 **A fast-forward, never a reset.** A line that
 ends in `git reset --hard "origin/$b"` forces the checkout onto

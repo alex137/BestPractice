@@ -94,9 +94,8 @@ and is skipped (usually a stale clone). A decline naming nothing any
 practice ships warns as stale. A file this tree received and no practice
 ships any more is removed in the same sync while it is byte for byte what
 was shipped and no other tracked file names it; one edited here, or still
-named, is reported and left in place. Left behind, it dropped out of the
-manifest with that sync and read from then on as the repository's own
-(2026-10-19, a retired practice's tool in a consumer).
+named, is reported and left in place. Left behind, it drops out of the
+manifest with that sync and reads from then on as the repository's own.
 
 **The untracked delivery, for a set the repository does not track**
 ([`precedent_session_practices.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_session_practices.py)
@@ -137,6 +136,11 @@ hook runs. BestPractice declares the same set, but as the universal source
 it never materializes, so it was missing both too. Delivering into the
 tracked tree would have made a repository's tracked files depend on who ran
 the sync, so the files arrive untracked at session start instead.
+
+2026-10-19: behind the Detail's removal of a file no practice ships any
+more. In a consumer, a retired practice's tool was left behind; it dropped
+out of the manifest with that sync and read from then on as the
+repository's own.
 
 ## Install
 Nothing to install beyond the engine. A practice set adds `ships:` to each

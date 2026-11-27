@@ -35,9 +35,11 @@ by itself and being moved.
 **Mark the list so the check can see it**, with the sentinel on its own line
 directly above the first entry:
 
-    <!--dated-list-->
-    - **2026-09-05, who** — what changed
-    - **2026-09-06, who** — what changed next
+```
+<!--dated-list-->
+- **2026-09-05, who** — what changed
+- **2026-09-06, who** — what changed next
+```
 
 The mark is opt-in on purpose. Plenty of lists carry dates and are ordered
 by something else entirely — severity, topic, the order an argument needs —

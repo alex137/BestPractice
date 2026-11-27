@@ -38,7 +38,7 @@ never a tag, an attribute, a comment, a script or code:
 
 - `--` and `---` always become an em dash (—), spacing kept as typed.
 - A hyphen between two numbers that make a range becomes an en dash:
-  1990-2000, pages 10-20, 9-5, 3:00-5:00. A date (2026-10-13), a phone
+  1990-2000, pages 10-20, 9-5, 3:00-5:00. A date (`2026-10-13`), a phone
   number, and a hyphen next to a letter (PR-173, B-52) stay hyphens.
 - A range in words ("Monday-Friday") keeps its hyphen; a writer who wants
   the en dash there types it.

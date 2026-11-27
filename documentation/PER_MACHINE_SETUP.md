@@ -7,11 +7,6 @@ from. **None of it lives in any repository** — that is the point of it — so
 nothing in a fresh clone will remind you, and **most of it fails quietly
 when absent.**
 
-Written down because it kept being rediscovered. On 2026-09-07 a session
-found the individual source's clone URL living in a public repository's
-tracked hook, moved it to the private per-person config where it belongs,
-and then had nowhere to say so.
-
 **Setting up a hosted session on Claude Code on the web — most people's way
 in — only ever needs the first copy-paste block below, the environment
 variables.** [CLOUD_SETUP.md](CLOUD_SETUP.md) walks through just that part,
@@ -146,7 +141,7 @@ env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT
 |---|---|---|
 | `individual.name`, `individual.path`, `individual.repo_url` | `~/.config/precedent/config.json` (or wherever `PRECEDENT_USER_CONFIG` points) | Your individual practices do not resolve. The session says so on stderr and runs with team and universal only — easy to miss in a long startup. `repo_url` specifically is what the session-start hook clones from; without it the hook cannot fetch your set. |
 | `PRECEDENT_LEAK_BLOCKLIST` **and** `git config precedent.requireVocabulary true` | shell profile, and git config per checkout | The leak gate's vocabulary layer **fails open**: it prints `PARTIAL`, exits 0, and the push goes through with only the structural rules applied. Both are needed — the variable alone is not enough. **The variable is an override rather than the only route**: with it unset, the gate reads `leak-blocklist.txt` from the individual set your config names — the path this same section tells you to put it at — so a fresh shell no longer silently drops to the structural half. Set it anyway when your list lives somewhere else. |
-| `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default and both dated 2026-09-12: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
+| `# visibility-audit: private-owner <your GitHub account> -- reason`, inside that blocklist file | the private blocklist itself | Switches the **repo-reference allowlist** on. Without it, every `<account>/<name>` mention passes: a blocklist blocks only the names someone remembered, and a private repository you create tomorrow is not one of them. With it, each mention is refused until an `allow` line gives a reason. The gate prints `INERT` on every run until you declare it, rather than passing quietly. **Do not pre-allow your individual source** — a shared repo naming one is refused by [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) as a privacy boundary, so an allow line for it grants exactly what the architecture withholds. Two further directives live in the same file, both off by default: `stem-notes off -- reason` moves the routine missing-stem note out of every push run and into the very deep check, and `auto-cover-bare-names on -- reason` makes each private clone's **bare** name a pattern in its own right, so the short form is refused without anybody writing a stem. |
 | `name`, `email`, `timezone` in your individual set's `identity.json` | the individual set itself | Your commits carry the wrong person or the wrong clock. Name and address can still be resolved from the GitHub account the session is authenticated as, so this half often *looks* fine; **the timezone cannot be resolved from anywhere** — nothing in a GitHub profile says where a person is and a container's clock is UTC — so an unfilled zone silently downgrades the author-date check from enforced to guessed, and wrong-offset commits reach the remote before anyone notices. Use an Internet Assigned Numbers Authority (IANA) zone name (`America/New_York`), never a bare offset. The same file's `grandfathered_commit_shas` is the exemption list for commits that were **already published** when a violation surfaced; it starts empty and stays empty until you genuinely need one — an unpushed commit gets fixed, not listed. |
 | `pip install cmarkgfm markdown` | the machine | `doc_lint.py`'s strikethrough check stops running and says so in one line, and `doc_html.py` cannot import. A session-start hook installs these where one runs; a repo attached mid-session never runs its own hook, so do it by hand there. |
 
@@ -224,11 +219,11 @@ checkout it runs against, so the same line works whatever repository and
 branch the environment happens to open.
 
 **The guard is load-bearing, not defensive padding.** A bare
-`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"` (the form in use then)
-errored the first time it was tried, 2026-09-15: the Setup command runs
-before the checkout is ready, so `git branch --show-current` had nothing to
+`b="$(git branch --show-current)"; git fetch origin "$b" && git reset --hard "origin/$b"`
+errors: the Setup command runs
+before the checkout is ready (verified 2026-09-15), so `git branch --show-current` has nothing to
 read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
-of failing, and it confirmed working the same day once added.
+of failing.
 
 **A fast-forward, never a reset.** A line that
 ends in `git reset --hard "origin/$b"` forces the checkout onto
@@ -261,8 +256,8 @@ for the fix.
 **On a hosted, ephemeral session there is a second way to reach your
 private sources, and it is the durable one.** The usual route is the agent
 calling `add_repo` in its first turn; that grants access *per session*, and
-it **refuses across owners** — reproduced 2026-09-09 as the very first tool
-call of a session whose initial repository was `alex137/bestpractice`:
+it **refuses across owners** (verified 2026-09-09), even as the very first tool
+call of a session:
 *"cross-tier adds are not supported in v1"*. There is no ordering of calls
 that gets around it, because the initial repository already counts. A
 session in that state runs on the universal catalogue alone and **says so
@@ -284,8 +279,8 @@ it.
 **About `inherit`, and why it is opt-in rather than a fallback.** A Claude
 Code on the web container already carries a GitHub token, and it is scoped to
 the repositories the session attached — so for a practice set under another
-owner it does not work. **Measured 2026-09-09**: `inherit` against a real
-cross-owner private set was refused by GitHub with *"Invalid username or
+owner it does not work. **Verified 2026-09-09**: `inherit` against a
+cross-owner private set is refused by GitHub with *"Invalid username or
 token"*. That is a useful answer rather than a wasted one, because the
 clone's own diagnosis distinguishes a **refused** credential from an absent
 one, so the failure names itself. What it must never be is automatic: a token
@@ -319,29 +314,25 @@ An individual set may also ship `bootstrap/pre-commit-fix`: the commit
 backstop runs it before every commit in every repository, and never lets it
 refuse one.
 
-**Verified end to end, 2026-09-10.** A real read-scoped token set on the
-environment, and a brand-new container came up with all four private sources
-already cloned, before the first turn:
-[tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) reported **146
-practices from 6 sources (41 team, 13 individual)** in a repository that had
-been resolving 89 from 1, and
+**This works end to end (verified 2026-09-10).** With a read-scoped token set on the
+environment, a brand-new container comes up with every private source
+already cloned, before the first turn, and
 [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
-reported `OK`. No `add_repo` call was made or needed. **What made this look impossible
-for three days was not the token**: the account held two environments with
-the same name, and the values had been set on the one the sessions were not
-running in. Name your environments distinctly — see [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)'s
+reports `OK`. No `add_repo` call is made or needed. **Name your
+environments distinctly**: with two environments of
+the same name, values set on the one the sessions are not
+running in look exactly like a token that does not work — see [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md)'s
 gotcha and, for the full sequence, entry 29 in
 [record/GOTCHAS_ARCHIVE.md](https://github.com/alex137/BestPractice/blob/staging/record/GOTCHAS_ARCHIVE.md).
 
-**What was verified before that, and how (measured 2026-09-09, in a Claude
-Code on the web container).** Three things were tested directly: an
+**What the container does with a credential (verified 2026-09-09, in a Claude
+Code on the web container).** An
 authenticated request to `github.com` **leaves the sandbox and reaches
 GitHub's own authentication** rather than being stopped by the proxy; there
 is **no ambient credential** for a private repository, so nothing works by
 accident; and the credential helper this ships **does deliver** the token to
-git — with a deliberately invalid one, git did not fall back to prompting,
-it sent the credential and GitHub rejected it. A valid token was tested on 2026-09-10,
-and it worked on the first try — recorded above.
+git — with a deliberately invalid one, git does not fall back to prompting,
+it sends the credential and GitHub rejects it.
 
 **The token is never written down.** It reaches git through a helper that
 reads the environment variable itself, so it appears in no command line, no
@@ -350,8 +341,8 @@ clone's `.git/config`, and none of the files the bootstrap writes.
 **Setting the variable does not reach a session that is already running**,
 and the check below reads identically for "never set" and "set five minutes
 ago" — which is exactly how a correct configuration gets reported as a broken
-one (2026-09-09: a resumed session in a container that predated the change
-measured **zero** `PRECEDENT_*` variables, not an empty token). **Test an
+one (verified 2026-09-09: a resumed session in a container that predates the change
+has **zero** `PRECEDENT_*` variables, not an empty token). **Test an
 environment change in a NEW session**, and run `env | grep -c PRECEDENT`
 before concluding anything about the token itself.
 

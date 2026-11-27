@@ -30,7 +30,7 @@ strength:    decided
 ## Rule
 **Never try to delete a branch on the remote: not once, not as a retry,
 not by another route** ("What is forbidden, by name"). A session in Claude
-Code on the web cannot remove a remote ref (measured 2026-09-14). That rules
+Code on the web cannot remove a remote ref (verified 2026-09-14). That rules
 out `git push origin --delete` (or `:<branch>`), the GitHub Model Context
 Protocol (MCP) server (it has no delete tool), the REST or GraphQL API by
 hand, an Actions workflow written, edited or dispatched to do it, a subagent
@@ -60,7 +60,7 @@ The headings below from "What is forbidden, by name" on give the Rule in full. T
 
 `git push origin --delete` fails like this — what the first line calls a
 remote procedure call (RPC) is git's own push negotiation over HTTPS
-([the measurement, 2026-09-14](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md)):
+([the measurement](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-14-a-session-can-push-branches-but-cannot-delete-a-remote-branc.md)):
 
     error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
     send-pack: unexpected disconnect while reading sideband packet
@@ -80,7 +80,7 @@ credential carries write access to *create* refs and not to *remove* them.
 
 ### There is no switch to turn it on
 
-Asked directly, 2026-09-21: **no setting in Claude Code on the web enables
+Verified 2026-09-21: **no setting in Claude Code on the web enables
 remote branch deletion, and none of the routes above is a configuration
 problem a repository can fix.** The MCP server exposes no delete tool to
 enable; the push refusal is the scope of the credential the session is handed,
@@ -100,7 +100,7 @@ capability is the one experiment whose failure case is worse than not knowing.
 **Do not try to delete a branch on the remote. Not once, not as a retry, and
 not by a different route after the first one failed.** A session running in
 Claude Code on the web cannot remove a remote ref — this is settled
-(measured 2026-09-14) and not worth one more token of anybody's budget.
+(verified 2026-09-14) and not worth one more token of anybody's budget.
 
 **Every one of these is forbidden**, listed by name so nobody rediscovers them
 one at a time:
@@ -197,6 +197,8 @@ command, it is the search that follows it.
 **2026-11-02: the tools stopped asking for the link in the reply.** The-boildown retired its delete-links item on 2026-10-30, but the lander's DONE WITH line, the ladder Promote's copy-branch line and Update Vendors' replaced-branches list still said "Hand the link over", and this Rule still said to hand it over every time. A consumer session followed the tool and put a done branch in its Boildown; Morgan: "Because now we have the branch cleanup page, you don't need to tell me in The Boildown on what branches to delete. I thought we discussed you no longer telling me that in the boildown." All three messages and this Rule now leave the branch to the cleanup page.
 
 **2026-10-16: a session never starts the cleanup.** Behind the Detail's "A session never starts it, by any route, and never offers to": Morgan, 2026-10-16: "on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page" (strength: decided; [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
+
+**2026-09-21: no switch.** The Detail's "There is no switch to turn it on" is the answer to the question asked directly that day, the day of Morgan's complaint above.
 
 ## Install
 Nothing to install — this is a rule a session applies, routed by its line in

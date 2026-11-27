@@ -74,9 +74,9 @@ saying why ([upstream-fix](upstream-fix.md)): a better answer than a rename
 that breaks inbound links across repositories, and a much better one than a
 mixed directory nobody has explained. **Say which external name each side follows**, so the next reader
 can tell this from an unexplained mess — that is the whole difference
-between an exemption and a shrug. (Raised 2026-09-08 by a dependent voice
-repository whose `templates/` mixed both separators because each file's name
-matched the file it is pasted into, and every one is vendored by name in
+between an exemption and a shrug. (A `templates/` directory is the usual
+case: it mixes both separators because each file's name
+matches the file it is pasted into, and every one is vendored by name in
 turn.)
 
 **The two separators have nicknames, and this practice avoids them on
@@ -140,6 +140,8 @@ unactionable output is one people learn to skip, which costs more than the
 rule protects.
 
 **Push gate, and off the occasion index, from 2026-10-01.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: its tree check runs in the push check's full sweep. no-version-suffix keeps the shared "naming or adding a file" line. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**2026-09-08, the exemption that names both sides.** Behind the Detail's "Say which external name each side follows": raised 2026-09-08 by a dependent voice repository whose `templates/` mixed both separators because each file's name matched the file it is pasted into, and every one is vendored by name in turn.
 
 ## Install
 Enforced by [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py), which

@@ -1,4 +1,3 @@
-<!-- Last updated: 2026-08-31 (Buenos Aires) by a phase-3 build session -->
 
 # An Example Practice Set
 

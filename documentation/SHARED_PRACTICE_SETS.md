@@ -1,5 +1,3 @@
-<!-- Last updated: 2026-10-31 (Buenos Aires), a set runs no CI; what every session reads is the resident practices and the index -->
-
 # Shared Practice Sets
 
 *The question this document answers:* **I have a rule I want in some of my

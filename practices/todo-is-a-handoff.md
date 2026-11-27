@@ -39,7 +39,7 @@ what blocks it, as in `(needs: decision -- who decides)`, or gets done now.
 **So does a single line that admits a gap** -- "no test", "not built",
 "not fixed", "deferred", "left for later": the reason goes on that line.
 The reply gate refuses a reply with such a line and no reason, and the
-deep check refuses one added to an open item (2026-10-20).
+deep check refuses one added to an open item.
 
 **A fix that belongs in another repository is never a `blocked_on` reason**
 — a vendored file's source, a practice set, an upstream engine — **and
@@ -69,7 +69,7 @@ in the sweeping session or closes it as not worth doing.
 **In the per-item `todo/todo-<date>-<slug>.md` format**
 ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
 Part 1), the same two reasons are the `blocked_on` frontmatter field's
-content, not prose. Widened here, 2026-09-18, alongside `applies_to`.
+content, not prose.
 
 ## Why
 A queued item sheds context every day it waits. The session that
@@ -121,6 +121,10 @@ Morgan: *"why a todo and not fixing an issue you found?"*, then *"how do we
 prevent this issue ... from happening again?"* The line-level check above
 is the answer: one rule in reply_check.json (gap-names-its-reason), read by
 the reply gate and by the deep check through one function.
+
+**2026-09-18: the per-item format.** The Detail's paragraph on the per-item
+`todo/todo-<date>-<slug>.md` format was added on this date, alongside the
+wider `applies_to`.
 
 ## Install
 The TODO template's header ([repo-is-memory](repo-is-memory.md)) carries the compressed

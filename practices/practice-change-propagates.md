@@ -39,7 +39,7 @@ the citations in the repository's own files of anything the update withdrew
 or renamed, or whose one-line rule (its title or `index_clause`, what a
 citation paraphrases) changed, and they are fixed in that update, not later.
 A Rule that only grew under the same one-line rule is not listed there: a
-citation of it still reads true (2026-10-15).
+citation of it still reads true.
 
 **A practice file is never deleted.** Retire it in place -- `status:` and
 `in_force_at:` naming where the rule went -- so that anyone reading an old
@@ -103,6 +103,13 @@ handoff rather than leaving it to be remembered.
 Asked for by Morgan, 2026-09-27: when a practice is changed or deleted, go to
 the sets it is cited in and fix the citations there, and do the same from a
 repository that vendors them.
+
+**2026-10-15, a Rule that only grew.** Behind the Rule's last sentence on the
+consuming side. Update Vendors listed a citation whenever a practice's Rule
+text moved, and a consumer was sent to read its citations of two practices
+whose title and `index_clause` had not changed; both citations still read
+true. Update Vendors now lists a citation only for a practice withdrawn or
+renamed, or whose one-line rule changed.
 
 ## Install
 [tools/precedent_practice_refs.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_practice_refs.py) is

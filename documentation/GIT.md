@@ -225,9 +225,7 @@ already know what they are.
 - **Lint (a "linter")** — a program that reads your files and complains
   about small mechanical faults — a link pointing at nothing, a character
   that renders wrong — without understanding a word of what you wrote.
-  [`tools/doc_lint.py`](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is this project's. Until
-  2026-09-14 the workflow running it watched only `main` and pull requests:
-  push straight to the working branch, and the link checker didn't run.
+  [`tools/doc_lint.py`](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) is this project's.
 - **Hook** — a script that runs at a fixed moment on *your* machine rather
   than GitHub's: before a commit, before a push, when a session starts. Same
   idea as a workflow, one step earlier. This repository's live in

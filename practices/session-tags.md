@@ -42,7 +42,7 @@ describes work that is already duplicated.
 absent tag and the "needs nothing from you" tag look identical in a listing
 and mean opposite things.
 
-**The title is set at the same call, as `<repo>: <differentiator>`**: a short tag for the repository the session writes to, then the one thing that makes this session unlike any other doing the same kind of work (a pull-request number, a commit, a branch, a file, a named blocker), never the task category alone. Before setting it, read the person's other open sessions' titles and make sure yours matches none on the same repo; a match means the differentiator is not sharp enough. Re-set it the moment a sharper one is known. (Absorbed from `session-title-names-the-difference`, 2026-11-05.)
+**The title is set at the same call, as `<repo>: <differentiator>`**: a short tag for the repository the session writes to, then the one thing that makes this session unlike any other doing the same kind of work (a pull-request number, a commit, a branch, a file, a named blocker), never the task category alone. Before setting it, read the person's other open sessions' titles and make sure yours matches none on the same repo; a match means the differentiator is not sharp enough. Re-set it the moment a sharper one is known.
 
 ## Detail
 **A tag is a free-form string on the session record**, held by the session

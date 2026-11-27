@@ -61,25 +61,11 @@ record is the real orphan and fails; a recorded file whose source is not
 reachable here is unverifiable, not orphaned, and is skipped; only a
 recorded file whose source *is* reachable gets its bytes checked.
 
-*(2026-09-05, in a repository that installs a shared set: a first attempt
-at the provenance check resolved sources live and failed fourteen files on
-the next push, every one legitimately sourced from a private set a GitHub
-Actions checkout cannot reach. Fixed the same day by attributing through
-the committed manifest instead.)*
-
 **The deep check must run each gate in the SHAPE continuous integration (CI)
 runs it.** Naming the commands is not enough if CI runs one of them
 differently — sharded across jobs, behind a flag, with an environment
 variable set. A definition that names the bare command certifies a shape
 nobody ships, and the session gets a green answer with authority behind it.
-
-*(2026-09-21, in the repository that wrote this practice: the deep check's
-definition named five commands, and CI split one of them across two jobs
-using variables no local run sets. The filter path those variables select
-was therefore code **no local run ever executed** — and it held a crash. The
-full local suite reported `244 passed, 0 failed` while both sharded CI jobs
-died before their first verdict. The session had run the whole deep check,
-seen it green, and opened a pull request on that basis.)*
 
 **Deliver it as one command, not as an instruction to remember.** Where CI
 splits a gate, the repo's own tool grows a mode that runs every shape in
@@ -112,12 +98,6 @@ so a test that only works in its home layout fails before it ships. A test
 that plants a fixture file stages it with `git add -f`, never a plain
 `git add`.
 
-*(2026-09-25: a test staged a fixture under `vendor/` with a plain `git add`.
-It passed on every run in its source, where nothing ignores `vendor/`, and
-failed for days in a consuming repository whose dependency manager's
-`vendor/` was ignored — each session there calling it pre-existing and
-moving on, since the test was not theirs and nothing said whose it was.)*
-
 ## Why
 Without named levels, "run the checks" is ambiguous between two
 very different costs, and the drift goes one of two ways: sessions run the
@@ -129,7 +109,7 @@ no friction, the full one stays a deliberate, named gate that is obviously
 missing if it's skipped.
 
 ## Story
-No dated incident was recorded. The rule identifies a drift with two
+No dated incident was recorded for the rule itself. The rule identifies a drift with two
 directions, and naming both is what makes the case.
 
 Without named levels, "run the checks" is ambiguous between two very
@@ -177,6 +157,32 @@ run's own line. Chosen by the session under Morgan's delegation of
 2026-10-17: "Fix the other issues you found including the checks that
 never run. Tell me what you decide. I will be offline so don't wait for
 me. Approved, act, and Booked."
+
+**2026-09-05: the committed manifest.** Behind the Detail's paragraph on
+attributing a vendored file through the committed manifest. In a repository
+that installs a shared set, a first attempt at the provenance check resolved
+sources live and failed fourteen files on the next push, every one
+legitimately sourced from a private set a GitHub Actions checkout cannot
+reach. Fixed the same day by attributing through the committed manifest
+instead.
+
+**2026-09-21: the shape CI runs.** Behind the Detail's "The deep check must
+run each gate in the SHAPE continuous integration (CI) runs it." In the
+repository that wrote this practice, the deep check's definition named five
+commands, and CI split one of them across two jobs using variables no local
+run sets. The filter path those variables select was therefore code **no
+local run ever executed** — and it held a crash. The full local suite
+reported `244 passed, 0 failed` while both sharded CI jobs died before their
+first verdict. The session had run the whole deep check, seen it green, and
+opened a pull request on that basis.
+
+**2026-09-25: a fixture under an ignored path.** Behind the Detail's
+`git add -f` for a test that plants a fixture file. A test staged a fixture
+under `vendor/` with a plain `git add`. It passed on every run in its
+source, where nothing ignores `vendor/`, and failed for days in a consuming
+repository whose dependency manager's `vendor/` was ignored — each session
+there calling it pre-existing and moving on, since the test was not theirs
+and nothing said whose it was.
 
 ## Install
 **In a repository on the Precedent loader the two levels are fixed**
