@@ -1,4 +1,5 @@
 # Harness adapter family — transfer ledger
+<!--record-doc--> A dated ledger: each row records one change on its day.
 
 Practice: [parallel-artifact-ledger](../../practices/parallel-artifact-ledger.md).
 The family: [claude-code/](claude-code/), [codex/](codex/), and

@@ -877,7 +877,6 @@
     "templates/github-actions/branch-cleanup.yml.template": 1,
     "templates/github-actions/leak-gate.yml.template": 1,
     "templates/github-actions/light-check.yml.template": 6,
-    "templates/harness/LEDGER.md": 6,
     "templates/harness/claude-code/hooks/artifact-publish-gate.sh": 1,
     "templates/harness/claude-code/hooks/commit-identity-once.sh": 1,
     "templates/harness/claude-code/hooks/commit-identity-push-gate.sh": 1,

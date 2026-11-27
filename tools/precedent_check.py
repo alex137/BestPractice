@@ -4639,6 +4639,11 @@ def _record_stamps(root):
         for f in sorted(tdir.rglob('*')):
             if f.is_file() and f.name.endswith(_TEMPLATE_TEXT):
                 text = f.read_text(encoding='utf-8', errors='ignore')
+                if f.suffix == '.md' and '<!--record-doc-->' in text[:2048]:
+                    # A dated record by its own declaration, the marker
+                    # doc_lint.is_record_doc reads: a ledger's dates are its
+                    # content, so it is the record, wherever it sits.
+                    continue
                 if f.suffix == '.md' and re.search(r'^## Rule\s*$', text, re.M):
                     # A starter practice a new set is created with: its
                     # Story and approval line are the record there as in
@@ -4660,7 +4665,8 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        '"(strength: ...)" marker and no dated history opener beyond the '
        'count precedent.json records for that file from before the rule',
        'a name with no date beside it, history told without a date, a '
-       'practice\'s Detail (left for a later decision), a message a tool '
+       'template that declares itself a dated record with the record-doc '
+       'marker, a practice\'s Detail (left for a later decision), a message a tool '
        'prints, which the rule covers and no scan here reads, and a stamp '
        'that replaces another in a file whose count does not rise',
        selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
