@@ -152,7 +152,7 @@ project installed by two people resolves two different sets of
 practices**. That is the design, not a bug — but it is worth being able to
 see.
 
-Since 2026-09-21 the generated loader block says so, in the projects where
+The generated loader block says so, in the projects where
 it is true: it names how many practices came from an individual source and
 states plainly that the tree is machine-dependent. A project with no
 individual practice in force — every public set, every CI checkout —

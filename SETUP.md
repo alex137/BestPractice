@@ -10,11 +10,10 @@ This conversation installs [INSTALL.md](INSTALL.md) §0 — the Precedent
 loader: the practice catalogue, the resident block and occasion index every
 session reads, and the enforced checks — with one command,
 [tools/precedent_install.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_install.py), which does the file
-work and then lists what is left for you to adapt. **Since 2026-09-14 this is
-the default** (Morgan, on the very deep check's recommendation; `strength:
-assented`): until then this page installed §1, the classic vendored model,
-which turns on none of the loader the rest of this repository describes.
-**§1 is no longer an install path at all** (retired 2026-09-23): a project
+work and then lists what is left for you to adapt. **This is
+the default.** §1, the classic vendored model,
+turns on none of the loader the rest of this repository describes.
+**§1 is no longer an install path at all**: a project
 that took it ran with every practice copied in and none in force. There is
 nothing to choose here — this page installs §0, always.
 

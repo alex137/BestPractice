@@ -427,8 +427,7 @@ not this section.
 into, so the first install goes straight to `main`. There is nothing on
 `main` to protect and no lower branch to promote from, which makes this the
 one direct push to `main` a repository ever takes, including under a
-person's own rule that `main` changes only by promotion (Morgan, 2026-10-08:
-*"Why not install it straight to main?"*, `strength: decided`). A
+person's own rule that `main` changes only by promotion. A
 repository that already has a `main`, even one holding only a README, is
 not this case: its install goes on a branch and lands by pull request like
 any other change. In order:
@@ -751,7 +750,7 @@ design and not oversight:
      | `reply-gate.sh` | **Only with the Precedent loader**, same reason. One line per reply-gate practice, on every prompt; it never blocks (a `UserPromptSubmit` hook that exits non-zero eats the person's message). |
 
      **Taking one out means declining it, not just deleting its entry.**
-     Since 2026-09-25 a refresh ADDS any hook this repo's kind gets that
+     A refresh ADDS any hook this repo's kind gets that
      settings.json does not run (`HOOK_WIRING` in
      [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)),
      so a hook added upstream reaches repos that are already installed. It
@@ -795,10 +794,10 @@ design and not oversight:
      costs nothing.
 
      **A declared zone configures itself, from the second session on.** A
-     hook cannot export `TZ` into the shells a session runs later, so for a
-     while the enforcement above was a refusal plus a remedy line
-     (`TZ="…" git commit …`) that had to be retyped on every single commit.
-     Since 2026-09-07 `commit-identity.sh` instead **derives** the resolved
+     hook cannot export `TZ` into the shells a session runs later, so
+     enforcement alone would be a refusal plus a remedy line
+     (`TZ="…" git commit …`) retyped on every single commit.
+     `commit-identity.sh` instead **derives** the resolved
      zone into `.claude/settings.local.json`'s `env` block — the per-machine
      settings file, which the harness reads for the whole session. Nothing to
      configure: it happens at session start wherever an `identity.json`
@@ -976,7 +975,7 @@ design and not oversight:
      account can reach, and each one's subject) and says what it declares
      and why, or names a set it found missing with a recommendation; it
      never puts "which sets should this repo have?" to the person as an
-     open question (the-boildown; Morgan, 2026-09-28, strength: decided).
+     open question (the-boildown).
      A set that was never declared is **invisible**: no error, no warning,
      no missing file, just a repo resolving fewer practices than its owner
      believes. Nothing mechanical can raise it, because the sets a repo
@@ -1488,8 +1487,8 @@ category, not by judgment call.
 **But watch for the thing that is not identity.** A writing rule that would
 improve *anyone's* prose has no business in `local/practices/project-voice.md`,
 and if a thread put one there, that IS a check-in — as a practice in the
-exported catalogue, not as template content. Until 2026-09-08 this template
-(then a plain document, `VOICE.md`) shipped 205 lines of exactly such rules
+exported catalogue, not as template content. This template once shipped,
+as a plain document, a couple of hundred lines of exactly such rules
 to every project, and one of them had come to contradict the universal
 `bold-key-phrases` outright. A local copy of a generic rule does not merely
 go stale; it argues with the live one.

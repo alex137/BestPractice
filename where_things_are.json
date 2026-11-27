@@ -61,7 +61,7 @@
       "go_to": "[spec/CHIEF_OF_STAFF.md](spec/CHIEF_OF_STAFF.md) — built 2026-09-14, retired 2026-10-16; its staging check now rides the branch-cleanup page"
     },
     {
-      "looking_for": "Inherited practices whose meaning or mechanism changed under Precedent (Alex needs to hear about these)",
+      "looking_for": "Inherited practices whose meaning or mechanism changed under Precedent (a closed record, written for the repository's owner)",
       "go_to": "[spec/CHANGES_TO_TELL_ALEX.md](spec/CHANGES_TO_TELL_ALEX.md)"
     },
     {

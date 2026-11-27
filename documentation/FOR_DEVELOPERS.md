@@ -247,7 +247,7 @@ worth doing. Either one is a small
 git repository you own, and anything in it applies everywhere you declare
 it — write the rule once, get it in every project.
 
-**You do not need anything from upstream to start.** Since 2026-09-21
+**You do not need anything from upstream to start.**
 [`tools/precedent_bootstrap_source.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py) ships with the engine into every
 project that installs Precedent, so the tool that creates a practice set is
 already sitting in your own `tools/` directory:
