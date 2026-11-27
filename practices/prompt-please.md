@@ -445,14 +445,17 @@ one, each handoff nests a level deeper, and the nesting has a limit.
 
 1. **This session has a coordinator**
    ([coordinating-sessions-through-models](coordinating-sessions-through-models.md),
-   "Who the coordinator is"): the session that created it, still running,
-   or the successor that session handed over to. Send it the prompt, word
-   for word, and ask it to open the session; it replies with the link.
-   This is the one message to a running session the handoff allows, and it
-   asks for nothing but the open.
-2. **It has none** -- the person opened it themselves, or its coordinator
-   is archived. Give the person the prompt as a paste block; a session
-   they open is at the top level.
+   "Who the coordinator is, for a session asking"): the session the
+   project's handoff file names, or the session that created this one
+   while it runs. Send it the prompt, word for word, and ask it to open
+   the session; it replies with the link. This is the one message to a
+   running session the handoff allows, and it asks for nothing but the
+   open.
+2. **This session is the coordinator, and is handing that role over.** It
+   asks the conversation session to open its successor, the same way.
+3. **Neither** -- the person opened it themselves, or the session above
+   it is no longer running. Give the person the prompt as a paste block;
+   a session they open is at the top level.
 
 **The coordinator opens what it is sent and decides nothing.** It checks
 the prompt is the one the person asked to have opened, makes the create

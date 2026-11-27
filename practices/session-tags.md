@@ -29,7 +29,7 @@ many as apply:
 |---|---|---|
 | `subject:` | a practice slug, an open-item anchor, a pull-request number | **What is this about?** |
 | `repo:` | the short repository name | **Where can it write?** |
-| `role:` | `cos`, `worker`, `watch` | **What kind of session is this?** |
+| `role:` | `coordinator`, `worker`, `watch` | **What kind of session is this?** |
 | `wants:` | `merge`, `decision`, `review`, `nothing` | **What does it need from the person?** |
 
 **`subject:` is the one that earns its keep, and it is the one that cannot be
@@ -65,8 +65,14 @@ Three facts that shape how they are used (verified 2026-09-13):
 `config:auto-create-pr:off`, which is configuration riding in the same field.
 Leave those alone and never treat one as a subject.
 
-**Exactly one session carries `role:cos`.** More than one is a bug, not a
-fleet.
+**One running session per repository carries `role:coordinator`**
+([coordinating-sessions-through-models](coordinating-sessions-through-models.md),
+"Who the coordinator is"). Two running at once is a bug, not a fleet; a
+coordinator that has handed over keeps the tag and is told apart by not
+running. Its `subject:` carries the shift, so the newest is findable by
+tag alone. `role:cos` is an older spelling of the same role and is read
+the same way. The conversation session, the one the person opened and
+talks in, carries no role: it is the session with no creator.
 
 **Retagging an existing session is allowed** and is how a fleet opened before
 this rule gets covered: `set_session_tags` works on any session by identifier,
