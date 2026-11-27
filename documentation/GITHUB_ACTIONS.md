@@ -7,22 +7,15 @@ This is especially important when working through GitHub-connected ChatGPT. A no
 ## Precedent's Own Workflows (This Repo, Not a Template)
 
 Three workflows live in this repo itself, in [.github/workflows/](https://github.com/alex137/BestPractice/tree/staging/.github/workflows).
-(A third, `docs.yml`, ran the Markdown lint here until that left CI on
-2026-09-21; see the next section.)
 
-- **`deep-check.yml`** — added by a 2026-09-03 deep-check audit. Runs
+- **`deep-check.yml`** — runs
   [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py),
   [tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) and
-  [tools/doc_sync.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_sync.py) — the three of AGENTS.md's five
-  named "deep check" tools that had no continuous-integration (CI) check
-  of their own until this landed, having been session discipline only.
-  That gap is exactly where
-  a same-day audit found two critical, reproduced bugs (a self-referential
-  `repo-local` source silently destroying its own content, and a second
-  that broke every re-sync after it) sitting undetected on a branch whose
-  merges were all green — neither doc_lint.py nor leak_gate.py could ever
-  have caught either, since neither runs the resolver or materializer at
-  all. It runs on a pull request into `main` and on every
+  [tools/doc_sync.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_sync.py) — the deep-check tools
+  that run the resolver and the materializer. Neither doc_lint.py nor
+  leak_gate.py runs those at all, so without this continuous-integration
+  (CI) check a bug in either can sit undetected on a branch whose
+  merges are all green. It runs on a pull request into `main` and on every
   push to `main`, where it stops after a few seconds if
   those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)); every other
@@ -56,17 +49,14 @@ Three workflows live in this repo itself, in [.github/workflows/](https://github
   Practice Belongs To": a `git push --no-verify` can skip the local
   [pre-push hook](../templates/hooks/pre-push), but not this. See
   [spec/SOURCES.md](https://github.com/alex137/BestPractice/blob/staging/spec/SOURCES.md) for what it checks and why it has two
-  layers, only one of which can run here. (This section exists because the
-  workflow went undisclosed for months after being added — the practice
+  layers, only one of which can run here. (The practice
   requiring disclosure, `github-setup-disclosed`, only fires on a
-  newly-added workflow file in the diff being checked, so it structurally
-  cannot catch a workflow that was already merged before the practice
-  existed to check it. Found by a 2026-09-01 deep-check audit; see
+  newly-added workflow file in the diff being checked, so it
+  cannot catch a workflow that was already merged;
   [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py)'s
-  `check_all_workflows_disclosed` for the tree-wide check added in
-  response, which does catch this going forward.)
+  `check_all_workflows_disclosed` is the tree-wide check that does.)
 
-## The Markdown Check Left CI On 2026-09-21
+## No Workflow Lints Markdown
 
 **There is no Markdown workflow any more.** `doc-lint.yml.template` (which
 installed as `bestpractice-docs.yml`) and `doc-lint-scheduled.yml.template`
@@ -123,9 +113,8 @@ So if that is you, do both of these — not one:
 **Neither of those is `--strict`, and the flag is not an upgrade of them.**
 `doc_lint.py --strict` promotes the warning classes to failures and refuses
 the changed-file scope outright, because that combination is a gate that
-refuses work nobody broke — built and withdrawn inside an hour on
-2026-09-21 after it turned down a one-line edit over 111 pre-existing
-warnings. It is the whole-tree sweep mode, and its one caller is a very
+refuses work nobody broke: a one-line edit turned down over warnings
+that were already there. It is the whole-tree sweep mode, and its one caller is a very
 deep check ([practices/very-deep-check.md](../practices/very-deep-check.md)).
 *([doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) refuses an option it does not know.)*
 
@@ -137,7 +126,6 @@ that had that gap, the CI check is not optional.
 
 ## The Leak Gate Template
 
-**First vendored 2026-09-20** (spec/CI_MINUTES_PLAN.md item 12) —
 [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
 runs [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py)'s structural layer, same as
 this repo's own `leak-gate.yml` above, but is not simply a copy of it: this
@@ -231,32 +219,26 @@ individual's own practice set or dependent project.
   Limits section says the same about an inherited schedule). It was retired
   with the Markdown workflow it replaced, and there is no scheduled
   template to copy any more.
-- **One job per workflow — the lever that replaced the debounce**
-  (2026-09-20, [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md) item
+- **One job per workflow**
+  ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md) item
   13). GitHub bills **per job, rounded up to a whole minute**, so what a
   workflow costs on a trigger that fires is mostly its job count, not its
   run time. Measured on a real installed practice set:
   [precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) takes **0.35s** and
   [build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
-  work that the three-job shape billed as **three minutes**, paying for
-  three checkouts and three Python setups to carry it. Both templates of
-  that day (the Markdown lint and the practice-set
-  check, both retired later) were cut to **one job**, and the light check
+  work that a three-job shape bills as **three minutes**, paying for
+  three checkouts and three Python setups to carry it. The light check
   and leak gate are one job each: a trigger that fires bills one minute.
-- **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
-  A debounce job skipped the check job(s) that `needs:` it when the last
+- **There is no `debounce` job, and nothing reads `ci_debounce_minutes`.**
+  A debounce job skips the check job(s) that `needs:` it when the last
   completed run on the branch was recent. A skipped job really is unbilled —
-  but **the job that decides is billed like any other**, which the shape
-  never accounted for. With `S` the fraction of triggers skipped, a
+  but **the job that decides is billed like any other**. With `S` the fraction of triggers skipped, a
   debounce job plus `N` check jobs costs `S + (1-S)(1+N)` against `N` for
   no debounce at all: worse for every `S` below 1, at every window setting.
-  That is why tuning the window `360 → 30 → 720` across three days (items
-  8, 9 and 11) never moved the bill — the cost being tuned was not the one
-  doing the spending. A repo that still carries `ci_debounce_minutes` in
-  its `precedent.json`/`identity.json` can delete the field; nothing reads
-  it any more.
+  A repo that still carries `ci_debounce_minutes` in
+  its `precedent.json`/`identity.json` can delete the field.
 - **`pull_request:` alongside a branch-scoped `push:`, not push on every
-  branch** (2026-09-19, [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
+  branch** ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
   item 8) — both templates ship `push: branches: [main]` plus
   `pull_request: [opened, synchronize]`. A branch with no open PR triggers
   neither event that matches here, so the workflow is never evaluated —
@@ -268,15 +250,12 @@ individual's own practice set or dependent project.
   repo installing this has more than one routine merge target — each
   template's own header says so at the trigger block. Do not add
   `pull_request:` to a `push:` that still covers every branch: that
-  reintroduces the exact duplicate-run problem
-  `doc-lint.yml.template` (retired)'s
-  own header measured (235 runs in matched pairs) before this repo's own
-  `docs.yml`/`deep-check.yml` dropped `pull_request:` outright on
-  2026-09-07/2026-09-14 — the fix here is scoping `push:` narrowly enough
+  runs every check twice, in matched pairs, on a branch with an open
+  pull request — the fix here is scoping `push:` narrowly enough
   that it never fires on the same branch `pull_request:` is watching, not
   running both wide open.
 - **A `PRECEDENT_RUNNER` repository variable, for an adopter who already
-  operates a self-hosted runner** (2026-09-20). Every job in
+  operates a self-hosted runner**. Every job in
   [light-check.yml.template](../templates/github-actions/light-check.yml.template)
   and [leak-gate.yml.template](../templates/github-actions/leak-gate.yml.template)
   reads `runs-on: ${{ vars.PRECEDENT_RUNNER || 'ubuntu-latest' }}` — set the
@@ -308,15 +287,14 @@ General → Workflow permissions**. The engine owns them
 from then on: see "Updating an Installed Repository" below, and
 "Controlling Actions Minutes" above for what each costs.
 
-The Markdown lint is not among them. It left CI on 2026-09-21 (the section
-above) and runs before every commit instead.
+The Markdown lint is not among them: it runs before every commit instead
+("No Workflow Lints Markdown" above).
 
 ## A Practice Set Runs No CI
 
 **An individual or shared practice set carries no GitHub workflow**
-(practice `source-sets-run-no-ci`, decided 2026-09-21 on a usage export in
-which four sets running two workflows each were 127 of 143 billed minutes
-in one day). Its checks run in the session before every push:
+(practice `source-sets-run-no-ci`: a workflow in every set bills on every
+push to every set). Its checks run in the session before every push:
 `python3 tools/precedent_check.py --full-sweep`, which includes the
 generated-views drift check (`generated-artifact-provenance`, the same
 comparison `python3 tools/build_views.py --check` makes). A set created by
@@ -434,10 +412,9 @@ anything better is possible.
 they do sends you fixing the wrong thing.** A workflow authenticates as
 `GITHUB_TOKEN`, which draws on a per-repository hourly pool that CI has to
 itself; a session's `mcp__github__*` calls and any `curl` a tool makes draw
-on the account's pools. Measured 2026-09-14 while chasing a rate-limit
-refusal: 75 workflow runs in the busiest hour on this repository, and 133
-calls of a 15,000/hour account pool spent in the same window. The runs were
-not it. **The allowances a busy fleet of sessions actually exhausts are
+on the account's pools. Verified 2026-09-14:
+75 workflow runs in the busiest hour on this repository, and 133
+calls of a 15,000/hour account pool spent in the same window. **The allowances a busy fleet of sessions actually exhausts are
 `search` (30 requests a MINUTE, shared by every open session) and the
 secondary limit on creating content (a commit, a branch, a pull request, a
 comment, a merge).** [tools/github_budget.py](https://github.com/alex137/BestPractice/blob/staging/tools/github_budget.py) prints

@@ -36,8 +36,8 @@ for either answer. Read what the file actually runs before deciding.
 **This never deletes anything, and never fails a build.** It names a
 finding; a person or a session reads it and decides.
 
-**Whether the file may run at all is a separate, blocking question**, since
-2026-09-25: [ci-workflow-approved](ci-workflow-approved.md) fails any
+**Whether the file may run at all is a separate, blocking question**:
+[ci-workflow-approved](ci-workflow-approved.md) fails any
 workflow file the person has not approved, pinned to its content. This
 practice still asks the other question: is it a leftover?
 
@@ -77,6 +77,12 @@ required, hand-authored check (`tools/light_check.py`, that repo's own
 ever templated. The filename-matching method that produced the fleet-wide
 sweep list was the same method almost shipped as this practice's own
 mechanism, before that finding corrected it.
+
+**2026-09-25: whether a workflow file may run became its own question.**
+Behind the Rule's last paragraph: from this date
+[ci-workflow-approved](ci-workflow-approved.md) fails any workflow file the
+person has not approved, and this practice kept only the question of
+whether the file is a leftover.
 
 ## Install
 Enforced by `_workflow_file_outside_vendoring` in

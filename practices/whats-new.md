@@ -58,7 +58,7 @@ counts"). **Its shape** ("An entry's shape in full"):
 
 - **The heading:** the weekday, the date and a slug naming the day's top
   highlight, in plain text, as in
-  *Wednesday 2026-09-30: daily-log-and-safer-merges*.
+  `Wednesday 2026-09-30: daily-log-and-safer-merges`.
 - **The opening line, word for word:** *"Some top highlights from the
   day's activity; ask if you want to learn more details or the full list
   of everything done."*
@@ -138,7 +138,7 @@ important of those, the same way.
 **An entry's shape:**
 
 - **The heading:** the weekday, the date, and a slug, as in
-  *Wednesday 2026-09-30: daily-log-and-safer-merges*. The slug is a few
+  `Wednesday 2026-09-30: daily-log-and-safer-merges`. The slug is a few
   lowercase words joined by hyphens naming the day's top highlight, in
   plain text: not a link, and not in backticks, which every viewer sizes
   its own way and one showed far larger than the date.

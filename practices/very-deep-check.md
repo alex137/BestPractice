@@ -3049,6 +3049,44 @@ since 2026-09-21. Question 17: all four adapters carry ledger rows since
 carried": until 2026-09-21 nothing anywhere said which repos had not taken
 an update.
 
+**2026-09-21, first runs and incidents.** Pass 1's adapter-parity bullet,
+reading each `.claude/` mechanism beside its parallel: that is how the
+2026-09-21 run found the largest gap of the set.
+`templates/harness/README.md` had told three adapters for months to wire
+`tools/bootstrap.sh` as their equivalent of `session-start.sh`, and the
+script ran three of the hook's seven steps, so no non-Claude session had
+ever been handed `.precedent/SESSION_PRACTICES.md`, the file AGENTS.md's
+own Standing instruction tells every session to read. Nothing was lying;
+the two files had simply never been read side by side. Question 8b: the
+two vendoring paths had disagreed for months, engine files diffing the
+manifest and propagating a deletion while CI workflow files waited for
+somebody to remember a tombstone; that was found on 2026-09-21 by asking,
+and fixed the same day. The table was headed "The answers as of 2026-09-21,
+updated 2026-09-28 and 2026-10-17". Its hooks row's deletion cell read `NO`
+when the item was first asked, on 2026-09-21, and it was the item's first
+finding: there were exactly two removal paths, for engine files and CI
+workflows, and none for hooks. A hook dropped upstream stayed installed in
+every consumer, and worse than the CI case, since `_write_hook_files` then
+replaced `hook_files` with only what it had just written, so the manifest
+entry vanished too and the file went on running, in every session,
+recorded by nothing. Question 13a, IDENTITY REALITY, first run: 17 commits
+in the window carrying a `+00:00` author date and 8 carrying `-04:00`,
+against 275 at the declared `-03:00`, the enforcement not having reached
+the sessions that made them. Question 15a, CHECK COVERAGE, first run: a
+shared source at 17 passed and 53 skipped, 44 of the 53 for one cause,
+each check keyed to a `practices/<slug>.md` a source set does not carry,
+because its `practices/` holds its own level only. Question 20, INCIDENT
+COVERAGE, first run: four of the six gotchas filed that week were cited by
+nothing in `tools/` or `practices/` at all. Pass 3's strict markdown
+sweep: a gate promoting doc_lint's warning classes was built and withdrawn
+inside an hour on 2026-09-21, having refused a one-line edit over 111
+warnings that predated it. Pass 3's MOVED CLAIMS, the incident:
+`commit-identity.yml` was paused with a header saying its checks "now run
+as steps in `.github/workflows/precedent-check.yml`'s single job". Four
+hours later a refresh deleted that file. The sentence was true when written
+and false the same afternoon, two commit-scope checks ran nowhere, and a
+grep at any point in the following month would have found it.
+
 **2026-09-22.** Pass 1's DELETIONS PENDING has read all three shipped paths
 since 2026-09-22. Question 8b: the missing removal path for hooks was fixed
 2026-09-22 by `_remove_dropped_hook_files`, which removed nothing until
@@ -3064,11 +3102,24 @@ of exactly that move (before the tool supported it) shipped a deduplication
 this repo's own consumer-fixture check later found resolving nowhere.
 Pass 3's SOURCE bullet: added 2026-09-23 (Morgan, strength: decided), after
 asking for a placement review across the five Precedent repos and finding
-this axis was never checked anywhere: the session's own report is the
-bullet's worked example.
+this axis was never checked anywhere. The session, asked to do exactly this
+read, once, by hand, across precedent-individual and the three shared sets
+against universal, found instances of all three shapes on the first pass:
+five practices filed in precedent-individual that were general mechanisms
+in personal wording, two universal practices squarely inside
+working-style's own stated subject, and `vendor-neutral-by-default`
+independently authored in both universal's `local/practices/` and
+repo-maintenance, because repo-maintenance resolves no sources of its own
+and never saw the universal copy to compare against. The same session's
+reading also found `small-calls` and `push-back` sitting active in both a
+shared set and universal for three days after a 2026-09-19 move landed only
+its first half, a duplication the bullet would have caught on the next run
+rather than waiting for someone to notice by hand.
 
 **2026-09-25 to 2026-10-07.** Question 8b's hooks rows: `HOOK_WIRING` added
-a `settings.json` entry (2026-09-25); since 2026-10-07 every hook file is
+a `settings.json` entry (2026-09-25), and the table's `settings.json` row
+read "yes, add-only hook entries, 2026-09-25 to 2026-10-07; since then
+nothing a new hook needs touches it"; since 2026-10-07 every hook file is
 one permanent stub and a hook added since then is listed in
 `tools/hook_wiring.json`; the sync has written practice-declared hooks
 since 2026-10-07. Step 2 of the order of operations: since 2026-10-07 a
@@ -3079,10 +3130,13 @@ here and by hand: Morgan, 2026-09-26: "I only want this to run when either
 manually invoked or as part of a very deep check". That its output stays
 in the session: Morgan, 2026-09-26, strength: decided: *"its results
 should go to the session not the GitHub since it references other repos of
-yours"*. Pass 4's branches bullet, on the two forgotten session branches it
-tells of: Morgan: *"I don't even know what that was, or if it's deprecated,
-or no longer needed, or if it was something useful ... it was completely
-forgotten."*
+yours"*. That GitHub answers inside a session only for the repos attached
+to it was measured 2026-09-26. Pass 4's branches bullet, 2026-09-26: two
+week-old session branches in a consuming repo each held one commit that
+never reached `main`, two hundred commits back, and nobody could say what
+either was for. Morgan: *"I don't even know what that was, or if it's
+deprecated, or no longer needed, or if it was something useful ... it was
+completely forgotten."*
 
 **2026-09-27.** Pass 4's base-branch bullet: this repository kept a carry
 watermark until 2026-09-27, when its upstream-carry notice was retired.
@@ -3110,8 +3164,11 @@ decided).
 reported: Morgan, 2026-09-29, strength: decided. "Every branch read, only
 the current copy fixed", that the CI fleet audit reads the workflow files
 on branches pushed in the last seven days: Morgan, 2026-09-29, strength:
-decided. Pass 2's duplicate question, on the two duplicates it says were
-found 2026-09-29: Morgan, that day: add a check for needless redundancy.
+decided. Pass 2's duplicate question: found 2026-09-29, both missed by
+earlier runs of the question, were a hand-kept list of every practice's
+routing reason, whose copy of the gates had drifted on fourteen practices,
+and two checks scanning for retired words, one with history-aware rules and
+one without. Morgan, that day: add a check for needless redundancy.
 The question was widened to be that check.
 
 **2026-09-30.** Pass 2's question 23, VENDORED SURPLUS: the incident it
@@ -3147,7 +3204,8 @@ mandatory."*
 added 2026-10-17, the day a rehearsal found the page never named it.
 Pass 2's question 25, of the retired tier below staging: Morgan,
 2026-10-17, of that tier: "any mention of [it] it finds should be fixed to
-assume its deprecation". The same question, the checks by stage: Morgan,
+assume its deprecation". That tier, the old one below staging, was retired
+for everyone on 2026-10-14. The same question, the checks by stage: Morgan,
 2026-10-17: "Please add to very deep check, an explicit check for that ...
 It should list this, which is for the push to staging, the push to main.
 What are the checks listed? ... what are the checks that are done before
@@ -3158,13 +3216,19 @@ check." Question 26, set independence: Morgan, 2026-10-17: "The practice
 sets should be more independent as practices and the test for the
 practices in the practice sets ... add to a very deep check a review for
 that to make sure that is how it works. And fix it if it's not, if you
-find it otherwise at any point." Question 27, the test review: Morgan,
+find it otherwise at any point." On 2026-10-16 BestPractice held a set's
+practice names in its logic and its tests, and taking them out was a
+night's work. Question 27, the test review: Morgan,
 2026-10-17, strength: decided: "Update 'very deep check' to review all
 TESTS to see if all tests are relevant and important. Do they test
 something still used and needed? Was what it tests deprecated? ... does
 the amount of time it takes worth it for its level of importance? Write
 all this in the result doc you create." No earlier item asked for it; that
-question is the first. Pass 3's TOKEN BUDGETS: Morgan, 2026-10-17,
+question is the first. On 2026-10-17 the harness still carried a pile of
+tests about the tier below staging, three days after that tier was retired
+for everyone; each passed and each cost time on every full run. The list
+of times a run read that day said 777 seconds for the planted-case test,
+measured before a speed-up, and that day it took 266. Pass 3's TOKEN BUDGETS: Morgan, 2026-10-17,
 strength: decided, after weeks without a budget warning raised the
 question of whether they were still checked: "even if they all pass, share
 the exact numbers, the limits, the chart, and any other details. These

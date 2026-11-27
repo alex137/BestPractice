@@ -752,7 +752,7 @@ typed into that session.
 **2026-10-20: a pass about the wrong repository.** Behind the Detail's
 bullet that a check the prompt names as "done when" runs from the
 repository it is about. Run from precedent-shared-ladder, BestPractice's
-`precedent_check.py` printed its wrong-repository banner and then a pass
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) printed its wrong-repository banner and then a pass
 line, exit 0: a pass about BestPractice. The tool now refuses with no pass
 line when the current directory is a different repository with its own
 copy.

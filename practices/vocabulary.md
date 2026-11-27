@@ -78,23 +78,13 @@ Editing any of those rendered copies by hand instead is
 [generated-edit-goes-upstream](generated-edit-goes-upstream.md)'s failure.
 
 **The printed count is SMALLER than the number of `command:` entries, and
-that is correct.** It came up twice on 2026-09-21 as a suspected bug, from
-two different sessions, so the arithmetic is written down here rather than
-re-derived a third time. Measured on that date:
-
-| | |
-|---|---:|
-| `command:` entries across all practice files | 23 |
-| less entries in practices whose `status:` is not `active` | −3 |
-| command names with an active practice behind them | **20** |
-| less names collapsed as a SYNONYM onto another line | −2 |
-| **lines the tool prints** | **18** |
-
-The two synonyms are `Approved` (printed under the other phrase of its own
-command) and `Archive?` (under `Archive`). The three inactive ones are `archive-command`,
-`brief-it` and `session-text`, each `status: deduplicated` — folded into a
-surviving practice, so their word still works and their entry is not a
-second rule.
+that is correct.** Two kinds of entry do not get a line. An entry in a
+practice whose `status:` is not `active` is left out: it is normally
+`status: deduplicated` — folded into a
+surviving practice, so its word still works and its entry is not a
+second rule. A synonym is printed under the other phrase of its own
+command, as `Archive?` is under `Archive`. The Story works the arithmetic
+through on one day's catalogue.
 
 So a name appearing twice across the catalogue is the NORMAL shape of a
 deduplication, not a collision: one claim is active, the other is not.
@@ -104,7 +94,7 @@ with the same command and no way to tell which rule binds. There is no such
 pair today; it is simply unguarded.
 
 **Which is the whole reason this practice says to read the list rather than
-recall it.** Both sessions that reported a discrepancy had counted
+recall it.** A session that reports a discrepancy has counted
 something reasonable — output lines, or frontmatter entries — and neither
 number is the answer. The tool is the answer.
 
@@ -211,6 +201,25 @@ none of it had been asked for. The listing itself was correct and complete;
 everything that went wrong was in the part this rule already said not to
 write. That is what sharpened "nothing else" into the clause above, and what
 [diagnosis-is-measured](diagnosis-is-measured.md) was written out of.
+
+**2026-09-21: the printed count read as a bug, twice.** Behind the Detail's
+"The printed count is SMALLER than the number of `command:` entries". It
+came up twice that day as a suspected bug, from two different sessions, so
+the arithmetic was written down rather than re-derived a third time. Both
+sessions had counted something reasonable — output lines, or frontmatter
+entries. Measured on that date:
+
+| | |
+|---|---:|
+| `command:` entries across all practice files | 23 |
+| less entries in practices whose `status:` is not `active` | −3 |
+| command names with an active practice behind them | **20** |
+| less names collapsed as a SYNONYM onto another line | −2 |
+| **lines the tool prints** | **18** |
+
+The two synonyms were `Approved` (printed under the other phrase of its own
+command) and `Archive?` (under `Archive`). The three inactive ones were `archive-command`,
+`brief-it` and `session-text`, each `status: deduplicated`.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 516 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the opening line, the tool to run, the two lists and what "nothing else" covers, in 202 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
