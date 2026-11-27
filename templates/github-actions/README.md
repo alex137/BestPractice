@@ -23,8 +23,8 @@ pull request into `main` decides: when the test passed more recently than that, 
 request's branch `DATE-promote-to-main-not-due-ID` and the job's
 `if:` skips it before a runner starts. A private pull request into `main`
 from any branch but a due `DATE-promote-to-main-ID` copy is skipped
-the same way. Until 2026-10-06 the copies were `to-main-not-due-DATE` and
-`to-main-DATE`; the job still reads those, and the engine keeps them in a
+the same way. The job also still reads the older names `to-main-not-due-DATE` and
+`to-main-DATE`, and the engine keeps them in a
 repository whose workflow knows no other. A repository whose
 `precedent.json` says `"github_ci_main_test": "always"` gets this file with
 its main-test marker set to `always`, written by install and Update
@@ -56,17 +56,15 @@ The installer writes it where `github_ci_workflows` allows, it is tracked in
 from this template over whatever the consumer has, hand-made or hand-edited.
 The same refresh removes every other workflow upstream does not ship, unless
 the person approved it in their own words in `github_ci_approved`. Nothing is
-asked. Morgan, 2026-09-27: *"the point of the yml changes is to stop these
-extra needless (often hand edited) yml files from running, that's why we now
-run the checks locally etc so it shouldn't ask."*
+asked: the checks run locally, so a hand-made or hand-edited workflow file
+has nothing left to do.
 
 **It runs one thing, the vendored check suite, on a pull request into
 main.** A repository's own light check runs in its local push check before
 every push ([two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)),
 so GitHub's job is only to re-check what is about to reach `main` on a clean
-machine. Until 2026-09-27 this template carried a `CUSTOMIZE` line and told
-an adopter to copy their old command into it. That advice is what kept
-hand-made copies alive, and it is gone.
+machine. The template has no line to customise: copying an old command
+into it is what keeps hand-made copies alive.
 
 **Why a shape exists at all** ([spec/BILLING_FLOOR.md](https://github.com/alex137/BestPractice/blob/staging/spec/BILLING_FLOOR.md)).
 [two-check-levels](https://github.com/alex137/BestPractice/blob/staging/practices/two-check-levels.md)
@@ -88,7 +86,7 @@ git holds with no uncommitted edits, so its old content stays in history.
 
 ## The Markdown lint is NOT here any more
 
-**Retired 2026-09-21.** `doc-lint.yml.template` (installed as
+**Retired.** `doc-lint.yml.template` (installed as
 `bestpractice-docs.yml`) and `doc-lint-scheduled.yml.template` are gone,
 and `.github/workflows/bestpractice-docs.yml` is tombstoned in
 `precedent_vendor_engine.RETIRED_CI_WORKFLOW_FILES`, so the next

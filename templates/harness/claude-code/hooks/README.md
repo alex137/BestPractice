@@ -6,7 +6,7 @@ a repository's `.claude/hooks/`, and they never change again. Everything a
 hook does is in its script in [tools/](https://github.com/alex137/BestPractice/tree/staging/tools), which Update
 Vendors keeps current with the rest of the engine.
 
-**Why** (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+**Why.**
 Claude Code's auto mode holds any commit that changes a file under `.claude/`
 until the person says yes. The hook scripts changed upstream on 27 days in
 one month, and `settings.json` on 9, so nearly every Update Vendors stopped to

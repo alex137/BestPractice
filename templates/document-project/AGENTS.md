@@ -110,9 +110,9 @@ instructions for this repo, not gotchas.
 
 <!-- From spec/CONTRIBUTOR_ACCESS.md, adapted only to name this project's
      real files. Do not weaken the wording below — see that plan's own note
-     on why. Rewritten 2026-09-11: this section used to give the contributor
-     GitHub's Triage or Read role, which denied them every write, the
-     documents included. -->
+     on why. The contributor needs a role that can write:
+     GitHub's Triage and Read roles deny every write, the documents
+     included. -->
 
 **The line, in one sentence: a contributor writes content freely, a protected
 path needs an owner's review, and a practice is suggested by anyone and landed
