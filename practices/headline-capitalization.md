@@ -141,6 +141,10 @@ here at all.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 519 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is in scope, the tool that applies it, and the exclusion list, in 144 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
+**2026-09-06, internal files are out of scope.** The Detail's "Scope in full", that this rule governs content published for people outside the project and nothing else: stated by Morgan, 2026-09-06, settling it.
+
+**2026-10-01, the dated log heading.** `title_case.DATED_SLUG_HEADING` was added 2026-10-01 for the [whats-new](whats-new.md) log.
+
 ## Install
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) is both the definition and
 the fix: bare, it checks and exits non-zero listing every heading that is

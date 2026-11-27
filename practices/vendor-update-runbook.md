@@ -961,7 +961,7 @@ comparison.
    any consumer's (a shared set whose subject is writing declares the
    universal set and a shared one), and the tool is in the shared `ENGINE_FILES`, so every
    kind of repo has it. Step 7's
-   `precedent_source_credentials.py` is in `ENGINE_FILES` too,
+   [precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py) is in `ENGINE_FILES` too,
    because a session rooted in a practice set needs the person's own
    individual set exactly as much as a consumer does.
    **Read both tools' answers as answers about THIS repo, and check that
@@ -1615,7 +1615,8 @@ answer.
 change took about 25 minutes to reach `main` and a few to reach `staging`.
 
 **2026-10-11, same heading:** since 2026-10-11,
-`tools/precedent_update_driver.py` runs the update from a temporary
+[tools/precedent_update_driver.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_driver.py)
+runs the update from a temporary
 worktree of the newer commit when the clone's own code is behind.
 
 **2026-09-21, same heading:** before 2026-09-21
@@ -1661,8 +1662,8 @@ any."*
 
 **2026-09-24 and 2026-09-19, same heading:** the refresh has covered a file
 declared under `engine_paths` since 2026-09-24, and the check for a newly
-vendored `tools/todo_migrate.py` or `tools/build_todo_index.py` has been
-part of it since 2026-09-19.
+vendored TODO migration tool or index generator has been part of it since
+2026-09-19.
 
 **2026-09-27, behind "Step 4 in full: the catalogue update":** until
 2026-09-27 this step said "under a branch pin, the manual mirror" with no
@@ -1692,12 +1693,14 @@ attach was refused (Claude Code's auto-mode classifier refused 2 of 3,
 question needed.
 
 **2026-11-01, same heading:** until 2026-11-01
-`precedent_source_names.py` was in `CONSUMER_ENGINE_FILES` only, on the
+[tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py)
+was in `CONSUMER_ENGINE_FILES` only, on the
 reasoning that a set has no multi-source config, and step 8 told a session
 in a set to skip the step; that day a session in a set that declares two
 sources found the tool missing and ran it from the BestPractice clone.
-Step 7's `precedent_source_credentials.py` has always been in
-`ENGINE_FILES`.
+Step 7's
+[tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
+has always been in `ENGINE_FILES`.
 
 **2026-09-14, same heading:** until 2026-09-14 the two tools' answers were
 not about this repo, on the commonest consuming layout of all: an engine
