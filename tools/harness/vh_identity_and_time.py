@@ -302,6 +302,95 @@ def check_bot_authored_commits_are_warned_where_no_person_is_declared():
     check(f'{name} ({len(cases)} stated cases)', not failed, '; '.join(failed))
 
 
+def check_commit_author_passes_the_merge_github_itself_writes():
+    """The merge check judges the commit GitHub would write for a pull
+    request. GitHub authors it as the merging account under that account's
+    primary email, which nothing in a session sets, so with a person
+    declared the author check refused every pull request (2026-11-27).
+
+    THE FIXTURE: a person declared by PRECEDENT_COMMIT_*, and one merge
+    commit authored under the person's name with another email. THE CASES:
+    committed by GitHub, it passes; the same merge committed by the person
+    fails, so the committer is what passes it; committed by GitHub under
+    another name, it fails, so the name is still held; and a plain commit
+    committed by GitHub with the other email fails, so only a merge passes
+    (practice: control-asserts-which-failure)."""
+    import tempfile, shutil as _shutil
+    name = ('Commit author: the merge commit GitHub itself writes passes '
+            'under the declared name, and nothing else rides on it')
+    script = ROOT / 'tools' / 'check_commit_author.py'
+    need = [script, ROOT / 'tools' / 'precedent_session_check.py',
+            ROOT / 'tools' / 'precedent_identity.py',
+            ROOT / 'tools' / 'commit_checks_common.py']
+    absent = [str(p.relative_to(ROOT)) for p in need if not p.exists()]
+    if absent:
+        not_applicable(name, f'not in this tree: {absent}')
+        return
+    cases = []
+    with tempfile.TemporaryDirectory() as td:
+        tmp = pathlib.Path(td)
+        ambient, person, person_git = _engine_commit_env(tmp)
+        other = dict(person_git, GIT_AUTHOR_EMAIL='pat@primary.example')
+        by_github = dict(GIT_COMMITTER_NAME='GitHub',
+                         GIT_COMMITTER_EMAIL='noreply@github.com')
+        work = tmp / 'work'
+        (work / 'tools').mkdir(parents=True)
+        for p in need:
+            _shutil.copy2(p, work / p.relative_to(ROOT))
+
+        def git(*args, env=person_git):
+            return subprocess.run(['git', '-C', str(work), *args],
+                                  capture_output=True, text=True, env=env)
+
+        def commit(msg, env=person_git):
+            return git('commit', '-q', '--allow-empty', '-m',
+                       f'{msg}\n\nSession: none available (fixture)', env=env)
+
+        def merged(env):
+            """-> the check's (rc, output) over base..main after merging the
+            side branch with `env`, with main put back afterwards."""
+            git('checkout', '-q', 'main')
+            git('merge', '-q', '--no-ff', '-m', 'Merge pull request #1',
+                'side', env=env)
+            p = subprocess.run([sys.executable, str(work / 'tools' / script.name)],
+                               cwd=str(work), capture_output=True, text=True,
+                               env=dict(person, PRECEDENT_CHECK_RANGE='base..HEAD'))
+            git('reset', '-q', '--hard', 'base')
+            return p.returncode, p.stdout + p.stderr
+
+        git('init', '-q', '-b', 'main')
+        git('add', '-A')
+        commit('the base')
+        git('tag', 'base')
+        git('checkout', '-q', '-b', 'side')
+        commit('a person\'s change')
+
+        rc, out = merged(dict(other, **by_github))
+        cases.append((f'a merge committed by GitHub, authored under the '
+                      f'declared name with the account\'s other email, '
+                      f'passes (rc={rc}, {out[-200:]!r})', rc == 0))
+        rc, out = merged(other)
+        cases.append((f'the same merge committed by the person is refused '
+                      f'for its email (rc={rc})',
+                      rc != 0 and 'pat@primary.example' in out))
+        rc, out = merged(dict(other, GIT_AUTHOR_NAME='Somebody Else',
+                              **by_github))
+        cases.append((f'committed by GitHub under another name, it is '
+                      f'refused (rc={rc})',
+                      rc != 0 and 'Somebody Else' in out))
+        git('checkout', '-q', 'main')
+        commit('a plain commit', env=dict(other, **by_github))
+        p = subprocess.run([sys.executable, str(work / 'tools' / script.name)],
+                           cwd=str(work), capture_output=True, text=True,
+                           env=dict(person, PRECEDENT_CHECK_RANGE='base..HEAD'))
+        cases.append((f'a plain commit committed by GitHub with the other '
+                      f'email is refused: only a merge passes '
+                      f'(rc={p.returncode})',
+                      p.returncode != 0 and 'pat@primary.example' in p.stdout + p.stderr))
+    bad = [c for c, ok in cases if not ok]
+    check(name, not bad, '; '.join(bad))
+
+
 def check_install_report_lists_only_placeholders_an_adopter_fills():
     """The installer's "placeholders to adapt" list leaves out a generated
     block and a backslash-escaped `\\<date\\>`.
