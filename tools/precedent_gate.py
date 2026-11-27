@@ -1221,7 +1221,132 @@ def _container_report():
     return '\n'.join('    ' + ln for ln in (p.stdout or '').strip().splitlines())
 
 
+POINTER_FLAG = '--unchanged-as-pointer'
+# An item that is always printed, shown before or not: it describes this
+# container's state at this moment, and a session that last read it forty
+# turns ago is the one about to say the wrong thing.
+_ALWAYS_SHOWN = ('DO NOT SAY',)
+_POINTER_ITEM_RE = __import__('re').compile(r'^- (?:\*\*[a-z0-9-]+\*\* \(|\[[^\]\n]+\] )')
+
+
+def _compactions(transcript):
+    """-> how many times this transcript records a compaction, or None when
+    it cannot be read. After one, what a session was shown earlier is no
+    longer in front of it."""
+    try:
+        n = 0
+        with open(transcript, encoding='utf-8', errors='ignore') as fh:
+            for line in fh:
+                if '"isCompactSummary"' in line and json.loads(line).get('isCompactSummary'):
+                    n += 1
+        return n
+    except (OSError, ValueError):
+        return None
+
+
+def unchanged_as_pointer(text, state_file, compactions):
+    """-> `text`, the gate's brief output, with every rule this session was
+    already shown, word for word, left out and counted in one closing line.
+
+    WHY (2026-11-27, on the repository owner's yes). The reply gate's brief
+    list is printed at the start of every turn: 11,578 characters here, new
+    text each time, where the whole instructions file is about 24,000 and is
+    read cheaply after its first call. A project's coordinator measured
+    printed check output as a fifth of its context growth. The list is the
+    same from one turn to the next; what changes is a line or two.
+
+    WHAT IS LEFT OUT, AND WHAT NEVER IS. An item is a line opening `- ` and
+    the indented lines under it. One is left out only when it is a practice
+    line or a declared requirement, AND this exact text was printed earlier
+    in this session, AND it is not one of _ALWAYS_SHOWN. So a requirement
+    whose text carries state (the last reply's own closing section, what is
+    owed in this reply) prints whenever that state changes, and everything
+    that is not such an item -- the session-setup warnings, what is not yet
+    landed -- prints every turn as before.
+
+    EVERYTHING PRINTS AGAIN after a compaction, on a session's first turn,
+    and whenever the state cannot be read or written: the full list is the
+    safe failure (practice: fail-gracefully).
+
+    `state_file` holds {"compactions": n, "shown": [hash, ...]} for this
+    session's transcript."""
+    import hashlib
+    try:
+        state = json.loads(pathlib.Path(state_file).read_text(encoding='utf-8'))
+        if not isinstance(state, dict):
+            state = {}
+    except (OSError, ValueError):
+        state = {}
+    fresh = (compactions is None
+             or state.get('compactions') != compactions
+             or not isinstance(state.get('shown'), list))
+    shown = set() if fresh else set(state['shown'])
+
+    lines = text.split('\n')
+    out, left_out, i = [], 0, 0
+    while i < len(lines):
+        if not _POINTER_ITEM_RE.match(lines[i]):
+            out.append(lines[i])
+            i += 1
+            continue
+        j = i + 1
+        while j < len(lines) and lines[j][:1] in (' ', '\t') and lines[j].strip():
+            j += 1
+        item = '\n'.join(lines[i:j])
+        key = hashlib.sha1(item.encode('utf-8')).hexdigest()[:16]
+        if key in shown and not any(m in item for m in _ALWAYS_SHOWN):
+            left_out += 1
+        else:
+            out.extend(lines[i:j])
+        shown.add(key)
+        i = j
+    if compactions is None:
+        return text
+    try:
+        f = pathlib.Path(state_file)
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps({'compactions': compactions,
+                                 'shown': sorted(shown)}), encoding='utf-8')
+    except OSError:
+        return text
+    if not left_out:
+        return text
+    body = '\n'.join(out).rstrip('\n')
+    return (f"{body}\n\n({left_out} reply rule(s) printed earlier in this "
+            f"session are unchanged and still in force; they are not repeated "
+            f"here. `python3 tools/precedent_gate.py reply --brief` prints "
+            f"them all.)\n")
+
+
+def _pointer_run():
+    """main() for `reply --brief --unchanged-as-pointer`: the same output,
+    passed through unchanged_as_pointer() when the hook named a transcript.
+    With none, or on any failure of its own, the output is printed whole."""
+    import contextlib, hashlib, io
+    sys.argv = [a for a in sys.argv if a != POINTER_FLAG]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = main()
+    text = buf.getvalue()
+    transcript = os.environ.get('PRECEDENT_TRANSCRIPT_PATH') or ''
+    argv = sys.argv[1:]
+    if rc == 0 and transcript and 'reply' in argv and '--brief' in argv:
+        try:
+            root = (pathlib.Path(argv[argv.index('--repo') + 1]).resolve()
+                    if '--repo' in argv else ROOT)
+            name = hashlib.sha1(transcript.encode('utf-8')).hexdigest()[:16]
+            text = unchanged_as_pointer(
+                text, root / '.precedent' / 'reply_gate_shown' / f'{name}.json',
+                _compactions(transcript))
+        except Exception:                                     # noqa: BLE001
+            pass
+    sys.stdout.write(text)
+    return rc
+
+
 def main():
+    if POINTER_FLAG in sys.argv[1:]:
+        return _pointer_run()
     argv = sys.argv[1:]
     repo = None
     if '--repo' in argv:

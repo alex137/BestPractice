@@ -4478,6 +4478,8 @@ def main():
           *check_reply_check_keeps_practice_ideas_at_the_close())
     check('the reply check keeps quiet while a batch of background jobs runs',
           *check_reply_check_keeps_quiet_while_a_batch_runs())
+    check('the reply rules at the start of a turn are a pointer after the first turn',
+          *check_turn_start_rules_are_a_pointer_after_the_first_turn())
     check('a code-owners-only practice reaches only code owners',
           *check_code_owners_only_practices_reach_only_code_owners())
     check('a person with no individual set is known by --admin or their GitHub account',

@@ -55,7 +55,12 @@ export PRECEDENT_TRANSCRIPT_PATH="$transcript"
 root="$(git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-.}")"
 for d in "$root/tools" "$root/process/upstream/tools"; do
   if [[ -f "$d/precedent_gate.py" ]]; then
-    python3 "$d/precedent_gate.py" reply --brief 2>/dev/null || true
+    # --unchanged-as-pointer (2026-11-27): a rule this session was already
+    # shown, word for word, is counted in one closing line instead of being
+    # printed again. Everything prints on the first turn and after a
+    # compaction. precedent_gate.unchanged_as_pointer says what never is
+    # left out.
+    python3 "$d/precedent_gate.py" reply --brief --unchanged-as-pointer 2>/dev/null || true
     break
   fi
 done
