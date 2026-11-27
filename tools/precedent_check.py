@@ -15206,8 +15206,16 @@ def _loader_within_caps(ctx):
                                'reachable here')]
         return []
     why = [l for l in out.splitlines() if 'FAIL' in l]
+    # A block over its cap is the registry's doing when a change lowers the
+    # cap and leaves the block alone: the block's heading carries no figure,
+    # so AGENTS.md does not change with the cap, and --changed-files-only
+    # would set the finding aside as one in a file the change never touched.
+    changed = set(getattr(ctx, 'changed', None) or ())
+    about = (_BUDGET_REGISTRY if _BUDGET_REGISTRY in changed
+             and 'AGENTS.md' not in changed else None)
     return [Finding('AGENTS.md', (why[-1] if why else
-                                  'build_views.py --budgets failed').strip())]
+                                  'build_views.py --budgets failed').strip(),
+                    path=about)]
 
 
 @check('session-file-allowances-fit', 'tree',
