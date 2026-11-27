@@ -22,8 +22,8 @@ Three workflows live in this repo itself, in [.github/workflows/](https://github
   that broke every re-sync after it) sitting undetected on a branch whose
   merges were all green — neither doc_lint.py nor leak_gate.py could ever
   have caught either, since neither runs the resolver or materializer at
-  all. It runs on a pull request into `main` (since 2026-09-25) and on every
-  push to `main` (since 2026-09-27), where it stops after a few seconds if
+  all. It runs on a pull request into `main` and on every
+  push to `main`, where it stops after a few seconds if
   those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
@@ -36,7 +36,7 @@ Three workflows live in this repo itself, in [.github/workflows/](https://github
   ([the gotcha](../gotchas/gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)).
   The harness now refuses any other way of running the suite in this
   workflow.
-- **`precedent-branch-cleanup.yml`** — added 2026-10-16
+- **`precedent-branch-cleanup.yml`**
   ([spec/BRANCH_CLEANUP_BUTTON_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
   **It never runs by itself:** its only trigger is a person clicking Run
   workflow, reached from the delete-all button on the branch cleanup page.
@@ -111,7 +111,7 @@ So if that is you, do both of these — not one:
 1. **Run it by hand before every commit:**
    `python3 tools/doc_lint.py <the markdown you touched>`.
 2. **Turn a GitHub check on as well, as a workflow of your own.** Not by
-   editing `light-check.yml`: since 2026-09-27 the engine owns that file, and
+   editing `light-check.yml`: the engine owns that file, and
    every Update Vendors writes it back from the template. Add a separate
    one-job workflow, say `.github/workflows/doc-lint.yml`, running
    `python3 tools/doc_lint.py` on `"**/*.md"`, and record your approval of it
@@ -127,11 +127,7 @@ refuses work nobody broke — built and withdrawn inside an hour on
 2026-09-21 after it turned down a one-line edit over 111 pre-existing
 warnings. It is the whole-tree sweep mode, and its one caller is a very
 deep check ([practices/very-deep-check.md](../practices/very-deep-check.md)).
-*(Those two lines said `--strict` until 2026-09-21 — added by the very
-commit that withdrew the flag, so they were stale on arrival.
-[doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) ignored unknown options silently, so
-anyone following them ran the ordinary lint and got a pass either way.
-Unknown options are refused now.)*
+*([doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) refuses an option it does not know.)*
 
 **Doing only the first is the arrangement that just failed here.** "A
 session is supposed to run it" was written down and followed, and still
@@ -161,17 +157,15 @@ Runs No CI" below).
 
 ## Controlling Actions Minutes
 
-**What a new install gets, since 2026-09-25** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
+**What a new install gets** ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)):
 one GitHub test and no more. `light-check.yml` runs only on a pull request
 into `main`, about one billed minute per merge into main in a private repo;
 `leak-gate.yml` runs on a pull request in a public repo, and never in a
 private one, where its job is skipped before a runner starts. Every push,
 to any branch, is checked on the person's own machine: by the push check,
 and by the leak gate in the global pre-push hook every session start writes
-(since 2026-10-10; until then `leak-gate.yml` also ran on every push, one
-billed job each). **The installer writes these by default**; a declared
-`"github_ci_workflows": "disabled"` still installs nothing. **Since
-2026-09-27 the engine owns both**: every Update Vendors writes them from the
+(`leak-gate.yml` does not run on a push). **The installer writes these by default**; a declared
+`"github_ci_workflows": "disabled"` still installs nothing. **The engine owns both**: every Update Vendors writes them from the
 templates over any hand-made or hand-edited copy, and removes every other
 workflow upstream does not ship that the person did not approve in their own
 words. It checks first that nothing needed is lost: a file running anything
@@ -180,7 +174,7 @@ move named and an open item written to `todo/`. It asks nobody (`CI_CONVERGES_KI
 [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)). The `[skip ci]` line the commit hook adds in a private
 repo stays on as a backstop until every install carries these files.
 
-**A workflow file nobody approved fails every push, since 2026-09-25**
+**A workflow file nobody approved fails every push**
 ([ci-workflow-approved](../practices/ci-workflow-approved.md)). Each file
 under `.github/workflows/` is either the engine's own untouched copy or is
 listed in `precedent.json`'s `github_ci_approved`, pinned by sha256 and
@@ -221,7 +215,7 @@ individual's own practice set or dependent project.
 **Four more levers, once the workflow is installed at all:**
 
 - **`concurrency` with `cancel-in-progress: true`** ships in
-  `doc-lint.yml.template` (retired 2026-09-21)
+  `doc-lint.yml.template` (retired)
   itself now: if a second run starts on the same branch while an earlier
   one is still going, GitHub cancels the earlier one instead of billing
   both. It only helps the *overlap* case — two pushes closer together than
@@ -229,7 +223,7 @@ individual's own practice set or dependent project.
   saving for a steady stream of spaced-out saves, not the fix for that
   case.
 - **A scheduled cadence instead of per-push billing** —
-  `doc-lint-scheduled.yml.template` (retired 2026-09-21) —
+  `doc-lint-scheduled.yml.template` (retired) —
   was the fix for a repo pushed to constantly, direct to its default
   branch, with no pull request in the loop: however many saves landed in one
   window, they cost one run. `precedent_install.py` never wrote it, because a `schedule:` is a clock
@@ -246,8 +240,8 @@ individual's own practice set or dependent project.
   [build_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/build_views.py) `--check` **0.12s** — 0.47 seconds of
   work that the three-job shape billed as **three minutes**, paying for
   three checkouts and three Python setups to carry it. Both templates of
-  that day (the Markdown lint, retired 2026-09-21, and the practice-set
-  check, retired 2026-10-01) were cut to **one job**, and the light check
+  that day (the Markdown lint and the practice-set
+  check, both retired later) were cut to **one job**, and the light check
   and leak gate are one job each: a trigger that fires bills one minute.
 - **The `debounce` job and `ci_debounce_minutes` are RETIRED** (2026-09-20).
   A debounce job skipped the check job(s) that `needs:` it when the last
@@ -275,7 +269,7 @@ individual's own practice set or dependent project.
   template's own header says so at the trigger block. Do not add
   `pull_request:` to a `push:` that still covers every branch: that
   reintroduces the exact duplicate-run problem
-  `doc-lint.yml.template` (retired 2026-09-21)'s
+  `doc-lint.yml.template` (retired)'s
   own header measured (235 runs in matched pairs) before this repo's own
   `docs.yml`/`deep-check.yml` dropped `pull_request:` outright on
   2026-09-07/2026-09-14 — the fix here is scoping `push:` narrowly enough
@@ -328,8 +322,8 @@ generated-views drift check (`generated-artifact-provenance`, the same
 comparison `python3 tools/build_views.py --check` makes). A set created by
 [tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)
 gets no workflow, and the engine refresh deletes one an older set still
-carries. The workflow template sets used to run was retired on
-2026-10-01. **One exception since 2026-10-28:** a set whose
+carries. The workflow template sets used to run is retired.
+**One exception:** a set whose
 `precedent.json` says `"visibility": "public"` gets the branch cleanup
 workflow, which runs only when a person clicks its button on the branch
 cleanup page, and which GitHub does not bill a public repository for.

@@ -59,10 +59,9 @@ with universal. What transfers here is narrower and specific: a change to
 the *mechanism* a source relies on (an engine tool's behavior, a
 merge/push/deep-check convention, a resolver rule) — not every change to
 this repo's own prose. **The one exception is the catalogue's own
-identities** (added 2026-09-27): a practice's slug, status and Rule are what
+identities**: a practice's slug, status and Rule are what
 other sources cite, so changing one is a mechanism change to them, even
-though it is written as prose here. The go-merge rename proved it — the
-sets kept citing the old name for a day, and nothing at merge time asked.
+though it is written as prose here.
 
 [very-deep-check](https://github.com/alex137/BestPractice/blob/staging/practices/very-deep-check.md) is this same gap seen from the other side, on-demand rather
 than at every merge: run against the checkout plus every attached
@@ -89,6 +88,10 @@ changes something an attached sibling source should also reflect, that
 rollout needs the same standing rule `todo-is-a-handoff` already gives
 every other agent-doable item, not a one-off fix each time it happens to
 get noticed.
+
+**The Detail's one exception, the catalogue's own identities,** was added
+2026-09-27. The go-merge rename proved it: the sets kept citing the old name
+for a day, and nothing at merge time asked.
 
 ## Install
 No mechanical check, and not for lack of trying: "does this change have

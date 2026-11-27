@@ -56,8 +56,7 @@ read**. There the declaration is `PRECEDENT_COMMIT_NAME` / `_EMAIL` / `_TZ`,
 set as repository variables and read the same way. Porting an individual
 set's workflow verbatim into a shared set produces a workflow that refuses on
 every run with the only fix forbidden — the same trap `check_commit_author.py`
-fell into, rebuilt inside a workflow. Found 2026-09-10, porting exactly that
-fix between two real sets.
+fell into, rebuilt inside a workflow.
 
 **A commit that is genuinely nobody's** — a throwaway fixture, a scratch
 repository — is the documented exception the backstop already carries, and it
@@ -100,6 +99,10 @@ neither of the two mechanisms that would have shown the breach.
 A second set was found running the same workflow, unfixed, in the same pass
 — which is why this is a practice with a check rather than a note in the
 repository where it was first found.
+
+**The Detail's warning against porting an individual set's workflow verbatim
+into a shared set** comes from the same pass: found 2026-09-10, porting
+exactly that fix between two real sets.
 
 ## Install
 Nothing to configure — the check runs wherever the engine is vendored, and a

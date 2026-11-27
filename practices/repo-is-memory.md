@@ -47,12 +47,12 @@ still covers a finding meant for another session; this covers the work a
 session was asked for. "Was asked to make" is deliberate: a conversation
 that has not authorized work yet writes nothing, and this clause does not
 make it. The archive line's container check in [the-boildown](the-boildown.md)
-still decides whether a session may be archived, and since 2026-10-11 it
+still decides whether a session may be archived, and it
 reads every scratch folder as well as every git checkout: a file left in
 one holds the archive line until it is filed in a repository, deleted as
 the session's own throwaway output, or given up silently through the
 scanner (`precedent_container_safe.py --discard scratch:<session> --why
-...`), never in the reply (Morgan, 2026-11-02). That check only runs at the close; this clause is what covers
+...`), never in the reply. That check only runs at the close; this clause is what covers
 the hours before it, when the work is sitting there and the person cannot
 tell where it is.
 
@@ -98,6 +98,12 @@ INTO A REPO. Isn't the way we always work that you create a temporary
 day, agreed the rule was right and asked that it extend this practice rather
 than start a new one (strength: decided). The second paragraph of the Rule
 is that extension.
+
+**The container check and scratch folders.** Behind the Detail's "What it
+does not change": since 2026-10-11 the archive line's container check reads
+every scratch folder as well as every git checkout. That a file left in one
+is given up silently through the scanner, never in the reply, is Morgan,
+2026-11-02.
 
 ## Install
 The three living documents below (MAP, TODO, GLOSSARY) plus a

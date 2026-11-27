@@ -169,12 +169,12 @@ follow a session into every repository it touches.
 | Variable | Status | Example value |
 |---|---|---|
 | `PRECEDENT_GIT_TOKEN` | Required to reach a private practice set from a hosted session; irrelevant without one | `github_pat_<the rest of your read-only token>` |
-| `PRECEDENT_SOURCE_BASE_URL` | Optional since 2026-09-30: unset, the account the token belongs to is used, worked out once and kept in `~/.config/precedent/config.json`. Set it when your sets belong to another account or an organization | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the shared sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
+| `PRECEDENT_SOURCE_BASE_URL` | Optional: unset, the account the token belongs to is used, worked out once and kept in `~/.config/precedent/config.json`. Set it when your sets belong to another account or an organization | `https://github.com/<the account that owns your team's practice sets>` — if your own `precedent-individual` lives under a different account (it does, unless you own the shared sets), also set `PRECEDENT_INDIVIDUAL_REPO` |
 | `PRECEDENT_COMMIT_NAME` | Optional: your individual set's `identity.json`, or your GitHub account, supplies it | `Your Name` |
 | `PRECEDENT_COMMIT_EMAIL` | Optional, alongside the name | `you@example.com` |
 | `PRECEDENT_GITHUB_USER` | Optional: who "you" are when the engine decides whether you are one of a repository's code owners, which decides whether you are shown the practices about running it (GitHub, branches, CI, vendoring, installs; Update Vendors is one). Unset, it is your individual set's `identity.json` `github`, then the administrator the installer was told (`--admin`, kept in that clone's git config as `precedent.githubLogin`), then the GitHub account your token belongs to, also kept there after the first lookup. Set it when none of those can answer, for instance on a machine with no token and no individual set | `your-github-username` |
 | `PRECEDENT_COMMIT_TZ` | Recommended, alongside the name — without it a fallback zone is used and commit timestamps carry the wrong offset | `America/Argentina/Buenos_Aires` |
-| `PRECEDENT_FRESHNESS_ALSO` | Optional since 2026-09-30: every practice set the project declares is checked without it. For an extra repository only | `/home/user/precedent-individual=main;/home/user/precedent-shared-writing=main` |
+| `PRECEDENT_FRESHNESS_ALSO` | Optional: every practice set the project declares is checked without it. For an extra repository only | `/home/user/precedent-individual=main;/home/user/precedent-shared-writing=main` |
 | `PRECEDENT_GIT_TOKEN_USER` | Optional; defaults to `x-access-token` | `x-access-token` |
 | `PRECEDENT_GITHUB_TOKEN` | Optional; read only by `python3 tools/precedent_boundary_check.py`, which asks GitHub whether a project's base branch is protected the way [INSTALL.md §0 step 10](../INSTALL.md#0-installing-directly-onto-the-precedent-loader) needs. Reading protection settings takes **administration read** on the repository (a classic token with `repo`, or a fine-grained one with Administration: read); without it the tool answers `UNVERIFIED`, which is honest and is not a pass. `GITHUB_TOKEN` and `GH_TOKEN` are read too, in that order after this one | `github_pat_<a token with Administration: read on the project>` |
 | `PRECEDENT_INDIVIDUAL_REPO` | Optional; only if your individual set is under a different account than the shared sets | `https://github.com/another-account/precedent-individual` |
@@ -201,7 +201,7 @@ private practices, this one reaches something more basic — whether the
 project's own checkout is current at all.
 
 **Verified 2026-09-15: a container can start from cached state instead of a
-genuinely fresh clone.** One environment, running since 2026-04-17, had
+genuinely fresh clone.** One long-running environment had
 every session start from a checkout frozen at a single commit days old —
 diverged from live `origin`, which then tripped the freshness guard and the
 Stop hook on every session as if real unpushed work existed. Recreating the
@@ -230,8 +230,8 @@ before the checkout is ready, so `git branch --show-current` had nothing to
 read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
 of failing, and it confirmed working the same day once added.
 
-**A fast-forward, never a reset (changed 2026-09-23).** This line used to
-end in `git reset --hard "origin/$b"`, which forces the checkout onto
+**A fast-forward, never a reset.** A line that
+ends in `git reset --hard "origin/$b"` forces the checkout onto
 origin by throwing away whatever local commits it holds. That is the one
 move the fresh-before-write practice rules out by name, and a setup script
 is no exception: it cannot tell a stale cached commit from somebody's real
@@ -296,17 +296,17 @@ Ask for it by name, or set a real token.
 **Use a read-only token, scoped to the practice-set repositories.** Nothing
 here pushes with it.
 
-**A practice set is a repository you work in, and since 2026-09-13 it gets
-the same hook a consuming repo does.** Before that, a session rooted in
-`precedent-individual` or any `precedent-team-*` resolved **no individual
-practice source at all** — nothing there ever wrote
-`~/.config/precedent/config.json` — so every personal rule was silently
-absent while the session applied the ones it could see. The hook that writes
-it now ships into a set as well
+**A practice set is a repository you work in, and it gets
+the same hook a consuming repo does.** Without it, a session rooted in
+`precedent-individual` or any `precedent-team-*` resolves **no individual
+practice source at all** — nothing there writes
+`~/.config/precedent/config.json` — so every personal rule is silently
+absent while the session applies the ones it can see. The hook that writes
+it ships into a set as well
 ([tools/precedent_bootstrap_source.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_bootstrap_source.py)),
 execing the same vendored
 [tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py),
-which a set may hold for the first time. **A set created before that date
+which a set may hold too. **A set created before 2026-09-13
 has neither the hook nor the wiring**, and this cannot be repaired for you:
 an existing `.claude/settings.json` is never rewritten, so
 [tools/precedent_refresh_sources.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_refresh_sources.py)

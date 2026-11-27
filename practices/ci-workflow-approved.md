@@ -55,7 +55,7 @@ Re-baselining with `record-ci` is an approval too, and needs the same
 words.
 
 ## Detail
-Everything under the headings below from "Billed minutes, and when to ask" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "Billed minutes, and when to ask" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Billed minutes, and when to ask
 
@@ -67,8 +67,7 @@ a stale message, in a workflow or in a template one is written from -- is
 ordinary maintenance: make it, the way you would fix any other file.
 **Where this rule seems to stand in the way of what is plainly right, ask
 the person, with your recommendation; never leave a workflow broken because
-of it** (Morgan, 2026-09-30: "We clearly shouldn't have broken workflows
-because I once said to not edit a file! Ask!").
+of it.**
 
 ### The approval record
 
@@ -99,8 +98,7 @@ did not give.** If they do not want the file, delete it.
 ### Leftovers at Update Vendors
 
 **In a consuming repo or a practice set, Update Vendors settles a leftover
-without asking** (a consumer since 2026-09-27, a practice set since
-2026-10-01, which ships no workflow at all: practice
+without asking** (a practice set ships no workflow at all: practice
 `source-sets-run-no-ci`). The engine owns the workflows upstream ships
 (`leak-gate.yml`, `light-check.yml`): each refresh writes them from the
 template over any hand edit, and removes every other workflow that has no
@@ -109,17 +107,13 @@ lost:** a file that runs something the local push check does not (a script, a
 test runner, a third-party action) is left alone, and flagged loudly: a
 banner in the update's output, a "Left for you" line naming what to move into
 the local check, and an open item in the repo's `todo/`. A declaration under
-`local_ci_workflows` no longer keeps a consumer's workflow; only the person's
-approval does (Morgan, 2026-09-27: "I support if everything's already
-covered, deleting it. If there is something that is not covered, leave it
-alone, but flag it importantly"). So a consumer's finding here means the
+`local_ci_workflows` does not keep a consumer's workflow; only the person's
+approval does. So a consumer's finding here means the
 refresh has not run since the file changed, or could not touch it (untracked,
 or uncommitted edits). The answer is to run Update Vendors, not to ask the
 person. **Asking about a leftover whose work runs locally is the failure
-here.** Morgan, 2026-09-27 (strength: decided): *"Asking creates doubt and
-confusion when there isn't any."* **Asking about one that would stop
-something running is required** (2026-10-01: *"Ask if genuinely in
-doubt"*): the session says in plain words what the file does and what would
+here:** it creates doubt and confusion where there is none. **Asking about one that would stop
+something running is required**: the session says in plain words what the file does and what would
 stop, recommends, and asks keep or delete. A keep is recorded as their
 approval, which is what keeps a workflow they actually want.
 
@@ -140,10 +134,10 @@ too, and needs the same words.
 ### An approved workflow, run locally
 
 An approved workflow of the repository's own is also run locally, as far
-as it can be (2026-10-10): the push check runs each of its steps that is a
+as it can be: the push check runs each of its steps that is a
 plain `python3 tools/<x>.py` call in its full tier, at the full test run on
 the landing branch and around the move into main, and Update Vendors names any other step, which only GitHub runs.
-Since 2026-10-17 none of them runs before a push: they are tests, and
+None of them runs before a push: they are tests, and
 before a push only the closed quick tier runs
 ([quick-tier-is-closed](quick-tier-is-closed.md)).
 
@@ -200,6 +194,12 @@ an unapproved workflow on its own.
 **Off the occasion index from 2026-10-01** (`index_required: false`). The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) counted this among the lines a mechanical check already refuses at push: the push check refuses an unapproved workflow, and `workflow-write-gate.sh` refuses a write through the GitHub tools. Its path and push gate still reach it. Morgan approved (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 801 words; it now holds what a session may not add, the approval record, what Update Vendors settles and what the check refuses, in 333 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-27, what Update Vendors settles without asking.** In a consuming repo it has settled a leftover without asking since 2026-09-27, and in a practice set since 2026-10-01. Behind the Detail's "only the person's approval does": Morgan, 2026-09-27: "I support if everything's already covered, deleting it. If there is something that is not covered, leave it alone, but flag it importantly". Behind "Asking about a leftover whose work runs locally is the failure here": Morgan, 2026-09-27 (strength: decided): *"Asking creates doubt and confusion when there isn't any."* Behind "Asking about one that would stop something running is required": his words of 2026-10-01, *"Ask if genuinely in doubt"*.
+
+**2026-09-30, a fix is not blocked by this rule.** Behind the Detail's "never leave a workflow broken because of it": Morgan, 2026-09-30: "We clearly shouldn't have broken workflows because I once said to not edit a file! Ask!".
+
+**2026-10-10 and 2026-10-17, an approved workflow run locally.** The local run of an approved workflow's steps dates from 2026-10-10. Since 2026-10-17 none of them runs before a push, when the quick tier was closed ([quick-tier-is-closed](quick-tier-is-closed.md)).
 
 ## Install
 Enforced by `_ci_workflow_approved` in

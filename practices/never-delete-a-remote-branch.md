@@ -131,10 +131,8 @@ delete-all button on the branch cleanup page. It deletes only branches
 already in `main`, never `main`, the landing branch, the engine's own branches, a
 `data-` branch or an open pull request's source. **A session
 never starts it, by any route, and never offers to;** the tool behind it
-refuses to delete anything outside that workflow. Morgan, 2026-10-16: "on
-both [private] and public, NEVER run the cleanup automatically. In both
-cases, [put] the buttons on the branch cleanup page" (strength: decided;
-[the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
+refuses to delete anything outside that workflow
+([the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
 **The page's all-public button is the same click, made once for every
 public repository:** the page asks GitHub, through the person's own GitHub
 connector, to run each one's workflow, and only that click calls it
@@ -197,6 +195,8 @@ command, it is the search that follows it.
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 490 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is forbidden, the cleanup workflow only a person starts, and the link to hand over instead, in 192 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 **2026-11-02: the tools stopped asking for the link in the reply.** The-boildown retired its delete-links item on 2026-10-30, but the lander's DONE WITH line, the ladder Promote's copy-branch line and Update Vendors' replaced-branches list still said "Hand the link over", and this Rule still said to hand it over every time. A consumer session followed the tool and put a done branch in its Boildown; Morgan: "Because now we have the branch cleanup page, you don't need to tell me in The Boildown on what branches to delete. I thought we discussed you no longer telling me that in the boildown." All three messages and this Rule now leave the branch to the cleanup page.
+
+**2026-10-16: a session never starts the cleanup.** Behind the Detail's "A session never starts it, by any route, and never offers to": Morgan, 2026-10-16: "on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page" (strength: decided; [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_CLEANUP_BUTTON_PLAN.md)).
 
 ## Install
 Nothing to install — this is a rule a session applies, routed by its line in

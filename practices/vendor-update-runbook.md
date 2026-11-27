@@ -313,7 +313,7 @@ plain summary in the chat and one Prompt Please block.
 investigate** ("A refusal naming a file upstream no longer has").
 
 ## Detail
-Everything under the headings below was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below give the Rule in full; the Rule names each heading where it needs it.
 
 **BP is BestPractice**, the repository this update copies the engine and the
 universal catalogue from, and the short name people use for it in every
@@ -335,8 +335,8 @@ part of the phrase rather than a separate grant.
 Review"): the phrase names an update, and its safety check clears a merge
 only on words that name the merge. That is not this repository's rules.
 **So the phrase is best said as "Update Vendors and merge"**, which names
-the merge in the person's own words before it happens. As of 2026-10-11
-that is expected from the check's own rule and not yet seen working, so
+the merge in the person's own words before it happens. That is expected
+from the check's own rule and, as of 2026-10-11, not yet seen working, so
 until a run confirms it, a refusal is still handled the same way: say so in
 one line and ask for it by name, and never route around it. **The words fit
 the route:** on the `--land` route, which opens no pull request, ask for the
@@ -356,7 +356,7 @@ of one; a run of many collects the list repository by repository and
 compiles it once at the end.
 
 ### The one command and the BestPractice clone
-**The sequence is one command, since 2026-09-27.** From the consuming repo,
+**The sequence is one command.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
 
     python3 ../BestPractice/tools/precedent_update.py --repo .
@@ -374,8 +374,7 @@ same way (2026-10-08).
 
 ### Private copies are checked here, not at session start
 **A copied-in source whose copy is private is checked only by Update
-Vendors** (Morgan, 2026-11-12, strength: decided: *"Option B
-definitely!!!!!"*). A copy is already in the repository as files, so
+Vendors.** A copy is already in the repository as files, so
 nothing loads from its clone; the only reason a session reached its
 repository at start was to ask whether it had moved, which for a private
 one meant an attach the person approved in every session, for a repository
