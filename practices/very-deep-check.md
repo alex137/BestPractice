@@ -637,8 +637,8 @@ confidently.
    2026-09-29, both missed by earlier runs of this question: a hand-kept list
    of every practice's routing reason, whose copy of the gates had drifted
    on fourteen practices, and two checks scanning for retired words, one
-   with history-aware rules and one without. Morgan, that day: add a check
-   for needless redundancy -- this is it, widened, rather than a second
+   with history-aware rules and one without. The check
+   for needless redundancy is this question, widened, rather than a second
    pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
@@ -1489,10 +1489,8 @@ first so this pass spends its attention on what they cannot see.
   `python3 tools/precedent_vocabulary.py`, the most used ones again in
   AGENTS.md's command list, and `check_park_it.py` fails if the "Drop it"
   paragraph goes missing — so
-  check where a keyword IS defined before calling it undefined. (An early
-  "don't put it in the glossary", Morgan 2026-09-08, was later read
-  narrowly; park-it's Story records why, and "Drop it" is in the glossary
-  now.)
+  check where a keyword IS defined before calling it undefined. ("Drop it"
+  is in the glossary; park-it's Story records why.)
 - **What every session loads, and what it costs.** The rule is
   [session-load-budget](session-load-budget.md) — every always-loaded surface
   carries a declared ceiling in
@@ -1742,8 +1740,8 @@ first so this pass spends its attention on what they cannot see.
   still accurate rather than adding a second one.
 - **Conflicting practices inside one source, and same-slug practices across
   two** — two rules in the same catalogue that cannot both be followed, and
-  the same slug defined by two sources at the same level. Requested by
-  Morgan 2026-09-07 and **not yet built as a mechanical step**: the
+  the same slug defined by two sources at the same level.
+  It is **not yet built as a mechanical step**: the
   cross-source half is already a hard `ResolveError`
   (`precedent_resolve.py` refuses a source list where two same-level
   sources define one slug), so what this pass adds is the *within-source*
@@ -1878,10 +1876,8 @@ Last because none of it strands an adopter, and none of it is cheap.
   or somebody else's, and "unclear" is only allowed with what would settle
   it. The branch nobody remembers is the one this bullet exists for. *(2026-09-26: two week-old session branches in a
   consuming repo each held one commit that never reached `main`, two
-  hundred commits back, and nobody could say what either was for. Morgan:
-  *"I don't even know what that was, or if it's deprecated, or no longer
-  needed, or if it was something useful ... it was completely
-  forgotten."*)* Commits behind is not age: in a busy repo two hundred
+  hundred commits back, and nobody could say what either was for.)*
+  Commits behind is not age: in a busy repo two hundred
   commits can be a week, so read the date, not the count.
 
   The *inventory* was already read at step 4 of the order of operations,
@@ -1906,9 +1902,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   that does not pass `--skip-branch-scan`, and relocatable with
   `--branch-report PATH`. Commit the result so the links are live on the
   branch a person actually opens, the same way `MAP.md` and the ledger are
-  committed rather than left as a run's private output (Morgan, reading a
-  Sunday run that had produced the list twice and shown it neither time:
-  *"it shouldn't live in the chat"*).
+  committed rather than left as a run's private output.
 
   **Committing the file is not the same as the run's own write-up carrying
   it**, and this repeated the exact failure once already, in a different
@@ -1954,8 +1948,8 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   **This sweep stays inside the repos this check already reads — the
   checkout and the sources that are their own git checkouts — and is never
-  widened to every Precedent repo the person owns.** Morgan kept the fleet
-  sweep out of this check on 2026-09-21, with the reasoning worth keeping:
+  widened to every Precedent repo the person owns.** The fleet
+  sweep stays out of this check, for a reason worth keeping:
   branch hygiene is per-repo
   bookkeeping, not a finding in the seam between two repos, which is the
   class this check exists for. Widening it here would duplicate that
@@ -3022,12 +3016,18 @@ above or the approval history below already tell is not repeated: the
 ledger proposal, the 2026-10-31 cut of the Rule and the 2026-10-31
 long-Rules read left Detail with nothing new to add here.
 
+**2026-09-07.** Pass 4's bullet on conflicting practices inside one source
+and same-slug practices across two: requested by Morgan 2026-09-07.
+
 **2026-09-08.** Three incidents Pass 3 tells were found that day: the
 resident block's budget reporting green while the file around it reached
 about 17,000 tokens (the session-load bullet), three practice sets each
 carrying a `precedent_retire_path.py` a rename had orphaned (the orphans
 bullet), and the individual skeleton shipping no `identity.json` (the
-skeletons bullet).
+skeletons bullet). Pass 3's bullet on a keyword being findable: an early
+"don't put it in the glossary", Morgan 2026-09-08, was later read
+narrowly; park-it's Story records why, and "Drop it" is in the glossary
+now.
 
 **2026-09-14.** Pass 1's rehearsal of a practice moved between levels was
 added 2026-09-14, the day Morgan asked whether the run had tested it and it
@@ -3099,7 +3099,10 @@ here and by hand: Morgan, 2026-09-26: "I only want this to run when either
 manually invoked or as part of a very deep check". That its output stays
 in the session: Morgan, 2026-09-26, strength: decided: *"its results
 should go to the session not the GitHub since it references other repos of
-yours"*.
+yours"*. Pass 4's branches bullet, on the two forgotten session branches it
+tells of: Morgan: *"I don't even know what that was, or if it's deprecated,
+or no longer needed, or if it was something useful ... it was completely
+forgotten."*
 
 **2026-09-27.** Pass 4's base-branch bullet: this repository kept a carry
 watermark until 2026-09-27, when its upstream-carry notice was retired.
@@ -3127,7 +3130,9 @@ decided).
 reported: Morgan, 2026-09-29, strength: decided. "Every branch read, only
 the current copy fixed", that the CI fleet audit reads the workflow files
 on branches pushed in the last seven days: Morgan, 2026-09-29, strength:
-decided.
+decided. Pass 2's duplicate question, on the two duplicates it says were
+found 2026-09-29: Morgan, that day: add a check for needless redundancy.
+The question was widened to be that check.
 
 **2026-09-30.** Pass 2's question 23, VENDORED SURPLUS: the incident it
 tells, a consumer's copy holding 543 files, was found 2026-09-30. Morgan,

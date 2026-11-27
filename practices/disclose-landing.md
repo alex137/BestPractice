@@ -40,8 +40,8 @@ the choice before the merge, and a wrong level is one file move away
 **A practice that belongs in a shared set the session cannot reach is still
 named as belonging there**, with the reason it landed somewhere else.
 Recording it at the wrong level silently is the failure. Why the reason
-matters, and the person's words, are under Detail, *Deciding and stating the
-level, in full*.
+matters is under Detail, *Deciding and stating the
+level, in full*; the words that asked for it are in the Story.
 
 ## Detail
 `precedent_land.py` and `precedent_candidate.py` both print an explicit
