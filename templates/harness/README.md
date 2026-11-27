@@ -21,10 +21,10 @@ The hook columns above said `n/a` for codex and gemini-cli until
 sources, and what each harness can and cannot carry today, are in
 [PARALLELS.md](PARALLELS.md).
 
-**THE MARKDOWN LINT IS NO LONGER A GITHUB CHECK.** Since 2026-09-21 it
+**THE MARKDOWN LINT IS NO LONGER A GITHUB CHECK.** It
 runs as `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit`
 whose staged Markdown fails `doc_lint.py`, and the workflow it replaced is
-retired. Claude Code runs that hook, and since 2026-09-28 so does codex,
+retired. Claude Code runs that hook, and so does codex,
 from [codex/hooks.json](codex/hooks.json), once that file is installed and
 trusted. **On gemini-cli and grok-build nothing runs it yet**, and on codex
 nothing runs it until the file is in place.
