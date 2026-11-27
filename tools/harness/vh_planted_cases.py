@@ -3033,6 +3033,30 @@ def check_precedent_check_fires():
                           _rc_rk == 0 and 'VIOLATION' not in _out_rk))
             shutil.rmtree(_rk, ignore_errors=True)
 
+            # History that opens in lower case, mid-sentence, fails too;
+            # "as of <date>", the form an outside-world fact carries, and
+            # "before <date>", a cutoff, do not.
+            _rl = fresh('record-not-instruction-lower-case')
+            (_rl / 'documentation' / 'planted-history.md').write_text(
+                '# Guide\n\nThe old way, retired 2026-01-15, is gone.\n',
+                encoding='utf-8')
+            _rc_rl, _out_rl = run(_rl, 'record-not-instruction')
+            cases.append(('record-not-instruction: history that opens in '
+                          'lower case inside a sentence fails',
+                          _rc_rl != 0
+                          and 'documentation/planted-history.md' in _out_rl))
+            shutil.rmtree(_rl, ignore_errors=True)
+            _ra = fresh('record-not-instruction-as-of')
+            (_ra / 'documentation' / 'planted-fact.md').write_text(
+                '# Guide\n\nThe host allows this (as of 2026-01-15). Items '
+                'written before 2026-01-15 are left alone.\n',
+                encoding='utf-8')
+            _rc_ra, _out_ra = run(_ra, 'record-not-instruction')
+            cases.append(('record-not-instruction: a lower-case "as of" a '
+                          'date and "before" a date do NOT fail',
+                          _rc_ra == 0 and 'VIOLATION' not in _out_ra))
+            shutil.rmtree(_ra, ignore_errors=True)
+
             _rd2 = fresh('record-not-instruction-document')
             (_rd2 / 'documentation' / 'planted-guide.md').write_text(
                 f'# Guide\n\nInstall it this way {_stamp}.\n',

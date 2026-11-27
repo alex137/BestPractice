@@ -270,8 +270,8 @@ Detail section.
     `python3 tools/precedent_vendor_engine.py repin-kept ../BestPractice
     "AGENTS.md <heading>" --by-rule --reason "<why>"` (`--confirmed "<their
     words>"` only after a close call the person answered). Never paste the
-    hashes by hand. **Each block a kept item lacks takes its own verdict**
-    (since 2026-10-31): covered (quote where), send-upstream (the link),
+    hashes by hand. **Each block a kept item lacks takes its own verdict**:
+    covered (quote where), send-upstream (the link),
     local-add-on (the add-on practice) or standardize (copy it in), with
     `python3 tools/precedent_vendor_engine.py judge-kept "<item>" BLOCK_ID
     VERDICT`; a reason copied onto several items is refused. **(e)** No `tools/ENGINE_MANIFEST.json`: say so, confirm

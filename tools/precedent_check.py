@@ -4598,7 +4598,13 @@ _RECORD_STAMP_RE = re.compile(
     r", 20\d\d-\d\d-\d\d\b"
     r"|\(strength: (?:decided|assented)\)"
     r"|\b(?:Until|Since|Before|As of|Rewritten|Retired|Added|Changed|Moved|"
-    r"Found|Fixed|Split|Renamed) 20\d\d-\d\d-\d\d\b")
+    r"Found|Fixed|Split|Renamed) 20\d\d-\d\d-\d\d\b"
+    # The same openers mid-sentence. Two are left out in lower case because
+    # there they are mostly content: "as of <date>" is how a fact about the
+    # outside world carries its date (practice: volatile-rules-carry-dates),
+    # and "before <date>" is usually a cutoff a check applies.
+    r"|\b(?:until|since|rewritten|retired|added|changed|moved|found|fixed|"
+    r"split|renamed) 20\d\d-\d\d-\d\d\b")
 _INSTRUCTIONS_FILES = ('AGENTS.md', 'CLAUDE.md', 'GEMINI.md')
 _TEMPLATE_TEXT = ('.md', '.template', '.sh', '.txt', '.json', '.yml', '.yaml', '.py')
 
@@ -4795,8 +4801,9 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        'date" stamp, no "(strength: ...)" marker and no dated history '
        'opener beyond the count precedent.json records for that file from '
        'before the rule',
-       'a name with no date beside it, history told without a date or '
-       'opening in lower case ("retired 2026-..."), a template that '
+       'a name with no date beside it, history told without a date, a '
+       'lower-case "as of <date>" (how an outside-world fact carries its '
+       'date) or "before <date>" (usually a cutoff), a template that '
        'declares itself a dated record with the record-doc marker, a '
        'document with that marker or generated whole by a tool, a document '
        'under spec/ or todo/, a '
@@ -6113,7 +6120,7 @@ DOGFOODED_HOOKS_MATCH_TEMPLATE = (
        'a hook this repo deliberately customizes (session-start.sh, '
        'which carries real repo-specific content and is correctly not in '
        'the list; reply-gate.sh and the two stop hooks were listed here '
-       'too until 2026-10-17, but they were drifted hand copies of the '
+       'once, but they were drifted hand copies of the '
        'engine scripts, not customizations, and are stubs now); an engine '
        'hook stub left off the list; whether either copy is actually '
        'correct, only that the two agree',
@@ -6753,7 +6760,7 @@ def _declared_sources_are_cloned(ctx):
         f'session-start step clones them (looked in: {looked}). A fresh '
         f'container will not have them, so their practices are not in force '
         f'and the loader block reads as drifted. The clone step is in '
-        f'templates/bootstrap.sh since 2026-09-26: take Update Vendors, or '
+        f'templates/bootstrap.sh: take Update Vendors, or '
         f'add its "Clone every shared practice set" block to tools/bootstrap.sh')]
 
 
@@ -7084,7 +7091,7 @@ def _no_hardcoded_git_identity(ctx):
        'ships, uses a YAML merge key (`<<: *name`) -- GitHub\'s own '
        'workflow parser rejects it, and a workflow it refuses to parse '
        'does not fail, it never runs. Plain anchors and aliases are fine: '
-       'GitHub has supported them since 2025-09-18',
+       'GitHub supports them (as of 2025-09-18)',
        'everything else GitHub\'s parser is stricter about than PyYAML is. '
        'This tests the one divergence known to cost a workflow; it is not a '
        'reimplementation of GitHub\'s schema, and a file that clears it can '
@@ -8038,7 +8045,7 @@ def _one_python(ctx):
        'which in a container is UTC and in a record is unrecoverable. And '
        'the ENGINE\'s fallback zone is the SAME string in both engine files '
        'that hold it: the time engine and the commit hook\'s script in '
-       'tools/ (the hook files themselves are stubs since 2026-10-07)',
+       'tools/ (the hook files themselves are stubs)',
        'a stamp that carries an offset but the WRONG one -- a zone declared '
        'incorrectly in somebody\'s identity.json is a true statement about a '
        'false fact, and nothing mechanical can tell where a person actually '
@@ -13021,7 +13028,7 @@ def _shallow_boundary_commits():
        'whether a referenced row is actually CORRECT -- the right verdict '
        'per member, not a rubber-stamped one -- only that a complete row '
        'exists for every commit that changed a member, the "any marked date without a '
-       'complete ledger row fails" half of the practice, added 2026-09-05 '
+       'complete ledger row fails" half of the practice, added '
        'after a routing-audit run found the ledger itself had no audit. '
        'Enforcing; the 2026-09-05 advisory downgrade was lifted 2026-09-06 '
        'once the CI substitution above was root-caused.')
@@ -13466,7 +13473,7 @@ CODE_CITE_SKIP_FILES = {'verify_harness.py'}
        "this repo's own tools/ still cite `fail-gracefully` in exactly that "
        "form in many places, written while the practice lived in a private "
        "set and the anchored form would have failed here. It is universal "
-       "since 2026-10-05, so `practice: fail-gracefully` now resolves; "
+       "now, so `practice: fail-gracefully` resolves; "
        "todo/todo-2026-09-07-universal-code-cites-team-slug.md tracks the "
        "anchoring.")
 def _code_cites_practice(ctx):

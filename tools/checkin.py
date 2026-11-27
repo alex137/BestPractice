@@ -1743,7 +1743,7 @@ def _pinned_branch_hold(clone, allow=False):
         f"pinned: vendor as a one-off manual mirror instead -- replace the "
         f"vendored tree wholesale from a checkout of {pinned!r} -- and leave "
         f"the sync workflow on `workflow_dispatch` only. Its `schedule:` "
-        f"block is gone for good since 2026-09-14, not paused pending this "
+        f"block is gone for good, not paused pending this "
         f"hold: nothing schedules a vendor update any more, so lifting the "
         f"hold does not bring a clock back.\n"
         f"  The hold lifts when {pinned!r} merges into the default branch and "
@@ -2004,8 +2004,8 @@ def _drop_what_the_copy_no_longer_carries(clone, src):
                            + _missing_mirrored_entries())
     if dropped:
         print(f"checkin update: removed {len(dropped)} file(s) the copy no "
-              f"longer carries (it holds what a consumer uses since "
-              f"2026-09-30, and this repo's own tools/ now holds the engine); "
+              f"longer carries (it holds what a consumer uses, "
+              f"and this repo's own tools/ holds the engine); "
               f"each was upstream's text, unchanged here.")
     for rel in kept:
         print(f"NOTICE: {UPSTREAM.relative_to(ROOT) / rel} is no longer part "

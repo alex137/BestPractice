@@ -300,7 +300,7 @@ def sources_to_check(repo, user_config=None):
         raise RuntimeError(
             f'precedent_resolve is not available here ({_resolve_err}), so the '
             f'declared sources could not be read. Every kind of repository '
-            f'vendors it since 2026-09-13, so this engine copy predates that: '
+            f'vendors it, so this engine copy is an old one: '
             f'run Update Vendors, or run this from the BestPractice clone.')
     root = pathlib.Path(repo).resolve()
     out = []
