@@ -7172,10 +7172,17 @@ def check_session_file_says_each_command_once():
         cases.append(('2. ...and keeps the line of a practice that defines none',
                       'install — precedent_install.py' in index))
         tracked, _t, _n = bv.build_loader_block(full)
+        # Since 2026-11-25 a tracked block puts them under one occasion
+        # line, each with its words, its practice and its clause.
         cases.append(('3. the tracked AGENTS.md block still lists the command '
-                      'practices in its index',
-                      'deep-check — every audit' in tracked
-                      and 'planted-stage — stage 4' in tracked and head not in tracked))
+                      'practices in its index, under one occasion line',
+                      tracked.count(bv.SPOKEN_INDEX_HEAD) == 1
+                      and '"Deep check": deep-check — every audit' in tracked
+                      and '"Debut": planted-stage — stage 4' in tracked
+                      and head not in tracked))
+        cases.append(('3. ...and no command has an occasion line of its own',
+                      'When a person says \"Debut\"' not in tracked
+                      and 'When a person says "Debut"' not in tracked))
 
         notes = [('deferred', 'a brought set, deferred to this file')]
         bare_levels = {k: v for k, v in levels.items() if v != 'shared'}

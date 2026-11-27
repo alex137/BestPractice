@@ -1,0 +1,37 @@
+URL: https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+#### Improve prompt caching across users and machines
+
+> By default, two sessions that use the same `claude_code` preset and `append` text still can't share a prompt cache entry when their auto memory locations differ. The preset embeds that location in the system prompt ahead of your `append` text. The location defaults to an absolute path under `~/.claude/projects/` named for the repository's path on disk, so it differs across users, machines, and checkouts.
+>
+> CLAUDE.md content and environment details such as the working directory, platform, shell, and OS version don't affect the system prompt cache, because Claude Code delivers them in the conversation, not the system prompt.
+>
+> To make the system prompt identical across sessions, set `excludeDynamicSections: true` in TypeScript or `"exclude_dynamic_sections": True` in Python. The per-user context moves into the first user message, leaving only the static preset and your `append` text in the system prompt so identical configurations share a cache entry across users and machines.
+
+> **Tradeoffs:** the text that moves out of the system prompt still reaches Claude, but in a user message. That text is at least the auto memory directory's location, and often the whole auto memory section. Instructions in a user message carry marginally less weight than the same text in the system prompt, so Claude may follow its auto memory guidance less consistently. Enable this option when cross-session cache reuse matters more than that.
+
+
+## Context Claude Code adds outside the system prompt
+
+> System reminders are messages Claude Code adds to the conversation during a session to give Claude context, such as the contents of your CLAUDE.md files. Claude Code sends them in the conversation, not in the system prompt, so most reach Claude whether you use the `claude_code` preset or pass your own string as `systemPrompt`.
+
+
+### Reminders Claude Code adds to the conversation
+
+> System reminders are text Claude Code adds to the conversation alongside the prompts your code sends. The following reminders are the ones most likely to change how your agent behaves:
+>
+> * **Project instructions**: the CLAUDE.md files that your [`settingSources`](#claude-md-files-for-project-level-instructions) option loads
+> * **Output style instructions**: the instructions of the active [output style](#output-styles-for-persistent-configurations), in the main conversation
+> * **Commit and pull request attribution**: the `Co-Authored-By` trailer and pull request footer from the [`attribution`](https://code.claude.com/docs/en/settings-reference#attribution) setting
+> * **Hook output**: text your [hooks](https://code.claude.com/docs/en/agent-sdk/hooks.md#outputs) return as `additionalContext`
+> * **Available skills**: the names and descriptions of the [skills](https://code.claude.com/docs/en/agent-sdk/skills.md) Claude can call
+> * **Available subagents**: the names and descriptions of the [subagents](https://code.claude.com/docs/en/agent-sdk/subagents.md) Claude can start
+> * **Task list nudges**: in a [session that has the task-tracking tools](https://code.claude.com/docs/en/agent-sdk/todo-tracking.md#model-availability), a prompt to update the task list when Claude hasn't touched it for several turns
+> * **File-changed notes**: a note that a file Claude edited earlier has since changed on disk
+>
+> Claude Code introduces your CLAUDE.md files with a line telling Claude that the instructions override default behavior.
+

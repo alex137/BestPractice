@@ -1,0 +1,44 @@
+URL: https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/memport.md
+Retrieved: 2026-11-22
+Publisher: Google (official google-gemini/gemini-cli repository, docs/ directory, main branch)
+Fetched raw from raw.githubusercontent.com.
+
+# Memory Import Processor
+
+> The Memory Import Processor is a feature that lets you modularize your GEMINI.md
+> files by importing content from other files using the `@file.md` syntax.
+
+## Overview
+
+> This feature enables you to break down large GEMINI.md files into smaller, more
+> manageable components that can be reused across different contexts. The import
+> processor supports both relative and absolute paths, with built-in safety
+> features to prevent circular imports and ensure file access security.
+
+## Syntax
+
+> Use the `@` symbol followed by the path to the file you want to import:
+
+## Supported path formats
+
+> ### Relative paths
+> 
+> - `@./file.md` - Import from the same directory
+> - `@../file.md` - Import from parent directory
+> - `@./components/file.md` - Import from subdirectory
+> 
+> ### Absolute paths
+> 
+> - `@/absolute/path/to/file.md` - Import using absolute path
+
+## Safety features
+
+> ### Circular import detection
+> The processor automatically detects and prevents circular imports:
+> ### File access security
+> The `validateImportPath` function ensures that imports are only allowed from
+> specified directories, preventing access to sensitive files outside the allowed
+> scope.
+> ### Maximum import depth
+> To prevent infinite recursion, there's a configurable maximum import depth
+> (default: 5 levels).

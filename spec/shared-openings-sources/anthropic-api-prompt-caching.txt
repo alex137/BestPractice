@@ -1,0 +1,271 @@
+URL: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://platform.claude.com/docs/en/build-with-claude/prompt-caching.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+# (page introduction)
+
+> Prompt caching optimizes your API usage by letting the API resume from specific prefixes in your prompts. This significantly reduces processing time and costs for repetitive tasks or prompts with consistent elements.
+
+> There are two ways to enable prompt caching:
+>
+> * **[Automatic caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#automatic-caching):** Add a single `cache_control` field at the top level of your request. The system automatically applies the cache breakpoint to the last cacheable block and moves it forward as conversations grow. Best for multi-turn conversations where the growing message history should be cached automatically.
+> * **[Explicit cache breakpoints](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#explicit-cache-breakpoints):** Place `cache_control` directly on individual content blocks for fine-grained control over exactly what gets cached.
+
+> With automatic caching, the system caches all content up to and including the last cacheable block. On subsequent requests with the same prefix, cached content is reused automatically.
+
+
+## How prompt caching works
+
+> When you send a request with prompt caching enabled:
+>
+> 1. The system checks if a prompt prefix, up to a specified cache breakpoint, is already cached from a recent query.
+> 2. If found, it uses the cached version, reducing processing time and costs.
+> 3. Otherwise, it processes the full prompt and caches the prefix once the response starts.
+
+> By default, the cache has a 5-minute lifetime. The cache is refreshed for no additional cost each time the cached content is used.
+>
+> The lifetime is measured from the start of the request that writes or reads the cache entry, not from the end of its response. Time spent generating a response counts against the lifetime: if a response takes 4 minutes to stream, a follow-up request that reuses the same cached prefix must start within about 1 minute of that response completing.
+>
+> If 5 minutes is too short, you can use a [1-hour cache duration](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#1-hour-cache-duration) at additional cost (see [Pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)).
+>
+> Prompt caching covers the full prefix: `tools`, `system`, and `messages` (in that order), up to and including the block designated with `cache_control`.
+
+
+## Pricing
+
+> | Model | Base input tokens | 5m cache writes | 1h cache writes | Cache hits and refreshes | Output tokens |
+> | :---- | :---- | :---- | :---- | :---- | :---- |
+
+> | Claude Fable 5.2 | $8 / MTok | $10 / MTok | $16 / MTok | $0.20 / MTok<sup>1</sup> | $40 / MTok |
+
+> | Claude Opus 5.5 | $4 / MTok | $5 / MTok | $8 / MTok | $0.20 / MTok<sup>2</sup> | $20 / MTok |
+
+> | Claude Opus 4.8 | $5 / MTok | $6.25 / MTok | $10 / MTok | $0.50 / MTok | $25 / MTok |
+
+> | Claude Sonnet 5.5 | $2 / MTok | $2.50 / MTok | $4 / MTok | $0.10 / MTok<sup>2</sup> | $10 / MTok |
+
+> | Claude Sonnet 4.6 | $3 / MTok | $3.75 / MTok | $6 / MTok | $0.30 / MTok | $15 / MTok |
+
+> | Claude Haiku 4.5 | $1 / MTok | $1.25 / MTok | $2 / MTok | $0.10 / MTok | $5 / MTok |
+
+> *<sup>1 Cache hits and refreshes on Claude Fable 5.2, Claude Mythos 5.2, Claude Fable 5.1, and Claude Mythos 5.1 are priced at 0.025x the base input price.</sup>*
+>
+> *<sup>2 Cache hits and refreshes on Claude Opus 5.5 and Claude Sonnet 5.5 are priced at 0.05x the base input price.</sup>*
+>
+> *<sup>All other models use the standard 0.1x multiplier.</sup>*
+
+>   The previous table reflects the following pricing multipliers for prompt caching:
+>
+>   * Cache write tokens with a 5-minute TTL are 1.25 times the base input tokens price.
+>   * Cache write tokens with a 1-hour TTL are 2 times the base input tokens price.
+>   * Cache read tokens are 0.1 times the base input tokens price (see the table footnote for per-model exceptions).
+>
+>   These multipliers stack with other pricing modifiers such as the Batch API discount, [long context pricing](https://platform.claude.com/docs/en/about-claude/pricing#long-context-pricing), and data residency. On a model priced by prompt length, cache reads and cache writes count toward a request’s prompt length. See [Pricing](https://platform.claude.com/docs/en/about-claude/pricing) for full details.
+
+
+## Supported models
+
+> Prompt caching (both automatic and explicit) is supported on all [active Claude models](https://platform.claude.com/docs/en/models/overview).
+
+
+## Automatic caching > How automatic caching works in multi-turn conversations
+
+> With automatic caching, the cache point moves forward automatically as conversations grow. Each new request caches everything up to the last cacheable block, and previous content is read from cache.
+
+> The cache breakpoint automatically moves to the last cacheable block in each request, so you don’t need to update any `cache_control` markers as the conversation grows.
+
+
+## Automatic caching > TTL support
+
+> By default, automatic caching uses a 5-minute TTL. You can specify a 1-hour TTL at 2x the base input token price:
+
+
+## Automatic caching > Combining with block-level caching
+
+> Automatic caching is compatible with [explicit cache breakpoints](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#explicit-cache-breakpoints). When used together, the automatic cache breakpoint uses one of the 4 available breakpoint slots.
+
+
+## Automatic caching > What stays the same
+
+> Automatic caching uses the same underlying caching infrastructure. Pricing, minimum token thresholds, context ordering requirements, and the 20-block lookback window all apply the same as with explicit breakpoints.
+
+
+## Automatic caching > Edge cases
+
+>   Automatic caching is available on every platform except [Amazon Bedrock (`bedrock-runtime`)](https://platform.claude.com/docs/en/build-with-claude/claude-on-amazon-bedrock-legacy). There, the API returns a 400 error for a top-level `cache_control` field, so use [explicit cache breakpoints](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#explicit-cache-breakpoints) instead.
+
+
+## Explicit cache breakpoints > Structuring your prompt
+
+> Place static content (tool definitions, system instructions, context, examples) at the beginning of your prompt. Mark the end of the reusable content for caching using the `cache_control` parameter.
+>
+> Cache prefixes are created in the following order: `tools`, `system`, then `messages`. This order forms a hierarchy where each level builds upon the previous ones.
+
+
+## Explicit cache breakpoints > Structuring your prompt > How automatic prefix checking works
+
+> 1. **Cache writes occur only at your breakpoint.** Marking a block with `cache_control` writes exactly one cache entry: a hash of the prefix ending at that block. The system does not write entries for any earlier position. Because the hash is cumulative, covering everything up to and including the breakpoint, changing any block at or before the breakpoint produces a different hash on the next request.
+>
+> 2. **Cache reads look backward for entries that prior requests wrote.** On each request the system computes the prefix hash at your breakpoint and checks for a matching cache entry. If none exists, it walks backward one block at a time, checking whether the prefix hash at each earlier position matches something already in the cache. It is looking for prior writes, not for stable content.
+>
+> 3. **The lookback window is 20 blocks.** The system checks at most 20 positions for each breakpoint, counting the breakpoint itself as the first. If the system finds no matching entry in that window, checking stops (or resumes from the next explicit breakpoint, if any). On the Claude API, a run of consecutive `tool_use` blocks counts as one position, and so does a run of consecutive `tool_result` blocks, so a turn with many parallel tool calls doesn’t push the previous request’s entry out of the window on its own.
+
+> **Key takeaway:** Place `cache_control` on the last block whose prefix is identical across the requests you want to share a cache. In a growing conversation the final block works as long as each turn adds fewer than 20 blocks: earlier content never changes, so the next request’s lookback finds the prior write. For a prompt with a varying suffix (timestamps, per-request context, the incoming message), place the breakpoint at the end of the static prefix, not on the varying block.
+
+
+## Explicit cache breakpoints > Structuring your prompt > When to use multiple breakpoints
+
+> You can define up to 4 cache breakpoints if you want to:
+
+
+## Explicit cache breakpoints > Understanding cache breakpoint costs
+
+> **Cache breakpoints themselves don’t add any cost.** You are only charged for:
+>
+> * **Cache writes:** When new content is written to the cache (25 percent more than base input tokens for 5-minute TTL)
+> * **Cache reads:** When cached content is used (10 percent of base input token price, with [per-model exceptions](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing))
+> * **Regular input tokens:** For any uncached content
+
+
+## Caching strategies and considerations > Cache limitations
+
+> On the Claude API, [Claude Platform on AWS](https://platform.claude.com/docs/en/build-with-claude/claude-platform-on-aws), [Claude Models on Google Cloud (Google managed)](https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/google-managed), and [Microsoft Foundry](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry), the minimum cacheable prompt length is:
+>
+> * 512 tokens for Claude Fable 5.2, [Claude Mythos 5.2](https://platform.claude.com/docs/en/models/mythos-5-2/overview), Claude Fable 5.1, [Claude Mythos 5.1](https://platform.claude.com/docs/en/models/mythos-5-1/overview), Claude Opus 5.5, Claude Opus 5, Claude Sonnet 5.5, Claude Fable 5, [Claude Mythos 5](https://platform.claude.com/docs/en/models/mythos-5/overview), and Claude Haiku 5.5
+> * 2,048 tokens for [Claude Mythos Preview](https://anthropic.com/glasswing) and Claude Opus 4.7
+> * 4,096 tokens for Claude Opus 4.6 and Claude Opus 4.5
+> * 1,024 tokens for Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, Claude Sonnet 4.5 ([deprecated](https://platform.claude.com/docs/en/about-claude/model-deprecations)), Claude Opus 4.1 ([retired, except on Claude Models on Google Cloud (Google managed) and Bedrock](https://platform.claude.com/docs/en/about-claude/model-deprecations)), Claude Opus 4 ([retired, except on Claude Models on Google Cloud (Google managed)](https://platform.claude.com/docs/en/about-claude/model-deprecations)), and Claude Sonnet 4 ([retired, except on Claude Models on Google Cloud (Google managed) and Bedrock](https://platform.claude.com/docs/en/about-claude/model-deprecations))
+> * 4,096 tokens for Claude Haiku 4.5
+>
+> These minimums apply on each of these platforms where the model is available.
+>
+> Shorter prompts cannot be cached, even if marked with `cache_control`. Any requests to cache fewer than this number of tokens are processed without caching, and no error is returned. To check whether a prompt was cached, look at the [response usage fields](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#tracking-cache-performance): if both `cache_creation_input_tokens` and `cache_read_input_tokens` are 0, the prompt was not cached (likely because it did not meet the minimum length requirement).
+
+> For concurrent requests, note that a cache entry only becomes available after the first response starts. If you need cache hits for parallel requests, wait for the first response before sending subsequent requests.
+
+> `ephemeral` is the only supported cache type, which by default has a 5-minute lifetime.
+
+
+## Caching strategies and considerations > What invalidates the cache
+
+> Modifications to cached content can invalidate some or all of the cache.
+>
+> As described in [Structuring your prompt](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#structuring-your-prompt), the cache follows the hierarchy: `tools` → `system` → `messages`. Changes at each level invalidate that level and all subsequent levels.
+
+> | What changes | Tools cache | System cache | Messages cache | Impact |
+> | ----- | ----- | ----- | ----- | ----- |
+> | **Tool definitions** | ✘ | ✘ | ✘ | Modifying tool definitions (names, descriptions, parameters) invalidates the entire cache |
+> | **Web search toggle** | ✓ | ✘ | ✘ | Enabling/disabling web search modifies the system prompt |
+> | **Citations toggle** | ✓ | ✘ | ✘ | Enabling/disabling citations modifies the system prompt |
+> | **Speed setting** | ✓ | ✘ | ✘ | Switching between [`speed: "fast"` and standard speed](https://platform.claude.com/docs/en/build-with-claude/fast-mode) invalidates system and message caches |
+> | **Tool choice** | ✓ | ✓ | ✘ | Changes to the `tool_choice` parameter only affect message blocks |
+> | **Images** | ✓ | ✓ | ✘ | Adding/removing images anywhere in the prompt affects message blocks |
+
+
+## Caching strategies and considerations > Tracking cache performance
+
+>   This is important for understanding both costs and rate limits, as `input_tokens` is typically much smaller than your total input when using caching effectively.
+
+
+## Caching strategies and considerations > Cache storage and sharing
+
+> Prompt caching follows these rules:
+>
+> * **Organization isolation:** Different organizations never share caches, even if they use identical prompts.
+>
+> * **Workspace isolation:** On the Claude API, Claude Platform on AWS, and Microsoft Foundry, caches are also isolated between [workspaces](https://platform.claude.com/docs/en/manage-claude/workspaces). On those platforms, each workspace builds its own cache. On Claude Models on Google Cloud (Google managed) and Amazon Bedrock, caches are isolated by organization only.
+>
+> * **Exact matching:** Cache hits require 100 percent identical prompt segments, including all text and images up to and including the block marked with cache control.
+>
+> * **Output token generation:** Prompt caching has no effect on output token generation. The response you receive is identical to what you would get if prompt caching were not used.
+
+
+## Caching strategies and considerations > Troubleshooting common issues
+
+> * Check that calls are made within the cache lifetime (5 minutes by default).
+
+
+## 1-hour cache duration
+
+> If you find that 5 minutes is too short, Anthropic also offers a 1-hour cache duration at additional cost (see [Pricing](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing)). The 1-hour duration is available on [every platform that supports prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#feature-availability).
+
+
+## 1-hour cache duration > When to use the 1-hour cache
+
+> If you use a prompt at a regular cadence (for example, a system prompt that you send more often than every 5 minutes), continue to use the 5-minute cache, because it keeps refreshing at no additional charge.
+>
+> The 1-hour cache is best used in the following scenarios:
+>
+> * When you have prompts that are likely used less frequently than every 5 minutes, but more frequently than every hour. For example, when an agentic side-agent takes longer than 5 minutes, or when storing a long chat conversation with a user and you generally expect that user might not respond in the next 5 minutes.
+> * When latency is important and your follow-up prompts might be sent beyond 5 minutes.
+> * When you want to improve your rate limit utilization, because cache hits are not deducted against your rate limit.
+>
+> <Note>
+>   The 5-minute and 1-hour caches behave the same with respect to latency. You generally see improved time-to-first-token for long documents.
+> </Note>
+
+
+## 1-hour cache duration > Mixing different TTLs
+
+>    * A request that reads an entry cached with a 5-minute TTL restarts its 5-minute lifetime, even if the request now sets `"ttl": "1h"`.
+
+
+## Pre-warming the cache
+
+> Cache pre-warming lets you load your system prompt or tool definitions into the prompt cache before a user triggers a real request. This can reduce the cache-miss latency penalty on the first user interaction, lowering time-to-first-token (TTFT) for latency-sensitive applications.
+
+
+## Pre-warming the cache > How it works
+
+> Set `max_tokens: 0` in your request. The API reads your prompt into the model and writes the cache at any `cache_control` breakpoint, then returns immediately without generating any output. The response has an empty `content` array, `stop_reason: "max_tokens"`, and a fully populated `usage` block.
+
+>   A pre-warm request incurs a **cache write** charge if the prefix is not already cached, the same as any other request. Check `usage.cache_creation_input_tokens` in the response to confirm a write occurred. Zero output tokens are billed.
+
+
+## Pre-warming the cache > Typical usage pattern
+
+> Make a pre-warm request when your application starts (or on a scheduled interval), then send real user requests after the pre-warm completes:
+
+> Keep in mind that the cache TTL still applies. For the default 5-minute cache, send a new pre-warm request at least every 5 minutes to keep the cache warm. For longer gaps between user requests, use the [1-hour cache duration](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#1-hour-cache-duration) instead.
+
+
+## Pre-warming the cache > Replacing the `max_tokens=1` workaround
+
+> Some applications send `max_tokens: 1` requests to warm the cache. Prefer `max_tokens: 0` where the request allows it: no output is produced, so there is no single-token reply to discard, no output tokens are billed, and the intent of the request is unambiguous.
+
+
+## Data retention
+
+> KV (key-value) cache representations and cryptographic hashes of cached content are held in memory only and are not stored at rest. Cached entries have a minimum lifetime of 5 minutes (standard) or 1 hour (extended), after which they are promptly, though not immediately, deleted.
+>
+> Cache entries are isolated between organizations and, on [some platforms](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#cache-storage-and-sharing), between workspaces within an organization.
+
+
+## FAQ
+
+>   <Accordion title="What is the cache lifetime?">
+>     The cache’s default minimum lifetime (TTL) is 5 minutes. This lifetime is refreshed each time the cached content is used.
+>
+>     If you find that 5 minutes is too short, Anthropic also offers a [1-hour cache TTL](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#1-hour-cache-duration).
+
+>   <Accordion title="When does the cache lifetime start?">
+>     The lifetime is measured from the start of the request that writes or reads the cache entry, not from the end of its response. Time spent generating a response counts against the lifetime, so the window for a follow-up request to reuse the cache is the lifetime minus the generation time.
+
+>   <Accordion title="How many cache breakpoints can I use?">
+>     You can define up to 4 cache breakpoints (using `cache_control` parameters) in your prompt.
+
+>   <Accordion title="How does prompt caching affect pricing?">
+>     Prompt caching has its own pricing: 5-minute cache writes cost 25 percent more than base input tokens, 1-hour cache writes cost 2x base input tokens, and cache hits cost [a fraction of the base input token price](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#pricing), with a multiplier for each model.
+
+>   <Accordion title="Can I manually clear the cache?">
+>     There’s no way to manually clear the cache. Cached prefixes automatically expire after a minimum of 5 minutes of inactivity.
+
+>   <Accordion title="How does prompt caching handle privacy and data separation?">
+>     Prompt caching is designed with strong privacy and data separation measures:
+>
+>     1. Cache keys are generated using a cryptographic hash of the prompts up to the cache control point. This means only requests with identical prompts can access a specific cache.
+>
+>     2. Caches are never shared across organizations, even for identical prompts. On [some platforms](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#cache-storage-and-sharing), they’re also isolated by workspace within an organization.
+

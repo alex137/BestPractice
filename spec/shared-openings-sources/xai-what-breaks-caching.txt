@@ -1,0 +1,17 @@
+URL: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/multi-turn
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/multi-turn.md. Code samples omitted.
+
+# What Breaks Caching
+
+> Any change to earlier messages breaks the cache. Only append new messages at the end.
+> 
+> > [!WARNING]
+> >
+> > **Keep messages unchanged.** For cache hits in multi-turn conversations, never edit, remove, or reorder earlier messages — only append new ones. For reasoning models, you **must** include `reasoning_content` from previous responses; omitting it is the top cause of cache misses.
+> 
+> For reasoning models, you can maintain cache hits by either:
+> 
+> * **Sending back the encrypted reasoning content** — Include the `reasoning_content` from the previous response. See [Encrypted Reasoning Content](/developers/model-capabilities/text/reasoning#encrypted-reasoning-content) for details.
+> * **Using stateful responses** — Use `previous_response_id` to automatically continue the conversation. See [Chaining the Conversation](/developers/model-capabilities/text/generate-text#chaining-the-conversation) for details.

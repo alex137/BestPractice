@@ -1,0 +1,18 @@
+URL: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/maximizing-cache-hits
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/maximizing-cache-hits.md. Code samples omitted.
+
+# Maximizing Cache Hits
+
+## Set `x-grok-conv-id` (Chat Completions API)
+
+> The `x-grok-conv-id` HTTP header routes requests with the same conversation ID to the same server. Since cache entries are stored per-server, this maximizes your cache hit rate.
+
+## Set `prompt_cache_key` (Responses API)
+
+> For the Responses API, use the `prompt_cache_key` field directly in the request body. It functions identically to setting `x-grok-conv-id` — it routes requests to the same server for cache reuse.
+
+## Set `x-grok-conv-id` metadata (gRPC API)
+
+> For the gRPC API using the xAI SDK, pass `x-grok-conv-id` as gRPC metadata to enable sticky routing for cache reuse.

@@ -1,0 +1,10 @@
+URL: https://platform.claude.com/docs/en/manage-claude/workspaces
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://platform.claude.com/docs/en/manage-claude/workspaces.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+# (note on workspace isolation; see the page for its enclosing heading)
+
+>   [Prompt caches](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) are also isolated by workspace on the Claude API, [Claude Platform on AWS](https://platform.claude.com/docs/en/build-with-claude/claude-platform-on-aws), and [Microsoft Foundry](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry). On Claude Models on Google Cloud (Google managed) and Amazon Bedrock, prompt caches are isolated by organization.
+

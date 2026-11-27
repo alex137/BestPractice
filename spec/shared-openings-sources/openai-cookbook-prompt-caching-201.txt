@@ -1,0 +1,26 @@
+URL: https://developers.openai.com/cookbook/examples/prompt_caching_201 (markdown rendering fetched with .md appended)
+Retrieved: 2026-11-22
+Publisher: OpenAI
+CAUTION: the page itself says it is archived and applies only to models before GPT-5.6 (banners quoted first below). Use only as historical / older-model evidence.
+
+## (page banners)
+
+> > This recipe is archived and may reference outdated models or APIs.
+
+> > **Note:** This guide applies only to models before GPT-5.6. For GPT-5.6 and later, see the [Prompt Caching guide](https://developers.openai.com/api/docs/guides/prompt-caching).
+
+## 1. Prompt Caching Basics
+
+> Prompt Caching can reduce time-to-first-token latency by up to 80% and input token costs by up to 90%. It works automatically on all API requests and has no additional fees.
+
+## (latency section)
+
+> Reducing time-to-first-token (TTFT) is a primary motivation for improving cache rates. Cached tokens can reduce latency by up to ~80%.
+
+> Caching keeps latency roughly proportional to generated output length rather than total conversation length because the full historical context is not re-prefilled. When we get cache hits, sampling the model is linear rather than quadratic.
+
+> I ran a series of prompts 2300 times and plotted the cached vs uncached requests. For the shortest prompts (1024 tokens), cached requests are 7% faster, but at the longer end (150k+ tokens) we’re seeing 67% faster TTFT.  The longer the input, the bigger the impact of caching on that first-token latency.
+
+## (routing section)
+
+> Caching only works if two requests share the same prefix and land on the same machine. Requests are routed to inference engines based on a hash of the first ~256 tokens of the prompt. When you provide a `prompt_cache_key`, it is combined with that hash to increase routing stickiness - meaning requests with the same prefix are more likely to land on the same engine and reuse cached KV state.  It’s effective - one of our coding customers saw an improved hit rate from 60% to 87% when they started using `prompt_cache_key`.

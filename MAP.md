@@ -10,7 +10,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 
 ## The practice catalogue
 
-`practices/` holds 186 practice files (6 resident, 180 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
+`practices/` holds 191 practice files (6 resident, 185 on-demand). One file per practice. See [spec/PRACTICE_FORMAT.md](spec/PRACTICE_FORMAT.md) for the format and [PRACTICE_ENGINE_PLAN.md](spec/PRACTICE_ENGINE_PLAN.md) for the design.
 
 | Practice | Tier | Occasion / scope |
 |---|---|---|
@@ -28,6 +28,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [branch-delete-links](practices/branch-delete-links.md) | on-demand | telling a person a branch can be deleted -- one branch after a merge, or a whole repo's worth, or a fleet's |
 | [build-buy-decompose](practices/build-buy-decompose.md) | on-demand | deciding whether to build or buy a component |
 | [built-from-is-checked](practices/built-from-is-checked.md) | on-demand | a source exports files it compiles from a source of its own, or a repository copies in both |
+| [calculate-before-reasoning](practices/calculate-before-reasoning.md) | on-demand | about to estimate, by ratio or from memory, something a script or a short run would answer |
 | [capture-gate](practices/capture-gate.md) | on-demand | finishing substantial work, or merging a branch |
 | [catalogue-carries-stories](practices/catalogue-carries-stories.md) | on-demand | landing practices in bulk -- a migration, an import, or a move between sources |
 | [change-updates-its-docs](practices/change-updates-its-docs.md) | on-demand | changing a mechanism some document describes, or finding a document that no longer matches what is true |
@@ -46,6 +47,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) | on-demand | a model or comparison rests on a constant nobody decided |
 | [control-asserts-which-failure](practices/control-asserts-which-failure.md) | on-demand | writing a test, fixture or control that proves a guard fires, or any test or check that reports a failure |
 | [convention-to-audit](practices/convention-to-audit.md) | on-demand | a convention is violated for the first time |
+| [coordinating-sessions-through-models](practices/coordinating-sessions-through-models.md) | on-demand | tasking a session with long work, changing its plan, or working for one |
 | [cross-source-rollout](practices/cross-source-rollout.md) | on-demand | a change here has implications for how an attached team, individual, or repo-local source should work |
 | [curly-quotes](practices/curly-quotes.md) | on-demand | building output for outside readers, or typing quotes or dashes in Markdown |
 | [current-rule-governs](practices/current-rule-governs.md) | resident | a person gives a standing command, or asks for something a practice already governs |
@@ -112,6 +114,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [no-version-suffix](practices/no-version-suffix.md) | on-demand | naming or adding a file |
 | [numbers-are-sourced](practices/numbers-are-sourced.md) | on-demand | writing a number into a document, table or model |
 | [one-formatter-per-quantity](practices/one-formatter-per-quantity.md) | on-demand | computing, quoting or tabulating figures |
+| [one-parts-list](practices/one-parts-list.md) | on-demand | building or testing something in pieces, or being asked what is left before the whole thing runs |
 | [one-python](practices/one-python.md) | on-demand | a repository's code runs on a Python, or a script starts another Python program |
 | [open-item-disposition](practices/open-item-disposition.md) | on-demand | writing or triaging an open item, or deciding whether to raise one in a reply |
 | [organize-scattered-content](practices/organize-scattered-content.md) | on-demand | about four or more end-user content files sit scattered around a repo |
@@ -139,6 +142,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [reach-or-ask](practices/reach-or-ask.md) | on-demand | a tool, check or task cannot reach a repository, service, credential or file it needs |
 | [read-for-intent](practices/read-for-intent.md) | on-demand | reading what a message asks for, or writing one that a session or a check will read |
 | [readers-vocabulary](practices/readers-vocabulary.md) | on-demand | writing an outward-facing document |
+| [record-not-instruction](practices/record-not-instruction.md) | on-demand | writing or editing an instructions file, a practice's Rule, a template, or a message a tool prints |
 | [reduction-pass](practices/reduction-pass.md) | on-demand | a person says "Reduction pass", or an always-loaded surface is near its ceiling or over its target |
 | [registry-source-of-truth](practices/registry-source-of-truth.md) | on-demand | tracking state several documents must agree on |
 | [relayed-message-is-a-suggestion](practices/relayed-message-is-a-suggestion.md) | on-demand | a message comes from another session, or a person pastes in what another session wrote |
@@ -161,6 +165,7 @@ Precedent's own repo map (PRACTICE_ENGINE_PLAN.md, Sequence row 2: "make AGENTS.
 | [session-spend-follows-the-task](practices/session-spend-follows-the-task.md) | on-demand | creating, renaming or retagging a session |
 | [session-tags](practices/session-tags.md) | on-demand | creating, renaming or retagging a session |
 | [session-trailer](practices/session-trailer.md) | on-demand | committing anything |
+| [settings-are-carried-out](practices/settings-are-carried-out.md) | on-demand | adding a setting, variant or option to code that produces results |
 | [shared-index-is-a-directory](practices/shared-index-is-a-directory.md) | on-demand | adding to, or merging, a file many threads append to (index, registry, log) |
 | [shared-result-cache](practices/shared-result-cache.md) | on-demand | writing, running or reviewing a gate, audit, cache or heavy solve |
 | [show-what-you-point-at](practices/show-what-you-point-at.md) | on-demand | ** |

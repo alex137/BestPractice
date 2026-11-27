@@ -191,3 +191,7 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **A long job running in the background of a cloud session dies with no error, and `uptime` shows the machine has been up for a minute. The conversation carries a notice that instruction files "were re-read when this session started". Nothing in the job's log explains it.** [story](gotcha-2026-11-18-attaching-a-repository-restarts-a-cloud-session-and-kills-its-jobs.md)
 
 - **A session that tasks other sessions sends one a change of plan. The send reports "delivered". The other session carries on with the old plan, and hours later says the message "never arrived", or that several arrived at once.** [story](gotcha-2026-11-19-messages-to-a-busy-session-arrive-hours-late.md)
+
+- **Worker sessions in a project **cannot push**. Every push is refused with** [story](gotcha-2026-11-22-a-shared-set-under-another-account-is-looked-for-under-yours.md)
+
+- **Every local check passes, the pull request merges, and GitHub's test on `main` is red. Three merges later it is still red, and Update Vendors in every other repository has been quietly staying on an older commit. The local lint had printed the finding the whole time, under a heading that said "warning".** [story](gotcha-2026-11-24-a-local-pass-measured-against-main-hides-what-githubs-test-refuses.md)

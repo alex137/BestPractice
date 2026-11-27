@@ -1304,6 +1304,12 @@ def index_is_redundant(fm):
     return _routes_by_path(fm) or bool(gates)
 
 
+# The one occasion line every spoken command sits under in a tracked block
+# (build_loader_block).
+SPOKEN_INDEX_HEAD = ('When a person says one of these, or plainly asks for what '
+                     'it does:')
+
+
 def lands_in_occasion_index(fm, omit_commands=False):
     """Whether this practice costs an occasion-index line in a block that
     carries it -- the one test build_loader_block applies, kept here so
@@ -1650,15 +1656,32 @@ def build_loader_block(practices, source_levels=None, defers_sources=False,
     on_demand = [(fm, sections) for fm, sections, _f in practices if fm.get('tier') == 'on-demand']
     by_occasion = collections.defaultdict(list)
     routed_out = []
+    spoken = []
     for fm, sections in on_demand:
         occasion = _json_str(fm.get('occasion', ''))
-        if lands_in_occasion_index(fm, omit_commands):
+        if lands_in_occasion_index(fm, omit_commands) and command_phrases(fm):
+            # THE SPOKEN COMMANDS SHARE ONE OCCASION LINE (2026-11-25). Each
+            # used to open with a "When a person says X, or asks for ..."
+            # line of its own, thirteen of them, which said the command's
+            # words a second time. Under one line, each keeps its words,
+            # its practice and its clause. The clause stays because a
+            # session has to know what the words set in motion before it
+            # loads anything: check_park_it.py holds "Drop it" to that, and
+            # a first cut that kept only the words failed it.
+            spoken.append((command_phrases(fm), fm['slug'],
+                           _index_clause(fm, sections)))
+        elif lands_in_occasion_index(fm, omit_commands):
             by_occasion[occasion].append((fm['slug'], _index_clause(fm, sections)))
         elif occasion and not adds_to(fm) \
                 and not (omit_commands and command_phrases(fm)):
             routed_out.append(fm['slug'])       # index_is_redundant
 
     index_lines = []
+    if spoken:
+        index_lines.append(SPOKEN_INDEX_HEAD)
+        for words, slug, clause in sorted(spoken, key=lambda t: t[1]):
+            said = ' / '.join(f'"{w}"' for w in words)
+            index_lines.append(f"  {said}: {slug} — {clause}")
     for occasion in sorted(by_occasion):
         index_lines.append(f"When {occasion}:")
         for slug, clause in sorted(by_occasion[occasion]):

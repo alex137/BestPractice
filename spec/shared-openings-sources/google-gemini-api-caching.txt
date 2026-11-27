@@ -1,0 +1,208 @@
+URL: https://ai.google.dev/gemini-api/docs/caching?generate-content=true
+Retrieved: 2026-11-22
+Publisher: Google (Gemini API documentation, ai.google.dev)
+Fetched as the page's own markdown source: https://ai.google.dev/gemini-api/docs/caching.md.txt?generate-content=true (generateContent API view). Passages verbatim; code samples omitted. The default (Interactions API) view of the same page is quoted at the end.
+
+# Context caching
+
+> In a typical AI workflow, you might pass the same input tokens over and over to
+> a model. The Gemini API offers two different caching mechanisms:
+> 
+> -  Implicit caching (automatically enabled on Gemini 2.5 and newer models, no cost saving guarantee)
+> -  Explicit caching (can be manually enabled on Gemini 3 and 2.5 models, cost saving guarantee; not supported for Gemini 4 models)
+> 
+> Explicit caching is useful in cases where you want to guarantee cost savings,
+> but with some added developer work.
+
+## Implicit caching
+
+> Implicit caching is enabled by default for all Gemini 2.5 and newer models. We
+> automatically pass on cost savings if your request hits caches. You don't need to configure anything to turn it on. The following table lists the minimum input token count for each model:
+> 
+> | Model | Min token limit |
+> | :--- | :--- |
+> | Gemini 4 Carbon | 4,096 |
+> | Gemini 4 Argon | 4,096 |
+> | Gemini 4 Neon | 4,096 |
+> | Gemini 4 Hydrogen | 4,096 |
+> | Gemini 3.8 Flash | 4,096 |
+> | Gemini 3.6 Flash | 4,096 |
+> | Gemini 3.1 Pro Preview | 4,096 |
+> | Gemini 2.5 Flash | 2,048 |
+> | Gemini 2.5 Pro | 2,048 |
+> 
+> To increase the chance of an implicit cache hit:
+> 
+> - Try putting large and common contents at the beginning of your prompt
+> - Try to send requests with similar prefix in a short amount of time
+> 
+> {% callout type="note" %}
+>   **Multi-turn and agent loops on Gemini 4:** Gemini caches the
+>   full previous request only if the new request adds at least 2,050 tokens. Model
+>   output, thought, and function results all count toward this total. For smaller
+>   additions, Gemini re-processes the last 2,050 tokens of the previous request at
+>   the standard input rate. Most agent turns exceed this threshold.
+> 
+> {% /callout %}
+> 
+> You can see the number of tokens which were cache hits in the response object's
+> `usage_metadata` field.
+
+## Explicit caching
+
+> 
+> {% callout type="note" %}
+>   Explicit context caching is currently in Beta. Endpoints and SDK methods are
+>   available under `v1beta`. Explicit caching is not supported for Gemini 4 models; Gemini 4 models use
+>   [implicit caching](/docs/caching#implicit-caching) by default.
+> 
+> {% /callout %}
+> 
+> Using the Gemini API explicit caching feature, you can pass some content
+> to the model once, cache the input tokens, and then refer to the cached tokens
+> for subsequent requests. At certain volumes, using cached tokens is lower cost
+> than passing in the same corpus of tokens repeatedly.
+> 
+> When you cache a set of tokens, you can choose how long you want the cache to
+> exist before the tokens are automatically deleted. This caching duration is
+> called the *time to live* (TTL). If not set, the TTL defaults to 1 hour. The
+> cost for caching depends on the input token size and how long you want the
+> tokens to persist.
+> 
+> This section assumes that you've installed a Gemini SDK (or have curl installed)
+> and that you've configured an API key, as shown in the
+> [Get started guide](/docs/get-started).
+> 
+
+### Generate content using a cache (excerpt of the Python sample: the cache is created with a display name and TTL, then referenced by name)
+
+>   cache = client.caches.create(
+>       model=model,
+>       config=types.CreateCachedContentConfig(
+>           display_name='sherlock jr movie', # used to identify the cache
+>           system_instruction=(
+>               'You are an expert video analyzer, and your job is to answer '
+>               'the user\'s query based on the video file you have access to.'
+>           ),
+>           contents=[video_file],
+>           ttl="300s",
+>       )
+>   )
+>   
+>   response = client.models.generate_content(
+>       model = model,
+>       contents= (
+>       'Introduce different characters in the movie by describing '
+>       'their personality, looks, and names. Also list the timestamps '
+>       'they were introduced for the first time.'),
+>       config=types.GenerateContentConfig(cached_content=cache.name)
+>   )
+>   
+>   print(response.usage_metadata)
+>   
+>   print(response.text)
+>   ```
+
+### List caches
+
+> 
+> It's not possible to retrieve or view cached content, but you can retrieve
+> cache metadata (`name`, `model`, `display_name`, `usage_metadata`,
+> `create_time`, `update_time`, and `expire_time`).
+> 
+
+### Update a cache
+
+> 
+> You can set a new `ttl` or `expire_time` for a cache. Changing anything else
+> about the cache isn't supported.
+> 
+
+### Delete a cache
+
+> 
+> The caching service provides a delete operation for manually removing content
+> from the cache. The following example shows how to delete a cache:
+> 
+> {% tabs %}
+
+## When to use explicit caching
+
+> 
+> Context caching is particularly well suited to scenarios where a substantial
+> initial context is referenced repeatedly by shorter requests. Consider using
+> context caching for use cases such as:
+> 
+> * Chatbots with extensive [system instructions](/docs/text-generation)
+> * Repetitive analysis of lengthy video files
+> * Recurring queries against large document sets
+> * Frequent code repository analysis or bug fixing
+> 
+
+### How explicit caching reduces costs
+
+> 
+> Context caching is a paid feature designed to reduce cost. Billing is based on
+> the following factors:
+> 
+> 1. **Cache token count:** The number of input tokens cached, billed at a
+>    reduced rate when included in subsequent prompts.
+> 
+> 2. **Storage duration:** The amount of time cached tokens are stored (TTL),
+>    billed based on the TTL duration of cached token count. There are no minimum
+>    or maximum bounds on the TTL.
+> 
+> 3. **Other factors:** Other charges apply, such as for non-cached input tokens
+>    and output tokens.
+> 
+> 
+> For up-to-date pricing details, refer to the Gemini API [pricing
+> page](/docs/pricing). To learn how to count tokens, see the [Token
+> guide](/docs/tokens).
+> 
+
+### Additional considerations
+
+> 
+> Keep the following considerations in mind when using context caching:
+> 
+> * The *minimum* input token count for context caching varies by model. The
+>   *maximum* is the same as the maximum for the given model. (For more on
+>   counting tokens, see the [Token guide](/docs/tokens)).
+> 
+> * The model doesn't make any distinction between cached tokens and regular
+>   input tokens. Cached content is a prefix to the prompt.
+> 
+> * There are no special rate or usage limits on context caching; the standard
+>   rate limits for `GenerateContent` apply, and token limits include cached
+>   tokens.
+> 
+> * The number of cached tokens is returned in the `usage_metadata` from the
+>   create, get, and list operations of the cache service, and also in
+>   `GenerateContent` when using the cache.
+> 
+> * Implicit caching doesn't apply when a request uses an explicit cache. Any
+>   additional input tokens sent alongside the explicit cache are billed at the
+
+---
+Default view of the same page (https://ai.google.dev/gemini-api/docs/caching, source https://ai.google.dev/gemini-api/docs/caching.md.txt), Interactions API:
+
+> In a typical AI workflow, you might pass the same input tokens over and over to
+> a model. The Gemini API offers implicit caching to optimize performance and
+> costs.
+> 
+> {% callout type="note" %}
+>   The **Interactions API** only supports implicit caching. Explicit caching
+>   (manually creating and managing cache objects) is not supported in the
+>   Interactions API, or for Gemini 4 models. To use explicit caching on
+>   supported Gemini 3 and 2.5 models, switch to the
+>   [generateContent API](/docs/caching?generate-content=true).
+> 
+> {% /callout %}
+> 
+
+> You can see the number of tokens which were cache hits in the response object's
+> `usage.total_cached_tokens` (Python and JavaScript) field.
+> 
+
+Finding: this page says nothing about who can share a cache (project / API key), and states no lifetime for implicit caches.

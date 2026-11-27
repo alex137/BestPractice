@@ -1811,6 +1811,52 @@ def _is_wait_line(text):
             and one.startswith('(') and one.endswith(')'))
 
 
+SHORT_NOTE_MAX_LINES = 3
+SHORT_NOTE_MAX_CHARS = 400
+
+
+def _is_short_note(text, limits=None):
+    """-> True for the short answer a wake may get in place of a closing
+    section: a few plain lines, no heading.
+
+    Alex, 2026-11-24 (strength: decided, "yes to 1,2, and 4"): a turn that
+    only answers a wake -- another session's message, a notification -- owes
+    a line, not the full closing section. A project's coordinator had
+    measured the section, and the refusals that demanded it, as the largest
+    single piece of what its automatic checks printed.
+
+    `limits` is the requirement's own `short_note` entry (max_lines,
+    max_chars); the defaults above apply where it names none. A reply with
+    a markdown heading is never a short note: it has started a section, and
+    the section's own rules apply to it.
+    """
+    limits = limits if isinstance(limits, dict) else {}
+    max_lines = limits.get('max_lines') or SHORT_NOTE_MAX_LINES
+    max_chars = limits.get('max_chars') or SHORT_NOTE_MAX_CHARS
+    body = (text or '').strip()
+    lines = [l for l in body.splitlines() if l.strip()]
+    if not lines or len(lines) > max_lines or len(body) > max_chars:
+        return False
+    return not any(re.match(r'^\s*#{1,6}\s+\S', l) for l in lines)
+
+
+def _short_note_limits(reqs, wake):
+    """-> the `short_note` limits in force for this turn, or None.
+
+    In force only when something other than a person started the turn
+    (`wake`), no quiet line is owed, and a source declares `short_note`
+    under its require_quiet_while_background_runs entry. A turn a person
+    started always owes the closing section, however short the reply.
+    """
+    if not wake or wake.get('quiet_owed'):
+        return None
+    for r in reqs:
+        q = r.get('require_quiet_while_background_runs')
+        if isinstance(q, dict) and isinstance(q.get('short_note'), dict):
+            return q['short_note']
+    return None
+
+
 def _unknown_predicates(req):
     """-> sorted keys of `req` this engine has no branch for.
 
@@ -1906,10 +1952,20 @@ def violations(text, reqs, timeline=None, wake=None, prompt=None, turn=None,
                 f"Report once, when the last job ends or one fails."
                 + (f" -- {q['why']}" if isinstance(q, dict) and q.get('why') else '')
                 + (f" (practice: {r['practice']})" if r.get('practice') else ''))}]
+    # A SHORT NOTE ANSWERS A WAKE (2026-11-24). When something other than a
+    # person started the turn and the reply is a few plain lines, the
+    # closing HEADING is not owed -- and with no heading, nothing that
+    # describes the section under it can fire. Everything else is still
+    # judged: a short note that says "You can archive this session" over
+    # unlanded work is refused exactly as a long one is.
+    _short = _short_note_limits(reqs, wake)
+    short_note = _short is not None and _is_short_note(text, _short)
     out = []
     headings = [re.sub(r'^#{1,6}\s+', '', l).strip()
                 for l in text.splitlines() if re.match(r'^#{1,6}\s+\S', l)]
     for r in reqs:
+        if short_note and r.get('require_heading_matching'):
+            continue
         _unknown = _unknown_predicates(r)
         if _unknown:
             out.append({'kind': 'unknown_predicate', 'advisory': True,
@@ -3292,6 +3348,13 @@ def main():
                 bits.append('no reply at all to a background job waking the '
                             'turn while its batch still runs (or to a progress '
                             'event), unless it reports a failure')
+                _sn = r['require_quiet_while_background_runs']
+                _sn = _sn.get('short_note') if isinstance(_sn, dict) else None
+                if isinstance(_sn, dict):
+                    bits.append(
+                        f"a turn a wake started (not a person) may answer in "
+                        f"up to {_sn.get('max_lines') or SHORT_NOTE_MAX_LINES} "
+                        f"plain lines with no closing section")
             if r.get('require_full_check_after_fast_main'):
                 bits.append('a fast move into main whose GitHub test does not '
                             'run has its full local suite on main started, '

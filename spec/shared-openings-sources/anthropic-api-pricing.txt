@@ -1,0 +1,44 @@
+URL: https://platform.claude.com/docs/en/about-claude/pricing
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://platform.claude.com/docs/en/about-claude/pricing.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+## Model pricing (column definitions under the table)
+
+> * **5m cache writes:** Writing a prompt prefix to the 5-minute prompt cache.
+> * **1h cache writes:** Writing a prompt prefix to the 1-hour prompt cache.
+> * **Cache hits and refreshes:** Reading a prompt prefix from the prompt cache, which also refreshes it.
+
+
+## Prompt caching
+
+> Prompt caching reduces costs and latency by reusing previously processed portions of your prompt across API calls. Instead of reprocessing the same large system prompt, document, or conversation history on every request, the API reads from cache at a fraction of the standard input price.
+
+> Prompt caching uses the following pricing multipliers relative to base input token rates:
+>
+> | Cache operation | Multiplier | Duration |
+> | ----- | ----- | ----- |
+> | 5-minute cache write | 1.25x base input price | Cache valid for 5 minutes |
+> | 1-hour cache write | 2x base input price | Cache valid for 1 hour |
+> | Cache read (hit) | 0.1x base input price on most models | Same duration as the preceding write |
+>
+> Cache write tokens are charged when content is first stored. Cache read tokens are charged when a subsequent request retrieves the cached content.
+>
+> Caching saves money after a small number of cache reads:
+>
+> * **5-minute duration (1.25x write):** after one cache read
+> * **1-hour duration (2x write):** after two cache reads
+>
+> What a cache hit costs depends on the model:
+>
+> | Model | Cache hit multiplier | Cache hit price per million tokens |
+> | ----- | ----- | ----- |
+> | Claude Fable 5.2 and Claude Mythos 5.2 | 0.025x | $0.20 USD |
+> | Claude Fable 5.1 and Claude Mythos 5.1 | 0.025x | $0.25 USD |
+> | Claude Opus 5.5 | 0.05x | $0.20 USD |
+> | Claude Sonnet 5.5 | 0.05x | $0.10 USD |
+> | All other models | 0.1x | See [Model pricing](https://platform.claude.com/docs/en/about-claude/pricing#model-pricing) |
+>
+> These multipliers stack with other pricing modifiers, including the Batch API discount and data residency.
+

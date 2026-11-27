@@ -1,0 +1,20 @@
+URL: https://code.claude.com/docs/en/costs
+Retrieved: 2026-11-22
+Publisher: Anthropic
+Fetched as: https://code.claude.com/docs/en/costs.md (the page's own Markdown rendering; passages below are copied verbatim from it, each line prefixed with "> ")
+
+
+# (page introduction)
+
+> Claude Code charges by API token consumption. For subscription plan pricing (Pro, Max, Ultra, Team, Enterprise), see [claude.com/pricing](https://claude.com/pricing). Per-developer costs vary widely based on model selection, codebase size, and usage patterns such as running multiple instances or automation.
+
+> > The Session block in `/usage` shows API token usage and is intended for API users. Claude Pro, Max, and Ultra subscribers have usage included in their subscription, so the session cost figure isn't relevant for billing purposes. Subscribers see plan usage bars, activity stats, and a usage breakdown on the same screen.
+
+
+## Why usage climbs in a long session
+
+> A session that has been open for hours can use far more of your plan limits than your activity suggests, usually for one of these reasons:
+>
+> * **Long context**: Claude Code sends your full conversation with every request, and each time Claude uses tools it sends another request carrying that batch of tool results. With [prompt caching](https://code.claude.com/docs/en/prompt-caching.md), Claude Code re-reads that history at the [cached token rate](https://platform.claude.com/docs/en/about-claude/pricing), so a one-line question in a session that has been open all day still draws usage for the whole conversation. See [Manage context proactively](#manage-context-proactively) for ways to keep your context small
+> * **Cache misses**: your first message after a break longer than the [cache lifetime](https://code.claude.com/docs/en/prompt-caching.md#cache-lifetime) misses the cache and reprocesses your full context. See [which lifetime your requests get](https://code.claude.com/docs/en/prompt-caching.md#which-ttl-each-request-gets) and [the controls for setting it](https://code.claude.com/docs/en/prompt-caching.md#choose-the-ttl-yourself)
+

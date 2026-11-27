@@ -1,0 +1,64 @@
+URL: https://openai.com/index/unrolling-the-codex-agent-loop/
+Retrieved: 2026-11-22
+Publisher: OpenAI
+Page date shown: January 23, 2026 (OpenAI Engineering blog). This is a dated article, not a maintained reference page; it describes Codex CLI as of that date.
+Note: text extracted from the page HTML with tags stripped; '(opens in a new window)' is the page's own link marker text.
+
+## Building the initial prompt
+
+> In the initial prompt, every item in the list is associated with a role. The role indicates how much weight the associated content should have and is one of the following values (in decreasing order of priority): system, developer, user, assistant.
+
+> instructions⁠(opens in a new window): system (or developer) message inserted into the model’s context
+
+> In Codex, the instructions field is read from the model_instructions_file⁠(opens in a new window) in ~/.codex/config.toml, if specified; otherwise, the base_instructions associated with a model⁠(opens in a new window) are used. Model-specific instructions live in the Codex repo and are bundled into the CLI (e.g., gpt-5.2-codex_prompt.md⁠(opens in a new window)).
+
+> Finally, the input field of the JSON payload is a list of items. Codex inserts the following items⁠(opens in a new window) into the input before adding the user message:
+
+> 1. A message with role=developer that describes the sandbox that applies only to the Codex-provided shell tool defined in the tools section. That is, other tools, such as those provided from MCP servers, are not sandboxed by Codex and are responsible for enforcing their own guardrails.
+
+> 2. (Optional) A message with role=developer whose contents are the developer_instructions value read from the user’s config.toml file.
+
+> 3. (Optional) A message with role=user whose contents are the “user instructions,” which are not sourced from a single file but are aggregated across multiple sources⁠(opens in a new window). In general, more specific instructions appear later:
+
+> Contents of AGENTS.override.md and AGENTS.md in $CODEX_HOME
+
+> Subject to a limit (32 KiB, by default), look in each folder from the Git/project root of the cwd (if it it exists) up to the cwd itself: add the contents of any of AGENTS.override.md, AGENTS.md, or any filename specified by project_doc_fallback_filenames in config.toml
+
+> If any skills⁠(opens in a new window) have been configured:
+
+> 4. A message with role=user that describes the local environment in which the agent is currently operating. This specifies the current working directory and the user’s shell⁠(opens in a new window):
+
+> 1<environment_context>
+> 2  <cwd>[the page shows an example folder path here; left out of this copy]</cwd>
+> 3  <shell>zsh</shell>
+> 4</environment_context>
+
+> Once Codex has done all of the above computation to initialize the input, it appends the user message to start the conversation.
+
+> As you can see, the order of the first three items in the prompt is determined by the server, not the client. That said, of those three items, only the content of the system message is also controlled by the server, as the tools and instructions are determined by the client. These are followed by the input from the JSON payload to complete the prompt.
+
+## The first turn
+
+> In particular, note how the old prompt is an exact prefix of the new prompt. This is intentional, as this makes subsequent requests much more efficient because it enables us to take advantage of prompt caching (which we’ll discuss in the next section on performance).
+
+## Performance considerations
+
+> Generally, the cost of sampling the model dominates the cost of network traffic, making sampling the primary target of our efficiency efforts. This is why prompt caching is so important, as it enables us to reuse computation from a previous inference call. When we get cache hits, sampling the model is linear rather than quadratic. Our prompt caching ⁠(opens in a new window)documentation explains this in more detail:
+
+> Cache hits are only possible for exact prefix matches within a prompt. To realize caching benefits, place static content like instructions and examples at the beginning of your prompt, and put variable content, such as user-specific information, at the end. This also applies to images and tools, which must be identical between requests.
+
+> With this in mind, let’s consider what types of operations could cause a “cache miss” in Codex:
+
+> Changing the tools available to the model in the middle of the conversation.
+
+> Changing the model that is the target of the Responses API request (in practice, this changes the third item in the original prompt, as it contains model-specific instructions).
+
+> Changing the sandbox configuration, approval mode, or current working directory.
+
+> When possible, we handle configuration changes that happen mid-conversation by appending a new message to input to reflect the change rather than modifying an earlier message:
+
+> If the sandbox configuration or approval mode changes, we insert⁠(opens in a new window) a new role=developer message with the same format as the original <permissions instructions> item.
+
+> If the current working directory changes, we insert⁠(opens in a new window) a new role=user message with the same format as the original <environment_context>.
+
+> We go to great lengths to ensure cache hits for performance. There’s another key resource we have to manage: the context window.

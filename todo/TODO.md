@@ -55,6 +55,9 @@ as_of: 2026-11-27
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 47d | ask |  |
 | [`todo-2026-10-20-update-all-vendors-root-issues`](todo-2026-10-20-update-all-vendors-root-issues.md) | What one Update All Vendors run on 2026-10-20 (engine at `main` @ | 38d | wait | the names of the four repositories whose add_repo was refused, in the session th… |
 | [`todo-2026-10-30-very-deep-check-findings`](todo-2026-10-30-very-deep-check-findings.md) | What the 2026-10-30 very deep check found and did not fix in the same run. | 28d | wait | every line under Left names why this run left it |
+| [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 4d | wait |  |
+| [`todo-2026-11-25-clean-the-record-out-of-the-instructions`](todo-2026-11-25-clean-the-record-out-of-the-instructions.md) | Clean names, dates and history out of everything a session is told to follow or that ships to another repository. | 2d | ask |  |
+| [`todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size`](todo-2026-11-25-tell-a-session-when-it-has-reached-its-handover-size.md) | Have the tooling tell a session when it has passed the size its project declared for handing over. | 2d | wait | evidence -- a second project trying the handover rule by hand |
 
 ## Verify Before External Use
 
@@ -113,6 +116,7 @@ as_of: 2026-11-27
 | [`todo-2026-10-29-root-issues-from-the-landing-check-session`](todo-2026-10-29-root-issues-from-the-landing-check-session.md) | Found by the session that fixed | 29d | wait | item 3: Morgan runs Update Vendors in each repository that brings the ladder set… |
 | [`todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice`](todo-2026-10-29-root-issues-from-the-update-vendors-run-left-outside-bestpractice.md) | Left from the Root issues of the 2026-10-28 Update Vendors run across seven | 29d | wait | the two voice repositories could not be attached to the session that fixed the r… |
 | [`todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session`](todo-2026-10-30-root-issues-from-the-vendor-update-fixes-session.md) | Root issues found by the session that fixed the 2026-10-30 vendor-update | 28d | wait | out of scope for the session that found them (session_01Xcy6U1UBGg4Vvg5QFAE1Mz,… |
+| [`todo-2026-11-22-a-cited-papers-title-is-flagged-as-lineage-wording`](todo-2026-11-22-a-cited-papers-title-is-flagged-as-lineage-wording.md) | The check that keeps "what replaced what" out of documents flags a cited paper's own title. | 5d | wait |  |
 
 ## Decisions (the Person's Call)
 
@@ -127,6 +131,9 @@ as_of: 2026-11-27
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens | 30d | wait |  |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, | 27d | wait | out of scope of the 2026-10-31 loader-template move, and a judgment on wording w… |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | 23d | ask |  |
+| [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | 5d | wait |  |
+| [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | 5d | wait |  |
+| [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | 3d | ask | decision -- Alex or Morgan: cut 3, the index |
 
 ## Unblocked Work
 
@@ -152,6 +159,8 @@ as_of: 2026-11-27
 | [`todo-2026-09-28-very-deep-check-pass-4-findings`](todo-2026-09-28-very-deep-check-pass-4-findings.md) | What the 2026-09-28 very deep check's pass 4 found and did not act on. | 60d |
 | [`todo-2026-10-05-very-deep-check-pass-4-findings`](todo-2026-10-05-very-deep-check-pass-4-findings.md) | What the 2026-10-05 very deep check's pass 4 (catalogue, backlog, branches) | 53d |
 | [`todo-2026-10-11-very-deep-check-findings`](todo-2026-10-11-very-deep-check-findings.md) | What the 2026-10-11 very deep check of BestPractice found and did not fix | 47d |
+| [`todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening`](todo-2026-11-23-the-text-printed-every-turn-outweighs-the-opening.md) | The text this repository prints at the start of every turn costs more than everything a session loads at its start. | 4d |
+| [`todo-2026-11-25-clean-the-record-out-of-the-instructions`](todo-2026-11-25-clean-the-record-out-of-the-instructions.md) | Clean names, dates and history out of everything a session is told to follow or that ships to another repository. | 2d |
 
 ## Open Decisions
 
@@ -166,6 +175,9 @@ as_of: 2026-11-27
 | [`todo-2026-10-28-one-session-load-total`](todo-2026-10-28-one-session-load-total.md) | Token-budget blocks came back on 2026-10-27 and 2026-10-28 because tokens |  |
 | [`todo-2026-10-31-document-project-template-sections-into-practices`](todo-2026-10-31-document-project-template-sections-into-practices.md) | On 2026-10-31 the loader template's "Merging a thread branch", Conventions, |  |
 | [`todo-2026-11-04-reduction-pass-verdicts-for-morgan`](todo-2026-11-04-reduction-pass-verdicts-for-morgan.md) | A reduction pass over the universal set, 2026-11-04, proposes changes to 21 of the 79 practices a consumer's sessions ac | Morgan's verdict on the 7 Route out and Demote rows; the 14 Tighten and Merge rows were applied 2026-11-05 on Alex's word |
+| [`todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch`](todo-2026-11-22-a-push-is-refused-over-a-practice-set-it-does-not-touch.md) | A session that cannot reach one declared practice set cannot push anything, even a change that touches no practice file. | Alex's or Morgan's yes or no on the one-line change below; it changes what a gate refuses, so no session lands it on its own |
+| [`todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts`](todo-2026-11-22-one-account-address-cannot-serve-sets-under-two-accounts.md) | A project whose shared practice sets live under two GitHub accounts cannot get both at session start from the environmen | Alex's or Morgan's pick among the three options below |
+| [`todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured`](todo-2026-11-24-what-the-tooling-itself-costs-a-session-measured.md) | A project's coordinating session measured what Precedent's own tooling costs a session, and proposed four cuts. | Alex or Morgan |
 
 ## Due Reminders
 

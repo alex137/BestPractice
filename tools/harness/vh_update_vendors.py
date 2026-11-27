@@ -8654,6 +8654,25 @@ def check_allow_list_answer_is_recorded_and_reminded():
                   broad in out and f'"{say}"' in out))
     cases.append(('Update All reads the sentence from the update\'s output',
                   pua._allow_list_sentence(out) == say, pua._allow_list_sentence(out)))
+    # 2026-11-24: clone lines for a second account were applied on the
+    # recorded yes and a session held them, because nothing said what they
+    # were for (precedent_update.clone_lines_explained).
+    with tempfile.TemporaryDirectory() as td2:
+        d2 = pathlib.Path(td2)
+        (d2 / 'precedent.json').write_text(json.dumps({'sources': [
+            {'level': 'shared', 'name': 'someset', 'path': '../someset',
+             'repo': 'https://github.com/otheracct/someset'}]}), encoding='utf-8')
+        clone_case = ('settings.json allows 2 more command(s): '
+                      + ', '.join(pve.clone_allow_rules(['otheracct'])[:2]))
+        told = pu.clone_lines_explained(d2, [clone_case])
+        cases.append(('clone lines are explained: the account, the declared '
+                      'set it serves, read-only, covered by the yes on record',
+                      'otheracct' in told and 'someset' in told
+                      and 'only read' in told and 'no fresh ask' in told, told))
+        cases.append(('a change with no clone line gets no such sentence',
+                      pu.clone_lines_explained(d2, [allow_case]) == ''))
+        cases.append(('a clone-lines-only change still stands on a recorded yes',
+                      pu.allow_list_only([clone_case])))
     src = pathlib.Path(pua.__file__).read_text(encoding='utf-8')
     cases.append(('Update All prints every waiting repository in one list',
                   'for repo, say in allow_waiting:' in src))

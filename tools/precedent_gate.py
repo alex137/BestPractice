@@ -1049,6 +1049,18 @@ def _print_hard_requirements(root):
                   f"line, such as \"(Waiting on <what>.)\": no status report, "
                   f"no Boildown. Report once, when the last job ends or one "
                   f"fails. A wake that reports a failure may speak.")
+            # The short note (2026-11-24): said at turn start, where it
+            # can still shape the reply -- an exemption nobody is told about
+            # is a refusal nobody avoids.
+            _sn = r['require_quiet_while_background_runs']
+            _sn = _sn.get('short_note') if isinstance(_sn, dict) else None
+            if isinstance(_sn, dict):
+                print(f"- [{src}] a turn that only answers a wake -- another "
+                      f"session's message, a notification, a job that "
+                      f"finished -- may be a short note: up to "
+                      f"{_sn.get('max_lines') or 3} plain lines, no heading, "
+                      f"no Boildown. Anything longer, and every turn a person "
+                      f"started, closes with the full section.")
         # require_plan_done_if_says (2026-10-19): the session has to know to
         # name its plan before the reply is written, or the check never sees
         # it.

@@ -2969,6 +2969,14 @@ def check_precedent_check_fires():
                  '# Doc\n\nThe timeout is 30s (updated 2026-01-15).\n',
                  encoding='utf-8'))
 
+        # record-not-instruction -- a name-and-date stamp in a template that
+        # precedent.json records no count for. The unplanted tree passes
+        # because every file that predates the rule has its count recorded.
+        case('record-not-instruction',
+             lambda repo: (repo / 'templates' / 'planted-stamp.md').write_text(
+                 '# Template\n\nMerge without waiting (Somebody, 2026-01-15).\n',
+                 encoding='utf-8'))
+
         # index-remembers-past -- inline lineage language in a document
         case('index-remembers-past',
              lambda repo: (repo / 'planted-lineage.md').write_text(

@@ -1,0 +1,62 @@
+URL: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/best-practices
+Retrieved: 2026-11-22
+Publisher: xAI (docs.x.ai; the site's index describes itself as 'Official SpaceXSI (xAI) developer documentation')
+Fetched as the page's own markdown: https://docs.x.ai/developers/advanced-api-usage/prompt-caching/best-practices.md. 
+
+# Best Practices & FAQ
+
+
+## Best practices
+
+
+> 1. **Always set `x-grok-conv-id`** (or `prompt_cache_key` for Responses API) — Routes requests to the same server, maximizing cache hits.
+
+> 2. **Use a stable conversation ID** — A UUID or your application's session ID works well.
+
+> 3. **Never modify earlier messages** — Only append new ones. Any edit, removal, or reorder breaks the cache.
+
+> 4. **Front-load static content** — Place system prompts, few-shot examples, and reference documents at the beginning where they form a stable prefix.
+
+> 5. **Monitor `cached_tokens`** — If consistently 0, verify your conversation ID and message ordering.
+
+> 6. **Handle cache misses gracefully** — Eviction and routing mean cache hits aren't guaranteed. Your application should work without caching.
+
+
+## Supported models
+
+
+> Prompt caching is available on all `grok` language models. Check the [Pricing](/developers/pricing) page for details on which models support caching and their specific cached token pricing.
+
+
+## FAQ
+
+
+
+### Does caching affect output quality?
+
+
+> No. Caching only accelerates the prompt processing phase. The model's output is identical whether the prompt is served from cache or computed from scratch.
+
+
+### How long do cache entries persist?
+
+
+> Cache entries can be evicted at any time due to server load or restarts. Use `x-grok-conv-id` to maximize retention by routing to the same server.
+
+
+### Can I force a cache miss?
+
+
+> Yes — use a different `x-grok-conv-id` or omit the header entirely. This will route your request to a potentially different server where no cache exists for your prompt.
+
+
+### Does caching work with streaming?
+
+
+> Yes. Prompt caching works with both streaming and non-streaming requests. The first empty token in a stream corresponds to the cache lookup and prefill phase.
+
+
+### Does caching work with tool calls and function calling?
+
+
+> Yes. The cacheable prefix includes all messages up to and including tool call results. As long as the prefix remains unchanged, subsequent requests will benefit from caching.
