@@ -3010,6 +3010,185 @@ question 27, question 20, the quiet and unmeasured sections, the Pass 2
 question list, the schedules inventory and the blocks' stamps. Steps 2, 6,
 7, 8 and 9 above and "Running the check with helpers" say so.
 
+**2026-11-27: the record moved out of Detail.** The repository's owner
+decided that day (*"yes for both"*) that a practice's Detail is an
+instruction as much as its Rule is
+([record-not-instruction](record-not-instruction.md)). Detail had carried,
+beside each part, who asked for it and when. Those lines are below, oldest
+first, each naming the part of Detail it stood behind, with the person's
+words and the strength as they were written there. What the paragraphs
+above or the approval history below already tell is not repeated: the
+2026-09-11 component ledger, the 2026-09-12 sweeps, the 2026-09-20 dedup
+ledger proposal, the 2026-10-31 cut of the Rule and the 2026-10-31
+long-Rules read left Detail with nothing new to add here.
+
+**2026-09-08.** Three incidents Pass 3 tells were found that day: the
+resident block's budget reporting green while the file around it reached
+about 17,000 tokens (the session-load bullet), three practice sets each
+carrying a `precedent_retire_path.py` a rename had orphaned (the orphans
+bullet), and the individual skeleton shipping no `identity.json` (the
+skeletons bullet).
+
+**2026-09-14.** Pass 1's rehearsal of a practice moved between levels was
+added 2026-09-14, the day Morgan asked whether the run had tested it and it
+had not: the rehearsal returned thirteen findings and the move tool.
+
+**2026-09-17.** Pass 2's question 17: the incident it tells, the
+`ffcae058` ledger row promising a hand-run workaround neither adapter's
+README mentioned, was found 2026-09-17.
+
+**2026-09-20.** Pass 2's question 18: the incident it tells, the sweep
+list built by matching filenames that flagged a live `light-check.yml` as
+retired, was found 2026-09-20.
+
+**2026-09-21.** Each of these parts of Detail was marked "Added 2026-09-21
+(Morgan, strength: decided)" from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md):
+step 2's planted-case rotation in the order of operations (item 11);
+Pass 1's DELETIONS PENDING (items 1 and 2); Pass 2's question 8a, CONFIG
+KEYS (item 10), question 8b, the deletion table (item 4), question 13a,
+IDENTITY REALITY (item 8, "after three identity incidents in six days"),
+question 15a, CHECK COVERAGE (item 13), question 19, WORKFLOW REALITY
+(item 5), and question 20, INCIDENT COVERAGE (item 12); Pass 3's ACCRETION
+(item 9) and MOVED CLAIMS (item 14); CARRY-THROUGH under "Current is not
+the same as carried" (item 3); and ACTIONS FLOOR under "The bills it reads"
+(item 7). Two more carried the same day with a different source. Pass 1's
+adapter-parity bullet: "Added 2026-09-21 at Morgan's request (strength:
+decided)", in the words the approval history quotes. Pass 3's close read
+of every always-loaded instructions file: "Added 2026-09-21 (Morgan,
+strength: decided) after an Update Vendors pass found a consuming repo's
+`AGENTS.md` naming a repository that does not exist".
+
+**2026-09-21, what changed that day.** Pass 1: a deletion was the direction
+nothing rehearsed until 2026-09-21, and the incident its bullet tells, a
+refresh deleting `precedent-check.yml` from four practice sets, was found
+2026-09-21. Question 8b's table: a CI workflow file's deletion arrives
+since 2026-09-21. Question 17: all four adapters carry ledger rows since
+2026-09-21. Question 19: the anchor shared between a `push:` and a
+`pull_request:` trigger was found 2026-09-21. "Current is not the same as
+carried": until 2026-09-21 nothing anywhere said which repos had not taken
+an update.
+
+**2026-09-22.** Pass 1's DELETIONS PENDING has read all three shipped paths
+since 2026-09-22. Question 8b: the missing removal path for hooks was fixed
+2026-09-22 by `_remove_dropped_hook_files`, which removed nothing until
+2026-09-28, when it began reading the record from before the update; the
+row carried the date it changed. Question 21, FIX SWEEP: added 2026-09-22
+(Morgan, strength: decided - *"Build item 13's fix-sweep half, go
+update"*), from the same proposal's item 13. Pass 3's session-load bullet:
+the report of a file over its declared ceiling was added 2026-09-22.
+
+**2026-09-23.** Pass 1's move rehearsal: the universal to shared or
+individual direction was added 2026-09-23, the same day a hand-done version
+of exactly that move (before the tool supported it) shipped a deduplication
+this repo's own consumer-fixture check later found resolving nowhere.
+Pass 3's SOURCE bullet: added 2026-09-23 (Morgan, strength: decided), after
+asking for a placement review across the five Precedent repos and finding
+this axis was never checked anywhere: the session's own report is the
+bullet's worked example.
+
+**2026-09-25 to 2026-10-07.** Question 8b's hooks rows: `HOOK_WIRING` added
+a `settings.json` entry (2026-09-25); since 2026-10-07 every hook file is
+one permanent stub and a hook added since then is listed in
+`tools/hook_wiring.json`; the sync has written practice-declared hooks
+since 2026-10-07. Step 2 of the order of operations: since 2026-10-07 a
+full harness run refuses without the person's go-ahead.
+
+**2026-09-26.** Pass 2's question 22, the CI fleet audit. That it runs only
+here and by hand: Morgan, 2026-09-26: "I only want this to run when either
+manually invoked or as part of a very deep check". That its output stays
+in the session: Morgan, 2026-09-26, strength: decided: *"its results
+should go to the session not the GitHub since it references other repos of
+yours"*.
+
+**2026-09-27.** Pass 4's base-branch bullet: this repository kept a carry
+watermark until 2026-09-27, when its upstream-carry notice was retired.
+
+**2026-09-28.** Pass 1's move rehearsal: since 2026-09-28 the run that
+withdraws the source copy also fixes every current mention that still
+places the practice in the old set. Question 19: the workflow YAML check
+refused every anchor and alias until 2026-09-28, when a very deep check
+found GitHub had accepted plain ones since 2025-09-18. Pass 4's open-items
+bullet: Morgan, 2026-09-28 (strength: decided): *"review all to do's and
+see if any are outdated ... close them ... and then also to do the same
+with all the gotchas ... for both of these, the to-dos and the gotchas,
+should be both in the doc and ask the session user."* "Read `main`, write
+through the normal process": Morgan, 2026-09-28 (strength: decided):
+*"it's better to do a deep check on the live version (main), but we don't
+want to edit it, to edit it we should use the normal process."* Until then
+a run read whatever the harness checked out, which was not the same branch
+in every repo the same afternoon. "Long-lived branches are never offered
+for deletion": until 2026-09-28 the sweep protected only the declared base
+and the default branch, and would have handed a routinely fast-forwarded
+branch over with a one-click delete link (Morgan, 2026-09-28, strength:
+decided).
+
+**2026-09-29.** Pass 3, that a rename is fixed in the run and not only
+reported: Morgan, 2026-09-29, strength: decided. "Every branch read, only
+the current copy fixed", that the CI fleet audit reads the workflow files
+on branches pushed in the last seven days: Morgan, 2026-09-29, strength:
+decided.
+
+**2026-09-30.** Pass 2's question 23, VENDORED SURPLUS: the incident it
+tells, a consumer's copy holding 543 files, was found 2026-09-30. Morgan,
+that day: "check specifically the vendored-in files to see if anything is
+vendored-in that the consumer repo would never have use of." The section's
+first run flagged the Claude Code hooks, installed and again in the copy's
+templates. Morgan kept them: the template is what a new repo is made from.
+
+**2026-10-01.** Pass 3's session-load bullet, the reduction pass over
+target: Morgan, 2026-10-01, after the first such review: "if it's not part
+of Very Deep Check, it absolutely should be", strength: decided.
+
+**2026-10-06.** "Retired sets": Morgan, 2026-10-06 (strength: decided):
+*"have update vendors and very deep check see if any repos are declared to
+be included that no longer exist and remove them"*, choosing to drop on a
+set's own retirement or GitHub's archived flag, and never on *Not Found*.
+
+**2026-10-11.** Pass 2's question 24, the warnings: Morgan, 2026-10-11: "I
+like reviewing warnings to see if we can get rid of them or explicitly
+exclude them and so on to over time eliminate warnings", and on who
+decides: asking about each one "will add a lot of time and frustration to
+the very deep check", so the session uses its judgment and asks only when
+in doubt. Before this, the markdown warnings were the only ones any
+section showed; the advisory count was read and dropped, and no section
+collected any other tool's warnings. "The upstream question": Morgan,
+2026-10-11, strength: decided. "The run's full account": Morgan,
+2026-10-11 (strength: decided), after that day's run left it out until he
+asked for it: *"Let's update very deep check to make that document
+mandatory."*
+
+**2026-10-17.** Pass 1's move rehearsal: `--withdraw-from-universal` was
+added 2026-10-17, the day a rehearsal found the page never named it.
+Pass 2's question 25, of the retired tier below staging: Morgan,
+2026-10-17, of that tier: "any mention of [it] it finds should be fixed to
+assume its deprecation". The same question, the checks by stage: Morgan,
+2026-10-17: "Please add to very deep check, an explicit check for that ...
+It should list this, which is for the push to staging, the push to main.
+What are the checks listed? ... what are the checks that are done before
+each, and then what are the checks that are done after each, and the same
+for debut ... and then also flag it and fix it if before the pushes it has
+any checks other than the minimum essential urgent check and the leak gate
+check." Question 26, set independence: Morgan, 2026-10-17: "The practice
+sets should be more independent as practices and the test for the
+practices in the practice sets ... add to a very deep check a review for
+that to make sure that is how it works. And fix it if it's not, if you
+find it otherwise at any point." Question 27, the test review: Morgan,
+2026-10-17, strength: decided: "Update 'very deep check' to review all
+TESTS to see if all tests are relevant and important. Do they test
+something still used and needed? Was what it tests deprecated? ... does
+the amount of time it takes worth it for its level of importance? Write
+all this in the result doc you create." No earlier item asked for it; that
+question is the first. Pass 3's TOKEN BUDGETS: Morgan, 2026-10-17,
+strength: decided, after weeks without a budget warning raised the
+question of whether they were still checked: "even if they all pass, share
+the exact numbers, the limits, the chart, and any other details. These
+should all go into the very deep check document."
+
+**2026-10-18.** Question 27, that a set's tests are also read against the
+retired list of the repo running the check: Morgan, 2026-10-18, strength:
+decided.
+
 
 ### Approval history
 
