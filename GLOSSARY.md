@@ -24,6 +24,7 @@ Built from every practice's `defines:` frontmatter field -- the terms that pract
 | capture sweep | [capture-gate](practices/capture-gate.md) |
 | code owner | [inner-workings-for-code-owners](practices/inner-workings-for-code-owners.md) |
 | conservative corner | [constants-are-risk-inputs](practices/constants-are-risk-inputs.md) |
+| coordinator | [coordinating-sessions-through-models](practices/coordinating-sessions-through-models.md) |
 | cross-source rollout | [cross-source-rollout](practices/cross-source-rollout.md) |
 | decided | [decision-strength](practices/decision-strength.md) |
 | declared fallback zone | [timestamps-carry-offset](practices/timestamps-carry-offset.md) |
