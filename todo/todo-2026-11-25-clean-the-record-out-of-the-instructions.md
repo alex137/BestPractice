@@ -25,7 +25,7 @@ closed:            null
 - [x] The instructions file, [AGENTS.md](../AGENTS.md). Rewritten on Alex's "Yes." of 2026-11-25, as proposed in [spec/AGENTS_REWRITE_PROPOSAL.md](../spec/AGENTS_REWRITE_PROPOSAL.md): 30,096 characters to about 24,050, and its count in `precedent.json` is gone.
 - [x] The templates, which ship into other people's repositories. All 56 stamps are settled: 50 rewritten, and the ledger's 6 left as a dated record. The hook stub's comment changed in all 35 copies and three workflow templates changed, on Alex's "your picks." of 2026-11-27; each repository sees one approval prompt for them at its next update.
 - [x] The rule text of the 7 practices. All 9 stamps are out of the rules. Where a person's words were only in the rule, they moved to that practice's Story word for word.
-- [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session (needs: this session, after the three above).
+- [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session *(claimed: Alex, 2026-11-27, branch `claude/printed-messages-carry-no-record`)*.
 - [ ] The header of the resident block, which shows a token count and a practice count to every session. The figure moves to the output of the check that measures it.
 - [ ] Decide whether a practice's `## Detail` is covered (needs: decision -- Alex or Morgan).
 - [ ] Have each practice set that takes the engine declare its own list, so the check holds it too (needs: this session or that set's own, at its next engine update).
