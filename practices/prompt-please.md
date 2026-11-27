@@ -173,7 +173,9 @@ and dated, and what this session found since.
 the session for the person"): the same prompt word for word, tags and title
 in the create call, every other repository and its access named at the top
 of the prompt, and the reply gives the new session's link and the same
-prompt as a paste block.
+prompt as a paste block. **The new session opens beside this one, never
+under it**: the coordinator opens it, or the person does ("A sibling, not
+a child").
 
 **The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first. (Absorbed from `seeded-prompt-names-its-origin`, 2026-11-05.)
 
@@ -434,6 +436,32 @@ it:
   the fallback the old ban protected, so the prompt still appears in the
   reply as a paste block.
 
+### A sibling, not a child
+**A session opened to carry work on sits beside the session that hands it
+over, not under it.** The tool that opens a session makes the new one a
+child of whichever session calls it. The session handing over is usually
+about to be archived, so a session it opens itself hangs under a finished
+one, each handoff nests a level deeper, and the nesting has a limit.
+
+**So the session that hands over does not make the call.** In order:
+
+1. **A coordinator exists** -- the one session tagged `role:cos`
+   ([session-tags](session-tags.md)), or failing that this session's own
+   parent, if it is still running. Send it the prompt, word for word, and
+   ask it to open the session; it replies with the link. This is the one
+   message to a running session the handoff allows, and it asks for
+   nothing but the open.
+2. **No coordinator** -- a session the person opened themselves, with no
+   parent and no `role:cos` session. Give the person the prompt as a paste
+   block; a session they open is at the top level.
+
+**The coordinator opens what it is sent and decides nothing.** It checks
+the prompt is the one the person asked to have opened, makes the create
+call with the tags and title the prompt's sender gives, and answers with
+the link. Whether the work should be done is not its question
+([relayed-message-is-a-suggestion](relayed-message-is-a-suggestion.md)
+still governs what the new session does with the prompt).
+
 ### The merge authorization in full
 **The prompt carries a merge authorization only when the person gave one for
 this handoff**, exactly as `session-text` drew this line before this
@@ -692,6 +720,17 @@ into Detail, under a heading the Rule names. Nothing was deleted
 **2026-10-10: the For line is always there.** Behind the Detail's "Never a placeholder, "none" or "unknown"": 2026-09-26 left the line out when no session was known; since 2026-10-10 it is always there, because the person sorting text between many open windows reads the top two lines and nothing else.
 
 **2026-10-14: a later prompt carries everything.** Behind the Detail's "A later prompt replaces the earlier ones": Morgan, 2026-10-14, strength: decided: "when you write up your suggestions in a prompt, please include what you just gave me in that prompt, because I will only do one message to another session".
+
+**2026-11-27: the new session opened under the one being archived.** A
+session finishing its work wrote a prompt for the cleanup still owed and,
+asked to, opened the new session itself. The new session was a child of
+the finished one, which was itself a child of an earlier one. Alex, the
+same day: "you created this new thread as a sub-thread of the one bein
+archived. The new thread creation should start as a sibling. If this is a
+practice, then perhaps the convention is that the new thread creation
+should route through whatever is the current coordinator thread?" The
+first part is decided; routing through the coordinator was his suggestion,
+written up here and put to him before it landed.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated
