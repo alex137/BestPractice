@@ -4655,6 +4655,34 @@ def _record_stamps(root):
                     text = '\n' * head + m.group(1)
                 scan(f.relative_to(root).as_posix(), text)
     found.extend(_record_stamps_printed(root))
+    found.extend(_record_stamps_documents(root))
+    return found
+
+
+def _record_stamps_documents(root):
+    """-> [(rel, line number, the stamp)] for every piece of the record in
+    a document a person or a session is sent to in order to install, set up
+    or use the repository: the Markdown files at its root and under
+    documentation/. An instructions file is read by _record_stamps itself.
+    Passed over: a file a tool generates whole (its front matter names
+    generated_by), a file that declares itself a dated record with the
+    record-doc marker, and generated blocks inside a hand-written file."""
+    found = []
+    docs = sorted(root.glob('*.md'))
+    if (root / 'documentation').is_dir():
+        docs += sorted((root / 'documentation').rglob('*.md'))
+    for f in docs:
+        if f.name in _INSTRUCTIONS_FILES or not f.is_file():
+            continue
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        head = text[:2048]
+        if '<!--record-doc-->' in head or re.search(
+                r'\A---\n(?:.*\n)*?generated_by:', head):
+            continue
+        rel = f.relative_to(root).as_posix()
+        for n, line in enumerate(generated_blocks.blank(text).split('\n'), 1):
+            for m in _RECORD_STAMP_RE.finditer(line):
+                found.append((rel, n, m.group(0)))
     return found
 
 
@@ -4761,7 +4789,8 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
 @check('record-not-instruction', 'tree',
        'no instruction gains a piece of the record: the hand-written part '
        'of an instructions file, an active practice\'s Rule, every text '
-       'file under templates/, every string a script directly under tools/ '
+       'file under templates/, every Markdown document at the root and '
+       'under documentation/, every string a script directly under tools/ '
        'can print and every reason in reply_check.json carry no "Name, '
        'date" stamp, no "(strength: ...)" marker and no dated history '
        'opener beyond the count precedent.json records for that file from '
@@ -4769,6 +4798,8 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        'a name with no date beside it, history told without a date or '
        'opening in lower case ("retired 2026-..."), a template that '
        'declares itself a dated record with the record-doc marker, a '
+       'document with that marker or generated whole by a tool, a document '
+       'under spec/ or todo/, a '
        'practice\'s Detail (left for a later decision), a tool\'s comments '
        'and docstrings, a string a tool marks as the record it writes (an '
        'approval line, a Story), a message a test or a script in a '
@@ -4777,7 +4808,8 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        'count does not rise',
        selects_on=('AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'practices/**/*.md',
                    'local/practices/**/*.md', 'templates/**', 'precedent.json',
-                   'tools/*.py', 'tools/*.sh', 'reply_check.json'))
+                   'tools/*.py', 'tools/*.sh', 'reply_check.json',
+                   '*.md', 'documentation/**/*.md'))
 def _record_not_instruction(ctx):
     # WHY (Alex, 2026-11-25): the instructions file here opened by naming
     # whose sign-off a merge did not need, relayed by whom and on what date.

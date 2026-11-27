@@ -3,8 +3,8 @@ slug:        record-not-instruction
 title:       A person's name and a dated incident belong in the record, never in the instruction
 tier:        on-demand
 severity:    default
-applies_to:  ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "practices/**", "local/practices/**", "templates/**", "tools/*.py", "tools/*.sh", "reply_check.json"]
-applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule, anything under templates/, and the scripts and reply rules whose messages a session is shown. The path channel reaches it, so it costs no index line."
+applies_to:  ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "practices/**", "local/practices/**", "templates/**", "tools/*.py", "tools/*.sh", "reply_check.json", "*.md", "documentation/**"]
+applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule, anything under templates/, the scripts and reply rules whose messages a session is shown, and the documents at the root and under documentation/ that tell a person or a session how to install, set up or use the repository. The path channel reaches it, so it costs no index line."
 occasion:    "writing or editing an instructions file, a practice's Rule, a template, or a message a tool prints"
 gates:       []
 index_clause: "who decided and when goes in the record; an instruction says the rule, by role"
@@ -23,7 +23,7 @@ strength: assented
 
 **The record** is where a name, a date and a person's own words belong: a practice's `approved_by:` and `## Story`, a decision or an open item, a commit message, a comment in code beside the line it explains.
 
-**The instruction** is what a session, or someone else's repository, is told to follow: an instructions file a session loads, a practice's `## Rule`, anything under `templates/`, and a message a tool prints. It says what is true now and names people by role: the person, a code owner, the administrator. It carries no "Name, date" stamp, no strength marker, and no "until such a date this did X".
+**The instruction** is what a session, or someone else's repository, is told to follow: an instructions file a session loads, a practice's `## Rule`, anything under `templates/`, a message a tool prints, and a document that tells a person or a session how to install, set up or use the repository. It says what is true now and names people by role: the person, a code owner, the administrator. It carries no "Name, date" stamp, no strength marker, and no "until such a date this did X".
 
 **A reader who wants the why follows a link to the record.** The instruction links the practice or the item; it does not retell it.
 
@@ -38,7 +38,7 @@ strength: assented
 
 **The check counts, and the count only goes down.** The files that predate the rule are not clean yet, so each has its present count recorded, and the check refuses a file that rises above its count or a new file that carries any.
 
-**What the check sees.** In an instructions file's hand-written part, in every active practice's `## Rule`, in every text file under `templates/`, in every string a script directly under `tools/` can print, and in every reason `reply_check.json` holds: a capitalised name followed by a date, a `(strength: ...)` marker, and a history opener such as "Until", "Since" or "Rewritten" followed by a date. It cannot see a name with no date beside it, history told without one, or a history opener in lower case ("retired 2026-..."). It does not read a test, a script in a subdirectory of `tools/`, or a registry other than `reply_check.json`.
+**What the check sees.** In an instructions file's hand-written part, in every active practice's `## Rule`, in every text file under `templates/`, in every Markdown document at the root and under `documentation/`, in every string a script directly under `tools/` can print, and in every reason `reply_check.json` holds: a capitalised name followed by a date, a `(strength: ...)` marker, and a history opener such as "Until", "Since" or "Rewritten" followed by a date. It cannot see a name with no date beside it, history told without one, or a history opener in lower case ("retired 2026-..."). It does not read a test, a script in a subdirectory of `tools/`, a registry other than `reply_check.json`, a document a tool generates whole, or one that declares itself a dated record with the record-doc marker.
 
 **A tool's own record stays in the tool.** A comment and a docstring are the record, and so is a comment in code a tool emits. A string that is the record on purpose (an approval line a tool writes into `approved_by:`, a Story it writes into an open item, a table of who approved a check) carries the comment `# record-not-instruction: the record` on its statement or in the three lines above, and the check passes it over. In `reply_check.json` the reason a refusal prints is `why`; who asked for the rule, when, and the incident go in `_story` beside it, which nothing prints.
 

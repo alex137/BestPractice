@@ -123,9 +123,9 @@ full check run after every landing by that one standing session, so a
 session that skips a repository's own checks is caught there, for everyone,
 with nothing set up in anyone's environment. Sessions no longer offer to add
 this step. Paste it only if you work across several repositories often and
-want each one's checks while you work rather than after a landing (S.
-Alexander Jacobson, 2026-10-20: sessions that open several repositories are
-rare, so per-person setup for them is not worth asking of everyone).
+want each one's checks while you work rather than after a landing:
+sessions that open several repositories are
+rare, so per-person setup for them is not worth asking of everyone.
 
 **One line per moment, and every repository's own hooks behind each**
 (since 2026-10-19). A session opened above its repositories reads none of
@@ -281,9 +281,9 @@ comparing `git log -1`.
 
 ## If You Work Through Something Other Than Claude Code
 
-**The Markdown check is a hook, and hooks need a shell.** As of 2026-09-21
-the Markdown lint no longer runs in GitHub Actions at all — it was
-re-running a check the session had already run. What replaced it is
+**The Markdown check is a hook, and hooks need a shell.** The Markdown
+lint does not run in GitHub Actions at all — there it would
+re-run a check the session has already run. What runs it is
 `.claude/hooks/doc-lint-gate.sh`, which refuses a `git commit` whose
 staged Markdown fails [doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py).
 

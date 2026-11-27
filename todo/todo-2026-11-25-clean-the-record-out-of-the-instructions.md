@@ -31,7 +31,7 @@ closed:            null
 - [ ] Decide whether a practice's `## Detail` is covered (needs: decision -- Alex or Morgan).
 - [ ] Have each practice set that takes the engine declare its own list, so the check holds it too (needs: this session or that set's own, at its next engine update).
 
-**Not checked yet and probably needing the same:** root documents such as the README, where 5 of 11 files name a person, and `documentation/`.
+- [x] Root documents and `documentation/`. Seventeen stamps came out of [INSTALL.md](../INSTALL.md), [SETUP.md](../SETUP.md) and five pages under `documentation/`, and the index row that named a person says the role. The check holds every Markdown document at the root and under `documentation/` to none. Left as they are: [MAP.md](../MAP.md)'s table of retired practices, which is generated from each one's withdrawal reason, and [WHATS_NEW.md](../WHATS_NEW.md), a dated log.
 
 **The cost of leaving it.** A repository that installs Precedent receives templates and rules that name two people it has never heard of, and reads the rules as theirs.
 
@@ -47,4 +47,5 @@ closed:            null
 - 2026-11-27: the rule texts are done. 33 stamps remain, all under `templates/`, all waiting on the decisions listed above.
 - 2026-11-27: Alex agreed to all three proposals put to him that day ("your picks."): the ledger is exempt as a dated record; the hook stub and the workflow templates are to be cleaned in one update; a session archives the sessions it created.
 - 2026-11-27: printed messages are done and checked. Left out on purpose, as the record: [tools/test_verdicts.json](../tools/test_verdicts.json) (each verdict carries its date and who gave it), the `approved_by` lines in `precedent.json` and [tools/session_load_budgets.json](../tools/session_load_budgets.json), and `_comment` keys everywhere. Tests under `tools/harness/` are not read; their fixtures plant stamps on purpose.
+- 2026-11-27: root documents. The three quotations that left them, kept here: on a first install going straight to `main`, Morgan, 2026-10-08, "Why not install it straight to main?" (decided); on the leak gate running locally, Morgan, 2026-10-10, "the check must be local to avoid lots of github minutes billing issues"; on the loader install being the default, Morgan, 2026-09-14, on the very deep check's recommendation (assented). The per-person hook step in the cloud setup page was judged not worth asking of everyone by Alex, 2026-10-20.
 - 2026-11-27: the list in `precedent.json` is empty. What the check reads is clean: the instructions file, every rule text and every template. Still open above: messages tools print, the resident block's header, root documents, and whether a practice's Detail is covered.

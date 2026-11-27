@@ -3021,13 +3021,28 @@ def check_precedent_check_fires():
             _rules[0]['_story'] = f'Asked for {_stamp}.'
             (_rk / 'reply_check.json').write_text(
                 json.dumps(_rules, indent=2), encoding='utf-8')
+            (_rk / 'documentation' / 'planted-log.md').write_text(
+                f'<!--record-doc--> A dated log.\n\n# Log\n\n'
+                f'Agreed {_stamp}.\n', encoding='utf-8')
             _rc_rk, _out_rk = run(_rk, 'record-not-instruction')
             cases.append(('record-not-instruction: the same stamp in a '
                           'docstring, a comment, a string marked as the '
-                          'record, a comment in emitted code and an '
-                          'underscore key does NOT fail',
+                          'record, a comment in emitted code, an '
+                          'underscore key and a record-doc document does '
+                          'NOT fail',
                           _rc_rk == 0 and 'VIOLATION' not in _out_rk))
             shutil.rmtree(_rk, ignore_errors=True)
+
+            _rd2 = fresh('record-not-instruction-document')
+            (_rd2 / 'documentation' / 'planted-guide.md').write_text(
+                f'# Guide\n\nInstall it this way {_stamp}.\n',
+                encoding='utf-8')
+            _rc_rd2, _out_rd2 = run(_rd2, 'record-not-instruction')
+            cases.append(('record-not-instruction: a stamp in a document '
+                          'under documentation/ fails',
+                          _rc_rd2 != 0
+                          and 'documentation/planted-guide.md' in _out_rd2))
+            shutil.rmtree(_rd2, ignore_errors=True)
 
         # index-remembers-past -- inline lineage language in a document
         case('index-remembers-past',

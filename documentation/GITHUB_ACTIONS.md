@@ -27,12 +27,12 @@ Three workflows live in this repo itself, in [.github/workflows/](https://github
   those exact files already passed it -- this repo's one GitHub test
   ([spec/BRANCH_TIERS_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/BRANCH_TIERS_PLAN.md)); every other
   push is checked locally by the push check first.
-  **Since 2026-10-07 it is one job that runs the suite with
+  **It is one job that runs the suite with
   `verify_harness.py --as-ci`**, the command a session runs, so the suite
-  is split across the runner's cores the same way it is here. Before that,
-  the workflow kept its own copy of the split in three jobs. The local copy
-  got faster and GitHub's didn't, so every pull request into `main` waited
-  about 30 minutes on one core
+  is split across the runner's cores the same way it is here. A workflow
+  that keeps its own copy of the split falls behind the local one: the
+  local copy gets faster, GitHub's does not, and every pull request into
+  `main` waits on one core
   ([the gotcha](../gotchas/gotcha-2026-10-07-a-speed-fix-to-a-mirrored-test-reached-only-the-local-copy.md)).
   The harness now refuses any other way of running the suite in this
   workflow.
@@ -47,10 +47,10 @@ Three workflows live in this repo itself, in [.github/workflows/](https://github
   dependent repository (below).
 - **`leak-gate.yml`** — added at phase 2 of the Precedent rewrite
   (`b3bfb54`). Runs [tools/leak_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/leak_gate.py)'s structural
-  layer on a push to `main`. Until 2026-10-10 it ran on every push to every
-  branch; every branch is now checked before it is published, locally, by
-  the leak gate in the global pre-push hook (Morgan, 2026-10-10: "the check
-  must be local to avoid lots of github minutes billing issues"). It is the unbypassable
+  layer on a push to `main`. Every other
+  branch is checked before it is published, locally, by
+  the leak gate in the global pre-push hook, which costs no GitHub
+  minutes. It is the unbypassable
   backstop for the private-source separation described in
   [spec/PRACTICE_ENGINE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_ENGINE_PLAN.md)'s "Source — Who a
   Practice Belongs To": a `git push --no-verify` can skip the local
@@ -189,7 +189,7 @@ their approval too. The files the engine ships are tracked in
 `ENGINE_MANIFEST.json` and need no approval entry. In a consuming repo a
 finding here is settled by running Update Vendors, not by asking the person.
 
-**Until 2026-09-25, `precedent_install.py` did not install any workflow by default (from 2026-09-15).**
+**Why `precedent_install.py` reads a setting before it installs a workflow.**
 GitHub Actions minutes are metered per PRIVATE repository and billed per
 run, rounded up to the minute. Vendoring Precedent into many private repos
 and committing the way a save button gets used means paying for a workflow
@@ -197,7 +197,7 @@ run on every one of those saves, whether the check was wanted or not — and
 that adds up fastest for exactly the person most likely to be running it
 everywhere.
 
-(Named `ci_workflows` until 2026-09-25; the old name is still read.)
+(The older name `ci_workflows` is still read.)
 So the installer resolves `"github_ci_workflows"` from the individual or shared
 source it can reach ([tools/precedent_identity.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_identity.py)'s
 `ci_preference()`, same resolution order as `relayed_authorization`: the
@@ -412,7 +412,7 @@ and **refuse the run outright if any of the three is missing**, rather than
 falling back to the bot. A fallback here is the failure: it produces a
 commit that looks fine until something checks it.
 
-Found 2026-09-10 in a real practice set, by a refresh workflow that had been
+This was found in a real practice set, by a refresh workflow that had been
 mis-authoring **every** commit it ever made. Nobody had seen it because the
 two checks that would have caught it were themselves reporting SKIPPED —
 they could not resolve an identity inside a practice set until
