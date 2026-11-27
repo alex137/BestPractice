@@ -23,7 +23,10 @@ closed:            null
 **The order, agreed with Alex.**
 
 - [x] The instructions file, [AGENTS.md](../AGENTS.md). Rewritten on Alex's "Yes." of 2026-11-25, as proposed in [spec/AGENTS_REWRITE_PROPOSAL.md](../spec/AGENTS_REWRITE_PROPOSAL.md): 30,096 characters to about 24,050, and its count in `precedent.json` is gone.
-- [ ] The templates, which ship into other people's repositories.
+- [ ] The templates, which ship into other people's repositories. 23 of the 56 stamps are out, from 13 files. The 33 left are of three kinds, each waiting on a decision (needs: decision -- Alex or Morgan):
+  - **19 hook stubs**, one stamp each. Every stub is the same file, installed into each repository's `.claude/hooks/` and written never to change. Editing its comment changes a file under `.claude/` in every repository at its next update, which is the prompt the stub exists to avoid.
+  - **8 in three workflow templates.** A workflow file's approval is pinned to its content, so a changed comment asks every repository's owner to approve the file again.
+  - **6 in [templates/harness/LEDGER.md](../templates/harness/LEDGER.md)**, a dated ledger. Its dates are its content; the check should probably leave it alone.
 - [ ] The rule text of the 7 practices. Each stamp moves to that practice's Story or approval line, where it is not already there.
 - [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session (needs: this session, after the three above).
 - [ ] The header of the resident block, which shows a token count and a practice count to every session. The figure moves to the output of the check that measures it.
@@ -42,3 +45,4 @@ closed:            null
 
 - 2026-11-25: the rule and its check landed first. The check refuses any rise from the day's counts.
 - 2026-11-25: the instructions file is done. One heading kept its old words, "Build-environment gotchas", because two tools find the section by them.
+- 2026-11-27: templates, first pass. A starter practice under `templates/` is now read as a practice, its Rule only.

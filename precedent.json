@@ -881,19 +881,10 @@
     "practices/record-not-instruction.md": 1,
     "practices/source-sets-run-no-ci.md": 2,
     "practices/the-boildown.md": 2,
-    "templates/GETTING_STARTED.md": 1,
-    "templates/bootstrap.sh": 2,
-    "templates/document-project/.claude/settings.json": 1,
-    "templates/document-project/AGENTS.md": 1,
-    "templates/document-project/README.md": 1,
-    "templates/github-actions/README.md": 4,
     "templates/github-actions/branch-cleanup.yml.template": 1,
     "templates/github-actions/leak-gate.yml.template": 1,
     "templates/github-actions/light-check.yml.template": 6,
     "templates/harness/LEDGER.md": 6,
-    "templates/harness/PARALLELS.md": 8,
-    "templates/harness/README.md": 1,
-    "templates/harness/claude-code/hooks/README.md": 1,
     "templates/harness/claude-code/hooks/artifact-publish-gate.sh": 1,
     "templates/harness/claude-code/hooks/commit-identity-once.sh": 1,
     "templates/harness/claude-code/hooks/commit-identity-push-gate.sh": 1,
@@ -912,9 +903,6 @@
     "templates/harness/claude-code/hooks/stop-git-check.sh": 1,
     "templates/harness/claude-code/hooks/stop-reply-check.sh": 1,
     "templates/harness/claude-code/hooks/wait-loop-gate.sh": 1,
-    "templates/harness/claude-code/hooks/workflow-write-gate.sh": 1,
-    "templates/harness/gemini-cli/README.md": 1,
-    "templates/practice-set-individual/practices/example-starter-individual.md": 1,
-    "templates/practice-set-shared/practices/example-starter-shared.md": 1
+    "templates/harness/claude-code/hooks/workflow-write-gate.sh": 1
   }
 }

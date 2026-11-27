@@ -14,10 +14,9 @@
      prose into the repo, so it becomes `process/upstream`. §0 vendors the
      practices and the engine and NO prose, so there is no local copy to
      point at and it becomes the upstream URL prefix
-     `https://github.com/alex137/BestPractice/blob/main`. Until 2026-09-10
-     this file wrote `process/upstream/` outright and §0 step 5 said to
-     install it "unchanged by which install model this is", so a §0 install
-     shipped its members three dead references on day one. Assistant-capability statements carry their as-of
+     `https://github.com/alex137/BestPractice/blob/main`. Written as
+     `process/upstream/` outright, a §0 install ships its members dead
+     references. Assistant-capability statements carry their as-of
      dates (practice `volatile-rules-carry-dates`); refresh them from the upstream documentation/MOBILE.md when
      taking updates. -->
 

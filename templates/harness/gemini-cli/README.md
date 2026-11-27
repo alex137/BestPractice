@@ -6,9 +6,7 @@
 the file itself — this page covers the parts a person, not the agent, needs
 to know.
 
-**Gemini CLI has hooks.** Until 2026-09-28 this page said it had no hook
-mechanism, and every hook row in [../LEDGER.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/LEDGER.md) and
-[../PARALLELS.md](../PARALLELS.md) recorded no transfer on that ground. It
+**Gemini CLI has hooks.** It
 has `SessionStart`, `BeforeTool`, `AfterAgent` and more, configured in
 `.gemini/settings.json`
 ([Gemini CLI hooks documentation](https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md),

@@ -45,9 +45,8 @@ rules instead of living and dying inside one document.
    loader", and this template is that loader), and deliberately omits
    `stop-git-check.sh` — it blocks ending a turn on unpushed work, and a
    document left deliberately unpushed overnight is ordinary here, so the
-   hook would mostly refuse to end turns over nothing. (Until 2026-09-11
-   the reason was that the contributor was denied `git push` outright; they
-   push their own document work now — see step 6.)
+   hook would mostly refuse to end turns over nothing. (The
+   contributor pushes their own document work — see step 6.)
 
    Skipping this step is not a degraded install, it is an inert one: with no
    `.claude/hooks/session-start.sh` on disk, `tools/bootstrap.sh` never runs

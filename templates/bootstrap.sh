@@ -118,13 +118,10 @@ fi
 # and why, and startup carries on. It runs BEFORE the loader-block check below,
 # which otherwise compares AGENTS.md against sources that are not on disk.
 #
-# Until 2026-09-26 this step was not in the template. The only session-start
-# code that ran it was precedent-universal-catalogue.sh, a hook for practice
-# sets that every consumer is told to decline, so a consumer declaring a
-# shared set never got it cloned in a fresh container. Seen in a real consumer
-# that day: the set missing from every fresh container, and
-# precedent_sync_views.py --check reporting 36 differences that disappeared
-# once it was cloned by hand (gotchas/, "a declared shared set is never
+# Without this step a consumer that declares a shared set never gets it
+# cloned in a fresh container: the only other session-start code that clones
+# one is precedent-universal-catalogue.sh, a hook for practice sets that every
+# consumer is told to decline (gotchas/, "a declared shared set is never
 # cloned"). precedent_check.py's declared-sources-are-cloned fails a repo that
 # declares a shared set and wires nothing that clones it.
 if [ -f precedent.json ] && [ -f tools/precedent_source_bootstrap.py ]; then
@@ -133,10 +130,9 @@ fi
 
 # The practices in force here that AGENTS.md cannot carry -- a set the person
 # brings, above all -- written to .precedent/SESSION_PRACTICES.md and PRINTED,
-# since this script's output is what reaches the session. Until 2026-10-04 no
-# consumer step ran it: a set's own hook did, and a consumer declines that
-# hook, so the ladder's stage words reached a consumer session nowhere and a
-# session there searched the clones for "Debut". After the clone above, so a
+# since this script's output is what reaches the session. A set's own hook
+# runs it too, and a consumer declines that hook, so without this step the
+# words a brought set defines reach a consumer session nowhere. After the clone above, so a
 # set it brings is on disk to render.
 if [ -f precedent.json ] && [ -f tools/precedent_session_practices.py ]; then
   python3 tools/precedent_session_practices.py || \

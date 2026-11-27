@@ -4638,8 +4638,15 @@ def _record_stamps(root):
     if tdir.is_dir():
         for f in sorted(tdir.rglob('*')):
             if f.is_file() and f.name.endswith(_TEMPLATE_TEXT):
-                scan(f.relative_to(root).as_posix(),
-                     f.read_text(encoding='utf-8', errors='ignore'))
+                text = f.read_text(encoding='utf-8', errors='ignore')
+                if f.suffix == '.md' and re.search(r'^## Rule\s*$', text, re.M):
+                    # A starter practice a new set is created with: its
+                    # Story and approval line are the record there as in
+                    # any practice, so only its Rule is read.
+                    m = re.search(r'^## Rule\s*$(.*?)(?=^## |\Z)', text, re.S | re.M)
+                    head = text[:m.start(1)].count('\n')
+                    text = '\n' * head + m.group(1)
+                scan(f.relative_to(root).as_posix(), text)
     return found
 
 
