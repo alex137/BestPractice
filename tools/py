@@ -1,0 +1,91 @@
+#!/bin/sh
+# tools/py -- run a Python file on the Python its repository declares
+# (practice: one-python).
+#
+#     tools/py tools/x.py ARGS...     run x.py on the declared Python
+#     tools/py -c 'import sys; print(sys.version)'
+#     tools/py --which [FILE]         print the interpreter it would run
+#
+# Shell, not Python, so choosing a Python needs no Python. It reads
+# "python": {"version": "X.Y"} from the precedent.json of the repository
+# that holds the file being run (the first argument that names a file;
+# else the current directory's repository; else the one this script is in),
+# finds that interpreter, checks it really is X.Y, and execs it. It never
+# falls back: no declared interpreter is an error that says so, never a run
+# on whatever `python3` happens to be.
+#
+# Why not just `python3`: session start makes `python3` mean the declared
+# Python by putting a link directory first on PATH through a session file,
+# and on 2026-11-18 a consumer's session lost that after a container
+# restart: `python3` was 3.13 beside a declared 3.12, and every memo key
+# that session made missed every shared memo (the key carries the
+# interpreter's version). Two 80-minute solves ran cold. This launcher
+# depends on nothing in the environment surviving.
+#
+# Where it looks, in order, each candidate checked by running it:
+#   <repo>/.precedent/python-bin/python3   the link setup makes per checkout
+#   ~/.cache/precedent/pythonX.Y/bin/python3 ($XDG_CACHE_HOME if set)
+#   pythonX.Y on PATH, then /usr/local/bin, /usr/bin, /opt/homebrew/bin
+#
+# Exit: the program's own status; 127 when the declared interpreter is not
+# found, 2 when precedent.json cannot be read.
+
+DEFAULT_VERSION=3.12   # must equal tools/precedent_python.py DEFAULT_VERSION (its self-check says so)
+
+die() { echo "tools/py: $*" >&2; exit "${CODE:-127}"; }
+
+find_repo() {   # $1 a directory -> the nearest directory above it holding precedent.json
+  d=$(cd "$1" 2>/dev/null && pwd -P) || return 1
+  while :; do
+    [ -f "$d/precedent.json" ] && { printf '%s\n' "$d"; return 0; }
+    [ "$d" = / ] && return 1
+    d=${d%/*}; d=${d:-/}
+  done
+}
+
+declared_version() {   # $1 precedent.json -> X.Y (DEFAULT_VERSION when it declares none)
+  v=$(tr '\n\r\t' '   ' < "$1" |
+      sed -n 's/.*"python"[ ]*:[ ]*{[^}]*"version"[ ]*:[ ]*"\{0,1\}\([0-9][0-9]*\.[0-9][0-9]*\)"\{0,1\}.*/\1/p')
+  printf '%s\n' "${v:-$DEFAULT_VERSION}"
+}
+
+is_version() {   # $1 an interpreter, $2 X.Y -> true when it runs and is X.Y
+  [ -x "$1" ] || return 1
+  got=$("$1" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null) || return 1
+  [ "$got" = "$2" ]
+}
+
+which_mode=
+if [ "$1" = "--which" ]; then which_mode=1; shift; fi
+
+# the repository: the file being run, else here, else this script's own
+target=
+for a in "$@"; do
+  case "$a" in
+    -c|-m) break ;;
+    -*) continue ;;
+    *) [ -f "$a" ] && target=$a; break ;;
+  esac
+done
+repo=
+dir_of() { case "$1" in */*) printf '%s\n' "${1%/*}" ;; *) printf '.\n' ;; esac; }
+[ -n "$target" ] && repo=$(find_repo "$(dir_of "$target")")
+[ -z "$repo" ] && repo=$(find_repo .)
+[ -z "$repo" ] && repo=$(find_repo "$(dir_of "$0")/..")
+[ -n "$repo" ] || CODE=2 die "no precedent.json above ${target:-the current directory} or this script"
+[ -r "$repo/precedent.json" ] || CODE=2 die "cannot read $repo/precedent.json"
+want=$(declared_version "$repo/precedent.json")
+
+cache=${XDG_CACHE_HOME:-$HOME/.cache}
+exe=
+for c in "$repo/.precedent/python-bin/python3" "$cache/precedent/python$want/bin/python3" \
+         "$(command -v "python$want" 2>/dev/null)" \
+         "/usr/local/bin/python$want" "/usr/bin/python$want" "/opt/homebrew/bin/python$want"; do
+  [ -n "$c" ] && is_version "$c" "$want" && { exe=$c; break; }
+done
+[ -n "$exe" ] || die "$repo/precedent.json declares Python $want and no python$want is installed here \
+(looked in $repo/.precedent/python-bin, $cache/precedent/python$want/bin, PATH, /usr/local/bin, /usr/bin). \
+Install it, or run \`python3 tools/precedent_python.py setup\`; nothing was run."
+
+if [ -n "$which_mode" ]; then printf '%s\n' "$exe"; exit 0; fi
+exec "$exe" "$@"
