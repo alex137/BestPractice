@@ -117,7 +117,7 @@ loud, not one:
    people read it to adopt and use Precedent. Ship the machinery, never
    this project's own records:** a consumer gets the tools that keep an
    open-items list and a news log, and keeps its own; it never gets our
-   todo items or our What's New (Morgan, 2026-09-30). How this repo is built
+   todo items or our What's New. How this repo is built
    stays here: plans, open items, decisions, reasoning, tests, run
    records, repo-local rules, its own settings and
    instructions. For each SHIPS line, say whether that holds; when it does
@@ -194,6 +194,8 @@ sync says which practices it holds back for a newer engine (Morgan F,
 strength: decided).
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 728 words; it now holds the five questions, each with what a session must do, in 304 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under "The five questions in full"; nothing was deleted, and the questions keep their numbers, which tools cite. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-30: the machinery ships, this project's own records do not.** Behind question 5's "Ship the machinery, never this project's own records", that a consumer gets the tools that keep an open-items list and a news log and never our todo items or our What's New: Morgan, 2026-09-30, the day of the fifth question above.
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

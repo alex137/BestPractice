@@ -87,8 +87,7 @@ entry, said in the reply. So is a commit that touches only the log, or the log r
 would be news every day. **So is a commit that only brought Precedent's own
 files in** -- an Update Vendors: the vendored engine, the catalogue copy,
 the materialized practices, and the views regenerated beside them. The log
-is about this project, never about Precedent (Morgan, 2026-10-08: "it is
-about what is happening in THAT repo not what is happening in Precedent");
+is about this project, never about Precedent;
 the project's own work in the same commit still counts. The first run,
 with no log yet, covers the last seven finished days.
 
@@ -193,6 +192,8 @@ days became something the reply says rather than something silently
 skipped, and the ten entries already written were rewritten into the shape.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 594 words; it now holds the two halves and the entry's shape, in 286 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-10-08: an Update Vendors commit is quiet.** Behind the Detail's "So is a commit that only brought Precedent's own files in": Morgan, 2026-10-08: "it is about what is happening in THAT repo not what is happening in Precedent".
 
 ## Install
 Nothing to do: the tool ships with the engine, and the first "What's new?"

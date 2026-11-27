@@ -45,7 +45,7 @@ and `opened` and `closed` carry the dates a check can read (Detail, *The
 three obligations in full* and *No status in prose, in full*).
 
 ## Detail
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives part of the Rule in full. The Rule names each one where it needs it.
 
 ### Kind and status in full
 Every document under `spec/` and `record/` opens with frontmatter declaring

@@ -58,8 +58,8 @@ differently:
 `level` says how a set ranks and whether it is private by default;
 `shared` is any set a repository declares beside the universal one and its
 own `local/` — a team's house rules, a subject system with the code it
-needs, a code style. It was called `team` until 2026-09-18, and a
-declaration that still says `team` resolves as `shared`.
+needs, a code style. A
+declaration that still says `team`, the level's former name, resolves as `shared`.
 
 ## Why
 A name was doing a file's work. Until 2026-09-18 a shared set had to be
@@ -98,7 +98,7 @@ already made this move once, one layer down, when a repo-local `path` was
 fixed to `local` rather than left as a choice. This is that move again, in
 the other direction: the choice is given back to the author, and the
 machinery reads a file. Morgan approved the change on 2026-09-18 (relayed
-by Alex).
+by Alex). The `shared` level was called `team` until 2026-09-18.
 
 ## Install
 [tools/precedent_resolve.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_resolve.py) reads a

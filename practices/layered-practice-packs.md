@@ -37,20 +37,18 @@ its own tests, and
 [rule-level-by-reach](rule-level-by-reach.md) answers it.
 
 ## Detail
-**Superseded, 2026-09-01, for any repo running Precedent's loader: the
-vendored-pack mechanism.** This practice originally routed domain rules by
-collecting them into a **practice pack** — a separate vendored tree, with its
-own manifest, its own scrub blocklist, and a harness adapter that decided
+**For any repo running Precedent's loader, the vendored-pack mechanism is
+superseded.** A **practice pack** is a separate vendored tree, with its
+own manifest, its own scrub blocklist, and a harness adapter that decides
 when to load it (kept below for a repo that has not migrated). Under
 Precedent's loader (`PRACTICE_ENGINE_PLAN.md`, "How an Agent Knows Which
 Practices to Load"), that machinery is redundant: a domain rule is simply a
 practice — Universal or Team — whose `applies_to` / `occasion` / `gates`
 scope it to that domain's work, routed by the same occasion index and
 path-triggered channel as every other on-demand practice. The decision rule
-above still holds; only the *implementation* of the middle tier changed.
-Recorded in [CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md).
+above still holds; only the *implementation* of the middle tier differs.
 
-**Closed 2026-09-18: a domain bundle shared across more than one team is a
+**A domain bundle shared across more than one team is a
 `shared` source.** The level that used to be called `team` is any set a
 repository declares beside the universal one and its own `local/` — a
 compliance or lab-workflow domain, a filing pipeline with its tools, a
@@ -87,6 +85,16 @@ or not, and a future split of the program into its own repo would have meant
 re-deriving which rules travel. Vendoring them as a pack made the split a
 `git mv` instead of an archaeology project — the same pre-split shaping that
 made this upstream's own extraction clean.
+
+**Superseded, 2026-09-01, for any repo running Precedent's loader: the
+vendored-pack mechanism.** This practice originally routed domain rules by
+collecting them into a practice pack, and the Detail keeps that mechanism
+for a repo that has not migrated. The decision rule held; only the
+implementation of the middle tier changed. Recorded in
+[CHANGES_TO_TELL_ALEX.md](https://github.com/alex137/BestPractice/blob/staging/spec/CHANGES_TO_TELL_ALEX.md).
+
+**Closed 2026-09-18: a domain bundle shared across more than one team is a
+`shared` source.** The Detail's paragraph of that name dates from then.
 
 ## Install
 **On Precedent's loader:** write the domain practice as an ordinary Universal

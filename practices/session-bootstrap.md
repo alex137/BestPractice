@@ -86,26 +86,17 @@ See `tools/precedent_show.py`'s own module docstring for the mechanism
 and its deliberate limits (a cheap directory probe, not a full re-resolve
 or a content-drift check).
 
-**A third variant, found 2026-09-18, working across this repo and two
-private consumer repos in one session** (not named here — which private
-repo hit this is not this file's business to carry; see
-[environment-gotchas](environment-gotchas.md)'s own convention for why).
+**A third variant: a session scoped to several repos from the start.**
 The Detail above covers a repo *attached mid-session* never getting its
 SessionStart hook. The unrelated case: a session scoped to **more than one
-repo from the very start** — every repo in that session was declared up
-front, none attached later — still never got any of their own
+repo from the very start**, every repo declared up front and none attached
+later, still never gets any of their own
 `.claude/settings.json` `env` blocks or hooks (`commit-identity.sh` among
 them), for the session's *entire* duration, because a harness only loads a
 repo's own settings for its *primary* project directory, and a multi-repo
 session's primary directory is neither a git repository nor any one of the
-repos it works in. Every commit made in any of them fell through to the
-container's own bot identity instead of the declared one — confirmed
-directly against `~/.gitconfig`, not guessed at. `commit-author`'s own
-check caught it in one repo before a bad commit reached its trunk;
-in another it did not, and the wrong-author commit had to be
-grandfathered by SHA rather than rewritten (`no-rewrite-for-warnings`) —
-see that repo's own `identity.json` for the accounting, private and not
-this file's to link. Same family of gap as the two variants above (a hook
+repos it works in. Every commit made in any of them falls through to the
+container's own bot identity instead of the declared one. Same family of gap as the two variants above (a hook
 the harness's own timing model cannot guarantee runs), same fix in kind:
 don't wait for the harness, run it by hand. See Install below.
 
@@ -195,6 +186,33 @@ behind the same `CLAUDE_CODE_REMOTE=true` test as the `pip install`, so it
 never ran on a local machine at all. The reason to gate a package install —
 do not touch a developer's own environment — does not extend to reading and
 repairing git state.
+
+**Continuation, 2026-09-06: the same follow-up testing pass found the
+matching gap on the *read* side**, the Detail's read-side paragraph. The
+self-heal meant a source could now resolve successfully in one session and
+still fail to resolve in a later one (a genuinely unreachable individual
+repo, say), and `tools/precedent_show.py`, in a consumer repo where
+`practices/` is a `tools/precedent_materialize.py`-produced snapshot, had
+no way to tell a caller "resolved fresh, source confirmed live" from
+"reading old materialized bytes, source status unknown this session." A
+clean Rule printout read as proof the source was working, when it only
+proved a past materialize run had once worked. Fixed the same way as the
+write side, by having `precedent_show.py` probe whether a materialized
+slug's own declared source is still reachable and say so when it isn't.
+
+**The third variant, found 2026-09-18, working across this repo and two
+private consumer repos in one session** (not named here: which private
+repo hit this is not this file's business to carry; see
+[environment-gotchas](environment-gotchas.md)'s own convention for why).
+Every repo in that session was declared up front, none attached later, and
+none of them got its own settings or hooks. Every commit made in any of
+them fell through to the container's own bot identity instead of the
+declared one, confirmed directly against `~/.gitconfig`, not guessed at.
+`commit-author`'s own check caught it in one repo before a bad commit
+reached its trunk; in another it did not, and the wrong-author commit had
+to be grandfathered by SHA rather than rewritten
+(`no-rewrite-for-warnings`). See that repo's own `identity.json` for the
+accounting, private and not this file's to link.
 
 ## Install
 [templates/bootstrap.sh](https://github.com/alex137/BestPractice/blob/staging/templates/bootstrap.sh) →

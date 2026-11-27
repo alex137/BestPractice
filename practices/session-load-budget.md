@@ -68,8 +68,7 @@ hard build cap — [tools/build_views.py](https://github.com/alex137/BestPractic
 generate a resident block over it, so the trade is forced at the moment
 somebody promotes a practice. A surface `ceiling` is a review trigger: it
 fails the check, and what it asks for is a reduction pass, not a deletion.
-**The occasion index is capped where it grows** (Morgan, 2026-09-29,
-strength: decided). Each practice source declares its own share of every
+**The occasion index is capped where it grows.** Each practice source declares its own share of every
 consumer's index as `occasion_share_tokens` in its `precedent-source.json`,
 and `build_views.py` refuses to build that source over it. A repository
 with no `occasion_index_tokens` of its own is capped at the sum of its
@@ -155,8 +154,7 @@ total where it was, so it asks nobody. The person declares the total once,
 in their individual set, and Update Vendors copies it with their words into
 each repository, so CI reads the same number; the merge and push gates
 print which part a branch grew. A repository with no total keeps the
-per-part budgets this rule describes. Morgan, 2026-10-28 (strength:
-decided): "Go, one number everywhere"
+per-part budgets this rule describes
 ([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
 
 ### Every repo in force, and a cap on one part
@@ -218,9 +216,7 @@ still writes the block and prints a warning, and the quick check reports
 the cap checks as warnings, so a branch that gets only the quick check can
 land. **Tell the person it must be brought under before the full check
 will pass it:** the full check refuses it (`loader-within-caps`,
-`session-load-budget`, `session-file-allowances-fit`), exactly as before.
-Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the
-person it needs fixing, and for no change to the refusal. A raised budget
+`session-load-budget`, `session-file-allowances-fit`). A raised budget
 still needs the person's own words, whichever check runs.
 
 ### Who picks what comes out
@@ -319,6 +315,12 @@ the new repo etc)."* The budget went back to 700, the check now reads it,
 and an offset is recorded with what it freed. Strength: decided.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 878 words; it now holds the ceilings, the one total, who raises a budget and what a cap does at each check, in 320 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-29: the occasion index capped where it grows.** Behind the Detail's paragraph of that name, on each source's `occasion_share_tokens`: Morgan, 2026-09-29, strength: decided.
+
+**2026-09-30: a cap warns at the quick check.** Behind the Detail's "A cap warns at the quick check and refuses at the full one": Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the person it needs fixing, and for no change to the refusal. The full check refuses it exactly as before.
+
+**2026-10-28: one total.** Behind the Detail's paragraph on the one total the person declares: Morgan, 2026-10-28 (strength: decided): "Go, one number everywhere" ([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
 
 ## Install
 The registry is

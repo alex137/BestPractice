@@ -115,11 +115,7 @@ started without being priced, and never repeated for nothing:
   where its next run can read it (a gate ledger's fact is the natural
   place). The session reads that line before waiting on the run, and a run
   priced past a few minutes is proposed, not waited on
-  (answer-first-ask-before-long-work). Alex, 2026-10-08, decided: "should
-  we have a practice of doing a quick underwriting of how long a task
-  should take and reconsidering it before investing that time if it is
-  long?", after a drift gate run without a target spent many minutes
-  re-solving every block whose facts were stale.
+  (answer-first-ask-before-long-work).
 
 - **Progress with an estimate.** Any step expected to run for more than about
   a minute prints, on its error stream, a periodic line with items done,
@@ -146,11 +142,7 @@ started without being priced, and never repeated for nothing:
   its body, and so the upstream solve, by default. A loader that names
   what it returns -- `# reach-key: io returns _solve` -- is followed
   through that name alone, and `returns nothing` marks a writer whose value
-  no solve uses. Until 2026-11-22 a reached loader was skipped: a
-  consumer's published page kept a figure well short of what the model
-  computed, because the downstream memo never moved when the upstream one
-  was re-solved, and hosts carried the upstream memo's file name in
-  `extra` by hand to make up for it.
+  no solve uses.
 
 ## Why
 A gate that takes twenty minutes gets skipped, run concurrently with its
@@ -201,6 +193,20 @@ machine out of memory during that last step, and all eleven results were
 lost. Other long scripts in the same session wrote their progress to disk
 after each unit and lost nothing. The rule had covered caching a solve so
 it is not repeated, and said nothing about a run saving its own progress.
+
+**2026-10-08: a run says what it will cost before it starts.** Behind the
+Detail's bullet on a slow run printing its cost before its first slow step:
+Alex, 2026-10-08, decided: "should we have a practice of doing a quick
+underwriting of how long a task should take and reconsidering it before
+investing that time if it is long?", after a drift gate run without a
+target spent many minutes re-solving every block whose facts were stale.
+
+**2026-11-22: a reached memo loader is followed.** Behind the Detail's
+bullet on a solve that reads another solve's memo: until 2026-11-22 a
+reached loader was skipped: a consumer's published page kept a figure well
+short of what the model computed, because the downstream memo never moved
+when the upstream one was re-solved, and hosts carried the upstream memo's
+file name in `extra` by hand to make up for it.
 
 ## Install
 Memoize the solve under a source-content key with a bypass switch; add a

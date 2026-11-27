@@ -155,8 +155,7 @@ The headings below from "The opening in full" on give the Rule in full. The Rule
 this stop it happening again?" and "is that the real cause?" ask for it out
 loud; the answer is owed either way. **A fix is not done when the symptom
 goes away. It is done when the same cause cannot produce it again**, in a
-place that survives, at the origin and in every copy. (This was the
-"Upstream fix" command until 2026-10-01; looking back over a whole session
+place that survives, at the origin and in every copy. (Looking back over a whole session
 for causes that live upstream is [root-issues](root-issues.md).)
 
 It is about **the change in front of the session**: the one it recommended,

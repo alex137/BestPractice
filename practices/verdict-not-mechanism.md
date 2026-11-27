@@ -108,10 +108,7 @@ empty sync commit, a branch that differs from another only in commits like
 those: none of it is counted, described or reported to the person, by a
 tool or by a session. When a reply says a branch is ahead of or behind
 another, the number is **the commits that changed files**, and when there
-are none, there is nothing to say. Morgan, 2026-09-27 (strength: decided):
-*"let's have the system stop describing and/or reporting and/or mentioning
-empty merges"*, and on the branch lines, count *"the number of commits
-ahead/behind that made changes to the repo"*.
+are none, there is nothing to say.
 
 ### Leftovers that need nothing
 
@@ -126,9 +123,7 @@ matters. The same holds for anything else reported as left over: when none
 of it needs them, the sentence is "Nothing needed is left \<unpushed, open,
 running\>", and nothing more. Where a shared set asks for "fine to lose,
 and why" (`loss-comes-with-a-verdict`), that sentence is for what the person knows about or asked for -- their own edits, a draft
-they saw -- never for what a tool or the session made by itself. Morgan,
-2026-10-29 (strength: decided): *"Just tell me there's nothing else
-needed."*
+they saw -- never for what a tool or the session made by itself.
 
 ### A known backlog
 
@@ -186,6 +181,16 @@ general form; it is the paragraph after the empty-commit one, since a
 harmless leftover is the same kind of noise as an empty merge.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 634 words; it now holds the three verdicts and the four things a reply never reports, in 280 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-27: commits that change nothing.** Behind the Detail's "Commits
+that change nothing": Morgan, 2026-09-27 (strength: decided): *"let's have
+the system stop describing and/or reporting and/or mentioning empty
+merges"*, and on the branch lines, count *"the number of commits
+ahead/behind that made changes to the repo"*.
+
+**His words on 2026-10-29**, behind the Detail's "Leftovers that need
+nothing" and the incident of that date above: Morgan, 2026-10-29
+(strength: decided): *"Just tell me there's nothing else needed."*
 
 ## Install
 Nothing to install. It fires at the `reply` gate

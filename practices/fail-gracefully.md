@@ -59,7 +59,7 @@ they knew?** Yes: tell them, in words they can act on. No: record it and
 move on ("The test, and what the rule forbids").
 
 ## Detail
-Everything under the headings below from "The three clauses in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The three clauses in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Shapes that look graceful and are not
 Three shapes recur, all of them "graceful" by the narrow reading and violations by this one:

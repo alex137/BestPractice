@@ -51,23 +51,21 @@ doubt, the person is treated as not one**, as that tool already does.
 **Code owners get the full picture**, as before. Hiding changes what a person
 is told, never what is enforced: every check still runs.
 
-**What this replaces.** Since 2026-10-05 a practice about running the
-repository could be marked `visible_to: code-owners`
+**What this adds to hiding a practice.** A practice about running the
+repository can be marked `visible_to: code-owners`
 ([spec/PRACTICE_FORMAT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRACTICE_FORMAT.md)), which hides the
-practice's text from everyone else. That hid the rules, not what the
-session then said: a check that applies to everyone could still have the
+practice's text from everyone else. That hides the rules, not what the
+session then says: a check that applies to everyone could still have the
 session name a scratch folder or a clone to a person who has never heard of
 either. This rule is about what is said.
 
-**The first place it was applied**, the same day: closing a session. The
+**Closing a session.** The
 reply gate tells a session that holds files found nowhere else to tidy
 them itself for a person who is not a code owner, and never to show them the
 technical line a code owner gets for it
 ([tools/precedent_gate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_gate.py)).
 
-**Then everything else that spoke through a session**, the next day
-(Morgan: "Nothing technical should ever be said to a non technical person.
-The list you gave is great and should only be for code owners"):
+**Everything else that speaks through a session:**
 
 - the reply gate opens every turn, for a person who is not a code owner,
   with the plain-words instruction, naming each kind of message below;
@@ -82,10 +80,7 @@ The list you gave is great and should only be for code owners"):
 - a wait ([answer-first-ask-before-long-work](answer-first-ask-before-long-work.md)
   part 3) is said as its outcome -- "I'm double-checking the change; I'll
   tell you when it's done, or say stop" -- with nothing about how the
-  checking runs. Added 2026-10-13, after
-  a code owner, told about a full suite running on `main` until GitHub's
-  weekly test was due, asked whether a person who is not one would be told
-  the same; nothing in the gate's list said otherwise.
+  checking runs.
 
 The ladder's own lines (stage words, branch names in The Boildown) reach only
 a person on the ladder.
@@ -110,6 +105,8 @@ glossary entry; the Rule now says what one is, and `defines:` lists it. The
 wording was chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
 
 **Moved out of the Rule on 2026-11-27, word for word.** That the lists are examples and never the edge rests on Morgan, 2026-10-13, strength: decided: "we should never use phrases like \"CI\" to non-code-owners. Non-code-owners should never get technical language."
+
+**The Detail's own history, moved here.** What this rule replaced: since 2026-10-05 a practice about running the repository could be marked `visible_to: code-owners`, which hides the practice's text from everyone else. That hid the rules, not what the session then said. The first place the rule was applied, the same day, was closing a session. Then everything else that spoke through a session, the next day (Morgan: "Nothing technical should ever be said to a non technical person. The list you gave is great and should only be for code owners"). The last item of the Detail's list, the wait said as its outcome, was added 2026-10-13, after a code owner, told about a full suite running on `main` until GitHub's weekly test was due, asked whether a person who is not one would be told the same; nothing in the gate's list said otherwise.
 
 ## Install
 Nothing to install: the reply gate carries the rule to every session, and

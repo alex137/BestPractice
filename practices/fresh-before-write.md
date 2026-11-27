@@ -43,7 +43,7 @@ a conflict. A dirty tree, a stale base and a conflict are reported. **Never
 `reset --hard`, `git pull` or `rebase`.**
 
 ## Detail
-Everything under the headings below from "The guard in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The guard in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### How the guard fails, and its limits
 The two hooks fail in opposite directions, deliberately. The session-start half always exits 0: a hook that can wedge a session over a freshness question is a worse failure than the staleness it guards against, the same fail-gracefully contract every session-start hook is held to. The pre-write half refuses — in Claude Code, a `PreToolUse` hook exiting 2, which hands its stderr back as the reason — including when it could not reach `origin` at all. A check that could not run is not a check that passed, and this is the one place where saying so out loud is cheap: the block is recoverable, one tool call later.
