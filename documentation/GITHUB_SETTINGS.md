@@ -16,7 +16,7 @@ the setting's name is the stable part.
 
 The install itself stays short about all of this on purpose — an install
 that dwells on GitHub plumbing teaches its reader that the plumbing is the
-point (a decision recorded 2026-09-10, `strength: decided`). This page is
+point. This page is
 where the install sends anyone who wants the detail.
 
 ## What Precedent Uses GitHub For
@@ -45,7 +45,7 @@ of them, and one list that is not a GitHub role at all.
 
 | Who | GitHub role | Why that one |
 |---|---|---|
-| A contributor — anyone who writes the project's content | **Write** | Write is what lets them push a branch, open a pull request, and merge their own documents. Read and Triage deny every write, which is the model this project tried first and abandoned on 2026-09-11: a contributor who cannot put a sentence into a document cannot do the one thing the project exists for. |
+| A contributor — anyone who writes the project's content | **Write** | Write is what lets them push a branch, open a pull request, and merge their own documents. Read and Triage deny every write: a contributor who cannot put a sentence into a document cannot do the one thing the project exists for. |
 | The maintainer — whoever owns the machinery | **Admin** (or the owner) | Only Admin can turn branch protection on, and protection is what makes the maintainer's review required rather than requested. Maintain cannot set it. |
 | An approver — who may land a practice | *not a role* | Approvers are a list in a practice set's `approvers.json`, read by the tools and turned into that set's CODEOWNERS. GitHub never knows who is an approver except through that generated file. |
 
@@ -135,7 +135,7 @@ how the two settings compose, not something read from GitHub's
 documentation. A throwaway repository exists to settle it with one pull
 request of each shape.
 
-**Plan limits.** As this project understands it (unverified, 2026-09-14),
+**Plan limits.** As this project understands it (unverified as of 2026-09-14),
 branch protection and rulesets on a **private** repository owned by a
 **personal** account need a paid GitHub plan; on a public repository they
 are free. A private document project on a free personal plan therefore
@@ -226,7 +226,7 @@ needs and whether a CODEOWNERS file is in the tree. Three answers: `PASS`;
 never a pass, and `--check` refuses it. Reading a branch's protection needs
 a token with **administration read** on the repository: a classic token
 with `repo`, or a fine-grained one with *Administration: read-only*. The
-session's own GitHub access does not have it (measured 2026-09-14: a 403),
+session's own GitHub access does not have it (verified 2026-09-14: a 403),
 so this is normally run by the maintainer with `PRECEDENT_GITHUB_TOKEN`
 set, per [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
@@ -234,8 +234,8 @@ set, per [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md).
 
 Every workflow Precedent ships declares `permissions: contents: read` — the
 three in this repository and the three templates under
-[templates/github-actions/](../templates/github-actions/), audited
-2026-09-14. Keep it that way in any workflow a project adds, and set the
+[templates/github-actions/](../templates/github-actions/).
+Keep it that way in any workflow a project adds, and set the
 repository default to read-only as well (**Settings → Actions → General →
 Workflow permissions → Read repository contents and packages
 permissions**).
@@ -245,7 +245,7 @@ of an edited workflow, not its first run.** A Write collaborator who edits a
 file under `.github/workflows/` on their own branch gets that workflow
 executed on push, before any review, with whatever secrets the repository
 holds — as this project understands GitHub's behaviour for same-repository
-branches (unverified, 2026-09-14; the *Require approval for workflow runs*
+branches (unverified as of 2026-09-14; the *Require approval for workflow runs*
 setting covers pull requests from forks, not branches). Owning `.github/`
 stops the change landing; it does not stop it running once. The mitigation
 is policy: **a project's workflows carry no secret a rewritten workflow
