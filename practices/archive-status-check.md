@@ -52,7 +52,7 @@ archived or anything is still outstanding, **run the check right then, in
 that same turn, and act on what it finds.** The bare word does not skip the
 check.
 
-**The test, in Morgan's words, is under "The standing test", in Detail**:
+**The test, in the person's words, is under "The standing test", in Detail**:
 nothing pending, nothing off the landing branch, nothing needed in temporary files, and
 the plan continued elsewhere or dropped. It is
 [the-boildown](the-boildown.md)'s four archive conditions and its plan
@@ -89,9 +89,9 @@ not on `main` gets a one-line note and does not hold the archive.
 **This absorbs `archive-command`'s old job.** That practice used to mean
 the bare word overrides the judgment call -- the three conditions got
 flagged, never enforced, because the person saying just "Archive" was
-taken as having already decided archiving was fine. Morgan withdrew that
-distinction on 2026-09-19: the two spellings feel the same to him, and he
-wants the check run every time, question mark or not. `archive-command` is
+taken as having already decided archiving was fine. That distinction is
+withdrawn: the two spellings mean the same thing to the person, and the
+check is run every time, question mark or not. `archive-command` is
 now `deduplicated` into this file rather than describing a live behavior
 of its own -- a session that still archives on a bare `"Archive"` without
 running the check first is doing the retired reading, not this one.

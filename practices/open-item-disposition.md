@@ -30,7 +30,7 @@ item waits on may set it to `ask`.
 The disposition is a line of its own inside the item:
 
 ```
-**Disposition:** parked (2026-09-08, Morgan)
+**Disposition:** parked (2026-09-08, the person's name)
 ```
 
 The value is one of the three words. The date and the name are mandatory on

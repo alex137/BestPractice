@@ -44,7 +44,7 @@ session: a commit's links and lint, a push's checks, and not stopping with
 unsaved work. The slow and cross-repository checks move to the maintainer.
 
 **The cost, said plainly.** A problem is caught after it lands, not before
-(S. Alexander Jacobson accepted this on 2026-10-20: a new session already
+(an accepted cost: a new session already
 pulls from a branch that has landed). One session is a single point of
 failure, which is what the heartbeat is for: a dead maintainer is noticed
 at the next session start, not weeks later. Only the conversation that
@@ -119,6 +119,11 @@ came back every session for anyone without a place to record a no. Its
 owner judged that sessions opening several repositories are rare, and asked
 for the standing jobs to become one maintainer per repository, with a
 heartbeat so its death is noticed.
+
+2026-10-20. Behind the Detail's "The cost, said plainly", that a problem
+is caught after it lands, not before: S. Alexander Jacobson accepted this
+on 2026-10-20, because a new session already pulls from a branch that has
+landed.
 
 ## Install
 Add the `maintainer` block to `precedent.json`, write the job prompt at its

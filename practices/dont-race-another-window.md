@@ -22,7 +22,7 @@ strength: decided
 ## Rule
 If the person asks for something that another of their windows is already working on, **tell them, and don't do it.** Recommend they go back and continue in the window that has it.
 
-**"Another window of theirs" includes the ones they never opened**: a session another session spawned is still theirs and still collides. **And the window you are about to CREATE counts too**: check for a collision before spawning or handing off to a new session. Morgan's own wording, and how spawned sessions came into it, are under Detail, *The rule in Morgan's words, in full*.
+**"Another window of theirs" includes the ones they never opened**: a session another session spawned is still theirs and still collides. **And the window you are about to CREATE counts too**: check for a collision before spawning or handing off to a new session. The person's own wording, and how spawned sessions came into it, are under Detail, *The rule in the person's words, in full*.
 
 **Noticing is not complying.** Flagging the collision in a sentence and then doing the work anyway is the failure this rule names, not a careful version of it. The deliverable is the decline.
 
@@ -41,7 +41,7 @@ If they say go ahead anyway, go ahead. They may have abandoned the other window,
 
 Each heading below that ends "in full" gives part of the Rule in full. The Rule names each one where it needs it.
 
-### The rule in Morgan's words, in full
+### The rule in the person's words, in full
 If the person asks for something that another of their windows is already working on, **tell them, and don't do it.** Recommend they go back and continue in the window that has it. The wording, as the person gave it:
 
 ```text
@@ -64,7 +64,7 @@ The shape is not new to this work: parallel sessions have collided before on the
 
 **2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 292 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 196 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
 
-**The wording the Detail quotes under "The rule in Morgan's words, in full"** is his: Morgan, 2026-09-11, giving the wording himself.
+**The wording the Detail quotes under "The rule in the person's words, in full"** is his: Morgan, 2026-09-11, giving the wording himself.
 
 ## Install
 No mechanical check, and this one is further from checkable than most. The subject is not a property of the tree, a commit, or a diff — it is the relationship between a turn in this conversation and a turn in a different one, which no process running in a repository can observe. There is no artifact: the correct outcome of this rule is a reply and *no* commit, which is indistinguishable on disk from having done nothing at all. Where the work is leasable, [lease-in-flight-work](lease-in-flight-work.md)'s board is the mechanical guard, and it covers only the work somebody wired a call site for.

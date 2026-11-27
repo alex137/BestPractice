@@ -38,10 +38,8 @@ its own list, so every entry sits under the place it lives.
 ## Detail
 **Never to anyone else.** To a person who is not one of the repository's
 code owners, a reply carries no "Files touched" list and no file paths at
-all: it says in everyday words what happened to their work (Morgan,
-2026-10-12, strength: decided: "Nothing technical should ever be said to a
-non technical person";
-[inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
+all: it says in everyday words what happened to their work
+([inner-workings-for-code-owners](inner-workings-for-code-owners.md)).
 
 **A deletion is linked at the commit that made it**, not on the branch: a
 branch link to a path that no longer exists is a 404, and the reader wants
@@ -121,6 +119,11 @@ that touched several repositories in one turn had shown a flat list, and a
 reader could only tell which repo and branch an entry was on by reading its
 link. The preface says it once, up front. The "in" between the words and the
 path is the session's wording of his ask. Strength: decided.
+
+**Never to anyone else, 2026-10-12.** Behind the Detail's paragraph of that
+name, that a reply to a person who is not a code owner carries no file
+paths: Morgan, 2026-10-12, strength: decided: "Nothing technical should
+ever be said to a non technical person".
 
 ## Install
 Convention in

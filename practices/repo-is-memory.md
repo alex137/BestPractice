@@ -39,8 +39,8 @@ the reply names anything left out on purpose, and why.
 first paragraph was written about knowledge -- what a session learns -- and
 said nothing about what a session makes. A file built in a scratch folder
 is neither in a thread nor committed, so nothing told a session that leaving
-it there was a failure rather than a pause. Morgan asked for the rule as an
-addition to this one, not a new practice (2026-10-11, strength: decided).
+it there was a failure rather than a pause. The rule is an
+addition to this one, not a new practice.
 
 **What it does not change.** [findings-return-through-repo](findings-return-through-repo.md)
 still covers a finding meant for another session; this covers the work a

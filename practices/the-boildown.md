@@ -267,7 +267,8 @@ A reply may only add these once the four conditions below all hold. **Conditions
 When all four hold, add, still in order, after the three items above:
 
 ### Items 6 to 11 in full
-6. **Retired: no branches to delete.** The Boildown no longer lists branches that can be deleted, in any reply. The branch cleanup page, linked in the closing reply where the person's set provides one, already carries them. An undeleted branch is still never a blocker and never holds the archive line.7. **Other sessions on the same issue**, if any are known to be live on it: "Other relevant sessions to keep an eye on:" with a link to each. Only sessions on *this* thread's own subject -- never a passing mention of unrelated work happening elsewhere. Omit when there are none.
+6. **Retired: no branches to delete.** The Boildown no longer lists branches that can be deleted, in any reply. The branch cleanup page, linked in the closing reply where the person's set provides one, already carries them. An undeleted branch is still never a blocker and never holds the archive line.
+7. **Other sessions on the same issue**, if any are known to be live on it: "Other relevant sessions to keep an eye on:" with a link to each. Only sessions on *this* thread's own subject -- never a passing mention of unrelated work happening elsewhere. Omit when there are none.
 8. **Sessions this one spawned**, if any, each with its link. Omit entirely when this session spawned nothing -- most sessions do not, and saying so every time is exactly the noise this rule exists to avoid.
 9. **Two practice ideas, kept apart: at most one process idea and at most one content idea.** They are different kinds of rule, and the closing list says which is which.
    - **Process idea:** how the work gets done -- Precedent, the ladder, sessions, GitHub, builds, checks, scripts, file formats, working with the AI. A rule about how a Word file is built is a process idea, whatever the project.

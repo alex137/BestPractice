@@ -119,10 +119,7 @@ session-start file opens with a warning, once per session, and the reply
 gate asks for one line in The Boildown in every reply. Its `hard_ceiling`
 is enforced where growth is made, and only there: nothing refuses a commit
 in the repo that loads the file, because no commit there can make a file
-built from other repos smaller (a commit block for that was built
-2026-09-30 and retired the same day, never switched on; Morgan: "Since it's
-never used then let's retire it completely. Approved. Act."; strength:
-decided). `session-file-allowances-fit` requires each
+built from other repos smaller. `session-file-allowances-fit` requires each
 carried source's `occasion_share_tokens` plus its `resident_block_tokens`,
 plus the entry's `fixed_allowance`, to add up to at most the hard ceiling,
 and each source's own build refuses to grow past those numbers.
@@ -321,6 +318,8 @@ and an offset is recorded with what it freed. Strength: decided.
 **2026-09-30: a cap warns at the quick check.** Behind the Detail's "A cap warns at the quick check and refuses at the full one": Morgan, 2026-09-30 (strength: decided), asked for the warning to tell the person it needs fixing, and for no change to the refusal. The full check refuses it exactly as before.
 
 **2026-10-28: one total.** Behind the Detail's paragraph on the one total the person declares: Morgan, 2026-10-28 (strength: decided): "Go, one number everywhere" ([spec/SESSION_LOAD_ONE_TOTAL_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/SESSION_LOAD_ONE_TOTAL_PLAN.md)).
+
+**2026-09-30: no commit block in the repo that loads the file.** Behind the Detail's "Approvals, targets and the hard ceiling", that nothing refuses a commit in the repo that loads the file: a commit block for that was built 2026-09-30 and retired the same day, never switched on; Morgan: "Since it's never used then let's retire it completely. Approved. Act."; strength: decided.
 
 ## Install
 The registry is
