@@ -147,7 +147,7 @@ one-off typo has no upstream. Don't invent a template to blame, and don't
 make a change just so the answer looks thorough
 ([no-invented-specifics](no-invented-specifics.md)).
 
-Everything under the headings below from "The opening in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The opening in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The opening in full
 
@@ -155,8 +155,7 @@ Everything under the headings below from "The opening in full" on was the Rule's
 this stop it happening again?" and "is that the real cause?" ask for it out
 loud; the answer is owed either way. **A fix is not done when the symptom
 goes away. It is done when the same cause cannot produce it again**, in a
-place that survives, at the origin and in every copy. (This was the
-"Upstream fix" command until 2026-10-01; looking back over a whole session
+place that survives, at the origin and in every copy. (Looking back over a whole session
 for causes that live upstream is [root-issues](root-issues.md).)
 
 It is about **the change in front of the session**: the one it recommended,

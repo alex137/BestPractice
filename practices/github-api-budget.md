@@ -77,7 +77,7 @@ than a day of this project's own measured tooling spend, and early enough
 that a person sees the finding before anyone sees a refusal. Move it with a
 reason written beside it.
 
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives part of the Rule in full. The Rule names each one where it needs it.
 
 ### The allowance and its pools, in full
 **Read the allowance off the `X-RateLimit-*` headers of a call you were

@@ -875,19 +875,9 @@
     "It reached {} once, for the shapes the check then saw. The counts below",
     "are history that opens in lower case (\"retired <date>\", \"since <date>\"),",
     "which the check began to see afterwards: the templates wait for one",
-    "update that ships them together, and the documents for their own pass."
+    "update that ships them together."
   ],
   "record_in_instructions_before_the_rule": {
-    "INSTALL.md": 16,
-    "PRACTICES.md": 1,
-    "SETUP.md": 2,
-    "documentation/CLOUD_SETUP.md": 6,
-    "documentation/FOR_DEVELOPERS.md": 1,
-    "documentation/GIT.md": 1,
-    "documentation/GITHUB_ACTIONS.md": 14,
-    "documentation/GITHUB_SETTINGS.md": 1,
-    "documentation/PER_MACHINE_SETUP.md": 7,
-    "documentation/SHARED_PRACTICE_SETS.md": 1,
     "templates/bootstrap.sh": 1,
     "templates/document-project/.claude/settings.json": 1,
     "templates/github-actions/README.md": 3,

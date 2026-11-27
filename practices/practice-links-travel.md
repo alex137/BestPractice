@@ -99,7 +99,7 @@ make it absolute** — that is the disclosure, and it is the first thing
 anyone tries. Nothing downstream repairs it and nothing downstream should;
 the repair belongs in the publishing source, as a backticked path.
 
-Everything under the headings below from "What travels" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "What travels" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### What travels
 

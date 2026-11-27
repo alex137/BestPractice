@@ -57,7 +57,7 @@ full"). One that still appears comes from claude.ai, and no file here
 clears it.
 
 ## Detail
-Everything under the headings below from "The individual set in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The individual set in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The individual set in full
 **Attach the individual source; never make a second clone of it.** Call the
@@ -66,8 +66,7 @@ repo-attach tool (`add_repo` in Claude Code on the web) for
 is what grants this session access, push included. **When session start
 already cloned it** (the environment carries `PRECEDENT_GIT_TOKEN`), it
 reports nothing missing and the session attaches nothing, until it has to
-push to the set (Morgan, 2026-10-27, strength: decided: "make sessions
-skip the attach when already cloned"). Its reply (as of 2026-09) says to clone the repo to
+push to the set. Its reply (as of 2026-09) says to clone the repo to
 `/home/user/<name>`, the directory the project lives in, while the source
 bootstrap clones it to `~/precedent-individual`. **The bootstrap keeps one
 working tree and makes both paths lead to it.** If it cloned first, it has
@@ -192,6 +191,8 @@ since in the diverged report the hand clone could have held commits nobody
 had pushed.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 568 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds when to attach, the one working tree, where a shared set lives, and the deleted-set exception, in 245 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-10-27, no attach when session start already cloned it.** Behind the Detail's "the session attaches nothing, until it has to push to the set": Morgan, 2026-10-27, strength: decided: "make sessions skip the attach when already cloned".
 
 ## Install
 Nothing to install beyond the engine. The templates' own attach bullet

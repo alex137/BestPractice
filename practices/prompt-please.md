@@ -178,7 +178,7 @@ prompt as a paste block.
 **The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first. (Absorbed from `seeded-prompt-names-its-origin`, 2026-11-05.)
 
 ## Detail
-Everything under the headings below from "The phrase and the two occasions in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The phrase and the two occasions in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### No file, and the cross-repository check
 **This command makes no file.** Its deliverable is the prompt itself,
@@ -359,8 +359,7 @@ sentence outside the block names it too (*"Paste this into \<session
 name\> -- \<session link\>."*) rather than telling the person to open a
 new one. **When the prompt is for a new session, the For line says so:**
 *"For: a new session rooted in \<repository\>."* Never a placeholder, "none"
-or "unknown". (2026-09-26 left the line out when no session was known;
-since 2026-10-10 it is always there, because the person sorting text
+or "unknown". (It is always there, because the person sorting text
 between many open windows reads the top two lines and nothing else.)
 **A reply to a message another session sent goes back to that session.**
 It named itself in the message's first line, so the For line names it,
@@ -393,8 +392,7 @@ is what tells the person to go paste it, and where.
 do not study it. So anything in it they should know -- what it recommends,
 a risk it names, a call it makes or leaves for them -- is said in the reply
 too, before or after the block, in a line or two: *"This prompt recommends
-X; it leaves Y for you to decide."* (Morgan, 2026-10-09: "assume that any
-'prompt please' note given to me ... will NOT be read by me".)
+X; it leaves Y for you to decide."*
 
 ### A later prompt replaces the earlier ones
 **A later prompt replaces the earlier ones, so it carries everything.** The
@@ -402,10 +400,7 @@ person sends one message to the receiving session. A prompt written later in
 the conversation for the same handoff supersedes every earlier one and
 stands alone: everything the earlier ones carried, plus what the person said
 since (their new words, quoted and dated) and what this session found since,
-in one block. Never a delta that assumes an earlier block was pasted too
-(Morgan, 2026-10-14, strength: decided: "when you write up your suggestions
-in a prompt, please include what you just gave me in that prompt, because I
-will only do one message to another session").
+in one block. Never a delta that assumes an earlier block was pasted too.
 
 ### Opening the session for the person
 **On its own initiative, a session never calls a session-creating or
@@ -418,7 +413,7 @@ rejected often enough) and portability (a paste block needs nothing from
 any one provider's tool surface).
 
 **When the person asks, in their own words, for the session to be opened
-for them, open it** (Morgan, 2026-10-13: "Yes you can open it if I ask").
+for them, open it.**
 Read the ask for intent ([read-for-intent](read-for-intent.md)): "open a
 session with all of those and paste that message in" is one; "Prompt
 Please" alone is not. The exception covers opening a new session only;
@@ -693,6 +688,10 @@ into Detail, under a heading the Rule names. Nothing was deleted
 **2026-11-05: the index line was shortened** to the wording a reduction pass proposed, same meaning (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
 
 **2026-11-05: absorbs `session-text` and `seeded-prompt-names-its-origin`**, whose rules are now part of this one (S. Alexander Jacobson, 2026-11-05 (strength: decided): "Actually apply your suggested rows", on the reduction pass of 2026-11-04).
+
+**2026-10-10: the For line is always there.** Behind the Detail's "Never a placeholder, "none" or "unknown"": 2026-09-26 left the line out when no session was known; since 2026-10-10 it is always there, because the person sorting text between many open windows reads the top two lines and nothing else.
+
+**2026-10-14: a later prompt carries everything.** Behind the Detail's "A later prompt replaces the earlier ones": Morgan, 2026-10-14, strength: decided: "when you write up your suggestions in a prompt, please include what you just gave me in that prompt, because I will only do one message to another session".
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

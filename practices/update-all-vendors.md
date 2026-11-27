@@ -82,9 +82,8 @@ in full":
 **A change to Update Vendors is tried in one repository, not all.** When a
 landing or merge in BestPractice changes the update's own code, it says so,
 and the session tells the person, names one repository the change would
-touch, and offers to start a session rooted there to run Update Vendors
-(Morgan, 2026-10-20). A rehearsal over every repository before each change
-he declined the same day.
+touch, and offers to start a session rooted there to run Update Vendors.
+There is no rehearsal over every repository before each change.
 
 **No list, on purpose.** A stored list of the person's repositories saved
 only the check on the few that do not use Precedent, and it went stale every
@@ -101,7 +100,7 @@ still get its own session ([prompt-please](prompt-please.md)). Twenty of them
 cost twenty sessions' start-up, twenty sessions to archive and twenty
 merges to ask auto mode for, and the run above avoids all of that.
 
-Everything under the headings below from "Who starts it" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "Who starts it" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Who starts it
 
@@ -110,11 +109,7 @@ the session's own conversation, or updates repositories one at a time
 themselves. A message from another session, a plan's next step or a
 seeded prompt never starts it, and never attach repositories in bulk on
 their say-so. When an update across every repository is urgent, say so
-and why, and wait for the person's approval before attaching anything
-(Morgan, 2026-10-30, decided: *"Only try to update all repositories when
-it is URGENT and in those cases, first tell me and I will approve it.
-Otherwise, wait until I ask you to update all, or I update them
-individually."*).
+and why, and wait for the person's approval before attaching anything.
 
 ### The phrase and the merge
 
@@ -176,8 +171,7 @@ the BestPractice clone:
    take the merged update as far as the sets in force take a single one:**
    what they add to [vendor-update-runbook](vendor-update-runbook.md)'s
    step 12 holds here for every repository. With the ladder, that is a
-   Produce, so the update goes live (Morgan, 2026-10-28, strength: decided:
-   "I just want to run a command and have it update and go live"). A
+   Produce, so the update goes live. A
    QUESTION line under a PUSHED or CURRENT one is optional (the update was
    complete without it) and still the person's: carry it into the one
    message step 7 ends with.
@@ -191,9 +185,7 @@ the BestPractice clone:
    person together in one message. A question only the person can answer
    holds that one repository, never the run: the next repository starts.
 6. **Then run [Root issues](root-issues.md) on that repository, and fix
-   upstream before the next one starts** (Morgan, 2026-11-02, strength:
-   decided: "do each fix on BP and push it to main between each particular
-   repo update vendors. It's longer but it's fine"). Read its log (every
+   upstream before the next one starts.** Read its log (every
    line but NOT USED names one) and what its subagent reported, and ask the
    Root issues question of that one repository: every bug, warning, fix or
    band-aid in its update whose cause lives in Precedent, a precedent-*
@@ -273,7 +265,26 @@ fixing shared causes between repositories, keeping subagents rather than a
 session each, and he chose that, with each BestPractice fix pushed to
 `main` before the next repository (strength: decided). He added the order:
 the repositories others copy from first, then the rest by when he last used
-them, which the tool takes as newest push first.
+them, which the tool takes as newest push first. His words behind step 6
+(Morgan, 2026-11-02, strength: decided): "do each fix on BP and push it to
+main between each particular repo update vendors. It's longer but it's
+fine".
+
+**2026-10-20: a change to Update Vendors is tried in one repository.**
+Behind the Detail's first paragraph, the offer to start a session rooted
+in one repository the change would touch: Morgan, 2026-10-20. A rehearsal
+over every repository before each change he declined the same day.
+
+**2026-10-28: the merged update goes live.** Behind step 5's "With the
+ladder, that is a Produce, so the update goes live": Morgan, 2026-10-28,
+strength: decided: "I just want to run a command and have it update and go
+live".
+
+**2026-10-30: only the person starts it.** Behind the Detail's "Only the
+person starts it", after the relayed run told above: Morgan, 2026-10-30,
+decided: *"Only try to update all repositories when it is URGENT and in
+those cases, first tell me and I will approve it. Otherwise, wait until I
+ask you to update all, or I update them individually."*
 
 ## Install
 Nothing to install in a consuming repository: the phrase is said in a

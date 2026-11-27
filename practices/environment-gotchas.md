@@ -34,12 +34,11 @@ concluding it's new.
 
 ## Detail
 **A generated overview** — symptom plus link, one line per live entry —
-exists for the deliberate read; nothing loads it automatically. That
-sentence was in the Rule until 2026-09-21 (see `## Story`).
+exists for the deliberate read; nothing loads it automatically.
 
 **In a repo that vendors Precedent, search both catalogues**: the repo's
 own `gotchas/`, and Precedent's at `process/upstream/gotchas/`, the traps a
-session using the system can hit (shipped to consumers since 2026-10-01).
+session using the system can hit (shipped to consumers).
 
 **Every entry is its own file from the first one.** There is no size below
 which stories live inline "for now": the instructions file never carries
@@ -87,6 +86,8 @@ what left is the sentence about the generated overview, which is a pointer
 to a convenience rather than a constraint on anybody.
 
 **On-demand from 2026-10-01, with an index line.** The reduction pass for precedent-individual's session-start file ([the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md)) found this rule resident in every session while every instructions file the install template writes carries its own gotcha section, which the environment-gotchas check refuses to lose. Morgan approved making it on-demand, kept in the occasion index under "an environment or tooling trap costs real time" (strength: decided): *"Booked, attach both shared sets, and do both Tier 2 items (and note as a possibility for the future in a Todo the other tier 2 items to consider)"*
+
+**What the Detail used to date.** The sentence about the generated overview was in the Rule until 2026-09-21, the compression told above. Precedent's own catalogue at `process/upstream/gotchas/` has shipped to consumers since 2026-10-01.
 
 ## Install
 A short pointer section in the instructions file naming `gotchas/` and the

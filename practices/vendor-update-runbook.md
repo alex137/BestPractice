@@ -313,7 +313,7 @@ plain summary in the chat and one Prompt Please block.
 investigate** ("A refusal naming a file upstream no longer has").
 
 ## Detail
-Everything under the headings below was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does, in order (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below give the Rule in full; the Rule names each heading where it needs it.
 
 **BP is BestPractice**, the repository this update copies the engine and the
 universal catalogue from, and the short name people use for it in every
@@ -335,8 +335,8 @@ part of the phrase rather than a separate grant.
 Review"): the phrase names an update, and its safety check clears a merge
 only on words that name the merge. That is not this repository's rules.
 **So the phrase is best said as "Update Vendors and merge"**, which names
-the merge in the person's own words before it happens. As of 2026-10-11
-that is expected from the check's own rule and not yet seen working, so
+the merge in the person's own words before it happens. That is expected
+from the check's own rule and, as of 2026-10-11, not yet seen working, so
 until a run confirms it, a refusal is still handled the same way: say so in
 one line and ask for it by name, and never route around it. **The words fit
 the route:** on the `--land` route, which opens no pull request, ask for the
@@ -356,7 +356,7 @@ of one; a run of many collects the list repository by repository and
 compiles it once at the end.
 
 ### The one command and the BestPractice clone
-**The sequence is one command, since 2026-09-27.** From the consuming repo,
+**The sequence is one command.** From the consuming repo,
 run the BestPractice clone's own copy -- never a vendored one:
 
     python3 ../BestPractice/tools/precedent_update.py --repo .
@@ -374,8 +374,7 @@ same way (2026-10-08).
 
 ### Private copies are checked here, not at session start
 **A copied-in source whose copy is private is checked only by Update
-Vendors** (Morgan, 2026-11-12, strength: decided: *"Option B
-definitely!!!!!"*). A copy is already in the repository as files, so
+Vendors.** A copy is already in the repository as files, so
 nothing loads from its clone; the only reason a session reached its
 repository at start was to ask whether it had moved, which for a private
 one meant an attach the person approved in every session, for a repository
@@ -409,8 +408,7 @@ staged nothing at all, DONE's short form is NOTHING TO UPDATE**: no commit,
 no review, steps 7 to 9 run by the update itself with only their findings
 printed, and a line on what still waits -- commits the landing branch
 lacks, or a landing branch ahead of `main`. A credential or a rename
-changes without any code changing, which is why those steps still run
-(Morgan, 2026-11-19, strength: assented). **When the
+changes without any code changing, which is why those steps still run. **When the
 checkout is on `main` or on the branch your work lands on**, DONE prints the command that moves the staged update onto
 a session branch first, `git switch --no-track -c "$(python3
 tools/precedent_branch_name.py update-vendors)"`: for a person on the
@@ -428,8 +426,8 @@ whose GitHub test has not passed, on the person's word, and `--take-set
 `--take` is refused with both named (2026-10-20). **Every copied-in set,
 voice packs and the sets they carry included, is refreshed on a normal update**, and
 the report says how far it moved; a repository freezes one only by its own
-`"hold": "<why>"` on that source in its `precedent.json` (Morgan,
-2026-10-20, strength: decided). **So is every file a source exports**: a
+`"hold": "<why>"` on that source in its `precedent.json`.
+**So is every file a source exports**: a
 voice repository's compiled prompts, a rules file. A copy taken for those
 alone is declared `"exports_only": true`, and a moved one has each changed
 file listed in the report
@@ -437,12 +435,9 @@ file listed in the report
 **A new copy between repositories is added only as a declared source**,
 never by a sync script: the full check fails on any folder copied in that
 `precedent.json` does not declare, and a declared copy that could not be
-refreshed is left for you, never DONE (Morgan, 2026-10-30, strength:
-decided: *"The whole point of vendoring in and update vendors is when the
-original one changes and I run an update vendors in the repo, it gets the
-new version of everything that's vendored in"*). **Saying "Update Vendors"
-is the go-ahead for a change it brings to his voice**, with no separate yes
-(Morgan, 2026-10-30, strength: decided: *"1 yes it counts"*). Every one is
+refreshed is left for you, never DONE. **Saying "Update Vendors"
+is the go-ahead for a change it brings to the person's voice**, with no
+separate yes. Every one is
 listed in the same run, and while any is open the deep check is not started:
 it is the slow step, so it waits until nothing cheaper is in its way. Where
 the landing branch takes the full check, the basic tier runs first, and a
@@ -452,7 +447,7 @@ basic tier:** DONE then names
 [precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
 to start in the background once the update is pushed, which runs the full
 check on what landed and, if it fails, files the failure under `todo/` and
-pushes it (Alex, 2026-10-08, decided). Opt in only where someone is sure to
+pushes it. Opt in only where someone is sure to
 hear: the session that starts it, or a host check after the merge. **FAILED**
 (exit 2): a step could not run or the deep check is red, and nothing is
 published. Run it again as it is: the vendored files that run staged and
@@ -462,8 +457,7 @@ changed after the failure is yours, and is refused until you commit it. Steps 7 
 numbered steps below say what the command does and why; they are for
 investigating, not a checklist to walk by hand. Where one of them and the
 command disagree, the command is the current code, and the step is what
-needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md),
-Morgan 2026-09-27, `strength: decided`: *"I love 3, let's do it"*).
+needs fixing ([spec/ONE_COMMAND_UPDATE_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/ONE_COMMAND_UPDATE_PLAN.md)).
 
 ### When a merge runs the update for you
 **A merge runs it for you when anything is behind**:
@@ -500,10 +494,7 @@ is the sequence working, not a refusal needing permission to stand.
 
 ### Upstream's version is the default
 **Upstream's version is the default, and the session applies it without
-asking** (Morgan, 2026-10-14, strength: decided: "the default action you
-take is to always take the upstream version and keep only what is unique
-or necessary or essential for this repo" -- "And not just for these but the
-general principle"). **It covers every vendored layer** -- the catalogue,
+asking.** **It covers every vendored layer** -- the catalogue,
 the engine, the shared and individual sets, the templates, anything else an
 update syncs -- **and every kind of conflict an update meets**: a kept
 template section, a committed local edit to a received file, a drift
@@ -540,8 +531,8 @@ version do anything upstream's does not, and does that matter?**
 
 ### Committed local edits to received files
 **A committed local edit to a received file is reviewed by the command
-itself** (since 2026-09-29,
-[spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)),
+itself**
+([spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/LOCAL_EDITS_TO_RECEIVED_FILES_PLAN.md)),
 for an engine file in `tools/`, a hook or declared engine path the engine
 manifest records, `process/upstream/`, and a section 0 catalogue that has its
 own `CATALOGUE_SYNC.json`. It compares the
@@ -551,8 +542,7 @@ its own yet; one upstream changed on the same lines is replaced by
 upstream's version, most likely the same bug fixed there, and the report
 names the commit holding the local one and how to bring it back. **One
 upstream changed elsewhere in the file is replaced by upstream's version
-too** (since 2026-10-08; until then the two were merged and kept without
-anyone judging it). What the local edit would still add is shown as a diff
+too.** What the local edit would still add is shown as a diff
 under **LOCAL EDITS**, a `JUDGE:` line beside the outcome names the file,
 and the session judges it by the rule above:
 `python3 ../BestPractice/tools/precedent_local_edits.py keep --repo . --path FILE --object ID --why "..."`,
@@ -578,9 +568,8 @@ declared file under `local_ci_workflows` in a practice source's `precedent.json`
 practice with `overrides:`, or a hand-written rule worded as an exception
 to the practice it departs from. **The pull request lists every conflicted
 file with its verdict** — kept, taken from upstream, or merged — and why.
-Morgan, 2026-09-24: *"Every 'update vendors' should use that rule for every
-conflicted file"* ([current-rule-governs](current-rule-governs.md) says
-which side wins when the review finds a real conflict).
+[current-rule-governs](current-rule-governs.md) says
+which side wins when the review finds a real conflict.
 
 ### Hand edits and porting
 **Never hand-edit a vendored file to resolve a merge.** The vendored tree
@@ -605,9 +594,7 @@ The copy in this repo is from the last sync, and every correction made to
 the procedure since then is exactly what it lacks. Once step 1 has made the
 source clone current, read `practices/vendor-update-runbook.md` in that
 clone, on the branch this repo takes its updates from, and follow that
-([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24: a
-consumer followed its own old copy of these steps and missed a change to
-them that had already been published.
+([current-rule-governs](current-rule-governs.md)).
 
 A vendored tree is updated by a fixed sequence, in this order, because
 every step's answer is wrong if the one before it was skipped.
@@ -636,30 +623,23 @@ says so, both from the vendored tree under `process/upstream/`.
    every later step confidently wrong: the diff is against the wrong
    lineage, and "already up to date" is the answer you get.
 
-   **For BestPractice that branch is `main`, for every install**, since
-   2026-09-25 -- the branch that has passed every local check and the
-   GitHub test (Morgan, 2026-09-25, `strength: decided`: *"Yes, switch all
-   installs to main."*). An install whose `process/manifest.json` records
+   **For BestPractice that branch is `main`, for every install** --
+   the branch that has passed every local check and the
+   GitHub test. An install whose `process/manifest.json` records
    an older BestPractice branch is repointed to `main` in this same update,
    and so is its `tools/ENGINE_MANIFEST.json`.
-   **Step 3's refresh writes both itself, since 2026-09-27: never edit the
+   **Step 3's refresh writes both itself: never edit the
    pin by hand, and never ask whether to.** It is already decided, and a
    hand edit to the file that says which branch a repo tracks is exactly
-   what a harness permission check holds for a human -- which is how a
-   consumer update stopped halfway that day, engine on `main` and catalogue
-   on the older branch, asking a question nobody needed to answer. A
-   repo left in that half state is repointed by re-running step 3.
+   what a harness permission check holds for a human. A
+   repo left half repointed, engine on `main` and catalogue on the older
+   branch, is repointed by re-running step 3.
 
    The consequence to know: a change reaches your other repositories only
-   once it is on BestPractice's `main`. For one day before that,
-   2026-09-24, installs had been split between `main` and an older branch
-   on an approval Morgan
-   later called assent rather than a decision; this move was made for
-   every install at once so that cannot happen again.
+   once it is on BestPractice's `main`.
 
    **One repo may follow BestPractice's pre-release branch instead of
-   `main`, by declaring it in its own `precedent.json`** (Alex,
-   2026-10-05, `strength: decided`); the Detail section says how and
+   `main`, by declaring it in its own `precedent.json`**; the Detail section says how and
    what it gives up.
 
    **What reads a commit and what reads a working tree, which is the whole
@@ -667,7 +647,7 @@ says so, both from the vendored tree under `process/upstream/`.
    out of what the fetch brought: the ENGINE by blob (see the pin note
    below), the vendored CATALOGUE by `checkin.py update --from-ref`, which
    reads with `git archive`, and the code doing the update is never older
-   than that commit. Since 2026-10-11,
+   than that commit.
    [tools/precedent_update_driver.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_driver.py)
    runs it from a temporary worktree of the newer commit when the clone's
    own code is behind, and the report's `code:` line says which commit ran
@@ -685,10 +665,7 @@ says so, both from the vendored tree under `process/upstream/`.
    work.** `precedent_refresh_sources.py --apply` now brings each clone to
    its declared `base_branch` as its first action, verifies the working tree
    actually arrived there, and **refuses to report success when it could
-   not**: a skipped source is named, and the run exits non-zero. Before
-   2026-09-21 it printed `applied.` and exited 0 however many sources it had
-   declined, and four of them drifted 17 to 34 commits behind while every
-   session start reported success
+   not**: a skipped source is named, and the run exits non-zero
    ([todo-2026-09-21-refresh-output-blocks-the-next-pull](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-refresh-output-blocks-the-next-pull.md)).
 
    **Two things it deliberately does not do.** It never touches a modified
@@ -716,13 +693,9 @@ says so, both from the vendored tree under `process/upstream/`.
    silently ran against the pinned branch instead of the commit under test,
    with `git status` clean throughout. That cost several sessions on pull
    request #110, and `_source_tools_at`'s docstring carries the finding.
-   Asked by Morgan, 2026-09-14 — *"Maybe it should even preface that command
-   with `git switch precedent-beta-v01`"* — and answered no, for this reason.
 
-**One repo may follow `staging` instead, since 2026-10-05, by saying so
-in its own `precedent.json`: `"upstream_branch": "staging"`.** Alex,
-2026-10-05 (`strength: decided`), after measuring that a change took
-about 25 minutes to reach `main` and a few to reach `staging`. The
+**One repo may follow `staging` instead, by saying so
+in its own `precedent.json`: `"upstream_branch": "staging"`.** The
 default is unchanged: a repo that names nothing follows `main`. Only
 `main` and `staging` are accepted; any other name -- the branch that
 has had only seconds of checking among them -- is refused, with the
@@ -750,25 +723,17 @@ comparison.
 3. **Refresh the engine, and take the branch tip.** Expect two passes when
    the tool replaces itself; the second is not a retry, it is the new copy
    running its own corrected file list.
-   **Since 2026-09-15 this also refreshes `.claude/hooks/*.sh`**, drift-checked
+   **This also refreshes `.claude/hooks/*.sh`**, drift-checked
    and tracked in the same `ENGINE_MANIFEST.json` as `tools/`
-   (`hook_files`/`hooks_sha256`) — before that date the hook scripts were
-   copied once at initial install and never refreshed again, so a fix
-   landing in one (the `freshness-guard.sh` shallow-clone false-positive,
-   [its gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md), is the incident that prompted this) never
-   reached an already-vendored repo no matter how many times "Update
-   Vendors" ran. A repo vendored before this date has no `hook_files` in
-   its manifest yet; its first refresh after taking this change prints a
+   (`hook_files`/`hooks_sha256`). A repo vendored before 2026-09-15 has no
+   `hook_files` in its manifest yet; its first refresh prints a
    one-time catch-up notice and vendors all of them, even though the
    `tools/` commit may already match. **One time is the point: a second
-   refresh at the same commit prints "nothing to do".** Until 2026-09-25 a
-   hook a declared source's adapters own (`commit-identity.sh`,
-   `freshness-guard.sh` from an individual source) was skipped, never
-   recorded, and still counted as missing, so the notice repeated on every
-   refresh and every engine file was rewritten; seeing it twice in a row now
+   refresh at the same commit prints "nothing to do".** Seeing the notice
+   twice in a row
    is a bug to report. `.claude/settings.json` is only ever **added to**,
-   never edited: since 2026-09-25 the refresh adds the entries its kind's
-   `HOOK_WIRING` lists and the repo lacks, and since 2026-10-02 it also
+   never edited: the refresh adds the entries its kind's
+   `HOOK_WIRING` lists and the repo lacks, and it also
    gives `freshness-guard.sh` the branch in `precedent.json`'s
    `base_branch` when no existing entry names one. For a consumer, the same
    refresh writes and wires the individual-set bootstrap hook, first in
@@ -783,13 +748,12 @@ comparison.
    `precedent-branch-cleanup.yml`, the one workflow a set may carry
    ([source-sets-run-no-ci](source-sets-run-no-ci.md)) -- tracked in the
    same `ENGINE_MANIFEST.json` (`ci_workflow_files`/`ci_workflows_sha256`).
-   Before 2026-09-18 these files were written once, at install, and never
-   refreshed; the files of that era since retired (a consumer's
+   The retired files of the old install (a consumer's
    `bestpractice-docs.yml`, a set's `views-drift.yml` and
    `precedent-check.yml`) are deleted by the refresh, and a manifest with no
    `ci_workflows_sha256` yet records a baseline on its first refresh rather
    than overwriting a file it never recorded.
-   **Since 2026-09-27, in a consuming repo, that baseline caution does not
+   **In a consuming repo, that baseline caution does not
    apply, and nothing is asked.** A consumer's CI converges to upstream: the
    refresh rewrites whichever of `leak-gate.yml` and `light-check.yml` is
    installed to the current template, tracked or not, hand-edited or not
@@ -809,13 +773,11 @@ comparison.
    finishes it once the command runs locally. Each replacement
    and removal is printed as done; a file git does not hold, or one with
    uncommitted edits, is left under **Left for you** so its content is never
-   lost. Morgan, 2026-09-27 (strength: decided): *"It should definitely
-   definitely use the newer version from upstream ... so it shouldn't ask.
-   Asking creates doubt and confusion when there isn't any."* The checks a
+   lost. The checks a
    removed workflow ran belong in the local push check, which runs before
    every push; the removal line names the scripts it ran. A practice source
    is unchanged by this.
-   **Since 2026-09-24 it also refreshes any file the repo declares under
+   **It also refreshes any file the repo declares under
    `engine_paths` in its own `precedent.json`** — an upstream path mapped to
    a local one, for a file the repo must keep at a path of its own:
    `{"templates/harness/claude-code/hooks/commit-identity.sh":
@@ -827,7 +789,7 @@ comparison.
    names how many lines differ, and `--force` does not waive it — move the
    difference upstream first. A mapping onto a path an adapter writes, or
    one this engine already vendors, is refused outright.
-   **Since 2026-09-25 it also refreshes a consumer's `tools/bootstrap.sh`
+   **It also refreshes a consumer's `tools/bootstrap.sh`
    — but only while it carries no local edits.** Unedited means it matches
    the baseline hash `ENGINE_MANIFEST.json` records for it
    (`template_instances_sha256`), or, where nothing is recorded yet, it is
@@ -835,11 +797,8 @@ comparison.
    Either way it is rewritten to the current template. A copy with local
    edits is never rewritten, `--force` included: the refresh reports it
    `DIVERGED`, names each template block it lacks by line, and puts it on
-   the **Left for you** list for step 10(d). Before this date nothing
-   delivered a template change to an installed copy; a real consumer ran
-   two days without the session-start freshness check for exactly that
-   reason.
-   **Since 2026-09-25 it also refreshes the sections `AGENTS.md` took from
+   the **Left for you** list for step 10(d).
+   **It also refreshes the sections `AGENTS.md` took from
    its template, on the same terms, one section at a time.** A section is a
    `##` or `###` heading and what follows it; the generated loader block is
    not one, and stays the sync's (step 5). An unedited section — matching
@@ -850,15 +809,14 @@ comparison.
    bullet, paragraph or table row of the template's section it lacks, down
    to the missing sentences, and goes on **Left for you**. A section the
    template has and the file does not is reported `MISSING` once, and never
-   written in. Before this date whatever the template wrote at install was
-   frozen: a template fix reached no installed repo, and nothing said so.
+   written in.
    The same run lists every line of `AGENTS.md`, `CLAUDE.md` and
    `tools/bootstrap.sh` that still names a **retired branch**
    (`precedent-beta-v01`, retired on 2026-09-25), outside the
    generated block. Nothing else outside `tools/`, `.claude/hooks/`, the CI
    workflows, `tools/bootstrap.sh` and those `AGENTS.md` sections is
    touched.
-   **Since 2026-09-19, check whether this refresh newly vendors
+   **Check whether this refresh newly vendors
    `tools/todo_migrate.py` or `tools/build_todo_index.py`** — the one-time
    per-item TODO migration tool and its ongoing index generator
    ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
@@ -899,9 +857,7 @@ comparison.
    ([spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md)'s
    "The default-branch gotcha"): a tool resolving the default there would
    mirror the wrong lineage over the pinned tree, a wholesale revert
-   wearing an update's clothes. Until 2026-09-27 this step said "under a
-   branch pin, the manual mirror" with no exception for `main`, which sent
-   a consumer session looking for a route it did not need.
+   wearing an update's clothes.
 
    **`checkin.py record`'s carry check reads the COMMITTED tree on the
    remote, not your working tree**, so restoring a file locally after a
@@ -913,11 +869,10 @@ comparison.
    twice in one hop, 2026-09-21, and verified here against the tool's own
    git calls rather than taken on the report.
 
-   **A line upstream deleted itself is never counted as lost**, since
-   2026-09-26. Where your base branch takes the update later than the
+   **A line upstream deleted itself is never counted as lost.**
+   Where your base branch takes the update later than the
    branch it first landed on, its committed tree is often one sync behind
-   the manifest; the check used to read every line upstream removed in between
-   as dropped local work (301 of them on one consumer, none real). It now
+   the manifest. The check
    compares that tree against every upstream commit it could have come
    from, and sets aside what upstream's own history deleted, saying how
    many. **A `LOST` line it prints is a line upstream never had**: carry it
@@ -925,10 +880,10 @@ comparison.
    to step around it
    ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-26-the-carry-check-counted-upstream-s-own-deletions-as-lost.md)).
 
-   **`record` and `status` read the source clone's COMMITTED tree too**,
-   since 2026-09-27: `origin/<pinned branch>`, never the folder on disk.
+   **`record` and `status` read the source clone's COMMITTED tree too**:
+   `origin/<pinned branch>`, never the folder on disk.
    So a gitignored file a session-start hook wrote into that clone --
-   `.claude/settings.local.json`, `.precedent/` -- can no longer fail
+   `.claude/settings.local.json`, `.precedent/` -- cannot fail
    them, and `push` never deletes a file git does not track there. **If
    `record` ever names one of those files, that is a bug to report, not a
    file to delete**: deleting it only lasts until the next session start
@@ -947,11 +902,7 @@ comparison.
    conflicted-file review at the top of this runbook.
    `checkin.py update` lists the declines this update has moved past, and
    `practice_audit.py` fails on them at step 6 until each is decided again
-   ([current-rule-governs](current-rule-governs.md)). Incident, 2026-09-24:
-   a dependent repo declined upstream's merge-keyword practice as a
-   duplicate of a personal rule. Upstream replaced it with a broader one,
-   two later syncs carried the old decline forward without reading it, and
-   a session refused a command the rule in force authorized.
+   ([current-rule-governs](current-rule-governs.md)).
 
 ### Steps 5 and 6 in full: views and the landing branch's check
 5. **Regenerate the generated views in the same change.** A refreshed
@@ -989,10 +940,7 @@ comparison.
    set and the sets it brings, not only those `precedent.json` declares;
    attach nothing for this step.** Update Vendors' DONE output prints the
    command with each name filled in from the clones' remotes; check those
-   names against `list_repos` before running it. Until 2026-11-02 both
-   that line and this step said "each declared source", and a session that
-   followed them exactly in a consuming repo saw the individual source
-   and its shared set come back `UNVERIFIED`. The session's proxy answers GitHub's API only
+   names against `list_repos` before running it. The session's proxy answers GitHub's API only
    for attached repositories, and read access does not attach a public
    one, because git can already read it, so the tool alone leaves a public
    set `UNVERIFIED` (measured 2026-09-28 and 2026-09-30). `list_repos`
@@ -1000,12 +948,9 @@ comparison.
    the answer this step needs, and listing grants nothing. A source the
    list carries exactly reads `OK`. One it does not carry stays
    `UNVERIFIED`, and you report it that way: it may have been renamed, or
-   be out of the account's reach. Until 2026-11-02 this step told a
-   session to attach every source with access "push" first and fall back
-   to `list_repos` only when the attach was refused (Claude Code's
-   auto-mode classifier refused 2 of 3, 2026-09-30); a push grant for a
-   name check was always more reach than the question needed, and Update
-   Vendors no longer widens what a session can touch (Story, 2026-11-02).
+   be out of the account's reach. A push grant for a
+   name check is more reach than the question needs, and Update
+   Vendors never widens what a session can touch.
 
    **Where no source in force is a separate repository this step is not
    applicable, and that is different from skipped.** Say "not applicable:
@@ -1015,25 +960,18 @@ comparison.
    does not decide it:** a set's `precedent.json` can declare sources like
    any consumer's (a shared set whose subject is writing declares the
    universal set and a shared one), and the tool is in the shared `ENGINE_FILES`, so every
-   kind of repo has it. Until 2026-11-01 it was in `CONSUMER_ENGINE_FILES`
-   only, on the reasoning that a set has no multi-source config, and this
-   paragraph told a session in a set to skip the step; that day a session
-   in a set that declares two sources found the tool missing and ran it
-   from the BestPractice clone. Step 7's
-   `precedent_source_credentials.py` has always been in `ENGINE_FILES`,
+   kind of repo has it. Step 7's
+   [precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py) is in `ENGINE_FILES` too,
    because a session rooted in a practice set needs the person's own
    individual set exactly as much as a consumer does.
    **Read both tools' answers as answers about THIS repo, and check that
-   they are.** Until 2026-09-14 they were not, on the commonest consuming
-   layout of all: an engine vendored at `process/upstream/tools/` defaulted
-   its root to the vendored tree, which carries a `precedent.json` of its
-   own, so step 7 named three declared shared sources as missing at paths
-   nothing had ever written to, and step 8 left the same three
-   `UNVERIFIED`. Both readings were specific enough to be believed and both
-   were about the wrong repository. Fixed at the root rather than in the
-   runbook — `consuming_repo_root()` in
+   they are.** On the commonest consuming
+   layout of all, an engine vendored at `process/upstream/tools/` sits
+   inside a vendored tree that carries a `precedent.json` of its
+   own. `consuming_repo_root()` in
    [tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
-   — so these steps need no `--repo` and no caveat. **If either step names a
+   finds the consuming repo from there, so these steps need no `--repo` and
+   no caveat. **If either step names a
    path inside `process/`, the engine copy you are running predates that
    fix: pass `--repo .` and take the answer from that run.**
 
@@ -1062,10 +1000,7 @@ comparison.
    set's subject, `SHOULD DROP?`, or `NOT ON DISK`.
 
    **Update Vendors works on the repository the session is rooted in, plus
-   any repository the person names, and nothing else** (Morgan,
-   2026-11-02, strength: decided: *"When I update vendors it should just
-   be for the repo that the session is rooted in or that I explicitly ask
-   to be updated."*). So the session never lists the account's
+   any repository the person names, and nothing else.** So the session never lists the account's
    repositories for this step, never attaches one, never clones one and
    never surveys one the person did not name. A repository the person does
    name is passed as `--candidate OWNER/NAME`; if it comes back
@@ -1084,16 +1019,15 @@ comparison.
 
    **Never put it to the person
    as an open question** — "should any source be added or dropped?" is
-   the question [the-boildown](the-boildown.md) forbids (Morgan,
-   2026-09-28, strength: decided). Nothing found is said in one line.
+   the question [the-boildown](the-boildown.md) forbids. Nothing found is said in one line.
    Something found is a finding with a recommendation: *"precedent-shared-X
    is not declared here; its subject is Y, which this repo does — declare
    it?"*, or a declared set whose subject this repo no longer has. Do not
    skip the look because nothing looks wrong — nothing looking wrong is
    the symptom, not the all-clear.
 
-   **A declared set that is retired is dropped by the update itself**
-   (Morgan, 2026-10-06, strength: decided). A set marks its own retirement
+   **A declared set that is retired is dropped by the update itself.**
+   A set marks its own retirement
    in its `precedent-source.json` (`"retired": {"date": ..., "folded_into":
    [...]}`), or GitHub reports it archived; the update then removes it from
    `precedent.json` and says so, but only when every active rule it holds
@@ -1116,9 +1050,7 @@ comparison.
 ### Step 10 in full: retiring legacy leftovers
 10. **Retire legacy leftovers — on every update, not only after a
     migration.** Whatever the old, pre-Precedent install left behind goes in
-    this update: Morgan, 2026-09-24 (strength: decided), *"this needs to be
-    deleted from ALL installs, the migration to the new precedent should
-    [have] deleted this."* This step is how that reaches every install
+    this update. This step is how that reaches every install
     without anyone remembering a sweep. Do all of it:
 
     **(a) Read the end of step 3's refresh output.** The refresh already
@@ -1149,8 +1081,8 @@ comparison.
 
     **(c) Fix stale source paths.** Each source in `precedent.json` whose
     path is not its current name gets both corrected — the practice sets
-    were renamed `precedent-team-*` → `precedent-shared-*`. Since
-    2026-09-28 the refresh makes that repoint itself (name, path, and level
+    were renamed `precedent-team-*` → `precedent-shared-*`. The
+    refresh makes that repoint itself (name, path, and level
     `team` → `shared`) and says so; it lists only a set whose clone still
     sits at the old path with nothing at the new one, which you clone or
     move before running it again, and any other mismatch. GitHub redirects
@@ -1164,8 +1096,8 @@ comparison.
     `DIVERGED` has local edits, and the output lists each block of upstream
     `templates/bootstrap.sh` it lacks, as `templates/bootstrap.sh:LINE
     "heading" -- missing` or `-- N of its M lines absent or changed`.
-    **Move this repo's own steps into `tools/bootstrap.local.sh`** (since
-    2026-09-30), which the template runs just before its final `exit 0`
+    **Move this repo's own steps into `tools/bootstrap.local.sh`**,
+    which the template runs just before its final `exit 0`
     and refresh never touches; then copy the template back over
     `tools/bootstrap.sh`, so it is unedited and the next refresh keeps it
     current. Only where that cannot work, copy each listed block in by
@@ -1177,14 +1109,14 @@ comparison.
     never reach for `--force`, which does not touch it anyway. **The one
     exception is the old install's wrapper**, a `tools/bootstrap.sh` that
     only runs `process/upstream/tools/bootstrap.sh` — BestPractice's own
-    session bootstrap, not the template, so it runs the wrong script. Since
-    2026-09-28 the refresh recognises one that carries nothing else and
+    session bootstrap, not the template, so it runs the wrong script. The
+    refresh recognises one that carries nothing else and
     replaces it with the template itself, saying `REPLACED`. One with lines
     of its own is reported with a note saying so: replace it with
     `templates/bootstrap.sh` by hand and carry those lines in.
 
     **A difference kept on purpose is recorded, not re-decided every
-    update** (since 2026-09-28). When the person confirms a reported
+    update.** When the person confirms a reported
     `tools/bootstrap.sh` or `AGENTS.md` section is worded this repo's way
     deliberately, add it to `precedent.json` under
     `kept_template_divergences`, keyed exactly as the report names it —
@@ -1201,7 +1133,7 @@ comparison.
     }
     ```
 
-    **Since 2026-10-31 the reason alone is not enough: each block the item
+    **The reason alone is not enough: each block the item
     lacks takes its own verdict**, recorded under the entry's `blocks` by
     `python3 tools/precedent_vendor_engine.py judge-kept "<item>" BLOCK_ID
     VERDICT` with the id the report prints -- `covered --quote "<the local
@@ -1220,12 +1152,10 @@ comparison.
     rather than every block the section has always left out. A change that
     is formatting alone (links or code spans round the same words), or one
     whose new wording the section already carries, re-pins by itself, as a
-    `PIN UPDATED` line (since 2026-10-07: a consumer's two kept sections came
-    back as long lacks lists over links alone, and another stopped over a
-    phrase it had already adopted). So does a change that touches no line
+    `PIN UPDATED` line. So does a change that touches no line
     the section changed: read three ways against the pinned text, every
     line upstream changed, and the lines beside it, is one the section
-    carries as upstream wrote it (since 2026-10-08). The section is never
+    carries as upstream wrote it. The section is never
     rewritten, so that change is not copied in either. Otherwise upstream's
     change reaches what the section words its own way, and **the default is
     upstream's section** (the rule above): replace the section with it and
@@ -1235,12 +1165,10 @@ comparison.
     `python3 tools/precedent_vendor_engine.py repin-kept
     ../BestPractice "AGENTS.md <heading>" --by-rule
     --reason "<why it still differs>"` records the standing rule, the date
-    and the reason (since 2026-10-14, Morgan: "Let repin-kept re-pin
-    repo-specific differences without asking me"). Only after a close call
+    and the reason. Only after a close call
     the person answered does `--confirmed "<their words>"` take the place
     of `--by-rule`, recording their words. The reason replaces the one from before this
-    decision (since 2026-10-13: a re-pin kept a reason describing text that
-    was gone); never paste the hashes by hand. An entry with no reason is
+    decision; never paste the hashes by hand. An entry with no reason is
     not honoured. A `diverged` entry in `process/manifest.json`
     does not do this — that manifest tracks the vendored catalogue, and
     nothing that reads it looks at these files.
@@ -1314,9 +1242,7 @@ comparison.
     PATH --answered-by '...'` writes it), or delete the file. **Never approve one
     on the person's behalf**, and never "fix" a trigger to make it pass
     without asking
-    ([ci-workflow-approved](ci-workflow-approved.md), Morgan, 2026-09-25:
-    "In the migration and updates, can we put a check explicitly for
-    this?"). Until every file passes, step 6 fails and so does every push.
+    ([ci-workflow-approved](ci-workflow-approved.md)). Until every file passes, step 6 fails and so does every push.
 
     **The update only changes the branch it lands on**, so a side branch
     keeps whatever workflow files it had. That matters only for an active
@@ -1615,6 +1541,206 @@ set nobody ever looks for. So step 9 now reads only the sources in force
 and the clones already here, attaches nothing, and says in its last line
 what it did not look at; step 8 takes source names from `list_repos`
 instead of attaching each source for push. The hook stays as the backstop.
+
+**2026-11-27: who decided and when moved out of the Detail.** A practice's
+Detail is an instruction too
+([record-not-instruction](record-not-instruction.md)), so the names, dates
+and quoted words this one carried are the paragraphs below, each naming the
+Detail heading it stood behind. Nothing was deleted.
+
+**2026-09-27, behind "The one command and the BestPractice clone" and "What
+the command does, and its three outcomes":** the sequence became one
+command on 2026-09-27. Morgan 2026-09-27, `strength: decided`: *"I love 3,
+let's do it"* (spec/ONE_COMMAND_UPDATE_PLAN.md).
+
+**2026-11-12, behind "Private copies are checked here, not at session
+start":** Morgan, 2026-11-12, strength: decided: *"Option B
+definitely!!!!!"*
+
+**2026-11-19, behind "What the command does, and its three outcomes":**
+that steps 7 to 9 still run when the update staged nothing: Morgan,
+2026-11-19, strength: assented.
+
+**2026-10-20, same heading:** that every copied-in set is refreshed on a
+normal update, and a repository freezes one only by its own `"hold"`:
+Morgan, 2026-10-20, strength: decided.
+
+**2026-10-30, same heading:** that a new copy between repositories is added
+only as a declared source: Morgan, 2026-10-30, strength: decided: *"The
+whole point of vendoring in and update vendors is when the original one
+changes and I run an update vendors in the repo, it gets the new version of
+everything that's vendored in"*. That saying "Update Vendors" is the
+go-ahead for a change it brings to his voice: Morgan, 2026-10-30, strength:
+decided: *"1 yes it counts"*.
+
+**2026-10-08, same heading:** that a repository may set
+`"update_full_check": "after"`: Alex, 2026-10-08, decided.
+
+**2026-10-14, behind "Upstream's version is the default":** Morgan,
+2026-10-14, strength: decided: "the default action you take is to always
+take the upstream version and keep only what is unique or necessary or
+essential for this repo" -- "And not just for these but the general
+principle".
+
+**2026-09-29 and 2026-10-08, behind "Committed local edits to received
+files":** the command has reviewed a committed local edit itself since
+2026-09-29. An edit upstream changed elsewhere in the file has been
+replaced by upstream's version since 2026-10-08; until then the two were
+merged and kept without anyone judging it.
+
+**2026-09-24, behind "Recording a difference kept on purpose":** Morgan,
+2026-09-24: *"Every 'update vendors' should use that rule for every
+conflicted file"*.
+
+**2026-09-24, behind "Follow the upstream copy of this runbook":**
+Incident, 2026-09-24: a consumer followed its own old copy of these steps
+and missed a change to them that had already been published.
+
+**2026-09-25, behind "Step 1 in full: making the source clone current":**
+`main` has been the branch for every install since 2026-09-25. Morgan,
+2026-09-25, `strength: decided`: *"Yes, switch all installs to main."* For
+one day before that, 2026-09-24, installs had been split between `main` and
+an older branch on an approval Morgan later called assent rather than a
+decision; this move was made for every install at once so that cannot
+happen again.
+
+**2026-09-27, same heading:** step 3's refresh has written both pins itself
+since 2026-09-27. A hand edit to the file that says which branch a repo
+tracks is how a consumer update stopped halfway that day, engine on `main`
+and catalogue on the older branch, asking a question nobody needed to
+answer.
+
+**2026-10-05, same heading:** one repo may follow `staging` instead, since
+2026-10-05. Alex, 2026-10-05 (`strength: decided`), after measuring that a
+change took about 25 minutes to reach `main` and a few to reach `staging`.
+
+**2026-10-11, same heading:** since 2026-10-11,
+[tools/precedent_update_driver.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update_driver.py)
+runs the update from a temporary
+worktree of the newer commit when the clone's own code is behind.
+
+**2026-09-21, same heading:** before 2026-09-21
+`precedent_refresh_sources.py --apply` printed `applied.` and exited 0
+however many sources it had declined, and four of them drifted 17 to 34
+commits behind while every session start reported success.
+
+**2026-09-14, same heading:** on not prefacing the sequence with a
+`git switch` onto the pinned branch. Asked by Morgan, 2026-09-14 -- *"Maybe
+it should even preface that command with `git switch
+precedent-beta-v01`"* -- and answered no, for the reason that paragraph
+gives.
+
+**2026-09-15, behind "Step 3 in full: refreshing the engine":** since
+2026-09-15 the refresh also covers `.claude/hooks/*.sh`. Before that date
+the hook scripts were copied once at initial install and never refreshed
+again, so a fix landing in one (the `freshness-guard.sh` shallow-clone
+false-positive,
+[its gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-09-13-on-a-shallow-clone-git-merge-base-between-two-different-bran.md),
+is the incident that prompted this) never reached an already-vendored repo
+no matter how many times "Update Vendors" ran. Until 2026-09-25 a hook a
+declared source's adapters own (`commit-identity.sh`, `freshness-guard.sh`
+from an individual source) was skipped, never recorded, and still counted
+as missing, so the catch-up notice repeated on every refresh and every
+engine file was rewritten.
+
+**2026-09-25 and 2026-10-02, same heading:** since 2026-09-25 the refresh
+adds the `HOOK_WIRING` entries a repo's `.claude/settings.json` lacks, and
+since 2026-10-02 it also gives `freshness-guard.sh` the `base_branch`.
+Since 2026-09-25 it also refreshes a consumer's `tools/bootstrap.sh`:
+before this date nothing delivered a template change to an installed copy;
+a real consumer ran two days without the session-start freshness check for
+exactly that reason. Since 2026-09-25 it also refreshes the sections
+`AGENTS.md` took from its template: before this date whatever the template
+wrote at install was frozen: a template fix reached no installed repo, and
+nothing said so.
+
+**2026-09-27, same heading:** since 2026-09-27 a consumer's CI converges to
+upstream and nothing is asked. Morgan, 2026-09-27 (strength: decided):
+*"It should definitely definitely use the newer version from upstream ...
+so it shouldn't ask. Asking creates doubt and confusion when there isn't
+any."*
+
+**2026-09-24 and 2026-09-19, same heading:** the refresh has covered a file
+declared under `engine_paths` since 2026-09-24, and the check for a newly
+vendored TODO migration tool or index generator has been part of it since
+2026-09-19.
+
+**2026-09-27, behind "Step 4 in full: the catalogue update":** until
+2026-09-27 this step said "under a branch pin, the manual mirror" with no
+exception for `main`, which sent a consumer session looking for a route it
+did not need. `record` and `status` have read the source clone's committed
+tree since 2026-09-27.
+
+**2026-09-26, same heading:** a line upstream deleted itself is never
+counted as lost, since 2026-09-26. The check used to read every line
+upstream removed in between as dropped local work (301 of them on one
+consumer, none real).
+
+**2026-09-24, same heading:** on deciding every earlier decline again.
+Incident, 2026-09-24: a dependent repo declined upstream's merge-keyword
+practice as a duplicate of a personal rule. Upstream replaced it with a
+broader one, two later syncs carried the old decline forward without
+reading it, and a session refused a command the rule in force authorized.
+
+**2026-11-02, behind "Steps 7 and 8 in full: reaching and naming the
+sources":** until 2026-11-02 both the DONE output's line and step 8 said
+"each declared source", and a session that followed them exactly in a
+consuming repo saw the individual source and its shared set come back
+`UNVERIFIED`. Until 2026-11-02 the step also told a session to attach every
+source with access "push" first and fall back to `list_repos` only when the
+attach was refused (Claude Code's auto-mode classifier refused 2 of 3,
+2026-09-30); a push grant for a name check was always more reach than the
+question needed.
+
+**2026-11-01, same heading:** until 2026-11-01
+[tools/precedent_source_names.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_names.py)
+was in `CONSUMER_ENGINE_FILES` only, on the
+reasoning that a set has no multi-source config, and step 8 told a session
+in a set to skip the step; that day a session in a set that declares two
+sources found the tool missing and ran it from the BestPractice clone.
+Step 7's
+[tools/precedent_source_credentials.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_credentials.py)
+has always been in `ENGINE_FILES`.
+
+**2026-09-14, same heading:** until 2026-09-14 the two tools' answers were
+not about this repo, on the commonest consuming layout of all: an engine
+vendored at `process/upstream/tools/` defaulted its root to the vendored
+tree, which carries a `precedent.json` of its own, so step 7 named three
+declared shared sources as missing at paths nothing had ever written to,
+and step 8 left the same three `UNVERIFIED`. Both readings were specific
+enough to be believed and both were about the wrong repository. Fixed at
+the root rather than in the runbook, in `consuming_repo_root()`.
+
+**2026-09-28 and 2026-10-06, behind "Step 9 in full: sources to add or
+drop":** that the finding is never put to the person as an open question:
+Morgan, 2026-09-28, strength: decided. That a declared set that is retired
+is dropped by the update itself: Morgan, 2026-10-06, strength: decided.
+
+**2026-09-24, behind "Step 10 in full: retiring legacy leftovers":**
+Morgan, 2026-09-24 (strength: decided), *"this needs to be deleted from ALL
+installs, the migration to the new precedent should [have] deleted this."*
+
+**2026-09-28 and 2026-09-30, same heading, (c) and (d):** since 2026-09-28
+the refresh repoints a renamed practice set itself, replaces the old
+install's wrapper `tools/bootstrap.sh` when it carries nothing else, and
+honours a difference recorded under `kept_template_divergences`.
+`tools/bootstrap.local.sh` has held a repo's own steps since 2026-09-30.
+
+**2026-10-31, same heading, (d):** since 2026-10-31 the reason alone is not
+enough for a kept difference, and each block takes its own verdict.
+
+**2026-10-07 to 2026-10-14, same heading, (d):** a change that is
+formatting alone, or whose new wording the section already carries, re-pins
+by itself since 2026-10-07: a consumer's two kept sections came back as
+long lacks lists over links alone, and another stopped over a phrase it had
+already adopted. So does a change that touches no line the section changed,
+since 2026-10-08. `repin-kept --by-rule` since 2026-10-14, Morgan: "Let
+repin-kept re-pin repo-specific differences without asking me". The reason
+replaces the one from before the decision since 2026-10-13: a re-pin kept a
+reason describing text that was gone.
+
+**2026-09-25, same heading, (g):** Morgan, 2026-09-25: "In the migration
+and updates, can we put a check explicitly for this?"
 
 ## Install
 Before starting, name the layers this repo vendors and where each records

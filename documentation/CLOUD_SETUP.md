@@ -117,23 +117,23 @@ p.write_text(json.dumps(d, indent=2))
 PY
 ```
 
-**Optional since 2026-10-20.** A repository that runs a master maintainer
+**Optional.** A repository that runs a master maintainer
 (practice [master-maintainer](../practices/master-maintainer.md)) has its
 full check run after every landing by that one standing session, so a
 session that skips a repository's own checks is caught there, for everyone,
-with nothing set up in anyone's environment. Sessions no longer offer to add
+with nothing set up in anyone's environment. Sessions do not offer to add
 this step. Paste it only if you work across several repositories often and
 want each one's checks while you work rather than after a landing:
 sessions that open several repositories are
 rare, so per-person setup for them is not worth asking of everyone.
 
-**One line per moment, and every repository's own hooks behind each**
-(since 2026-10-19). A session opened above its repositories reads none of
-their settings, so until then only the hooks this script named one by one
-ran there: session start, then the merge and push gates, then the end of a
-reply. Everything else a repository wires (the turn-start reply gate, the
-rules loaded before a file is edited, the commit identity, the doc lint)
-never ran. Now each line hands the moment to
+**One line per moment, and every repository's own hooks behind each.**
+A session opened above its repositories reads none of
+their settings, so without these lines nothing a repository wires
+runs there: session start, the merge and push gates, the end of a
+reply, the turn-start reply gate, the
+rules loaded before a file is edited, the commit identity, the doc lint.
+Each line hands the moment to
 [tools/precedent_run_repo_hooks.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_run_repo_hooks.py),
 which runs the hooks of the repository the action is about -- the file it
 writes, the folder a command `cd`s into, the repository a pull request
@@ -152,17 +152,16 @@ they are written here, before it starts: a session that wrote them into
 its own settings would not get them, and would stop for your approval to
 change its settings.
 
-**The runner also adds the Precedent tools to the allow list** there
-(since 2026-10-14): since 2026-10-17, one rule for every engine tool, and
-the few read-only tools outside the engine by name. From 2026-10-17 to
-2026-10-18 landing, Produce, merging and Update Vendors also asked you
-first every time; that list is gone. A session above several
+**The runner also adds the Precedent tools to the allow list** there:
+one rule for every engine tool, and
+the few read-only tools outside the engine by name. Landing, Produce,
+merging and Update Vendors do not ask you first. A session above several
 repositories reads none of their own permission rules, so without this
 every such read waits on auto mode's check
 ([gotcha-2026-10-14](../gotchas/gotcha-2026-10-14-auto-mode-refusal-cascades-into-a-phone-dialog-over-a-read.md)).
 Nothing else is added, and nothing already in the file changes, with one
-exception: the ask rules the runner itself wrote from 2026-10-17 to
-2026-10-19, which it takes back out.
+exception: the ask rules an earlier version of the runner wrote, which it
+takes back out.
 
 **First added to a real environment on 2026-09-28, not yet confirmed in a
 session started after it.** The runner itself was run by hand in a real
@@ -260,8 +259,8 @@ before the checkout is ready, so `git branch --show-current` had nothing to
 read yet. The `if`/`[ -n "$b" ]` guards make it a no-op on that run instead
 of failing, and it confirmed working the same day once added.
 
-**A fast-forward, never a reset (changed 2026-09-23).** This line used to
-end in `git reset --hard "origin/$b"`, which forces the checkout onto
+**A fast-forward, never a reset.** A line that
+ends in `git reset --hard "origin/$b"` forces the checkout onto
 origin by throwing away whatever local commits it holds. That is the one
 move the fresh-before-write practice rules out by name, and a setup script
 is no exception: it cannot tell a stale cached commit from somebody's real
@@ -304,7 +303,7 @@ If that is you, do both of these. Not one:
    own, say `.github/workflows/doc-lint.yml`, running
    `python3 tools/doc_lint.py` on `"**/*.md"`, and record your approval of it
    in `precedent.json`'s `github_ci_approved`, in your own words. Do not edit
-   `light-check.yml` for this: since 2026-09-27 every "Update Vendors"
+   `light-check.yml` for this: every "Update Vendors"
    writes that file back from upstream's template, and removes any workflow
    nobody approved.
 3. **Enable Actions for the repository** at **Settings → Actions** if it is

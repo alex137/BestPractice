@@ -73,7 +73,7 @@ nothing to choose here — this page installs §0, always.
      `.claude/` hooks and settings", never a bare yes: auto mode clears an
      action only on words that name it.
    - *Should the vendored GitHub Actions workflows be on or off?* **Default
-     on, since 2026-09-25**: one light check that runs only on a pull
+     on**: one light check that runs only on a pull
      request into `main` (about one billed minute per merge into `main`),
      plus a leak gate that runs only in a public repository, and a
      branch-cleanup workflow that runs only when someone clicks it. In a
@@ -105,8 +105,8 @@ nothing to choose here — this page installs §0, always.
    `https://github.com/alex137/BestPractice` beside the project (a sibling
    directory, not inside it) **on its `main` branch** — every install
    takes its updates from `main` (`SOURCE_BRANCH` in
-   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
-   since 2026-09-25), so installing from any other branch makes the first
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)),
+   so installing from any other branch makes the first
    session report the engine as behind — and run, from that clone:
 
    ```

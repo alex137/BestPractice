@@ -39,7 +39,7 @@ internal, so an unclassified directory gets capitalized, the safe way to
 fail.
 
 ## Detail
-Everything under the headings below from "Scope in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "Scope in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Scope in full
 **This rule governs content published for people outside the project, and
@@ -47,8 +47,8 @@ nothing else.** Headings in internal working files — practice files,
 specs, briefs, `AGENTS.md`, `TODO.md`, this file — are out of scope on
 purpose, not by oversight: how a heading is *styled* matters where
 strangers read it and matters nowhere else, so sentence case in a spec is
-correct and is never to be "fixed". Stated by Morgan, 2026-09-06, settling
-it; `applies_to` and the check are scoped to match, and the counterpart
+correct and is never to be "fixed". `applies_to` and the check are scoped
+to match, and the counterpart
 rule for internal files is [heading-outline](heading-outline.md), which is
 about whether an outline is *broken* rather than how it looks.
 
@@ -75,7 +75,7 @@ document or person restates them:
   behind a decision — not an article plus a word.
 - A dated log heading, *Wednesday 2026-09-30: daily-log-and-safer-merges*,
   is left whole: its slug is a name, like a path, and its weekday is
-  already capitalized (`title_case.DATED_SLUG_HEADING`, added 2026-10-01 for
+  already capitalized (`title_case.DATED_SLUG_HEADING`, there for
   the [whats-new](whats-new.md) log). The match is the whole heading, so a
   hyphenated compound anywhere else is still prose.
 
@@ -140,6 +140,10 @@ adopter. Landing the rule at the universal level is what makes it load
 here at all.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 519 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds what is in scope, the tool that applies it, and the exclusion list, in 144 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-09-06, internal files are out of scope.** The Detail's "Scope in full", that this rule governs content published for people outside the project and nothing else: stated by Morgan, 2026-09-06, settling it.
+
+**2026-10-01, the dated log heading.** `title_case.DATED_SLUG_HEADING` was added 2026-10-01 for the [whats-new](whats-new.md) log.
 
 ## Install
 [tools/title_case.py](https://github.com/alex137/BestPractice/blob/staging/tools/title_case.py) is both the definition and

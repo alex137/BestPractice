@@ -103,9 +103,8 @@ reason for it, is `decided`.
 
 **Deferred, deliberately**: whether "none of these, don't do it" must always
 appear as an explicit option. It is a real question — the do-nothing case is
-often the right answer and is the easiest to leave out — and Morgan parked it
-on 2026-09-12 as something to consider later rather than settle in the same
-message that coined the command.
+often the right answer and is the easiest to leave out — and it is parked
+as something to consider later, not settled.
 
 **Where the handoff case differs from a committed write-up.** That one's
 deliverable is a file committed to the repo, reached later by a link --
@@ -125,7 +124,7 @@ end up taking the pick anyway. `Prompt Please` is for *after* that point: a
 recommendation already exists, and what's wanted is the clean handoff text
 to act on it, not another comparison.
 
-Everything under the headings below from "The question and the four things in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The question and the four things in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The question and the four things in full
 
@@ -304,6 +303,8 @@ the mechanism as a **fence block** on Morgan's own instruction, so it
 reads distinctly from an option's own "block" above. Strength: decided.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 722 words; it now holds the question, the four things and what a handoff adds, in 254 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-12: the do-nothing option, parked.** Behind the Detail's "Deferred, deliberately": Morgan parked it on 2026-09-12 as something to consider later rather than settle in the same message that coined the command.
 
 ## Install
 Nothing to configure. The occasion index entry is generated, so an adopter
