@@ -1386,8 +1386,8 @@ def main(argv):
         print(url or 'none saved: add "branch_cleanup_page" to your identity.json')
         return 0 if url else 1
     if '--html' in argv or '--merge' in argv:
-        print('The branch cleanup page keeps its rows in its own database since '
-              '2026-10-27, so there is no page to build and merge. To refresh it: '
+        print('The branch cleanup page keeps its rows in its own database, '
+              'so there is no page to build and merge. To refresh it: '
               'ArtifactData list of collection "repos" with out_dir <scratchpad>/'
               f'{DB_DIRNAME}, then --db-docs <scratchpad>/{DB_DIRNAME}, then the '
               'batch it prints. Nothing written.')

@@ -1965,7 +1965,7 @@ def renamed_sources_step(repo, rep, engine_out):
     if stale:
         rep.step('environment', 'PRECEDENT_FRESHNESS_ALSO still names the retired '
                  'precedent-team-* sets (' + ', '.join(stale) + '). It has not been '
-                 'needed since 2026-09-30 -- the freshness guard checks every '
+                 'needed -- the freshness guard checks every '
                  'declared set on its own -- so delete it from your environment\'s '
                  'settings rather than repointing it')
     done = [(m.group(1), m.group(2)) for m in _REPOINTED.finditer(engine_out)]

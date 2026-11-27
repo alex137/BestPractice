@@ -334,7 +334,7 @@ def main(argv=None):
     ap.add_argument('--resolved-view', action='store_true',
                     help='when a slug is defined both here and in a resolved '
                          'source, read the resolved copy rather than this '
-                         "repo's own file (the default since 2026-09-22)")
+                         "repo's own file (the default)")
     args = ap.parse_args(argv)
     root = pathlib.Path(args.repo).resolve()
 
