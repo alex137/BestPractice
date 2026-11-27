@@ -276,7 +276,7 @@ it.
 | Setting | Where | Effect |
 |---|---|---|
 | `PRECEDENT_GIT_TOKEN` | the environment's own configuration (on Claude Code on the web, the environment; locally, your shell profile) | A token with **read** access to your practice-set repositories. [tools/precedent_source_bootstrap.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_source_bootstrap.py) uses it to clone them at session start, and to fast-forward the ones already on disk, so a container that has been up for days is not still reading the sources as they were the day it started. A clone with uncommitted work in it is reported and left alone, never clobbered. Each synced clone also keeps the credential helper in its own config, so a later plain `git fetch` inside it works too — the helper names the variable, so no token is written to disk. Nothing else reads it. |
-| `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones (since 2026-09-10) — [source-naming](../practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](../precedent.json)'s own comment says why. |
+| `PRECEDENT_SOURCE_BASE_URL` | same | Where a practice set is cloned from, by name: `<base>/<set-name>`, e.g. `https://github.com/<account>`. Covers the **individual** set as well as the team ones — [source-naming](../practices/source-naming.md) fixes that set's name to `precedent-individual` for everybody, so the account is the only unknown and this supplies it. Without it neither can be located, since **no tracked file names the account that owns them** — that is deliberate, and [precedent.json](../precedent.json)'s own comment says why. |
 | `PRECEDENT_GIT_TOKEN_USER` | same | Optional. The username sent with the token; defaults to `x-access-token`, which GitHub accepts alongside any personal access token. |
 | `PRECEDENT_INDIVIDUAL_REPO` | same | Optional. The individual set's full URL, overriding the `<base>/precedent-individual` derivation above. Needed only where that set does not sit under the same account as the shared sets. |
 | `PRECEDENT_GIT_TOKEN=inherit` | same | Opt-in: use whatever git credential the container itself carries (`GITHUB_TOKEN`, then `GH_TOKEN`). **Expect it to be refused** — see below. |
@@ -340,8 +340,8 @@ GitHub's own authentication** rather than being stopped by the proxy; there
 is **no ambient credential** for a private repository, so nothing works by
 accident; and the credential helper this ships **does deliver** the token to
 git — with a deliberately invalid one, git did not fall back to prompting,
-it sent the credential and GitHub rejected it. A valid token stayed untested until 2026-09-10,
-when it worked on the first try — recorded above.
+it sent the credential and GitHub rejected it. A valid token was tested on 2026-09-10,
+and it worked on the first try — recorded above.
 
 **The token is never written down.** It reaches git through a helper that
 reads the environment variable itself, so it appears in no command line, no
