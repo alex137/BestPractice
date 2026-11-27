@@ -23,7 +23,7 @@ strength: assented
 
 **The record** is where a name, a date and a person's own words belong: a practice's `approved_by:` and `## Story`, a decision or an open item, a commit message, a comment in code beside the line it explains.
 
-**The instruction** is what a session, or someone else's repository, is told to follow: an instructions file a session loads, a practice's `## Rule`, anything under `templates/`, and a message a tool prints. It says what is true now and names people by role: the person, a code owner, the administrator. It carries no "Name, date" stamp, no "(strength: decided)", and no "until such a date this did X".
+**The instruction** is what a session, or someone else's repository, is told to follow: an instructions file a session loads, a practice's `## Rule`, anything under `templates/`, and a message a tool prints. It says what is true now and names people by role: the person, a code owner, the administrator. It carries no "Name, date" stamp, no strength marker, and no "until such a date this did X".
 
 **A reader who wants the why follows a link to the record.** The instruction links the practice or the item; it does not retell it.
 

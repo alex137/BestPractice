@@ -33,8 +33,7 @@ file it wrote there outlives it. Its record says which, under
 `left_in_consumers` (`--left-in-consumers PATH`, or `--left-nothing`), and
 Update Vendors removes those files wherever they still carry the tool's
 mark. The push check refuses a change that deletes a vendored engine file
-without the answer (Morgan, 2026-10-20: "When retiring an engine tool, ask
-what it left in other repositories").
+without the answer.
 
 ## Detail
 The audit refuses on four conditions, each of which is a real dependency
@@ -128,6 +127,8 @@ retired secret name and a paragraph about a dead workflow scattered across
 five documents and three workflow headers, and it took a separate question
 a day later before anyone noticed. That was the vocabulary; the files
 themselves had no rule at all.
+
+**Moved out of the Rule on 2026-11-27, word for word.** The push check's refusal of a change that deletes a vendored engine file without the answer rests on Morgan, 2026-10-20: "When retiring an engine tool, ask what it left in other repositories".
 
 ## Install
 `tools/precedent_check.py`'s `decommission-deletes-files` check reads

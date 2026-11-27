@@ -37,9 +37,7 @@ and leave. Whether it breaks anything is not the test; whether it is true is.
 Fix it in the session's own work and say in one line what you corrected.
 Only a fix that needs the person's call (it changes what a rule means, or
 what someone is told to do in a way they have not decided) goes to them,
-with your recommendation. Morgan, 2026-09-30, after a session left a
-section describing a retired workflow because it was "a doc fix, not a broken
-path": *"Part of your job is to keep the docs consistent with the reality!"*
+with your recommendation.
 
 Finding the document is part of the change, not a separate task. Search by
 purpose as well as by mechanism ([base-branch-is-the-record](base-branch-is-the-record.md)):
@@ -115,6 +113,8 @@ is the half that fails silently, because a command nobody was told about
 produces no error at all.
 
 **2026-10-01: a fixed issue's "not yet fixed" note.** The Rule gained one sentence carrying `resolved-issue-note-updates`' example -- a document that names an open issue in prose gets updated in the same commit as the fix -- as that practice deduplicates into this one (approved in Tier 1 of the reduction pass, [the session-file open item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-30-session-file-cut-to-4000.md); Morgan, strength: decided). Its own incident: a spec's "not yet fixed" sentence would have kept reading that way after the bug was fixed, because nothing flags such a sentence once the code has moved.
+
+**Moved out of the Rule on 2026-11-27, word for word.** Morgan, 2026-09-30, after a session left a section describing a retired workflow because it was "a doc fix, not a broken path": *"Part of your job is to keep the docs consistent with the reality!"*
 
 ## Install
 **`checked_by` is deliberately null.** The sweep exists and is real, but its
