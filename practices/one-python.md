@@ -23,8 +23,8 @@ strength:    decided
 every place that starts Python gets that one.**
 
 1. **Declare it:** `"python": {"version": "3.12", "packages": [...]}`. The
-   version defaults to the one GitHub's tests run on (3.12 since
-   2026-10-15); the packages are the ones the repository's own code
+   version defaults to the one GitHub's tests run on (3.12);
+   the packages are the ones the repository's own code
    imports. The engine's own needs (`cmarkgfm`, `markdown`) are added
    without being listed.
 2. **A session makes `python3` mean it.** Session start runs
@@ -101,6 +101,9 @@ failed twice on a one-line text fix, once for each interpreter. On
 landing the same way. Each time a session found the cause, installed
 packages by hand and pointed `python3` at 3.12 for one command; the next
 session would have started over.
+
+2026-10-15: the default version in point 1 of the Rule became 3.12, the one
+GitHub's tests run on.
 
 2026-10-16, another consumer: session start said `python3` was 3.12 with
 cmarkgfm and markdown, and the first prompt's gate, a minute later, said

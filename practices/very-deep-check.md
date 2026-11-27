@@ -198,8 +198,7 @@ cannot tell a drift this run introduced from one that was there before. So:
    reading below wrong, it makes the writing above it pointless. **And if
    the checkout moved under you here, re-read the instructions file**: a
    session is handed `AGENTS.md` before any guard can fast-forward the
-   tree, so after a fast-forward the copy in context is the stale one
-   (2026-09-14: 983 lines behind the tip, for a whole first turn).
+   tree, so after a fast-forward the copy in context is the stale one.
 2. **Run the deep check suite as it stands** — the five gates
    [AGENTS.md](https://github.com/alex137/BestPractice/blob/staging/AGENTS.md) names ([two-check-levels](two-check-levels.md))
    — and fix what it reports, before this check reads a line. `0 failed` and
@@ -210,7 +209,7 @@ cannot tell a drift this run introduced from one that was there before. So:
    records the day's times question 27 judges by and stamps
    `green_full_run` in
    [tools/harness_check_times.json](https://github.com/alex137/BestPractice/blob/staging/tools/harness_check_times.json).
-   From a run dated 2026-11-01 on, `--record-pass` refuses a pass until
+   For a run dated from 2026-11-01, `--record-pass` refuses a pass until
    that stamp is later than the run's start.
 
    **`verify_harness.py --all` here, not the bare command every other gate
@@ -369,8 +368,8 @@ The highest-cost failures are here, because they strand someone outside this
 session who cannot see what is wrong. Both halves of that sentence carry
 weight: an install happens once, an **update** happens forever, and for a
 long time only the first was ever tested. Reading the install documents finds
-almost none of them: every significant finding of the 2026-09-06 pre-launch
-audit came from **building the thing the document describes and running the
+almost none of them: what finds them is
+**building the thing the document describes and running the
 checks on it** ([spec/PRELAUNCH_AUDIT.md](https://github.com/alex137/BestPractice/blob/staging/spec/PRELAUNCH_AUDIT.md), "The
 method"). Build the fixtures.
 
@@ -406,12 +405,12 @@ method"). Build the fixtures.
   own checks and reporting the real output. **Then ask one more question of each: is what
   landed what the pitch promised?** Read the result against
   [documentation/ADOPTING.md](https://github.com/alex137/BestPractice/blob/staging/documentation/ADOPTING.md) and the README, not
-  only against the install document — on 2026-09-14 every sentence of the
-  guided install was correct and the person following it received a
+  only against the install document: every sentence of a guided install
+  can be correct while the person following it receives a
   system without the loader the pitch describes, which no single-document
-  reading could see. Fresh eyes are what made the difference: the
-  2026-09-14 run found 65 defects this way where the previous run's
-  session-built fixtures found five.
+  reading can see. Fresh eyes are what make the difference: a fixture
+  built by the session that knows the documents finds a small part of
+  what a fresh reader does.
 - **A real from-scratch install.** A scratch repository with nothing in it,
   installed per [INSTALL.md](https://github.com/alex137/BestPractice/blob/staging/INSTALL.md) §0 against `main`
   alone — no shared set, no individual set, none of the sibling clones this
@@ -474,17 +473,14 @@ method"). Build the fixtures.
   referencing a private source, hundreds of commits of upstream drift, and
   a vendored copy of the update tool old enough to be dangerous.
 
-  Do not treat this as optional garnish. On 2026-09-07 the scratch fixtures
-  passed and one real consumer then produced seven defects in a row, four of
-  them in mechanisms this run had built or fixed hours earlier — including
-  one that had to be fixed twice because the second attempt failed with an
-  identical message. The pre-launch audit had already named the gap it fills
-  ("what is still missing is a real project: a scratch repository has no
-  subject matter"); it stayed named and unfilled until somebody attached one.
+  Do not treat this as optional garnish. The scratch fixtures can pass
+  while a real consumer produces one defect after another, some of
+  them in mechanisms this run built or fixed hours earlier:
+  a scratch repository has no subject matter, and a real project does.
 
   If no consumer can be attached, say so and record pass 1 as PARTIAL. Never
-  let it pass on the fixtures alone — that is precisely the state that held
-  while these seven defects were live.
+  let it pass on the fixtures alone — that is precisely the state in which
+  a real consumer's defects stay live.
 - **The empty neighbourhood.** A brand-new person with no individual set; a
   team with no shared set yet; a consumer whose sources are declared but
   unreachable, as they are in every continuous integration (CI) checkout.
@@ -558,14 +554,10 @@ method"). Build the fixtures.
 
   **Then go the other way, which is the half a table cannot prompt you to
   do:** take each `.claude/` mechanism and open the artifact the row names
-  as its parallel, rather than trusting the name. That is how the 2026-09-21
-  run found the largest gap of the set — `templates/harness/README.md` had
-  told three adapters for months to wire `tools/bootstrap.sh` as their
-  equivalent of `session-start.sh`, and the script ran three of the hook's
-  seven steps, so no non-Claude session had ever been handed
-  `.precedent/SESSION_PRACTICES.md`, the file AGENTS.md's own Standing
-  instruction tells every session to read. Nothing was lying; the two files
-  had simply never been read side by side.
+  as its parallel, rather than trusting the name. A script named as a
+  hook's equivalent can run only some of the hook's steps with neither
+  file saying anything false, and only reading the two side by side
+  shows which steps a session on that harness never gets.
 - **Not the practice simulation.** This pass installs real fixtures and runs
   the ordinary checks on them. It does not run
   [tools/precedent_simulate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_simulate.py) or its
@@ -575,9 +567,7 @@ method"). Build the fixtures.
 
 ### Pass 2 — Do the mechanisms report what they claim to?
 Every mechanical check, gate, and tool, one at a time. Every question below
-found a real defect in a repo in force — most in the 2026-09-06 pre-launch
-audit, the duplicate-implementation question in this practice's own
-machinery, and the does-it-ever-run question in an attached source set —
+found a real defect in a repo in force,
 and none of them is visible from a check's own output: a broken check reports
 confidently.
 
@@ -633,13 +623,9 @@ confidently.
    restating a spec it could link. **The tool's `SECOND LISTS OF PRACTICES`
    section is this question's mechanical half:** it names every hand-kept
    file that lists most of the catalogue by slug, and a reader decides
-   whether each is a generated view (fine) or a copy that can drift. *(Found
-   2026-09-29, both missed by earlier runs of this question: a hand-kept list
-   of every practice's routing reason, whose copy of the gates had drifted
-   on fourteen practices, and two checks scanning for retired words, one
-   with history-aware rules and one without. The check
+   whether each is a generated view (fine) or a copy that can drift. The check
    for needless redundancy is this question, widened, rather than a second
-   pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
+   pass that would itself be the redundancy. Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
    it is called ([base-branch-is-the-record](base-branch-is-the-record.md) is the same
@@ -688,15 +674,14 @@ confidently.
 
 8b. **For every class of artifact this repo SHIPS, does an addition reach
     an installed repo? A change? A deletion?** Three columns, one row per
-    class, re-answered on every run. The question exists because the two
-    vendoring paths disagreed for months and **nobody had asked it of both
-    at once**: engine files diffed the manifest and propagated a deletion,
-    CI workflow files waited for somebody to remember a tombstone, so a
-    template dropped without one stayed installed in every repository
-    forever, tracked by nothing. That was found on 2026-09-21 by asking,
-    and fixed the same day.
+    class, re-answered on every run. The question exists because two
+    vendoring paths can disagree for months when **nobody asks it of both
+    at once**: one diffs the manifest and propagates a deletion,
+    the other waits for somebody to remember a tombstone, so a
+    template dropped without one stays installed in every repository
+    forever, tracked by nothing.
 
-    **The answers as of 2026-09-21, updated 2026-09-28 and 2026-10-17** — a rule about a mechanism carries its
+    **The answers as of 2026-10-17** — a rule about a mechanism carries its
     date ([volatile-rules-carry-dates](volatile-rules-carry-dates.md)), and
     each cell is a claim to re-verify in the code rather than to inherit:
 
@@ -706,21 +691,19 @@ confidently.
     | CI workflow files | yes | yes | **yes** — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
     | Hooks (`.claude/hooks/`) | **yes** — every hook file is one permanent stub that runs `tools/<its name>`, and the script is an engine file (`HOOK_SCRIPT_FILES`); a hook added after the stubs is listed in `tools/hook_wiring.json` and run by the one fixed `precedent-hooks.sh` entry per event. `HOOK_WIRING` once added a `settings.json` entry, and it takes no new hook | yes — the script, by the engine manifest; the stub never changes | **yes** — the script by the engine manifest diff; a stub upstream stops shipping by `_remove_dropped_hook_files`, which reads the record from before the update |
     | Practice-declared hooks (`process/practice_hooks.json`) | yes — the sync writes the `hooks:` of the practices in force | yes | yes — the file is regenerated whole |
-    | `settings.json` itself | yes, add-only hook entries, 2026-09-25 to 2026-10-07; since then nothing a new hook needs touches it | no | no |
+    | `settings.json` itself | no: nothing a new hook needs touches it | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
     | Vocabulary | yes — derived at render time | yes | yes |
 
-    **That last cell read `NO` when this item was first asked**, on
-    2026-09-21, and it was the item's first finding: there were exactly two
-    removal paths, for engine files and CI workflows, and none for hooks. A
-    hook dropped upstream stayed installed in every consumer — and worse
-    than the CI case, since `_write_hook_files` then replaced `hook_files`
-    with only what it had just written, so **the manifest entry vanished
-    too** and the file went on running, in every session, recorded by
-    nothing. **The fix is** `_remove_dropped_hook_files`
-    ([todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md)),
-    which is why the row now reads yes.
+    **The hooks row's deletion cell is the one to re-verify first.** A
+    hook dropped upstream leaves a consumer only through
+    `_remove_dropped_hook_files`
+    ([todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md)).
+    With no removal path a dropped hook stays installed in every consumer,
+    and a manifest rewritten from only what was just written loses the
+    entry too, so the file goes on running, in every session, recorded by
+    nothing.
     **The question outliving the answer is the point of the table**: a cell
     is re-read, not inherited.
     The design is
@@ -780,10 +763,7 @@ confidently.
     and machines commit here, and a check that called that wrong would be
     unusable. What is a finding is a commit authored by *nobody in
     particular*: the address a container invents when nothing configured
-    one. *(First run, 2026-09-21: 17 commits in the window carrying a
-    `+00:00` author date and 8 carrying `-04:00`, against 275 at the
-    declared `-03:00` — the enforcement not having reached the sessions
-    that made them.)* The design is
+    one. The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 8.
 
@@ -858,10 +838,7 @@ confidently.
     forty reasons is housekeeping. The slug is normalised out of each
     reason for exactly that purpose — reporting `no practices/<a>.md`,
     `no practices/<b>.md` … separately is the shape that hid this in the
-    first place. *(First run, 2026-09-21: a shared source at 17 passed and
-    53 skipped, **44 of the 53 for one cause** — each check keyed to a
-    `practices/<slug>.md` a source set does not carry, because its
-    `practices/` holds its own level only.)* The design is
+    first place. The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 13.
 
@@ -878,13 +855,7 @@ confidently.
     `CONTRIBUTOR BOUNDARY` section does both per repo in force and prints
     `UNVERIFIED` rather than a pass when it could not ask GitHub -- which is
     the answer a session without a token that can read protection settings
-    gets, and it is not the same answer as *off*. *(Found: the contributor
-    boundary in
-    [spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)
-    described in three documents and enforced by a setting nothing had ever
-    read -- a forgotten instantiation step would have left Write as
-    unrestricted write while every document still described a wall,
-    2026-09-14.)*
+    gets, and it is not the same answer as *off*.
 17. **Does the harness-adapter ledger's verdict match what each member's own
     documentation actually tells its user?** `parallel-artifact-ledger`'s
     enforced check
@@ -1002,9 +973,7 @@ confidently.
     **A citation is not coverage.** The section enumerates and cites; it
     never judges, because a docstring naming an incident reads exactly like
     a check testing for one. What it removes is the part nobody does, which
-    is assembling the list. *(Its first run, 2026-09-21, found four of the
-    six gotchas filed that week cited by nothing in `tools/` or
-    `practices/` at all.)* The design is
+    is assembling the list. The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 12.
 
@@ -1073,7 +1042,7 @@ confidently.
     ([never-delete-a-remote-branch](https://github.com/alex137/BestPractice/blob/staging/practices/never-delete-a-remote-branch.md)).
 
     **NOT REACHED is not clean.** Inside a session GitHub answers only for
-    the repos attached to it (measured 2026-09-26), so the list of repos
+    the repos attached to it (as of 2026-09-26), so the list of repos
     not reached is part of the result, and it says what would reach each
     one.
 23. **Does a consumer receive anything it has no use for, or anything
@@ -1150,8 +1119,8 @@ confidently.
     before it pushes to staging or main (a route taken only on the
     person's own words, like Produce's `--full`, is listed and not
     flagged), a plain push to either that the push gate checks fully, and a
-    per-file step that starts a test. A route through the old tier below
-    staging, retired for everyone on 2026-10-14, is reported as retired
+    per-file step that starts a test. A route through the retired tier
+    below staging is reported as retired
     code to delete, and so is any mention of that tier the run finds: it
     is fixed to assume the retirement.
 
@@ -1176,9 +1145,9 @@ confidently.
     set's rules, its checks and the tests for those checks live in the
     set. BestPractice knows how to run a set's checks and never what one
     set's rule is: no set's name or practice slug in its code, in its tests
-    or in a universal practice's rule. On 2026-10-16 BestPractice held a
-    set's practice names in its logic and its tests, and taking them out
-    was a night's work. The tool's `SET INDEPENDENCE` section runs the
+    or in a universal practice's rule. A set's names in the engine's
+    logic and tests are slow work to take out once they are in.
+    The tool's `SET INDEPENDENCE` section runs the
     inventory, `python3 tools/precedent_check.py --only
     enforcement-lives-with-its-practice`
     ([enforcement-lives-with-its-practice](enforcement-lives-with-its-practice.md)),
@@ -1203,9 +1172,8 @@ confidently.
 27. **Is every test still worth running?** Tests are added one at a time,
     each for a real reason, and until this question nothing asked the
     reverse: does a test still check something in use, and is its time
-    worth what it protects? On 2026-10-17 the harness still carried a pile
-    of tests about the tier below staging, three days after that tier was
-    retired for everyone. Each passed and each cost time on every full run.
+    worth what it protects? A test about something retired
+    still passes, and still costs time on every full run.
     The tool's `TEST WORTH` section, built on
     [tools/test_review.py](https://github.com/alex137/BestPractice/blob/staging/tools/test_review.py),
     lists every test each repo in force owns: every `check_*` in its own
@@ -1228,9 +1196,8 @@ confidently.
     records every test's time when it is green, and it runs before this
     section, so the list is that day's. Times from an earlier day are
     flagged before any judging: re-time first, then `--refresh-tests`. The
-    list a run reads otherwise can be weeks old: on 2026-10-17 it said 777
-    seconds for the planted-case test, measured before a speed-up, and that
-    day it took 266.
+    list a run reads otherwise can be weeks old, and a time measured
+    before a speed-up judges a test by seconds it no longer takes.
 
     **The session judges every test it lists, and does what it decides in
     this pass.** For each one, three questions: does it test something
@@ -1374,16 +1341,10 @@ first so this pass spends its attention on what they cannot see.
   path that would have to produce the claimed result. Not a read for
   broken links or stale names; those are the bullets below. A sentence
   that was true when written and is false now is a finding, and the fix
-  is the sentence unless the behaviour is the thing that drifted. *(Added
-  2026-09-14, the day a run found three in one afternoon without a bullet
-  asking for them: a tool's post-landing line said the private sets carried
-  no generated views, months after bootstrap started generating them; a
-  spec said "the check can resolve it against the real sources" for a
-  check nothing outside this repo's harness ran; and the guided install's
-  every sentence was correct while the system it produced was not the one
-  the pitch described. Each was found by rehearsal, which is pass 1's job
-  and expensive; this is the cheap read that should have found them
-  first.)*
+  is the sentence unless the behaviour is the thing that drifted.
+  Rehearsal finds these too, but it is pass 1's job
+  and expensive; this is the cheap read that should find them
+  first.
 - **What's new since the last run, and whether a reader would ever learn it
   exists.** The bullet above tests a claim that already exists against the
   mechanism it describes; it has nothing to say about a mechanism that never
@@ -1421,13 +1382,10 @@ first so this pass spends its attention on what they cannot see.
   shipped rule is one question — **would this improve anyone's work?** If
   yes it is a practice in the wrong place: land it in the catalogue and cut
   it from the template. If it is only true of that one project, it belongs
-  in the file and should say why. *(2026-09-08: `VOICE.md.template` shipped
-  205 lines of general writing guidance to every project, one of which said
-  "no bold inside paragraphs, and no bolded thesis sentence" while the
-  resident `bold-key-phrases` said to bold key phrases by default. Both had
-  been true for weeks. The bullet above this one already said to look for
-  contradictions and had never found it — a coherence read reads documents,
-  and a skeleton file does not read as a document making claims.)*
+  in the file and should say why. The bullet above this one already says
+  to look for contradictions and does not find these: a coherence read
+  reads documents, and a skeleton file does not read as a document making
+  claims, so open each shipped file as a list of rules.
 - **Broken and misdirected references** — the mechanical half is the
   **MARKDOWN — STRICT SWEEP** section, which runs
   [tools/doc_lint.py](https://github.com/alex137/BestPractice/blob/staging/tools/doc_lint.py) `--strict --all` over every
@@ -1436,9 +1394,8 @@ first so this pass spends its attention on what they cannot see.
   change touched and the deep check gates on that; neither ever opens a file
   nobody has edited in months, and doc_lint's warning classes — unlinked
   references, unglossed acronyms, `target=` anchors — are gated nowhere at
-  all, deliberately (a gate promoting them was built and withdrawn inside an
-  hour on 2026-09-21, having refused a one-line edit over 111 warnings that
-  predated it). So those classes accumulate exactly where only a sweep
+  all, deliberately (a gate promoting them refuses a one-line edit over
+  every warning that predates it). So those classes accumulate exactly where only a sweep
   somebody asked for will ever look. **Work the list, do not obey it**: it
   is a work list, not a gate, nothing is expected to clear it in one run,
   and an index document carrying bare-backtick references may be right to —
@@ -1454,14 +1411,9 @@ first so this pass spends its attention on what they cannot see.
   `MOVED CLAIMS` section greps every repo in force for the sentence shape —
   *now runs in*, *now lives in*, *folded into*, *moved into*, *superseded
   by*, *replaced by* — and reports every named destination that does not
-  exist.
-
-  *(The incident, 2026-09-21: `commit-identity.yml` was paused with a
-  header saying its checks "now run as steps in
-  `.github/workflows/precedent-check.yml`'s single job". Four hours later a
-  refresh deleted that file. The sentence was true when written and false
-  the same afternoon, two commit-scope checks ran nowhere, and a grep at
-  any point in the following month would have found it.)*
+  exist. Such a sentence is true when written and false the day its
+  destination is deleted; what it said was running then runs nowhere, and
+  a grep at any point afterwards finds it.
 
   **Three narrowings, each forced by a measurement rather than designed
   in.** `see X` is not a move verb and is deliberately excluded — it
@@ -1640,19 +1592,8 @@ first so this pass spends its attention on what they cannot see.
   its slug. **No script does this yet** — a source's charter is a sentence
   of prose, not a property `applies_to` or `scope` can encode, so this stays
   a judgment read, the same honest limit TIER PLACEMENT states for itself.
-  *(2026-09-23: a session asked to do exactly this read, once, by hand,
-  across precedent-individual and the three shared sets against universal,
-  found instances of all three shapes on the first pass — five practices
-  filed in precedent-individual that were general mechanisms in personal
-  wording, two universal practices squarely inside working-style's own
-  stated subject, and `vendor-neutral-by-default` independently authored in
-  both universal's `local/practices/` and repo-maintenance, because
-  repo-maintenance resolves no sources of its own and never saw the
-  universal copy to compare against. The same session's reading also found
-  `small-calls` and `push-back` sitting active in both a shared set and
-  universal for three days after a 2026-09-19 move landed only its first
-  half — a duplication this bullet would have caught on the next run rather
-  than waiting for someone to notice by hand.)*
+  A move that lands only its first half is the same finding: a practice
+  active in both the set it left and the set it reached.
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a
@@ -1699,15 +1640,7 @@ first so this pass spends its attention on what they cannot see.
   document outside `spec/`, a script outside `tools/`. Moving one is
   [rename-updates-links](rename-updates-links.md): search the whole tracked
   tree for the old path and repoint every reference in the same commit, not
-  only the ones a grep for the bare filename happens to catch. *(Found
-  2026-09-17: `PER_MACHINE_SETUP.md` and `CLOUD_SETUP.md` — both person-facing
-  setup guides — sitting at repo root while `documentation/` already held
-  `FOR_DEVELOPERS.md`, `FOR_EVERYONE_ELSE.md`, `GITHUB_SETTINGS.md` and every
-  other reader-facing page; moved into `documentation/`, with roughly two
-  dozen files across `README.md`, `AGENTS.md`, `SETUP.md`, `INSTALL.md`,
-  `WHERE_THINGS_ARE.md`, `todo/`, `spec/`, `gotchas/`, `record/` and
-  `documentation/` itself carrying a link to one or both, repointed the same
-  commit.)*
+  only the ones a grep for the bare filename happens to catch.
 - **Fragments** — a sentence, note, or heading left behind by an earlier
   edit: a "temporary" caveat whose occasion has passed, a note about a
   reorganization that already happened.
@@ -1746,11 +1679,9 @@ first so this pass spends its attention on what they cannot see.
   (`precedent_resolve.py` refuses a source list where two same-level
   sources define one slug), so what this pass adds is the *within-source*
   half, which nothing detects at all — two practices in one catalogue whose
-  Rules pull opposite ways. The occasion for adding it was real: on
-  2026-09-07 two sessions landed `fail-gracefully` and `bold-key-phrases`
-  into both shared sets on the same day, each doing the obviously right
-  thing, and the collision surfaced only because this check happened to
-  resolve all four sources by hand.
+  Rules pull opposite ways. Two sessions each doing the obviously right
+  thing can land one practice into two sets on the same day, and it
+  surfaces only when every source is resolved together.
 - **Anything else the read turns up** — if something is wrong and none of the
   categories above name it, it is still a finding.
 
@@ -1874,9 +1805,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   written recommendation: delete it, merge it, or cherry-pick a named part
   and delete the rest.** No branch is left out for being old, far behind,
   or somebody else's, and "unclear" is only allowed with what would settle
-  it. The branch nobody remembers is the one this bullet exists for. *(2026-09-26: two week-old session branches in a
-  consuming repo each held one commit that never reached `main`, two
-  hundred commits back, and nobody could say what either was for.)*
+  it. The branch nobody remembers is the one this bullet exists for.
   Commits behind is not age: in a busy repo two hundred
   commits can be a week, so read the date, not the count.
 
@@ -2330,10 +2259,9 @@ else here could see.** The freshness gate proves a clone matches **its own
 origin**. A repo can be perfectly current with itself and be running an
 engine from three weeks ago, because a fix merged upstream reaches an
 installed repo only when somebody goes there and runs `Update Vendors` —
-and nothing else says which repos have not. **Measured
-2026-09-20: 18 of 22 repositories had never taken one.** That is also the
-structural reason this check had never once found a stale vendored tree:
-not a gap in its passes, a gap in what any pass could see, since every pass
+and nothing else says which repos have not. That is also the
+structural reason no pass of this check finds a stale vendored tree:
+not a gap in its passes, a gap in what any pass can see, since every pass
 reads one repository against itself
 ([todo-2026-09-21-nothing-checks-a-consumer-against-upstream](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-nothing-checks-a-consumer-against-upstream.md)).
 The `CARRY-THROUGH` section asks it per repo in force: what it vendored,
@@ -2429,12 +2357,12 @@ helper that owns a question needing it reports back, and **a helper's
 run what it was blocked on, then answer the question or record it with
 the person's words. **Anything a helper returns for the account** —
 verdict tables, ready-to-paste sections — **is committed into the account
-before any scratch file is cleared**; on 2026-10-30, 62 incident verdicts
-and four ready sections were lost with one. Branch verdict reasons go into
+before any scratch file is cleared**: what sits only in a scratch file
+is lost with it. Branch verdict reasons go into
 the committed run record, not only the private review page, with a
 private set named only in general terms in a public repo.
 
-**What the account check refuses**, from a run dated 2026-11-01 on, is
+**What the account check refuses**, for a run dated from 2026-11-01, is
 listed under step 9 of the order of operations; `--record-pass` refuses a
 pass without a green whole-suite run since the run started (and, for
 `done` or `partial`, since the pass before), a `partial` or `not run`
@@ -2451,7 +2379,7 @@ pass is recorded, the session rewrites the checked repo's own
 for this run: scope, a short version, then each pass in order with what it
 found, what was fixed and in which commit, the warnings judged (Pass 2's
 question 24), the checks by stage (question 25), set independence
-(question 26), the test review (question 27), the token budgets with their numbers, the long Rules with a verdict each (Pass 3, from runs on 2026-11-01 on), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
+(question 26), the test review (question 27), the token budgets with their numbers, the long Rules with a verdict each (Pass 3, for runs from 2026-11-01), what the person decided, and what is left and where it went. `opened:` is the run's date. It collapses the
 previous run to one row in the run record above, commits both, and
 links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
@@ -3016,8 +2944,23 @@ above or the approval history below already tell is not repeated: the
 ledger proposal, the 2026-10-31 cut of the Rule and the 2026-10-31
 long-Rules read left Detail with nothing new to add here.
 
+**2026-09-06.** Pass 1's opening and Pass 2's opening both rested on the
+2026-09-06 pre-launch audit. Pass 1: every significant finding of that audit
+came from building the thing the document describes and running the checks
+on it. Pass 2: every question in the pass had found a real defect in a repo
+in force, most in that audit, the duplicate-implementation question in this
+practice's own machinery, and the does-it-ever-run question in an attached
+source set.
+
 **2026-09-07.** Pass 4's bullet on conflicting practices inside one source
-and same-slug practices across two: requested by Morgan 2026-09-07.
+and same-slug practices across two: requested by Morgan 2026-09-07. The
+occasion: on 2026-09-07 two sessions landed `fail-gracefully` and
+`bold-key-phrases` into both shared sets on the same day, each doing the
+obviously right thing, and the collision surfaced only because this check
+happened to resolve all four sources by hand. Pass 1's real-consumer
+bullet: the seven defects of 2026-09-07 are told above ("The evidence");
+the gap the pre-launch audit had named was, in its words, "what is still
+missing is a real project: a scratch repository has no subject matter".
 
 **2026-09-08.** Three incidents Pass 3 tells were found that day: the
 resident block's budget reporting green while the file around it reached
@@ -3027,19 +2970,56 @@ bullet), and the individual skeleton shipping no `identity.json` (the
 skeletons bullet). Pass 3's bullet on a keyword being findable: an early
 "don't put it in the glossary", Morgan 2026-09-08, was later read
 narrowly; park-it's Story records why, and "Drop it" is in the glossary
-now.
+now. A fourth, behind Pass 3's bullet on shipped files that contradict a
+practice: 2026-09-08, `VOICE.md.template` shipped 205 lines of general
+writing guidance to every project, one of which said "no bold inside
+paragraphs, and no bolded thesis sentence" while the resident
+`bold-key-phrases` said to bold key phrases by default. Both had been true
+for weeks, and the bullet above it, which already said to look for
+contradictions, had never found it.
 
 **2026-09-14.** Pass 1's rehearsal of a practice moved between levels was
 added 2026-09-14, the day Morgan asked whether the run had tested it and it
 had not: the rehearsal returned thirteen findings and the move tool.
+Step 1 of the order of operations, re-reading the instructions file after
+a fast-forward: on 2026-09-14 a session's copy was 983 lines behind the
+tip, for a whole first turn. Pass 1's fresh-eyes rehearsal: on 2026-09-14
+every sentence of the guided install was correct and the person following
+it received a system without the loader the pitch describes; that day's
+run found 65 defects with fresh eyes where the previous run's session-built
+fixtures found five. Pass 2's question 16: the contributor boundary in
+[spec/CONTRIBUTOR_ACCESS.md](https://github.com/alex137/BestPractice/blob/staging/spec/CONTRIBUTOR_ACCESS.md)
+was described in three documents and enforced by a setting nothing had ever
+read; a forgotten instantiation step would have left Write as unrestricted
+write while every document still described a wall. Pass 3's bullet testing
+each document's claims against its mechanism was added 2026-09-14, the day
+a run found three in one afternoon without a bullet asking for them: a
+tool's post-landing line said the private sets carried no generated views,
+months after bootstrap started generating them; a spec said "the check can
+resolve it against the real sources" for a check nothing outside this
+repo's harness ran; and the guided install's every sentence was correct
+while the system it produced was not the one the pitch described. Each was
+found by rehearsal.
 
 **2026-09-17.** Pass 2's question 17: the incident it tells, the
 `ffcae058` ledger row promising a hand-run workaround neither adapter's
-README mentioned, was found 2026-09-17.
+README mentioned, was found 2026-09-17. Pass 3's bullet on a file living
+in the directory its kind already uses, found 2026-09-17:
+`PER_MACHINE_SETUP.md` and `CLOUD_SETUP.md`, both person-facing setup
+guides, sat at repo root while `documentation/` already held
+`FOR_DEVELOPERS.md`, `FOR_EVERYONE_ELSE.md`, `GITHUB_SETTINGS.md` and every
+other reader-facing page. They were moved into `documentation/`, with
+roughly two dozen files across `README.md`, `AGENTS.md`, `SETUP.md`,
+`INSTALL.md`, `WHERE_THINGS_ARE.md`, `todo/`, `spec/`, `gotchas/`,
+`record/` and `documentation/` itself carrying a link to one or both,
+repointed the same commit.
 
 **2026-09-20.** Pass 2's question 18: the incident it tells, the sweep
 list built by matching filenames that flagged a live `light-check.yml` as
-retired, was found 2026-09-20.
+retired, was found 2026-09-20. "Current is not the same as carried":
+measured 2026-09-20, 18 of 22 repositories had never taken an
+`Update Vendors`, and until then this check had never once found a stale
+vendored tree.
 
 **2026-09-21.** Each of these parts of Detail was marked "Added 2026-09-21
 (Morgan, strength: decided)" from

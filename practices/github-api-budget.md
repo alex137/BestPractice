@@ -38,7 +38,7 @@ which repository it names**, each with its own allowance and reset clock:
 **Nobody owns a pool alone**: every session, hook and tool on the same
 credential draws on it. **The lever is fewer simultaneous sessions and
 cheaper tools**, not a retry, and the habit that keeps the spend low is
-[grep-before-search](grep-before-search.md)'s. The 2026-09-14 measurements
+[grep-before-search](grep-before-search.md)'s. The measurements (as of 2026-09-14)
 are under Detail, *The allowance and its pools, in full*.
 
 **Report, never refuse.** A tool that stopped because somebody else's session
@@ -57,7 +57,7 @@ GitHub's published figures, dated, and reported as **not measurable here** —
 never omitted, which reads as clean.
 
 **Secondary limits are invisible everywhere.** GitHub publishes them (80
-content-creating requests per minute, 500 per hour, read 2026-09-14) and
+content-creating requests per minute, 500 per hour, as of 2026-09-14) and
 exposes no counter for them: they are known only by the 403 they eventually
 return. Several sessions each opening pull requests, posting review replies
 and merging is the shape that reaches them, and no amount of local
@@ -81,7 +81,7 @@ Each heading below that ends "in full" gives part of the Rule in full. The Rule 
 
 ### The allowance and its pools, in full
 **Read the allowance off the `X-RateLimit-*` headers of a call you were
-making anyway — never from `/rate_limit`.** Measured 2026-09-14 from inside
+making anyway — never from `/rate_limit`.** Verified 2026-09-14 from inside
 a session: the endpoint reported a pristine window (`0 of 15000`, reset
 always an hour out) while the headers on an ordinary call, seconds later on
 the same credential, reported `74` spent. A check built on the endpoint is
@@ -89,7 +89,7 @@ green on the day the account runs out, which is the one day it exists for.
 
 **There is more than one pool, and which one a call spends is decided by
 which repository it names.** Same session, same credential variable,
-2026-09-14: a call about the public upstream repo was charged to a
+verified 2026-09-14: a call about the public upstream repo was charged to a
 15,000/hour allowance, and calls about two private sources to two separate
 5,200/hour allowances with their own reset clocks. "How much is left" is a
 question about a repository, not about the account, and a single number

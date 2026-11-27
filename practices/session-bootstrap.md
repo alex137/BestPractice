@@ -33,8 +33,7 @@ instead.
 ## Detail
 **A hook that needs privileged access the session must acquire for itself
 is a stronger case of this rule, not an exception to it — and the
-strength of the case is easy to misjudge, corrected here 2026-09-06 after
-getting it wrong once already.** Setup that only touches what's already
+strength of the case is easy to misjudge.** Setup that only touches what's already
 inside the container (installing a package, initializing a submodule) can
 run once at session start and be done. A hook that clones a
 **privately-scoped** source — an individual or shared practice repo the

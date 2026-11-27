@@ -105,7 +105,7 @@ individual source over its ceiling is a finding to report to whoever owns it
 ([cross-source-rollout](https://github.com/alex137/BestPractice/blob/staging/practices/cross-source-rollout.md)), not an edit to make from
 here.
 
-**Approvals, targets and the hard ceiling (2026-09-30).**
+**Approvals, targets and the hard ceiling.**
 `approved_budgets` in the registry holds, per budget, the highest value the
 person approved: `max`, `approved_by` (their name, the date and their quoted
 words) and `strength`. `baseline` marks the values in force when the list

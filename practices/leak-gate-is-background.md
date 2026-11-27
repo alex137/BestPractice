@@ -52,12 +52,12 @@ switching off: the gate stops printing its routine survey in the ordinary
 run and keeps printing it where the deep review asks for it. Trading the
 noise for a blind spot is the one version of this that is not worth having.
 
-**The survey is quiet by default, and a person can turn it on.** Since
-2026-10-13 the gate prints it on an ordinary run only when the blocklist says
+**The survey is quiet by default, and a person can turn it on.** The
+gate prints it on an ordinary run only when the blocklist says
 `# visibility-audit: stem-notes on -- <reason>`; a person who wants those
-notes on every run says so there and is not in violation of anything. Before
-that the default was on and every blocklist had to opt out, and two of three
-practice sets had not -- so their owners were shown the notes on every push,
+notes on every run says so there and is not in violation of anything. A
+default of on, with every blocklist left to opt out, shows the notes on
+every push to any owner who has not,
 which is what this rule exists to end. What the rule governs is what a
 session does with whatever the gate printed.
 
@@ -123,6 +123,12 @@ the Rule's own first carve-out — **a real hit is always sayable**, so what the
 rule suppresses is unsolicited machinery chatter, and nobody wants that. A
 person who does want the notes turns them on in their own blocklist, which the
 mechanism already supports.
+
+**2026-10-13, quiet by default.** Behind the Detail's "The survey is quiet
+by default, and a person can turn it on". Since 2026-10-13 the gate prints
+the survey on an ordinary run only when the blocklist turns it on. Before
+that the default was on and every blocklist had to opt out, and two of three
+practice sets had not -- so their owners were shown the notes on every push.
 
 ## Install
 Nothing to configure for the rule itself, and the occasion index entry is

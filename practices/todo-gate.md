@@ -24,7 +24,7 @@ strength: decided
 Before pushing, check the thread's discussion against the repo's own backlog document (`TODO.md` or equivalent): add any idea that came up but never got a line, as a `todo/` item carrying its blocked-on or out-of-scope reason (universal [`todo-is-a-handoff`](https://github.com/alex137/BestPractice/blob/staging/practices/todo-is-a-handoff.md)), or do it now if this session can; close (`status: done`) any item this branch met the closing condition of.
 
 ## Detail
-**How this differs from the second pass in universal [`capture-gate`](https://github.com/alex137/BestPractice/blob/staging/practices/capture-gate.md)** (a separate practice, `second-pass-capture`, until it was merged in on 2026-10-01), whose clause (d) also asks whether open decisions were queued in the TODO (stated 2026-09-07, after a redundancy audit across all four sources found the two overlapping and could not tell from either file whether that was deliberate):
+**How this differs from the second pass in universal [`capture-gate`](https://github.com/alex137/BestPractice/blob/staging/practices/capture-gate.md)**, whose clause (d) also asks whether open decisions were queued in the TODO:
 
 - **It fires at a different moment.** The second pass runs once, after a substantial work-product, before the merge. This one runs before **every push**, including pushes that produced no work-product worth a second pass -- a one-line fix, a doc correction, a merge. That is where a backlog drifts.
 - **It reconciles in both directions.** The second pass's clause (d) only asks whether things got *queued*. This one also requires removing or checking off what the branch just **implemented**. A backlog that only ever grows is the more common of the two failures and the one nobody notices, because nothing about it looks wrong.
@@ -51,6 +51,14 @@ export gates, since all three ask the same kind of question -- did this
 thread's work imply something that has to be written down before the branch
 lands -- and answering them together is cheaper than remembering each one
 separately.
+
+2026-09-07: the Detail's "How this differs from the second pass" was stated
+after a redundancy audit across all four sources found the two overlapping
+and could not tell from either file whether that was deliberate.
+
+2026-10-01: the second pass that the Detail compares this with was a
+separate practice, `second-pass-capture`, until it was merged into
+`capture-gate` on this date.
 
 ## Install
 No mechanical check: reconciling the backlog document against "the thread's discussion" requires comparing a file to a conversation this repo's tree never records -- a check could confirm a `TODO.md` exists and was touched in the same commit, but that's a weak proxy that would pass on an unrelated edit to the file and fail on a push that genuinely needed no reconciliation.

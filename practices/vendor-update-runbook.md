@@ -103,7 +103,7 @@ what it wrote.
   one line -- "nothing to update; checks clean" -- with the landing, when
   the branch carries nothing the landing branch lacks, a clause in that
   line rather than a step. Where it says the landing branch is ahead of
-  `main`, that move is the next step (2026-11-19).
+  `main`, that move is the next step.
 - **LEFT FOR YOU** (exit 1): work each named file under the conflicted-file
   review below, then run it again. The rerun keeps the same source commit
   until a run reports DONE; `--move` takes the newest. Spell out
@@ -126,7 +126,7 @@ carries every file the engine reads from a set's folder** (the registry in
 [tools/precedent_set_files.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_set_files.py)):
 one missing or different from the set at the copied commit is left for
 you, never DONE, and the first update with that engine adds what an older
-copy lacked, one line per file (2026-11-01). **A new copy
+copy lacked, one line per file. **A new copy
 between repositories is added only as a declared source**, never by a sync
 script. Where `precedent.json` says `"update_full_check": "after"`, start
 the [precedent_check_after.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check_after.py)
@@ -318,9 +318,7 @@ The headings below give the Rule in full; the Rule names each heading where it n
 **BP is BestPractice**, the repository this update copies the engine and the
 universal catalogue from, and the short name people use for it in every
 repository. It is defined here, once, so every repository's generated
-glossary carries it and nobody has to spell it out in each document
-(2026-11-01: a quotation that said "BP [BestPractice]" failed a Produce, and
-one repository had added BP to its own glossary by hand).
+glossary carries it and nobody has to spell it out in each document.
 
 ### The phrase, the merge and auto mode
 **"Update Vendors" is the phrase that asks for this**, and it authorizes the
@@ -340,9 +338,9 @@ from the check's own rule and, as of 2026-10-11, not yet seen working, so
 until a run confirms it, a refusal is still handled the same way: say so in
 one line and ask for it by name, and never route around it. **The words fit
 the route:** on the `--land` route, which opens no pull request, ask for the
-landing with the branch named -- "Land `<branch>` on <landing branch>" (a
-consumer, 2026-10-13: the `--land` was refused, "Merge PR #N" had nothing
-to name, and the person's own word for the step cleared it); "Merge PR #N
+landing with the branch named -- "Land `<branch>` on <landing branch>",
+because there "Merge PR #N" has nothing
+to name and the person's own word for the step is what clears it; "Merge PR #N
 into <landing branch>" only when there is a pull request
 ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-04-auto-mode-refuses-update-vendors-own-merge.md)).
 **For every repository the person uses Precedent in at once, the phrase is
@@ -364,13 +362,13 @@ run the BestPractice clone's own copy -- never a vendored one:
 **The clone is any checkout whose origin is `alex137/BestPractice`**, at
 whatever path it sits: `../BestPractice` beside the repo, or where the
 attach tool cloned it, often lowercase: `../bestpractice` beside the repo
-(2026-10-17, a consumer's session, where `../BestPractice` did not exist), or
+(where `../BestPractice` does not exist), or
 an `<owner>/<repo>` path such as `../alex137/bestpractice`. Look before
 typing the path: `ls -d ../[Bb]est[Pp]ractice ../*/[Bb]est[Pp]ractice`. Run that clone's
 [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py);
 [precedent_merge_vendors.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_merge_vendors.py)
 and the update's own refusal of a vendored copy find it by its origin the
-same way (2026-10-08).
+same way.
 
 ### Private copies are checked here, not at session start
 **A copied-in source whose copy is private is checked only by Update
@@ -414,7 +412,7 @@ a session branch first, `git switch --no-track -c "$(python3
 tools/precedent_branch_name.py update-vendors)"`: for a person on the
 ladder the push check refuses a branch that tool did not name (anyone else
 may use any name), and `git switch -c` carries the staged diff as it is. The update prints it rather than switching itself, because it
-reads the current branch at several steps (2026-10-09). **LEFT FOR YOU** (exit 1): the calls
+reads the current branch at several steps. **LEFT FOR YOU** (exit 1): the calls
 that belong to this repo, each named with its file and its question -- work
 them under the conflicted-file review below, then run it again. The rerun
 takes the same source commit the first run read, and so does every run after
@@ -423,7 +421,7 @@ list; `--move` takes the newest commit instead. Two flags start
 `--take`, so always spell them out: `--take-anyway <commit>` takes a commit
 whose GitHub test has not passed, on the person's word, and `--take-set
 <name>` refreshes, this once, a copied-in set the repository holds; a bare
-`--take` is refused with both named (2026-10-20). **Every copied-in set,
+`--take` is refused with both named. **Every copied-in set,
 voice packs and the sets they carry included, is refreshed on a normal update**, and
 the report says how far it moved; a repository freezes one only by its own
 `"hold": "<why>"` on that source in its `precedent.json`.
@@ -473,9 +471,9 @@ this is where the refresh happens.
 **A change to hooks or settings needs the person's words naming it, asked
 for before the commit.** Claude Code's auto mode holds a commit that changes
 `.claude/` until the person approves it, and it clears the commit only on
-words that name it: a bare yes was refused (a consumer, 2026-10-15: "Yes
-approved" was refused, "Commit the .claude/settings.json allow-list change"
-went through). So when the update staged anything there, it still
+words that name it (as of 2026-10-15): a bare "Yes
+approved" is refused, "Commit the .claude/settings.json allow-list change"
+goes through. So when the update staged anything there, it still
 finishes, and prints the files under QUESTIONS FOR THE PERSON with the
 sentence to say. Pass that sentence on, before committing, and never ask it
 as a yes-or-no question
@@ -607,8 +605,8 @@ same change:
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
 `practice_audit.py`, `checkin.py update` and the session-start bootstrap all
 say so when it is. An update that leaves the repo classic has refreshed text
-that no session reads, which is how a consumer took one on 2026-09-23 and
-still had nothing in force.
+that no session reads, and the repo
+still has nothing in force.
 
 **The same goes for a repo that runs the loader but has no
 `tools/ENGINE_MANIFEST.json`** — its engine sits only under
@@ -763,7 +761,7 @@ comparison.
    under `local_ci_workflows` no longer keeps one in a consumer; the update
    asks once, keep or delete, and a keep is recorded by rerunning it with
    `--keep-workflow PATH --answered-by '<their words>'`, which also drops
-   the declaration (2026-10-20). **Nothing
+   the declaration. **Nothing
    needed is lost:** a file that runs anything the local push check does not
    run (a script, a test runner, a third-party action) is **left alone, and
    flagged loudly**: an `IMPORTANT -- GITHUB WORKFLOW LEFT ALONE` banner
@@ -812,7 +810,7 @@ comparison.
    written in.
    The same run lists every line of `AGENTS.md`, `CLAUDE.md` and
    `tools/bootstrap.sh` that still names a **retired branch**
-   (`precedent-beta-v01`, retired on 2026-09-25), outside the
+   (`precedent-beta-v01`), outside the
    generated block. Nothing else outside `tools/`, `.claude/hooks/`, the CI
    workflows, `tools/bootstrap.sh` and those `AGENTS.md` sections is
    touched.
@@ -821,10 +819,8 @@ comparison.
    per-item TODO migration tool and its ongoing index generator
    ([spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)
    Part 4.2). Vendoring the tool is not the same as running it, and nothing
-   else says so: this repo shipped both to every consumer on 2026-09-15/16
-   and, once source sets turned out to need them too, to every source set
-   on 2026-09-19 — and confirmed the same day that most consumers had
-   never run it, three or more days after it arrived. If `TODO.md` is
+   else says so: a repo can hold both for days
+   and never have run the migration. If `TODO.md` is
    still the old single-file format (no `todo/` directory, no `# TODO has
    moved` stub heading), run `python3 tools/todo_migrate.py --source todo.md --apply` then
    `python3 tools/build_todo_index.py` as part of this refresh, not as a
@@ -835,14 +831,12 @@ comparison.
    **When the same update is going into more than one repo, note the tip
    before you start and check every repo against it at the end.** Each refresh
    resolves the tip at the moment it runs, so two repos updated an hour apart
-   can land a commit apart with nobody having done anything wrong — a
-   four-set rollout on 2026-09-14 ended exactly that way.
+   can land a commit apart with nobody having done anything wrong.
    **Close that gap by rolling the laggard FORWARD, never by holding the
    others back.** Level matters less than current: a repo pinned to an
-   ancestor is missing whatever landed after it, and in that rollout the one
-   set left behind was missing the reply gate the other three already had.
-   Holding the others back would have made all four miss it and removed the
-   very difference that made anyone look.
+   ancestor is missing whatever landed after it.
+   Holding the others back makes every one of them miss it and removes the
+   very difference that makes anyone look.
    `--from-ref <commit>` is for the two cases where an exact commit is the
    point — vendoring a commit whose diff you actually reviewed, and
    reproducing a bug against an older engine — never for making a rollout
@@ -865,9 +859,7 @@ comparison.
    `origin/<branch>` with `git ls-tree` and reads each file back with
    `git show origin/<branch>:<path>`. The "restore it and re-record" move is
    not a way around `--accept-loss`; it only works once the restore is
-   itself committed and pushed. Reported from a dependent repo that hit it
-   twice in one hop, 2026-09-21, and verified here against the tool's own
-   git calls rather than taken on the report.
+   itself committed and pushed.
 
    **A line upstream deleted itself is never counted as lost.**
    Where your base branch takes the update later than the
@@ -910,10 +902,9 @@ comparison.
    views describing the old engine, and its own `--check` then fails on
    work that is otherwise correct. The bump and its output land together.
 6. **Run this repo's own check for the branch it lands on**, not the
-   upstream's -- the one command does, with `--push-command`. This step
-   used to ask for the full check by hand, after a regenerated AGENTS.md
-   went out on 2026-09-25 with its version header unbumped; the commit now
-   stamps that header, and the repo's own checks refuse stale views.
+   upstream's -- the one command does, with `--push-command`. The commit
+   stamps a regenerated AGENTS.md's version header,
+   and the repo's own checks refuse stale views.
 
 ### Steps 7 and 8 in full: reaching and naming the sources
 7. **Check that this environment can still reach its PRIVATE sources**,
@@ -943,7 +934,7 @@ comparison.
    names against `list_repos` before running it. The session's proxy answers GitHub's API only
    for attached repositories, and read access does not attach a public
    one, because git can already read it, so the tool alone leaves a public
-   set `UNVERIFIED` (measured 2026-09-28 and 2026-09-30). `list_repos`
+   set `UNVERIFIED` (as of 2026-09-30). `list_repos`
    gives each repository's `full_name` as GitHub calls it now, which is
    the answer this step needs, and listing grants nothing. A source the
    list carries exactly reads `OK`. One it does not carry stays
@@ -1009,12 +1000,12 @@ comparison.
    only for a named repository or a declared source it could not read.
    **What was not looked at is said, never hidden:** the survey's last
    line says that repositories not cloned here were not surveyed, and the
-   reply carries that line as it is. That keeps the 2026-11-01 lesson (an
-   unchecked repository reported as if it were a pass) without turning
+   reply carries that line as it is. That keeps an
+   unchecked repository from being reported as if it were a pass, without turning
    the step into a sweep. The wider look, every repository the person
    uses Precedent in, is [Update All Vendors](update-all-vendors.md), and
    only because the person said those words. **The reach-or-ask hook stays
-   as the backstop:** it blocked the 2026-11-02 sweep, and it still
+   as the backstop:** it
    catches an attach this runbook does not ask for.
 
    **Never put it to the person
@@ -1072,8 +1063,8 @@ comparison.
     **Never by name alone.** In a consumer the refresh has already settled
     every workflow (step 3), so what is left here is a file it could not
     safely touch. In a practice source, `light-check.yml` and a set's own
-    workflows are live checks, not leftovers; the 2026-09-20 sweep deleted
-    nine live checks by trusting names
+    workflows are live checks, not leftovers, and a sweep that trusts
+    names deletes them
     ([spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)
     item 14). A live one is paused first and decommissioned a cycle later,
     as [tools/precedent_decommission.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_decommission.py)
@@ -1140,9 +1131,9 @@ comparison.
     words that say it>"`, `send-upstream --detail <link to the pull request
     or issue>`, or `local-add-on --practice <path of the add-on practice>`;
     `standardize` means copy upstream's block in, never a verdict to keep.
-    A reason recorded word for word on two items is refused as stock (a
-    consuming repository waived six sections with one reason on 2026-10-01,
-    and its copies lacked template lines nobody had judged). A section moved
+    A reason recorded word for word on two items is refused as stock:
+    one reason across several sections
+    leaves template lines nobody has judged. A section moved
     out of AGENTS.md is compared wherever it now lives (`moved_to`, or the
     same heading in a top-level or `docs/` file). From then on the refresh
     prints one `KEPT ON PURPOSE` line with the reason, leaves it off **Left
@@ -1201,12 +1192,12 @@ comparison.
     keeping the rest of the file. `commit-identity.sh` resolves who
     is committing. **A fallback branch is not an exception.** One that
     names a person "only when the individual source has not resolved yet"
-    was tested 2026-09-25 on a scratch consumer with no individual source:
-    `commit-identity.sh` already set the right author from
+    adds nothing and can do harm. With no individual source,
+    `commit-identity.sh` already sets the right author from
     `PRECEDENT_COMMIT_*` or the authenticated GitHub account; with neither,
-    its backstop refused the bot-authored commit rather than letting it
+    its backstop refuses the bot-authored commit rather than letting it
     through; and with a second person's identity declared, the fallback
-    overwrote it with the named one.
+    overwrites it with the named one.
 
     **(e) Finish an unfinished migration.** No `tools/ENGINE_MANIFEST.json`
     means (a) could not run at all. Say so out loud, confirm with the person
@@ -1281,27 +1272,27 @@ comparison.
    ([verify-postcondition](verify-postcondition.md)), **and before the merge
    in step 12, on the pushed branch or the pull request's head.** What
    merges is that head, so its content is the check that matters, and it
-   runs before anything Claude Code's own safety check can refuse: on
-   2026-10-01 the merge went through and the very next command, a read of
-   the merged branch, was blocked as "Merge Without Review", so a check
-   left for after the merge never ran
+   runs before anything Claude Code's own safety check can refuse: once
+   the merge goes through, the very next command, a read of
+   the merged branch, is blocked as "Merge Without Review" (as of 2026-10-01), so a check
+   left for after the merge never runs
    ([gotcha](https://github.com/alex137/BestPractice/blob/staging/gotchas/gotcha-2026-10-01-auto-mode-blocks-the-read-after-update-vendors-merges-its-own.md)).
 12. **Publish it, without asking again.** Commit, push and merge the result
     the way this repository lands work, and report which branch it landed
     on. **The commit message names every file the report's COMMIT MESSAGE
     lines list**: what the update rewrote outside `process/upstream/` and
-    `tools/`. On 2026-09-15 an update replaced a consumer's hand-written
-    map and glossary under a message that named neither, and nobody
-    noticed for a month. The phrase authorizes this step; do not stop after step 11 and ask.
+    `tools/`. An update can replace a hand-written
+    map or glossary, and under a message that names neither nobody
+    notices. The phrase authorizes this step; do not stop after step 11 and ask.
     Every condition the repository puts on landing still holds -- a branch
     the repository restricts is still restricted, and a step this session
     cannot reach hands off rather than coming back as a question. **If the safety check refuses a step
     here, report that step by name and stop; never route around it.**
     Claude Code's auto mode refuses this merge as "Merge Without Review"
-    even though the phrase authorizes it (2026-10-01). **Ask right away,
+    even though the phrase authorizes it (as of 2026-10-01). **Ask right away,
     before running anything else**: after that refusal, even reads are
-    refused under the same reason until the person speaks again (three
-    consumers, 2026-10-04 to 2026-10-08). End the turn with one line that
+    refused under the same reason until the person speaks again
+    (as of 2026-10-08). End the turn with one line that
     auto mode stopped it, not this repository's rules, and the words that
     name the step and its branch: "Land `<branch>` on <landing
     branch>" on the `--land` route, which has no pull request, or "Merge
@@ -1311,15 +1302,15 @@ comparison.
     `git ls-remote origin refs/heads/<branch>`, never a short form: GitHub
     refuses a 7-character expected head SHA, and a merge that fails that
     way starts the same refusal of every later command as one auto mode
-    refused (a consumer, 2026-10-08). The update's DONE says so, and every
+    refused (as of 2026-10-08). The update's DONE says so, and every
     merge line `precedent_branches.py` prints carries the head in full.
     **When the merge goes through, the merge tool's own result is the
     postcondition for this turn**: name it before the call (the pull
     request merged into the landing branch), then report what the tool
     returned, `merged: true` and the merge commit's SHA, and run nothing
     after it. Even a read-only `git fetch` after a successful merge the
-    person's words did not name is refused as "Merge Without Review" (a
-    consumer, 2026-10-09). The fetch that confirms the landing branch holds
+    person's words did not name is refused as "Merge Without Review"
+    (as of 2026-10-09). The fetch that confirms the landing branch holds
     the merge runs at the start of the next turn, or is skipped when the
     next stage's own tool confirms it, and the reply says which of the two
     will happen.
@@ -1741,6 +1732,114 @@ reason describing text that was gone.
 
 **2026-09-25, same heading, (g):** Morgan, 2026-09-25: "In the migration
 and updates, can we put a check explicitly for this?"
+
+**2026-11-27: the dated asides left the Rule and the Detail.** What a
+reader needs from each stayed there as a plain sentence; the incidents are
+the paragraphs below, each naming the heading or step it stood behind. A
+date still in the Detail is one a fact about Claude Code's auto mode, the
+session's proxy or GitHub carries.
+
+**2026-11-19, behind the Rule's NOTHING TO UPDATE outcome:** the sentence
+that a landing branch ahead of `main` makes that move the next step carried
+the tag "(2026-11-19)".
+
+**2026-11-01, behind the Rule's paragraph on a copied-in set's files:**
+the sentence that the first update with the engine adds what an older copy
+lacked, one line per file, carried the tag "(2026-11-01)".
+
+**2026-11-01, behind the Detail's opening definition of BP:** a quotation
+that said "BP [BestPractice]" failed a Produce, and one repository had
+added BP to its own glossary by hand.
+
+**2026-10-13, behind "The phrase, the merge and auto mode":** a consumer:
+the `--land` was refused, "Merge PR #N" had nothing to name, and the
+person's own word for the step cleared it.
+
+**2026-10-17 and 2026-10-08, behind "The one command and the BestPractice
+clone":** the lowercase `../bestpractice` path came from a consumer's
+session on 2026-10-17, where `../BestPractice` did not exist. The sentence
+that the merge tool and the update's refusal of a vendored copy find the
+clone by its origin carried the tag "(2026-10-08)".
+
+**2026-10-09 and 2026-10-20, behind "What the command does, and its three
+outcomes":** two sentences carried a date tag: that the update prints the
+`git switch` command rather than switching itself, "(2026-10-09)", and that
+a bare `--take` is refused with both flags named, "(2026-10-20)".
+
+**2026-10-15, behind "Hook and settings changes need the person's own
+words":** a consumer: "Yes approved" was refused, "Commit the
+.claude/settings.json allow-list change" went through.
+
+**2026-09-23, behind "Classic installs and unfinished migrations":** a
+consumer took an update that left the repo classic on 2026-09-23 and still
+had nothing in force.
+
+**2026-10-20, behind "Step 3 in full: refreshing the engine":** the
+passage saying a declaration under `local_ci_workflows` no longer keeps a
+workflow in a consumer, and that `--keep-workflow` also drops the
+declaration, carried the tag "(2026-10-20)". `precedent-beta-v01`, the
+retired branch the same run lists, was retired on 2026-09-25.
+
+**2026-09-15 to 2026-09-19, same heading:** on running the TODO migration
+at the refresh that brings it in. This repo shipped both tools to every
+consumer on 2026-09-15/16 and, once source sets turned out to need them
+too, to every source set on 2026-09-19 -- and confirmed the same day that
+most consumers had never run it, three or more days after it arrived.
+
+**2026-09-14, same heading:** on noting the tip when one update goes into
+more than one repo. A four-set rollout on 2026-09-14 ended a commit apart
+with nobody having done anything wrong, and the one set left behind was
+missing the reply gate the other three already had. Holding the others back
+would have made all four miss it and removed the very difference that made
+anyone look.
+
+**2026-09-21, behind "Step 4 in full: the catalogue update":** that the
+"restore it and re-record" move only works once the restore is committed
+and pushed. Reported from a dependent repo that hit it twice in one hop,
+2026-09-21, and verified here against the tool's own git calls rather than
+taken on the report.
+
+**2026-09-25, behind "Steps 5 and 6 in full: views and the landing branch's
+check":** step 6 used to ask for the full check by hand, after a
+regenerated AGENTS.md went out on 2026-09-25 with its version header
+unbumped.
+
+**2026-09-28 and 2026-09-30, behind "Steps 7 and 8 in full: reaching and
+naming the sources":** that the tool alone leaves a public set `UNVERIFIED`
+was measured 2026-09-28 and 2026-09-30.
+
+**2026-09-20, behind "Step 10 in full: retiring legacy leftovers", (b):**
+on never retiring a workflow by name alone. The 2026-09-20 sweep deleted nine
+live checks by trusting names.
+
+**2026-10-01, same heading, (d):** a consuming repository waived six
+sections with one reason on 2026-10-01, and its copies lacked template
+lines nobody had judged.
+
+**2026-09-25, same heading, (d):** a fallback branch that names a person
+"only when the individual source has not resolved yet" was tested
+2026-09-25 on a scratch consumer with no individual source:
+`commit-identity.sh` already set the right author from
+`PRECEDENT_COMMIT_*` or the authenticated GitHub account; with neither, its
+backstop refused the bot-authored commit rather than letting it through;
+and with a second person's identity declared, the fallback overwrote it
+with the named one.
+
+**2026-10-01, behind "Steps 11 and 12 in full: verifying and
+publishing":** on 2026-10-01 the merge went through and the very next
+command, a read of the merged branch, was blocked as "Merge Without
+Review", so a check left for after the merge never ran. The sentence that auto
+mode refuses the merge itself carried the same date.
+
+**2026-09-15, same heading:** an update replaced a consumer's hand-written
+map and glossary under a message that named neither, and nobody noticed for
+a month.
+
+**2026-10-04 to 2026-10-09, same heading:** three consumers, 2026-10-04 to
+2026-10-08, had even reads refused after auto mode refused the merge. A
+consumer's merge failed on a 7-character expected head SHA on 2026-10-08
+and started the same refusal. On 2026-10-09 a consumer's read-only
+`git fetch` after a successful merge was refused as "Merge Without Review".
 
 ## Install
 Before starting, name the layers this repo vendors and where each records

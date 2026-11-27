@@ -95,9 +95,8 @@ feeling that the person might not have meant it.
 **A relayed summary of the rules is a copy too.** A prompt handed over
 from another session describes the rules as that session understood
 them. Before acting, check each command it names against the practice
-files. The relay that asked for this practice listed `Session Text` among
-the standing commands, and that practice had already been folded into
-[prompt-please](prompt-please.md) on 2026-09-20.
+files. A relay can list among the standing commands one whose practice
+has already been folded into another.
 
 ## Why
 Morgan, 2026-09-24, on the incident below: *"I love having the history, and
@@ -164,6 +163,11 @@ templates with dead paths because a rule said a workflow is never edited
 without his words, a rule written to stop new CI minutes, not fixes: *"In
 ambiguous cases like this, you should decide what is best and if you think
 my rule contradicts what you think is best then ASK ME."*
+
+**The relay that asked for this practice was itself out of date.** Behind
+the Detail's "A relayed summary of the rules is a copy too": the relay
+listed `Session Text` among the standing commands, and that practice had
+already been folded into [prompt-please](prompt-please.md) on 2026-09-20.
 
 ## Install
 Resident, so every repository running the loader carries it in its
