@@ -19,11 +19,10 @@ to, but nothing here needs them.
 `python3 tools/precedent_install.py`.** It vendors the practice catalogue
 *and* the loader that puts it in front of every session — the resident
 block, the occasion index, the gates, the enforced checks. **§1 below is no
-longer an install path, for anyone, whatever a person asks for** (retired
-2026-09-23). It copies the catalogue in and switches none of it on, and it
-looks complete while doing so: on 2026-09-22 a fresh install went down §1
-because this paragraph still called it "the right default", took an upstream
-update the next day, and its sessions then described the practices as *"a
+longer an install path, for anyone, whatever a person asks for**.
+It copies the catalogue in and switches none of it on, and it
+looks complete while doing so: sessions in a repo installed that way
+describe the practices as *"a
 vendored copy of the upstream catalogue, not something this repo adopted"*.
 The one thing §1 had that a fresh §0 install does not is the
 manifest-driven check-in loop (§3 and §4, both optional), and no repo is
@@ -100,8 +99,7 @@ of that, so a §1 project that wants Precedent later takes
 
 From a sibling clone of Precedent, on `main` (every install takes its
 updates from `main`, `SOURCE_BRANCH` in
-[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py), since
-2026-09-25):
+[tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)):
 
 ```
 python3 tools/precedent_install.py <project path> --project-name "<name>" \
@@ -127,8 +125,7 @@ a project another assistant will work in adds that adapter too (§1 step 2's
 adapter bullet). It never commits. **The numbered steps stay here because they
 are what the tool does**, in the order it does it, and because a repo
 that wants to deviate from one of them needs to know what it is deviating
-from. Rehearsed against a real project on 2026-09-14 (the closing paragraph
-of this section says what it found); the tool's own fixture in
+from. The tool's own fixture in
 [tools/verify_harness.py](https://github.com/alex137/BestPractice/blob/staging/tools/verify_harness.py) installs into a scratch
 project and runs that project's checks on every harness run.
 
@@ -139,7 +136,7 @@ already-documented case —
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md),
 not this section.
 
-**What it assumes, and what it changes outside the project** (2026-10-17):
+**What it assumes, and what it changes outside the project**:
 
 - **Who you are.** The practices about running a repository (GitHub,
   branches, CI, vendoring, installs; Update Vendors is one) are shown only
@@ -186,8 +183,8 @@ not this section.
    bootstrap, the vendoring tool itself and their companions — the exact
    list is `CONSUMER_ENGINE_FILES` in that tool, and the tracked
    `tools/ENGINE_MANIFEST.json` it writes records every file with the exact
-   commit and a sha256 (a list typed here named fifteen files on the day it
-   was written and the seed wrote thirty-one by 2026-09-14). **What does
+   commit and a sha256 (read the list there: one typed here goes stale as
+   the engine grows). **What does
    not travel this way**: the harness adapters this repo's `precedent.json`
    declares are copied by the sync only from a source's `precedent.json`,
    and step 1 copies only `practices/` and its three companions — so a §0 install gets its hooks
@@ -195,14 +192,11 @@ not this section.
    (`.claude/settings.json` and every hook script it wires), and the sync reports
    `0 harness adapter(s)`; that is expected, not a failure. See "Keep the vendored engine current (consumer repos)" under §2
    for what that buys over a hand-copy, and how to refresh it later.
-   **Nothing here is hand-copied any more.** `precedent_check.py` used to
-   be, on the reasoning that the enforced channel is not the loader engine
-   — which left the one file whose absence makes every
-   `checked_by: "tools/precedent_check.py"` claim hollow as the only
+   **Nothing here is hand-copied**, `precedent_check.py` included: a
+   hand-copy of the one file whose absence makes every
+   `checked_by: "tools/precedent_check.py"` claim hollow would be the only
    untracked copy in the tree, with no manifest and no way to tell stale
-   from current. Vendoring it from Precedent's own commit
-   (2026-09-06) is what made a fresh install's first `precedent_check.py`
-   run come back clean.
+   from current.
 2. **Write `precedent.json`** at the repo root, naming the universal
    source (`level: "universal"`, `path` pointing at step 1's vendored
    copy), a **repo-local source** (`{"level": "repo-local", "name":
@@ -230,8 +224,7 @@ not this section.
    so a private repo that omits it silently loses its shared and individual
    practices from the materialized tree. The installer always writes it:
    `--visibility` when given, else what GitHub says about the origin, else
-   `public`, and its output names which and why (2026-10-17; until then an
-   absent flag silently meant private). **`internal_paths`** is a list of
+   `public`, and its output names which and why. **`internal_paths`** is a list of
    repo-relative path prefixes — a directory (`"notes"`), a nested one
    (`"docs/drafts"`), or a single file (`"ROADMAP.md"`) — that are this
    project managing itself rather than documents published to anyone. It
@@ -306,12 +299,11 @@ not this section.
    `process/manifest.json` and `process/scrub_blocklist.txt` — those are
    §1's own bookkeeping for a model this path doesn't use.
 
-   **One thing does change with the install model, and this step used to
-   say it didn't** ("unchanged by which install model this is", until
-   2026-09-10). §1 vendors Precedent's *prose* under `process/upstream/`;
-   §0 vendors the practices and the engine and no prose at all. Two
-   templates referred to the §1 layout outright, and a real §0 install
-   shipped with a red check and three dead references because of it:
+   **One thing does change with the install model.**
+   §1 vendors Precedent's *prose* under `process/upstream/`;
+   §0 vendors the practices and the engine and no prose at all. Some
+   templates refer to the §1 layout, and a §0 install that leaves them
+   as they are ships with a red check and dead references:
 
    | Artifact | What a §0 install needs |
    |---|---|
@@ -351,7 +343,7 @@ not this section.
    never the views. On every later sync a link elsewhere in the repository
    to a practice the sync removed is repointed to its successor, or
    reported when there is none. A hand-written `MAP.md` or `GLOSSARY.md`
-   from an install older than 2026-10-03 moves into its source file at
+   from an install made before 2026-10-03 moves into its source file at
    that repository's next `Update Vendors` (the end of this section says
    how).
 
@@ -372,7 +364,7 @@ not this section.
    freshness guard the harness adapter wires refuses the session's first
    write while it cannot reach one, by design — an unreachable origin is
    indistinguishable from a stale checkout — and a freshly `git init`ed
-   project is exactly the repo with none (measured 2026-09-14).
+   project is exactly the repo with none.
 9. **Mention the same optional owner-only settings** as §1 step 10 — this
    path installs a different layout, not a different GitHub account.
 10. **Draw the contributor boundary, when the project has people who should
@@ -468,58 +460,39 @@ The installer says when a repository is in this case: its branch-tiers
 line names this paragraph whenever `origin` has no `main`.
 
 **What has and has not been rehearsed, stated plainly rather than left to
-be discovered.** Every step here has been walked end to end against a
-scratch repository twice — 2026-09-06 (the
-[pre-launch audit](https://github.com/alex137/BestPractice/blob/staging/spec/PRELAUNCH_AUDIT.md)) and again 2026-09-07 (the
-[very deep check](practices/very-deep-check.md)'s pass 1) — vendoring,
+be discovered.** Every step here has been walked end to end, against a
+scratch repository and against a real project adapting the templates to
+its own work — vendoring,
 declaring sources, instantiating, syncing, and running the deep check on
 the result, which comes back clean. **No count is quoted here on purpose**
 ([no-stale-counts](https://github.com/themorgan/precedent-shared-writing/blob/main/practices/no-stale-counts.md),
-in the writing set): the first rehearsal
-recorded "15 checks passed", the check suite has grown since, and the
-figure was simply wrong by the second rehearsal rather than usefully
+in the writing set): the check suite grows, and a quoted figure is
+simply wrong by the next run rather than usefully
 out of date. What matters is `0 violated`, which is what to expect and
 what to report.
 
-The 2026-09-07 rehearsal is worth knowing about before trusting the first
-one: following these steps produced a repo that did **not** come back
-clean, and the four things it ended on were all defects here, not in the
-install. Two of them only bite a consumer declaring `visibility: public` —
-private practice text was materialized into its tracked tree, and the
-loader block the documented step wrote was one the enforced check then
-reported as hand-edited. All four are fixed; the run is recorded in
-[spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md).
+Three things a fresh install shows that are not failures:
 
-**A real project has now done this, 2026-09-14**, which is what the
-paragraph above used to say was still missing — a scratch repository has no
-subject matter, so until then nothing here had been tested against an
-adopter adapting the templates to their own work. It found three more
-defects, all of them in this engine and none in the steps:
-
-- two checks an individual practice source supplies crashed on a repository
-  with **no commits** — which a fresh install is, exactly — and the
-  traceback was reported as a violation of the practice itself. **Fixed
-  2026-09-14**: both checks now skip, saying there is no history yet, and
-  run clean as soon as the repo has its first commit.
-  [TODO.md's `no-history-checks-unpushed` item](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-14-no-history-checks-unpushed.md)
-  carries what landed;
+- a check that reads history skips on a repository
+  with **no commits** — which a fresh install is, exactly — saying there
+  is no history yet, and
+  runs clean as soon as the repo has its first commit;
 - a repo declaring its own `fallback_timezone` in `precedent.json` — the
-  documented rung-5 override — was reported as drift by
-  `timestamps-carry-offset`, which compared it against the engine constant
-  it exists to override. The check now holds the three ENGINE copies in
+  documented rung-5 override — is not drift:
+  `timestamps-carry-offset` holds the three ENGINE copies in
   lockstep and leaves the repo's own declaration alone;
 - the catalogue this section vendors to `precedent/universal/practices/`
-  carries relative links written for its own repo, so `doc_lint.py`
-  reported dozens of broken links in files an adopter must not edit. A
-  mirrored tree is now exempt from the link check alone.
+  carries relative links written for its own repo, in files an adopter
+  must not edit, so a
+  mirrored tree is exempt from `doc_lint.py`'s link check alone.
 
 What is still untested is the rest of [spec/PHASE6_BRIEF.md](https://github.com/alex137/BestPractice/blob/staging/spec/PHASE6_BRIEF.md)'s
 list, not the install itself. Two more things to know: how this section's
 map and glossary work, and one thing it deliberately does **not** cover, by
 design and not oversight:
 
-- **`MAP.md` and `GLOSSARY.md` are generated, never hand-written** (since
-  2026-10-03, [the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
+- **`MAP.md` and `GLOSSARY.md` are generated, never hand-written**
+  ([the plan](https://github.com/alex137/BestPractice/blob/staging/spec/GENERATED_FILES_PLAN.md)).
   The repository's own text for each lives in `MAP.source.md` and
   `GLOSSARY.source.md`; [tools/precedent_sync_views.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_sync_views.py) copies it in word for
   word and adds the sections generated from the practice catalogue and the
@@ -592,12 +565,11 @@ design and not oversight:
    practice's own Rule says to `grep gotchas/` — a local operation that
    finds nothing not actually vendored.
 
-   **`documentation/examples/` (formerly top-level `examples/`, moved
-   2026-09-19) shows an adopter how to build their own practice set, a use
-   of Precedent, not a step in building it** — and it now sits inside
+   **`documentation/examples/` shows an adopter how to build their own practice set, a use
+   of Precedent, not a step in building it** — and it sits inside
    `documentation/`, the tree this same audience table already assigns to
    "someone using Precedent on their own project", so it is not a separate
-   judgment call any more.
+   judgment call.
 
    **Which is not the same as "skip the reader-facing prose".**
    [documentation/](documentation/) vendors, in full and on purpose:
@@ -731,10 +703,10 @@ design and not oversight:
      repo in Claude Code. Each adapter's own README says what it can and
      cannot enforce.
 
-     **Which of these are decisions and which are not.** A real install
-     (2026-09-07) treated all four hooks as four judgment calls and declined
-     all four; three of those calls were right and one was wrong, so the list
-     now says which is which rather than leaving a session to guess:
+     **Which of these are decisions and which are not.** The hooks are
+     not all judgment calls, and declining one that is always wired is a
+     mistake, so the list
+     says which is which rather than leaving a session to guess:
 
      | Hook | Wire it? |
      |---|---|
@@ -775,9 +747,8 @@ design and not oversight:
      repoints the container's `/etc/localtime` to the resolved zone, so that
      every tool on the machine stamps the same offset (`PRECEDENT_LOCALTIME`
      names another file to repoint instead). On a shared or local machine
-     that is a change to the machine, not to the repo — measured on
-     2026-09-14 when a rehearsal moved a container from Buenos Aires to New
-     York and could not move it back.
+     that is a change to the machine, not to the repo, and nothing
+     moves it back afterwards.
 
      **Timezone is the one thing guessed, deliberately.** Nothing in a GitHub
      profile says where a person is, and a container's own clock is UTC
@@ -815,7 +786,7 @@ design and not oversight:
    - `tools/doc_lint.py` → the vendored engine puts it in this repo's own
      `tools/` (Update Vendors keeps it current); run it from there. The
      catalogue copy under `process/upstream/` carries no `tools/` once the
-     engine includes `checkin.py` (2026-09-30), so there is one copy.
+     engine includes `checkin.py`, so there is one copy.
    - `tools/doc_sync.py` ([computed-numbers-in-scripts](practices/computed-numbers-in-scripts.md))
      and `tools/model_audit.py`
      ([scripts-assert-properties](practices/scripts-assert-properties.md))
@@ -871,9 +842,7 @@ design and not oversight:
    the project's own people read. Those are not in tension: the destination
    is [GETTING_STARTED.md](templates/GETTING_STARTED.md)'s administrator
    section, which this same list places at the root. Do not write a root
-   `GITHUB_ACTIONS.md` to satisfy the check — until
-   2026-09-10 the check only read that file, which is what made the two
-   rules look mutually exclusive; it now reads
+   `GITHUB_ACTIONS.md` to satisfy the check — it reads
    [GETTING_STARTED.md](templates/GETTING_STARTED.md) first, and also
    accepts [documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) —
    BestPractice's own copy.
@@ -882,8 +851,8 @@ design and not oversight:
    `python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
    — because the bare light check scopes itself to files changed against
    `origin/<default branch>`, and on a repo that has not been pushed yet
-   that is nothing at all: it reported `0 file(s) checked` on a fresh
-   install (2026-09-14) whose STYLEGUIDE.md carried three dead links.
+   that is nothing at all: it reports `0 file(s) checked` on a fresh
+   install, dead links and all.
    Commit.
 
 8. **Disclose anything GitHub-specific**
@@ -1110,7 +1079,7 @@ design and not oversight:
      asked "Is your GitHub username `<login>`?" rather than asked cold;
      on their yes, `python3 tools/precedent_branch_name.py --set-github
      <login> --repo <the set>` writes it in. CODEOWNERS and, on the ladder,
-     every branch name read it (2026-10-11).
+     every branch name read it.
 
      Then confirm it by effect rather than by reading the config back:
      `env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u TZ git var GIT_AUTHOR_IDENT`
@@ -1209,7 +1178,7 @@ question. `practice_audit.py` fails until the migration is done. The
 2026-09-23, because the copy of `checkin.py` doing the update is still the
 old one; the failing audit is what says so.
 
-**An update taking the 2026-09-17 project-voice change, or the 2026-09-22
+**An update taking the project-voice change, or the
 project-visual-identity change, lands on a repo that still has a root
 `VOICE.md` or `STYLEGUIDE.md`** from an earlier install. That is a
 migration, not an ordinary template refresh — see
@@ -1226,18 +1195,18 @@ A §0 install has neither: it vendors a `practices/` tree and the engine, and
 nothing else. So a §0 repo's whole update is **step 6 (the engine) first,
 then step 0 (the catalogue), then step 0b (the wiring)** — the engine first
 so the new checks read the new catalogue rather than the old checks reading
-it uncommitted, which reported five false `acronyms-glossary` hits on
-2026-09-14 when the steps ran the other way round. Step 0 is here because
+it uncommitted, which reports false `acronyms-glossary` hits.
+Step 0 is here because
 an update that covers only the engine leaves the catalogue behind: a §0 repo
 refreshes its tools, keeps a frozen practice catalogue, and gets `OK` from
 every check. Measured on a scratch consumer vendored at an older commit:
 after an engine-only update it still materialized the older, smaller
 catalogue while upstream
-carried a third more, with nothing said. Step 0b is here for the same shape one layer out, found
-2026-09-14: the engine manifest does not cover `tools/bootstrap.sh`, the
+carried a third more, with nothing said. Step 0b is here for the same shape one layer out:
+the engine manifest does not cover `tools/bootstrap.sh`, the
 harness hooks or the instructions file, so a refreshed engine that changed
-what a command accepts left a consumer's own session-start script calling
-it the old way — a WARN at every session start naming a fix that failed the
+what a command accepts leaves a consumer's own session-start script calling
+it the old way — a WARN at every session start naming a fix that fails the
 same way.
 
 0. **(§0 installs) Replace the vendored universal catalogue.**
@@ -1264,8 +1233,8 @@ same way.
    practices, changed Rules and retired ones all arrive here, and this is
    the only place a reader sees them.
 
-   **A retirement no longer refuses, and neither does an override.** Since
-   2026-09-28 a practice your committed `MANIFEST.json` records goes through
+   **A retirement does not refuse, and neither does an override.**
+   A practice your committed `MANIFEST.json` records goes through
    when its own source now marks it retired or deduplicated, or when a
    declared source names it in `overrides:`; the sync says which. **Any
    other removal still refuses** rather than deleting it — a practice the
@@ -1309,7 +1278,7 @@ same way.
    drop the rest, and put each carried item where the new structure says it
    goes rather than re-adding the old section.
 
-   **The worked example, and the reason this step exists** (2026-09-08):
+   **The worked example, and the reason this step exists**:
    `templates/VOICE.md.template` lost 205 lines of general writing guidance,
    because the practice catalogue already carries all of it and one line —
    *"no bold inside paragraphs"* — had come to contradict the resident
@@ -1394,8 +1363,8 @@ same way.
    ```
    python3 ../BestPractice/tools/precedent_vendor_engine.py seed . --kind consumer
    ```
-   (Confirmed the hard way 2026-09-06, refreshing a private consumer repo:
-   all three commands exited 2 with "No such file or directory", which reads
+   (Without a manifest
+   the commands exit 2 with "No such file or directory", which reads
    like a broken instruction and is really a missing baseline.) With a
    manifest present, `status` and `refresh` below are the whole procedure.
    Steps 1–5 above
@@ -1431,20 +1400,20 @@ same way.
    `refresh` runs *this repo's own vendored copy* of the tool, which
    carries the file list it was vendored with. So the first refresh after
    upstream renames or drops an engine file asks git for a path that is
-   genuinely gone. Upstream stopped treating that as fatal on 2026-09-08
+   genuinely gone. The current tool does not treat that as fatal
    (it skips the dropped name and converges on the second pass), but **that
    fix can only arrive through a refresh, and the refresh is the thing that
-   is broken** — so every repo vendored before that date needs one manual
+   is broken** — so every repo vendored before 2026-09-08 needs one manual
    reseed to escape, from a sibling clone as in this step's first
    paragraph:
    ```
    python3 ../BestPractice/tools/precedent_vendor_engine.py seed . --kind consumer
    ```
-   Measured 2026-09-08 across three real practice sets, all of which
-   refused with "has no `tools/precedent_retire_path.py`" after that file
+   Such a repo
+   refuses with "has no `tools/precedent_retire_path.py`": that file
    was renamed to `precedent_decommission.py`. Reseeding also deletes the
-   renamed-away file, which it did not do before that date — so a repo
-   reseeded earlier may still be carrying one. `status` names it
+   renamed-away file — but a repo
+   reseeded before 2026-09-08 may still be carrying one. `status` names it
    (`RETIRED ENGINE FILE`) and says why; delete it once you have checked
    nothing in the repo still calls it.
 
@@ -1458,8 +1427,8 @@ same way.
    refresh, run `python3 tools/precedent_sync_views.py --repo .` — **expect
    `--check` to FAIL first**: a refresh changes what the loader renders
    (the generated block, `MANIFEST.json`), so a byte-identical check against
-   the old output fails every time, and it failed on every ordering tried
-   on 2026-09-14. Run the sync, review both diffs together, and commit the
+   the old output fails every time, whatever order the steps run in.
+   Run the sync, review both diffs together, and commit the
    refresh and the sync as one change; `--check` is then the confirmation.
 
 ## 3. (Optional) Give Back an Improvement — The Export Gate

@@ -263,8 +263,8 @@ nothing to choose here — this page installs §0, always.
       **environment variables** — the full path is in Anthropic's own
       guide at
       [code.claude.com/docs/en/claude-code-on-the-web](https://code.claude.com/docs/en/claude-code-on-the-web),
-      which is the place to check if the screen has moved since
-      2026-09-11. Add one line per setting, substituting their own
+      which is the place to check if the screen has moved (last
+      verified 2026-09-11). Add one line per setting, substituting their own
       values:
 
       ```

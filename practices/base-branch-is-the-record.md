@@ -53,7 +53,7 @@ HEAD..origin/<base>` after a fetch answers "did anything land while I was
 working", and grepping the file on `origin/<base>` answers "is my change
 already there".
 
-**Search twice before concluding that no prior work exists**: once in the vocabulary of the mechanism (how the thing works) and once in the vocabulary of the purpose (why it was done). Then make your own output findable under both. (Absorbed from `search-by-purpose`, 2026-11-05; its check keeps that slug.)
+**Search twice before concluding that no prior work exists**: once in the vocabulary of the mechanism (how the thing works) and once in the vocabulary of the purpose (why it was done). Then make your own output findable under both. (Its check keeps the slug `search-by-purpose`.)
 
 ## Detail
 **The second read is the one that gets skipped**, and it is the cheaper of

@@ -138,12 +138,8 @@ whoever wrote it and however it was reached. Before a cause is written into a
 report, a brief or a research note, either measure it or mark it as a guess in
 the same sentence, and name the measurement that would settle it. A guess that
 later turns out wrong is corrected where it was published, saying that it was
-a guess.
-
-Seen 2026-11-19 in a dependent repo: three explanations written as fact, two
-in the project's main report and one in a research note, were each overturned
-within hours by a measurement nobody had made before writing them. One of the
-three was the reverse of the truth.
+a guess. An explanation written as fact without the measurement can be the
+reverse of the truth, and nothing on the page says so.
 
 ## Why
 **A guard's cause list is written from the author's imagination, and the
@@ -225,6 +221,8 @@ unmeasured diagnosis actually produces: not a wrong answer the reader can
 catch, but a confident one they cannot.
 
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 467 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds the three steps, the comparing-check trap and the ruled-out trap, in 221 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
+
+**2026-11-19, a cause you write yourself.** Behind the Detail's section of that name. Seen 2026-11-19 in a dependent repo: three explanations written as fact, two in the project's main report and one in a research note, were each overturned within hours by a measurement nobody had made before writing them. One of the three was the reverse of the truth.
 
 ## Install
 No mechanical check, and the reason is specific rather than a shrug:

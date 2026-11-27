@@ -51,9 +51,7 @@ decision the branch builds on, or moved a figure or design it relies on.
 Record the fork point before merging; afterwards the merge base is the trunk
 itself. The reply reports the outcome in one line.
 
-**In a repository on the Precedent loader, the runbook is this** (it was
-the AGENTS.md template's "Merging a thread branch" section until
-2026-10-31, and is kept here word for word in substance):
+**In a repository on the Precedent loader, the runbook is this:**
 
 0. **Capture gate -- before the merge, in the thread that did the work**
    ([capture-gate](capture-gate.md)): fold now any document update,

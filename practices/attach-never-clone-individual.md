@@ -89,19 +89,17 @@ and re-run the bootstrap, which links its path instead of cloning again.
 individual set for one the person brings. If that path already holds a
 working clone — `git -C <path> rev-parse HEAD` succeeds — use it; where the
 attach tool's reply names another path, link that path to it (`ln -s`)
-rather than following the reply's clone command (2026-10-17: a session
-cloned a brought set beside the repo while session start had it beside the
-individual set, and the two copies diverged). If not, clone it there, and do so even when the attach tool attached
+rather than following the reply's clone command, which makes a second copy
+that diverges from the one session start keeps. If not, clone it there, and do so even when the attach tool attached
 nothing, which is what it does for a public set. **The one exception is a
 deleted set** (listed in `tools/deleted_sets.json` or in your individual
 set's `deleted_sets`): it is never cloned, by session start or by hand, and
 Update Vendors removes it from `precedent.json`. Session start says so in a
-one-line note; it is not a missing source (2026-10-09, after a consumer's
-session read the old "did not resolve" message as a clone failure and cloned
-one by hand).
+one-line note; it is not a missing source, and not a clone failure to mend
+by hand.
 
 ### One spelling, no root
-**Measured 2026-10-31.** `add_repo` for `owner/SomeSet` answers
+**Verified 2026-10-31.** `add_repo` for `owner/SomeSet` answers
 `owner/someset added`, with a lowercase clone URL and a lowercase name for
 `register_repo_root`. The platform still treats the spellings as one
 repository: a second `add_repo` under the other spelling answers "already
@@ -112,15 +110,15 @@ what a session uses, and what Precedent writes
 ([`tools/precedent_repo_id.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_repo_id.py), whose `same_repo` is how every tool here
 compares two repository names).
 
-A consumer session that night was asked to approve one source twice. The
-two calls it made per source were `add_repo` and `register_repo_root`, so
+A session asked to approve one source twice is making two calls per
+source, `add_repo` and `register_repo_root`, so
 the likelier cause is two tools each confirming, not the spelling.
 `register_repo_root` exists to load a repository's own instructions,
 skills and plugins as a place to work; a practice source needs none of
 that, so skipping it costs nothing and saves a prompt.
 
 ### The permission rules in full
-**None of this stops for a permission prompt** (2026-10-27). The settings
+**None of this stops for a permission prompt.** The settings
 Precedent installs allow `add_repo`, `register_repo_root` and the clone
 command the attach tool's reply prescribes, for the GitHub owners of the
 sources declared here; Update Vendors and session start add them to an
@@ -193,6 +191,14 @@ had pushed.
 **2026-10-31: the Rule cut to what a session does, and the rest moved to Detail whole.** The review of the longest quarter of active Rules listed this one at 568 words. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). The Rule now holds when to attach, the one working tree, where a shared set lives, and the deleted-set exception, in 245 words (both counted with `wc -w` over the section). Every paragraph it held before moved whole into Detail, under a heading the Rule names. Nothing was deleted ([reduction-pass](reduction-pass.md), move 3).
 
 **2026-10-27, no attach when session start already cloned it.** Behind the Detail's "the session attaches nothing, until it has to push to the set": Morgan, 2026-10-27, strength: decided: "make sessions skip the attach when already cloned".
+
+**2026-10-09, a deleted set is not a missing source.** Behind the Detail's one-line note for a deleted set: a consumer's session read the old "did not resolve" message as a clone failure and cloned one by hand.
+
+**2026-10-17, link the path, never clone it again.** Behind the Detail's "link that path to it (`ln -s`) rather than following the reply's clone command": a session cloned a brought set beside the repo while session start had it beside the individual set, and the two copies diverged.
+
+**2026-10-27, no permission prompt.** The Detail's "None of this stops for a permission prompt", and the allow rules under it, carry this date.
+
+**2026-10-31, one spelling, no root.** The Detail's section of that name was measured that day. A consumer session that night was asked to approve one source twice. The two calls it made per source were `add_repo` and `register_repo_root`, which is why the Detail names two tools each confirming as the likelier cause.
 
 ## Install
 Nothing to install beyond the engine. The templates' own attach bullet

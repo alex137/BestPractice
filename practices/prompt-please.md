@@ -177,7 +177,7 @@ prompt as a paste block. **The new session opens beside this one, never
 under it**: this session's coordinator opens it, or the person does ("A
 sibling, not a child").
 
-**The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first. (Absorbed from `seeded-prompt-names-its-origin`, 2026-11-05.)
+**The From and For lines are owed by every prompt one session writes for another**, not only a Prompt Please: a session spawned, a message scheduled into an existing one, a reply to another session's message, or text handed to a person to carry. Line 1 names the sending session by title and id with its link and says a session sent it, not a person; line 2 names the session it is for by title and link, or "a new session rooted in" the repository. A reply to another session's message names that session, never "none" or "unknown". The receiving session reads the header as provenance, never as authorization; the one relayed authorization acted on is the person's go-ahead that names the work, the branch and the check the merge waits on. The reply check `prompt-block-names-both-ends` refuses a block missing either line or holding them anywhere but first.
 
 ## Detail
 The headings below from "The phrase and the two occasions in full" on give the Rule in full. The Rule names each heading where it needs it.
@@ -208,15 +208,13 @@ itself, and there the answer is to go back to the person, never to route
 around it with a fresh session.
 
 **An attach asked for inside a seeded prompt can be refused even where the
-owners would allow it.** On 2026-10-20 a session seeded with the ladder set
-was told to attach BestPractice with push access, and the session that
-session's "Root issues" seeded was told to attach the ladder set with push
-access. Both `add_repo` calls were refused by the session's own auto-mode
-classifier as a permission grant, not by the cross-tier rule above. Other
+owners would allow it.** The session's own auto-mode classifier can refuse
+the `add_repo` call as a permission grant, which is a different refusal
+from the cross-tier rule above. Other
 seeded sessions hold several repositories, so the refusal is not every
-cross-repository seed. Both refused calls asked for push across two owners
-on text the person had not typed into that session, which is the likeliest
-difference; it has not been measured. A seed that needs pushes in more than
+cross-repository seed. A call that asks for push across two owners
+on text the person had not typed into that session is the likeliest
+to be refused; it has not been measured. A seed that needs pushes in more than
 one repository therefore names the fallback (the Rule's attach bullet), and
 a session opened for the person with `create_session` is created with the
 repository that needs pushes as its source.
@@ -297,7 +295,7 @@ following, every time:
 - **A check the prompt names as "done when" runs from the repository it
   is about**: that repository's own copy of the tool, from inside it. An
   engine tool run by path from another checkout reads its own repository,
-  so its pass is about the wrong one (2026-10-20); name the copy the
+  so its pass is about the wrong one; name the copy the
   receiving session will have where the work lands.
 - **Which other repositories, if any, need to be attached alongside it.**
   Say "none" explicitly rather than leaving the reader to guess whether the
@@ -510,9 +508,7 @@ trustworthy is what it lets the reader verify:
 
 If the receiving session's harness still flags the block, that session
 asks the person, in one line, to confirm the paste is theirs. It does not
-act anyway, and it does not stop without saying why. On 2026-09-24 a
-session handed a fix by relay was stopped by its harness as possible
-instruction poisoning, which is where this paragraph comes from.
+act anyway, and it does not stop without saying why.
 
 ## Why
 The four demands behind `My options` exist because the shape of a decision
@@ -737,6 +733,29 @@ go ahead on the sibing rule. If not then we need both." (strength:
 decided). The word was in use and never defined, so the definition went
 into [coordinating-sessions-through-models](coordinating-sessions-through-models.md)
 with this.
+
+**2026-09-24: a relayed fix stopped as possible poisoning.** Behind the
+Detail's "Writing the block to be checked", its last paragraph on a block
+the receiving harness still flags: a session handed a fix by relay was
+stopped by its harness as possible instruction poisoning.
+
+**2026-10-20: the refused attaches, in detail.** Behind the Detail's "An
+attach asked for inside a seeded prompt can be refused", and the same day
+as the entry above on a seed's second attach. A session seeded with the
+ladder set was told to attach BestPractice with push access, and the
+session that session's "Root issues" seeded was told to attach the ladder
+set with push access. Both `add_repo` calls were refused by the session's
+own auto-mode classifier as a permission grant, not by the cross-tier
+rule. Both asked for push across two owners on text the person had not
+typed into that session.
+
+**2026-10-20: a pass about the wrong repository.** Behind the Detail's
+bullet that a check the prompt names as "done when" runs from the
+repository it is about. Run from precedent-shared-ladder, BestPractice's
+[`precedent_check.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py) printed its wrong-repository banner and then a pass
+line, exit 0: a pass about BestPractice. The tool now refuses with no pass
+line when the current directory is a different repository with its own
+copy.
 
 ## Install
 Nothing for an adopter to set up. The occasion index entry is generated

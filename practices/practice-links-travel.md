@@ -174,7 +174,7 @@ backticks. The one exception is a universal practice, linked on the
 universal source's declared `base_branch`. This is the shape a practice
 moved between sets is left carrying: its sibling links now point at files
 that stayed behind, and the obvious repair, a URL to where they stayed,
-published a private set's name from a public one on 2026-09-23.
+publishes a private set's name when the practice sits in a public one.
 
 ## Why
 The catalogue is written in one repository and read in all of them, and
@@ -321,6 +321,15 @@ unconditionally. Verified both directions against a scratch copy of
 `precedent-individual`: the unpatched check reports the link clean, the
 patched one reports it — the same real link, the same real repository,
 nothing else changed.
+
+**A practice moved between sets, 2026-09-23.** Behind the Detail's "A
+practice in another set". A practice moved between sets kept its sibling
+links, and the siblings that stayed behind turned those into dead links. The
+check's advice for a dead link was to link it as an absolute URL, so the
+session repairing it pointed the URL at the set the practice really lives
+in. That published a private individual set's name from a public shared
+set, and it went unseen for a day. A bare `<name>.md` with no such sibling
+now gets its own finding, whose advice carries no URL.
 
 **The check read a consumer's repo-local practices as published, found
 2026-09-27.** A private consuming repository took a vendor update and its full

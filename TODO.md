@@ -18,7 +18,7 @@ as a new `todo/todo-<date>-<slug>.md` file, per
 [spec/OPEN_ITEM_AND_GOTCHA_PLAN.md](spec/OPEN_ITEM_AND_GOTCHA_PLAN.md)'s Part
 1.
 
-Migrated 2026-09-16, 105 items into [todo/](todo/) and 77 gotchas into
+The open items are in [todo/](todo/) and the gotchas in
 [gotchas/](gotchas/) (from [record/GOTCHAS.md](record/GOTCHAS.md) and
 [record/GOTCHAS_ARCHIVE.md](record/GOTCHAS_ARCHIVE.md), both unchanged —
 they then held the full gotcha story text
@@ -33,7 +33,7 @@ before; a real change to AGENTS.md's generation pipeline and its token
 budget, deliberately deferred rather than rushed. **Since done:**
 AGENTS.md now carries only a pointer and a grep instruction, and the
 one-line index is the generated [gotchas/INDEX.md](gotchas/INDEX.md),
-rebuilt by `python3 tools/build_gotcha_index.py`. On 2026-10-17
-[record/GOTCHAS.md](record/GOTCHAS.md) stopped being a live copy (its
+rebuilt by `python3 tools/build_gotcha_index.py`.
+[record/GOTCHAS.md](record/GOTCHAS.md) is not a live copy (its
 header names [gotchas/INDEX.md](gotchas/INDEX.md) as its successor): each
 entry's own file under [gotchas/](gotchas/) is the one kept current.

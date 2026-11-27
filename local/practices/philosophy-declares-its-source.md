@@ -26,7 +26,7 @@ it was written here.
          <origin document>, version <N>. -->
 
 **This is a historical record, not a sync pointer.** These essays have no
-upstream: the notebook they were written in was retired on 2026-09-07 and
+upstream: the notebook they were written in is retired and
 this directory is the only copy. Edit the files directly. Never delete the
 line to make text look native to this repository when it was not.
 

@@ -56,10 +56,7 @@ a prose line: `disposition: parked` / `wait` / `ask`, not a
 `**Disposition:**` sentence inside the body. A park keeps the body line as
 well, because the frontmatter cannot say who said "Drop it" or when;
 [`tools/todo_disposition.py`](https://github.com/alex137/BestPractice/blob/staging/tools/todo_disposition.py) `park` writes the
-two together, and where both exist the frontmatter is the one that counts. Widened here, 2026-09-18, once
-`applies_to` covered `todo/todo-*.md` too — before that, a repo running the
-per-item format had no channel telling it this rule still applied to its
-items at all.
+two together, and where both exist the frontmatter is the one that counts.
 
 ## Why
 Capture and salience were travelling on one channel. A repository that
@@ -105,6 +102,11 @@ and set aside. The question in question was genuinely undecided and
 genuinely minor, and he had no pattern yet to turn into a rule — so every
 session, arriving fresh, correctly found an open decision blocked on him and
 correctly raised it.
+
+2026-09-18: the Detail's paragraph on the per-item `todo/todo-<date>-<slug>.md`
+format was added once `applies_to` covered `todo/todo-*.md` too. Before
+that, a repo running the per-item format had no channel telling it this rule
+still applied to its items at all.
 
 ## Install
 Write the disposition line into the item itself, in the format above.

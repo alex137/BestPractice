@@ -99,9 +99,7 @@ loud, not one:
    first. **A format rule that tightens names every file it binds, a
    consumer's own repo-local practices included, not only the sets'**:
    tidying the sets is not the rollout when consumers hold practice files
-   of their own. Reported 2026-10-06: the 2026-10-05 field-order check
-   was made hard after the sets were tidied, and 23 of one consumer's
-   repo-local practices failed on its next update.
+   of their own.
 4. **Has a new or changed check run in a consuming repo that received
    other sources' files?** A consumer holds practices and checks its sets
    wrote, and the vendored engine, and a check can judge those copies
@@ -196,6 +194,12 @@ strength: decided).
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 728 words; it now holds the five questions, each with what a session must do, in 304 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under "The five questions in full"; nothing was deleted, and the questions keep their numbers, which tools cite. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
 
 **2026-09-30: the machinery ships, this project's own records do not.** Behind question 5's "Ship the machinery, never this project's own records", that a consumer gets the tools that keep an open-items list and a news log and never our todo items or our What's New: Morgan, 2026-09-30, the day of the fifth question above.
+
+**2026-10-06: a tightened format rule and a consumer's own practices.**
+Behind question 3's "A format rule that tightens names every file it binds".
+Reported that day: the 2026-10-05 field-order check was made hard after the
+sets were tidied, and 23 of one consumer's repo-local practices failed on
+its next update.
 
 ## Install
 No mechanical check, and this is a considered gap, not the first

@@ -240,7 +240,7 @@ Three things the report must not get wrong, each of which fails silently:
    A branch work no longer moves through is
    not one of them: one a person has stopped landing on is offered once it
    holds nothing the branch they land on now lacks, never before
-   (`precedent_branches.never_offered`, 2026-10-09).
+   (`precedent_branches.never_offered`).
 
 ## Why
 **A name is not an affordance.** A list of thirty branch names is a list of
@@ -348,6 +348,8 @@ list of branches to delete: the branch cleanup page carries them.
 **2026-09-28, never a long-lived branch.** The Detail's fourth item, that `main`, any other long-lived branch and any lock branch are never offered for deletion: Morgan, 2026-09-28 (strength: decided).
 
 **2026-10-16, the list stays beside the delete-all button.** Behind the Detail's "an addition, never a replacement": Morgan, 2026-10-16: "it should ALSO keep the list as it is now", strength: decided.
+
+**2026-10-09, a branch work no longer moves through.** The Detail's fourth item gained its last sentence, and `precedent_branches.never_offered` the behaviour it describes, that day: a branch a person has stopped landing on is offered once it holds nothing the branch they land on now lacks.
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:

@@ -143,8 +143,8 @@ natural end of a reply:**
    another session included**. Read every notification waiting for this
    session first (`ReadNotifications` in Claude Code) and act on each one;
    one still waiting holds the archive. A session archiving itself is the
-   case this catches: on 2026-10-28 a worker archived itself while its
-   parent's message sat unread, and that task was lost.
+   case this catches: a worker that archives itself while its parent's
+   message sits unread loses that task.
 3. No Routine is bound to this session (`list_triggers`).
 4. Nothing from the conversation lives only in the chat. Re-read the
    whole conversation, the summary of any compacted part included, and
@@ -183,7 +183,7 @@ in; push or merge it first, or delete or give up (`--discard`) what is
 meant to be lost, silently ([the-boildown](the-boildown.md)). A
 reply that says the archive sentence with the container unsafe is refused by
 the reply gate ([the-boildown](the-boildown.md)'s
-`require_container_safe_if_says`), which is the 2026-09-22 amendment below.
+`require_container_safe_if_says`).
 
 ### When something is outstanding
 
@@ -230,6 +230,10 @@ skip-the-check behavior it used to carry is gone.
 **2026-10-19, the standing test and the plan condition.** The words the Detail quotes under "The standing test" are Morgan's, 2026-10-19 (strength: decided). Condition 5, the plan that still has a step left, is his of the same day (the-boildown's blocker 5, Morgan, 2026-10-19).
 
 **2026-11-11, condition 6.** Behind the Detail's sixth condition, the branch that is not on the landing branch yet: Morgan, 2026-11-11 (strength: decided): *"If you have done work on a branch and it is not yet on staging, then I can NOT [archive] it because that branch's work would be lost!!!!"*
+
+**2026-09-22, the whole container.** Behind the Detail's "Unpushed work anywhere in the container fails condition 1 outright", and the reply gate's `require_container_safe_if_says` beside it: Morgan restated condition 1 as the whole container rather than this session's own work, after a reply cleared its own eight commits and left six unpushed in a source clone: "only say you can archive this when nothing in the container that we want to keep will be lost and I have pushed or merged everything we need to" (strength: decided).
+
+**2026-10-28, the unread message.** Behind the Detail's second condition, "a message from another session included": on 2026-10-28 a worker archived itself while its parent's message sat unread, and that task was lost. Morgan's Root issues run of that day found it, and the condition has read the waiting notifications first since 2026-10-29.
 
 ## Install
 `get_session` to resolve this session's own ID, `list_triggers` for a

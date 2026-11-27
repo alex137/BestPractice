@@ -1,5 +1,3 @@
-<!-- Last updated: 2026-10-17 (Buenos Aires), saying precedent.json starts with two libraries, the general one and the project's own -->
-
 # Precedent
 
 *This is written for someone who has not seen Precedent before and wants to

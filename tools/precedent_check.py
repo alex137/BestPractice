@@ -4663,6 +4663,79 @@ def _record_stamps(root):
                 scan(f.relative_to(root).as_posix(), text)
     found.extend(_record_stamps_printed(root))
     found.extend(_record_stamps_documents(root))
+    found.extend(_record_bare_dates(root))
+    return found
+
+
+# A date standing on its own in an instruction is nearly always the record:
+# "(2026-10-20)" after a sentence, "first run, 2026-09-21: ...", "measured
+# 2026-09-26". The date that IS content says what kind it is, and those
+# forms pass: a fact about the outside world carries "as of" or "verified"
+# (practice: volatile-rules-carry-dates), a cutoff carries "before", "after"
+# or "from", an example of a format sits in a code span or a fence, and a
+# file name or a link target may hold any date.
+_BARE_DATE_RE = re.compile(
+    r'(?<![\w/-])20\d\d-\d\d-\d\d(?![\w-]*\.(?:md|json|docx|py))')
+_BARE_DATE_HINT = (' on its own (an outside fact carries its date as "as of" '
+                   'or "verified", a cutoff as "before", "after" or "from", '
+                   'an example sits in a code span)')
+
+
+def _without_dated_content(text):
+    """`text` with every place a date is content blanked, line count kept."""
+    text = re.sub(r'```.*?```', lambda m: '\n' * m.group(0).count('\n'),
+                  text, flags=re.S)
+    text = re.sub(r'\]\([^)\n]*\)', '](L)', text)
+    text = re.sub(r'`[^`\n]*`', '`C`', text)
+    text = re.sub(r'[\w./-]*20\d\d-\d\d-\d\d-[\w./-]+', 'F', text)
+    return re.sub(r'(?i)\b(?:as of|verified|before|after|from)\s+'
+                  r'20\d\d-\d\d-\d\d', 'K', text)
+
+
+def _record_bare_dates(root):
+    """-> [(rel, line number, the date and a hint)] for every date standing
+    on its own in an active practice's `## Rule` or `## Detail`, or in a
+    Markdown document at the root or under documentation/. The documents
+    passed over are the ones _record_stamps_documents passes over; a
+    document's front matter is not read."""
+    found = []
+    for d in ('practices', 'local/practices'):
+        for f in sorted((root / d).glob('*.md')) if (root / d).is_dir() else ():
+            text = f.read_text(encoding='utf-8', errors='ignore')
+            if not re.search(r'^status:\s*"?active', text, re.M):
+                continue
+            for name in ('Rule', 'Detail'):
+                m = re.search(r'^## %s\s*$(.*?)(?=^## |\Z)' % name, text,
+                              re.S | re.M)
+                if not m:
+                    continue
+                first = text[:m.start(1)].count('\n') + 1
+                for n, line in enumerate(
+                        _without_dated_content(m.group(1)).split('\n'), first):
+                    for hit in _BARE_DATE_RE.finditer(line):
+                        found.append((f'{d}/{f.name}', n,
+                                      hit.group(0) + _BARE_DATE_HINT))
+    docs = sorted(root.glob('*.md'))
+    if (root / 'documentation').is_dir():
+        docs += sorted((root / 'documentation').rglob('*.md'))
+    for f in docs:
+        # The What's New log is a dated log by its own practice (whats-new):
+        # every entry opens with its day.
+        if not f.is_file() or f.name == 'WHATS_NEW.md':
+            continue
+        text = f.read_text(encoding='utf-8', errors='ignore')
+        head = text[:2048]
+        if '<!--record-doc-->' in head or re.search(
+                r'\A---\n(?:.*\n)*?generated_by:', head):
+            continue
+        fm = re.match(r'\A---\n.*?\n---\n', text, re.S)
+        if fm:
+            text = '\n' * fm.group(0).count('\n') + text[fm.end():]
+        rel = f.relative_to(root).as_posix()
+        for n, line in enumerate(_without_dated_content(
+                generated_blocks.blank(text)).split('\n'), 1):
+            for hit in _BARE_DATE_RE.finditer(line):
+                found.append((rel, n, hit.group(0) + _BARE_DATE_HINT))
     return found
 
 
@@ -4801,7 +4874,8 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        'can print and every reason in reply_check.json carry no "Name, '
        'date" stamp, no "(strength: ...)" marker and no dated history '
        'opener beyond the count precedent.json records for that file from '
-       'before the rule',
+       'before the rule; and a practice\'s Rule and Detail and those '
+       'documents carry no date standing on its own',
        'a name with no date beside it, history told without a date, a '
        'lower-case "as of <date>" (how an outside-world fact carries its '
        'date) or "before <date>" (usually a cutoff), a template that '

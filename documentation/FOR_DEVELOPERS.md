@@ -119,9 +119,8 @@ misleading about its *difficulty*. These are the places real installs have
 gone wrong; each one fails quietly, which is why they are worth naming
 here rather than leaving to be discovered at the link.
 
-- **The harness hooks are not four judgment calls.** A real install
-  (2026-09-07) treated them as four and declined all four; three of those
-  calls were right and one was wrong.
+- **The harness hooks are not four judgment calls.** Some are always
+  wired, and declining one of those is a mistake.
   [INSTALL.md §1 step 2](../INSTALL.md#1-install-into-a-dependent-repo)
   carries a table saying which is which. `commit-identity.sh` in
   particular names nobody and pins nothing — **declining it is what leaves
