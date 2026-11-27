@@ -4103,11 +4103,12 @@ def _remove_retired_ci_workflow_files(dest_root, manifest, kind=None):
 # refresh deletion: a consumer's materialized practices/ names every retired
 # workflow by design, so that refusal would fire every time and delete
 # nothing. The references are reported instead.
+# Retired 2026-09-24 (Morgan: "this needs to be deleted from ALL installs").
+# Its schedule came off 2026-09-14.
 LEGACY_REASON_UPSTREAM_SYNC = (
-    'the pre-Precedent scheduled upstream sync, retired 2026-09-24 (Morgan: '
-    '"this needs to be deleted from ALL installs"). Its schedule came off '
-    '2026-09-14 and "Update Vendors" replaced it; the manual trigger it kept '
-    'ran a job nothing uses')
+    'the pre-Precedent scheduled upstream sync, which is retired: "Update '
+    'Vendors" replaced it, and the manual trigger it kept ran a job nothing '
+    'uses')
 LEGACY_REASON_DOCS = (
     'the Markdown-lint workflow, retired 2026-09-21 -- doc_lint.py already '
     'gates every commit as the light check (spec/BILLING_FLOOR.md)')
@@ -6191,6 +6192,7 @@ def _rev_text(repo_dir, *args):
 # under the standing rule rather than on the person's answer to a close call
 # (repin_kept_section's by_rule; vendor-update-runbook, "Upstream's version
 # is the default").
+# record-not-instruction: the record -- the decision a kept entry records.
 STANDING_KEEP_RULE = ('standing rule, Morgan 2026-10-14 (decided): "the '
                       'default action you take is to always take the upstream '
                       'version and keep only what is unique or necessary or '
@@ -6720,6 +6722,7 @@ def _record_kept_workflow_todo(dest_root, rel, lost, verb):
         return None       # no trustworthy date; the banner still says it
     slug = f'todo-{day}-{tail}'
     done = 'replaced' if verb == 'replacing' else 'removed'
+    # record-not-instruction: the record -- the item's Story.
     body = f"""---
 slug:              {slug}
 kind:              manual
@@ -8513,6 +8516,7 @@ def _apply_retired_agents_md(dest_root, plan):
                                   encoding='utf-8')
             else:
                 target.parent.mkdir(parents=True, exist_ok=True)
+                # record-not-instruction: the record -- an approval line.
                 target.write_text(
                     '---\n'
                     f'slug:        {slug}-in-this-repo\n'

@@ -2977,6 +2977,58 @@ def check_precedent_check_fires():
                  '# Template\n\nMerge without waiting (Somebody, 2026-01-15).\n',
                  encoding='utf-8'))
 
+        # ...and a message a tool prints is an instruction too. Three trees:
+        # a stamp in a string a tool prints fails; so does one in a reason
+        # reply_check.json holds; and the same stamp in a comment, a
+        # docstring, a string marked as the record, and an underscore key
+        # passes, so the scan is shown to read what is printed and nothing
+        # beside it (practice: control-asserts-which-failure).
+        if _selected is None or 'record-not-instruction' in _selected:
+            _stamp = '(Somebody, 2026-01-15)'
+            _rp = fresh('record-not-instruction-printed')
+            (_rp / 'tools' / 'planted_printer.py').write_text(
+                f'print("Merge without waiting {_stamp}.")\n',
+                encoding='utf-8')
+            _rc_rp, _out_rp = run(_rp, 'record-not-instruction')
+            cases.append(('record-not-instruction: a stamp in a string a '
+                          'tool prints fails, and the finding names the tool',
+                          _rc_rp != 0
+                          and 'tools/planted_printer.py' in _out_rp))
+            shutil.rmtree(_rp, ignore_errors=True)
+
+            _rj = fresh('record-not-instruction-reason')
+            _rules = json.loads((_rj / 'reply_check.json').read_text(
+                encoding='utf-8'))
+            _rules[0]['why'] = f'A heading survives skimming {_stamp}.'
+            (_rj / 'reply_check.json').write_text(
+                json.dumps(_rules, indent=2), encoding='utf-8')
+            _rc_rj, _out_rj = run(_rj, 'record-not-instruction')
+            cases.append(('record-not-instruction: a stamp in a reason '
+                          'reply_check.json prints in a refusal fails',
+                          _rc_rj != 0 and 'reply_check.json' in _out_rj))
+            shutil.rmtree(_rj, ignore_errors=True)
+
+            _rk = fresh('record-not-instruction-kept')
+            (_rk / 'tools' / 'planted_record.py').write_text(
+                f'"""A docstring may say who decided {_stamp}."""\n'
+                f'# So may a comment {_stamp}.\n'
+                f'# record-not-instruction: the record -- an approval line.\n'
+                f'APPROVED_BY = "Somebody, 2026-01-15: yes"\n'
+                f'PAGE = """<script>\n// kept {_stamp}\n</script>"""\n',
+                encoding='utf-8')
+            _rules = json.loads((_rk / 'reply_check.json').read_text(
+                encoding='utf-8'))
+            _rules[0]['_story'] = f'Asked for {_stamp}.'
+            (_rk / 'reply_check.json').write_text(
+                json.dumps(_rules, indent=2), encoding='utf-8')
+            _rc_rk, _out_rk = run(_rk, 'record-not-instruction')
+            cases.append(('record-not-instruction: the same stamp in a '
+                          'docstring, a comment, a string marked as the '
+                          'record, a comment in emitted code and an '
+                          'underscore key does NOT fail',
+                          _rc_rk == 0 and 'VIOLATION' not in _out_rk))
+            shutil.rmtree(_rk, ignore_errors=True)
+
         # index-remembers-past -- inline lineage language in a document
         case('index-remembers-past',
              lambda repo: (repo / 'planted-lineage.md').write_text(
