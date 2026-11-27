@@ -4684,9 +4684,18 @@ def check_sync_views_cross_source():
                       'uni-fixture' in agents_text and 'team-fixture' in agents_text))
         # The individual set is not in a private consumer's tracked block
         # (2026-10-19): it reaches its person through the session file.
-        cases.append(('the resident-count-by-level header counts only the '
-                      'RESIDENT practices, of the three the block carries',
-                      '2 of 3 practices (1 shared, 1 universal)' in agents_text))
+        # The heading carries no counts (practice: record-not-instruction),
+        # so the property is read off the block: under a bare heading, the
+        # two resident practices and nothing else of the three it carries.
+        _res = re.search(r'^## Resident block[ \t]*$(.*?)(?=^## |\Z)',
+                         agents_text, re.S | re.M)
+        _res_slugs = sorted(re.findall(r'^\*\*([a-z0-9-]+)\.\*\* ',
+                                       _res.group(1), re.M)) if _res else None
+        cases.append(('under a heading with no counts, the resident block '
+                      'holds only the RESIDENT practices, of the three the '
+                      'block carries',
+                      _res_slugs == ['team-fixture', 'uni-fixture'],
+                      f'resident section holds {_res_slugs}'))
         cases.append(('the occasion index reaches the on-demand repo-local '
                       'practice, and not the individual one',
                       'local-fixture' in agents_text and '  ind-fixture \u2014' not in agents_text))
