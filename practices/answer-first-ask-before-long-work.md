@@ -201,6 +201,20 @@ DON'T LOSE OR WASTE TIME. Make that change enforcement stronger
 perhaps"*. The session proposed the gate, he said *"yes to both, and
 booked"*, and it was built the same day.
 
+**2026-10-07, the clock time.** Behind the Detail's "Why a clock time, and
+whose": S. Alexander Jacobson, 2026-10-07 (strength: decided): "let's also
+make a practice of reporting a future time not just a duration estimate".
+
+**2026-10-13, the example's zone.** Behind the Detail's "never the zone of
+an example": until 2026-10-13 this Rule's example named New York, and a
+session working for someone in Buenos Aires gave its times in New York's
+for two days, reading the clock by hand in the example's zone.
+
+**What the Detail used to say about its own history.** The phrase "never a
+bare 'still running'" was in the Rule until 2026-10-14 and moved to the
+Detail when part 1 widened. The examples of a long task were in the Rule
+until 2026-09-21, the compression told above.
+
 ## Install
 Adopt the rule in the working-conventions file and name the cost-line
 convention it depends on (every heavy tool prints its estimated duration

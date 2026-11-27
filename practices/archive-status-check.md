@@ -104,7 +104,7 @@ would have surfaced anyway. Answering only the three mechanical conditions
 and staying silent on a live recommendation technically passes the check
 and still leaves the person exactly as much in the dark as before.
 
-Everything under the headings below from "The phrase in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The phrase in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The phrase in full
 
@@ -119,7 +119,7 @@ both spellings resolve to this one rule.
 
 ### The standing test
 
-**The standing test, in Morgan's words** (2026-10-19, strength: decided):
+**The standing test, in the person's words:**
 *"if a session has nothing else pending, nothing that wasn't pushed to
 [the landing branch], nothing on in the temporary files that's needed, and the plan is
 being continued in another session, or I said that I don't want to
@@ -159,16 +159,14 @@ natural end of a reply:**
    holds the session open until every step is done, or until the person
    says in their own words that they are finishing it early, or until it
    is handed to another session confirmed running with it; name the plan
-   and what is left, in plain words (the-boildown's blocker 5, Morgan,
-   2026-10-19).
+   and what is left, in plain words (the-boildown's blocker 5).
 6. Nothing this session committed sits on a branch that is not on its
    landing branch yet, pushed or not -- the-boildown's blocker 6. The
    scanner in condition 1 calls a pushed branch safe, and it is, from the
    container going away; it is not landed, and nobody lands the branch of
    an archived session. Say where it is and recommend landing it, or name it
-   as meant to be dropped. Morgan, 2026-11-11 (strength: decided): *"If
-   you have done work on a branch and it is not yet on staging, then I can
-   NOT [archive] it because that branch's work would be lost!!!!"*
+   as meant to be dropped: a branch that is not on the landing branch
+   cannot be archived over, because its work would be lost.
 
 ### Archiving, and the scanner's answer
 
@@ -228,6 +226,10 @@ outright, because the word itself is still wanted -- only the
 skip-the-check behavior it used to carry is gone.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 707 words; it now holds the trigger, the five conditions and the two outcomes, in 322 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names, Morgan's standing test included; nothing was deleted. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-10-19, the standing test and the plan condition.** The words the Detail quotes under "The standing test" are Morgan's, 2026-10-19 (strength: decided). Condition 5, the plan that still has a step left, is his of the same day (the-boildown's blocker 5, Morgan, 2026-10-19).
+
+**2026-11-11, condition 6.** Behind the Detail's sixth condition, the branch that is not on the landing branch yet: Morgan, 2026-11-11 (strength: decided): *"If you have done work on a branch and it is not yet on staging, then I can NOT [archive] it because that branch's work would be lost!!!!"*
 
 ## Install
 `get_session` to resolve this session's own ID, `list_triggers` for a
