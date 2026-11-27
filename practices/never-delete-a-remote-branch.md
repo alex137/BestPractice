@@ -46,7 +46,7 @@ tool the all-public button calls, and never publishes a page that calls it
 on load.
 
 **Instead, leave it to the branch cleanup page and say nothing of it.**
-Since 2026-10-30 a reply names no branch as deletable; the page lists
+A reply names no branch as deletable; the page lists
 every one, linked in the closing reply where the person's set provides
 one (the-boildown item 6). Only when the person asks which branches can go
 does a reply name them, each with its one-click link

@@ -34,9 +34,7 @@ technical at all**.
 no short form like CI or PR, no "commit", "merge", "repository", "branch",
 "test suite" or "job". The lists in this practice and in the reply gate are
 examples, never the edge: if the person would have to look a word up, say
-it another way (Morgan, 2026-10-13, strength: decided: "we should never
-use phrases like \"CI\" to non-code-owners. Non-code-owners should never
-get technical language.").
+it another way.
 
 To them, a reply says what happened to *their* work, in everyday words: it
 is saved, it is shared, it is waiting for someone, or something needs their
@@ -110,6 +108,8 @@ would have.
 **2026-10-17: "code owner" is defined in the Rule.** The term had no
 glossary entry; the Rule now says what one is, and `defines:` lists it. The
 wording was chosen by the session under Morgan's delegation of 2026-10-17: "Fix the other issues you found including the checks that never run. Tell me what you decide. I will be offline so don't wait for me. Approved, act, and Booked."
+
+**Moved out of the Rule on 2026-11-27, word for word.** That the lists are examples and never the edge rests on Morgan, 2026-10-13, strength: decided: "we should never use phrases like \"CI\" to non-code-owners. Non-code-owners should never get technical language."
 
 ## Install
 Nothing to install: the reply gate carries the rule to every session, and

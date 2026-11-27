@@ -126,7 +126,7 @@ strength:    decided
 
 When all four hold, add, in order:
 
-6. **Retired 2026-10-30: no branches to delete.** The number stays; the branch cleanup page carries them.
+6. **Retired: no branches to delete.** The number stays; the branch cleanup page carries them.
 7. **Other sessions on the same issue**, live and on this thread's subject: "Other relevant sessions to keep an eye on:", each linked. Omit when there are none.
 8. **Sessions this one spawned**, each linked. Omit when there are none.
 9. **At most one `Process idea:` and one `Content idea:`**, each one sentence, looked for in this session's work and the repository's last two weeks of commits; a kind that found nothing says where you looked. Only in the reply that says "You can archive this session." ("Items 6 to 11 in full" has the test for each kind.)
@@ -156,7 +156,7 @@ reply (the-boildown)"* -- in its occasion, gate note, tool text and Rule,
 and never quotes the archive sentence or describes the closing reply in its
 own words; a Rule sentence may explain the moment only beside its name. Named, it follows a change here with no edit of its own; restated, it
 keeps the old moment and breaks without a sound, as two did in two days
-(Story, 2026-10-20). `python3 tools/precedent_check.py --only
+(the Story has it, under 2026-10-20). `python3 tools/precedent_check.py --only
 boildown-moments-named` refuses a restatement in this tree, in any source
 that runs this engine's checks.
 
