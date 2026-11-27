@@ -66,7 +66,7 @@ The three shapes this actually takes:
   by that branch's own checks rather than a second reviewer. Say so
   explicitly rather than letting "landed" read as "done."
 
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives part of the Rule in full. The Rule names each one where it needs it.
 
 ### Deciding and stating the level, in full
 **Say WHY that level, in one clause, and decide it rather than asking.**
@@ -82,9 +82,8 @@ text by then, and a wrong level is one file move away
 **A level stated without its reason cannot be disagreed with**, which is the
 whole point of stating it. *"Universal, because nothing in it is specific to
 this project"* can be argued with; *"landed in universal"* can only be
-accepted. Morgan, 2026-09-08, describing what he wanted from this: *"you
-should make a guess (based on the type of content, and the user's permission
-levels), and TELL THE SESSION USER, and then do it."*
+accepted. The session makes a guess, based on the type of content and the
+user's permission levels, tells the person, and then does it.
 
 **Permissions are part of the guess, not an obstacle to it.** A practice
 that belongs in a shared set the session cannot reach still gets named as
@@ -120,6 +119,8 @@ scanning a repo's tree — only by the tool that generates the sentence in
 the first place, every time it runs.
 
 **2026-10-31: the Rule cut to what a session must do, and the rest moved to Detail whole.** Reviewing the longest quarter of each repository's Rules that day, a session found this one at 328 words, carrying reasons, measurements or quotes beside what a session must do; it now holds 224 (both counted with `wc -w` over the Rule section). Morgan, after the four cuts of 2026-10-30: Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md). Every Rule paragraph that changed moved word for word into Detail, under the headings ending "in full" that the Rule names; nothing was deleted ([reduction-pass](reduction-pass.md)).
+
+**2026-09-08, guess the level, say it, do it.** Behind the Detail's "A level stated without its reason cannot be disagreed with": Morgan, 2026-09-08, describing what he wanted from this: *"you should make a guess (based on the type of content, and the user's permission levels), and TELL THE SESSION USER, and then do it."*
 
 ## Install
 `tools/precedent_land.py` and `tools/precedent_candidate.py` print the

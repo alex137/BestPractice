@@ -73,11 +73,11 @@ tool call, not more times *before* it, closes the gap.
 source can resolve successfully in one session and still fail to resolve
 in a later one (a genuinely unreachable individual repo, say). In a
 consumer repo where `practices/` is a
-`tools/precedent_materialize.py`-produced snapshot, a clean Rule printout
-from `tools/precedent_show.py` proves only that a past materialize run
+[`tools/precedent_materialize.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py)-produced snapshot, a clean Rule printout
+from [`tools/precedent_show.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_show.py) proves only that a past materialize run
 once worked, never that the source is working this session: "resolved
 fresh, source confirmed live" and "reading old materialized bytes, source
-status unknown this session" look the same. So `precedent_show.py` checks
+status unknown this session" look the same. So the tool checks
 the state actually wanted, not the read that succeeded
 ([verify-postcondition](verify-postcondition.md)): it probes
 whether a materialized slug's own declared source is still reachable and
@@ -191,13 +191,13 @@ repairing git state.
 matching gap on the *read* side**, the Detail's read-side paragraph. The
 self-heal meant a source could now resolve successfully in one session and
 still fail to resolve in a later one (a genuinely unreachable individual
-repo, say), and `tools/precedent_show.py`, in a consumer repo where
-`practices/` is a `tools/precedent_materialize.py`-produced snapshot, had
+repo, say), and [`tools/precedent_show.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_show.py), in a consumer repo where
+`practices/` is a [`tools/precedent_materialize.py`](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_materialize.py)-produced snapshot, had
 no way to tell a caller "resolved fresh, source confirmed live" from
 "reading old materialized bytes, source status unknown this session." A
 clean Rule printout read as proof the source was working, when it only
 proved a past materialize run had once worked. Fixed the same way as the
-write side, by having `precedent_show.py` probe whether a materialized
+write side, by having the tool probe whether a materialized
 slug's own declared source is still reachable and say so when it isn't.
 
 **The third variant, found 2026-09-18, working across this repo and two

@@ -1825,10 +1825,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   record alone. Treat an item that is really just an unfixed bug as work,
   not as backlog -- [todo-is-a-handoff](todo-is-a-handoff.md) queues only what
   is blocked or out of scope, so anything else there is either doable now or
-  should be closed. Morgan, 2026-09-28 (strength: decided): *"review all to
-  do's and see if any are outdated ... close them ... and then also to do the
-  same with all the gotchas ... for both of these, the to-dos and the gotchas,
-  should be both in the doc and ask the session user."*
+  should be closed.
 - **Automated actions and schedules — crons, scheduled workflows, session
   triggers — across every repo and account in force.** Nothing else here
   sweeps these: a `schedule:` trigger in a `.github/workflows/*.yml`, an
@@ -1971,8 +1968,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   That kept the deletion safe and made the list wrong: **the branches that
   accumulate longest are exactly the ones nobody in the room opened**, so
   the sweep reported a short clean list while the branch page grew every
-  month (Morgan, 2026-09-12: *"find stale branches, even if worked on by
-  someone else"*). Listing is not deleting — someone else's branch gets a
+  month. Listing is not deleting — someone else's branch gets a
   verdict routed to them by name, never a silent skip and never a deletion
   on their behalf.
 
@@ -2074,9 +2070,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   `session_window_days` in the repo's own
   [precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json),
   `--session-days N` for one run, and a conservative default where a repo
-  has declared nothing. *(Asked by Morgan, 2026-09-12: "do a sweep of live
-  sessions against the repo to see if there's anything recent being
-  missed." Nothing else in this check can see it — every other part reads
+  has declared nothing. *(Nothing else in this check can see it — every other part reads
   the repository against itself, and this is the failure where the
   repository is internally perfect and the work never arrived in it.)*
 
@@ -2107,10 +2101,9 @@ Last because none of it strands an adopter, and none of it is cheap.
   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)'s
   run record, with its reason.
 
-  **A repo that also keeps a carry watermark reads both.** This one did
-  until 2026-09-27, when its upstream-carry notice was retired, and the
+  **A repo that also keeps a carry watermark reads both.** This one keeps none: the
   drift check in [tools/precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)
-  answers by files what the watermark answered by commits. A watermark
+  answers by files what a watermark answers by commits. A watermark
   answers "has the base moved since somebody last carried from it"; this
   answers "what, specifically, has never come across", which is the thing
   a person can decide about. The first can read *current* while the second
@@ -2147,9 +2140,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   person will catch.
 
 ### The Rule's points in full
-Everything under the headings below was the Rule's own text until
-2026-10-31, moved here whole when the Rule was cut to what a session must do
-when asked for a very deep check (Story, 2026-10-31). The Rule names each
+The headings below give the Rule's points in full. The Rule names each
 heading where it needs it.
 
 #### What the tool enumerates, and why it is never a gate
@@ -2252,11 +2243,7 @@ lands on. **Where that branch is not `main`, reading `main` alone would
 re-find what is already fixed and not live yet**, so the tool's
 `LIVE VERSUS LANDING` section names, per repo, the files the landing
 branch carries that are not live yet; before fixing a finding in one of
-them, check whether the landing branch already did. Morgan, 2026-09-28
-(strength: decided): *"it's better to do a deep check on the live version
-(main), but we don't want to edit it, to edit it we should use the normal
-process."* Until then a run read whatever the harness checked out, which
-was not the same branch in every repo the same afternoon.
+them, check whether the landing branch already did.
 
 #### The upstream question
 **Run in a repo that has an upstream -- a consumer, or a practice set --
@@ -2271,8 +2258,7 @@ findings that belong upstream are collected into one
 under `## Upstream findings` and given in the reply. Then the person is asked
 whether to put band-aids in place here until the upstream fix lands, and
 the session does what they say. The tool's `UPSTREAM` section prints the
-upstream, the scope and the steps; Detail has the full procedure (Morgan,
-2026-10-11, strength: decided).
+upstream, the scope and the steps; Detail has the full procedure.
 
 #### Can this session land work in each repo
 **Every repo in force is also probed for whether THIS session can land work
@@ -2303,18 +2289,16 @@ and should the branch go. Lints, checks and fixes (the FIX SWEEP included)
 run on each repo's current copy, never on a side branch. One read reaches
 further on purpose and reports without fixing: the CI fleet audit reads the
 workflow files on branches pushed in the last seven days, because GitHub
-runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
-decided).
+runs a pushed branch's own workflows.
 
 #### Long-lived branches are never offered for deletion
 **A long-lived branch work lands on is never offered for deletion, by any
 list this check prints or writes** — `main`, the declared base branch, any
 branch a person's work lands on, and the lock branch a tool keeps, in every
 repo in force, merged or not. A branch that is routinely fast-forwarded to
-match another looks "merged" to an ancestor test; until 2026-09-28 the sweep
-protected only the declared base and the default branch, and would have
-handed such a branch over with a one-click delete link (Morgan, 2026-09-28,
-strength: decided). The guard sits in the one function that mints every
+match another looks "merged" to an ancestor test, and a sweep that
+protected only the declared base and the default branch would
+hand such a branch over with a one-click delete link. The guard sits in the one function that mints every
 delete link, and a filtered page that would also show a protected row says
 so on the row.
 
@@ -2344,10 +2328,7 @@ archived. A set whose active rules are all in force elsewhere is a finding
 with its one remedy, `python3 tools/precedent_vendor_engine.py drop-retired
 .`, run in that repo on its working branch; one still holding a rule found
 nowhere else is a finding that names the rule, and stays declared. *Not
-Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
-*"have update vendors and very deep check see if any repos are declared to
-be included that no longer exist and remove them"*, choosing to drop on a
-set's own retirement or GitHub's archived flag, and never on *Not Found*.
+Found* never counts as retired.
 
 #### Current is not the same as carried
 **Current is not the same as CARRIED either, and that is the half nothing
@@ -2355,7 +2336,7 @@ else here could see.** The freshness gate proves a clone matches **its own
 origin**. A repo can be perfectly current with itself and be running an
 engine from three weeks ago, because a fix merged upstream reaches an
 installed repo only when somebody goes there and runs `Update Vendors` —
-and until 2026-09-21 nothing anywhere said which repos had not. **Measured
+and nothing else says which repos have not. **Measured
 2026-09-20: 18 of 22 repositories had never taken one.** That is also the
 structural reason this check had never once found a stale vendored tree:
 not a gap in its passes, a gap in what any pass could see, since every pass
@@ -2367,8 +2348,7 @@ where upstream is now, and how many engine files were added, changed or
 refresh is the one that breaks something. **It reports and refreshes
 nothing**: taking an update is `Update Vendors`, run in that repo, and it is
 ordinary work authorized the ordinary way. **Scope is the repos this run
-already opens.** Added 2026-09-21 (Morgan, strength:
-decided) from
+already opens.** The design is
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 3.
 
@@ -2399,8 +2379,7 @@ this is the standing version. **A floor, never an invoice**: real minutes are
 at least this, and whether they are billed at all depends on the repository
 being private. The lever it makes visible is the one both item 13 and item 15
 landed on independently — **job count per workflow**, because two workflows on
-one pull request is two whole minutes for however little work. Added
-2026-09-21 (Morgan, strength: decided) from
+one pull request is two whole minutes for however little work. The design is
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
@@ -2484,15 +2463,13 @@ links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
 (`precedent_check.py --only very-deep-check`): once all four passes
 are recorded in the ledger, a push is refused while the account still
-describes an earlier run. Morgan, 2026-10-11 (strength: decided), after
-that day's run left it out until he asked for it: *"Let's update very deep
-check to make that document mandatory."*
+describes an earlier run.
 
 #### The component ledger
 **Every run records what each of its parts returned and what each cost, and
 reads them against the runs before it.** This check grew a section at a time,
-each one added because a real run wanted it, and until 2026-09-11 nothing had
-ever asked the reverse question: does any of them still earn its place?
+each one added because a real run wanted it, and the ledger asks
+the reverse question: does any of them still earn its place?
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) appends every run to the
 checked repo's own
 [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/staging/record/very-deep-check-ledger.json)
