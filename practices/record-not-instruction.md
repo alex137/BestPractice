@@ -4,7 +4,7 @@ title:       A person's name and a dated incident belong in the record, never in
 tier:        on-demand
 severity:    default
 applies_to:  ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "practices/**", "local/practices/**", "templates/**", "tools/*.py", "tools/*.sh", "reply_check.json", "*.md", "documentation/**"]
-applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule, anything under templates/, and the scripts and reply rules whose messages a session is shown. The path channel reaches it, so it costs no index line."
+applies_to_why: "Its own applies_to. The occasion is writing text a session or another repository will be told to follow, and those are these paths: the instructions files, a practice's Rule, anything under templates/, the scripts and reply rules whose messages a session is shown, and the documents at the root and under documentation/ that tell a person or a session how to install, set up or use the repository. The path channel reaches it, so it costs no index line."
 occasion:    "writing or editing an instructions file, a practice's Rule, a template, or a message a tool prints"
 gates:       []
 index_clause: "who decided and when goes in the record; an instruction says the rule, by role"
