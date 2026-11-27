@@ -23,10 +23,7 @@ closed:            null
 **The order, agreed with Alex.**
 
 - [x] The instructions file, [AGENTS.md](../AGENTS.md). Rewritten on Alex's "Yes." of 2026-11-25, as proposed in [spec/AGENTS_REWRITE_PROPOSAL.md](../spec/AGENTS_REWRITE_PROPOSAL.md): 30,096 characters to about 24,050, and its count in `precedent.json` is gone.
-- [ ] The templates, which ship into other people's repositories. 23 of the 56 stamps are out, from 13 files. The 33 left are of three kinds, each waiting on a decision (needs: decision -- Alex or Morgan):
-  - **19 hook stubs**, one stamp each. Every stub is the same file, installed into each repository's `.claude/hooks/` and written never to change. Editing its comment changes a file under `.claude/` in every repository at its next update, which is the prompt the stub exists to avoid.
-  - **8 in three workflow templates.** A workflow file's approval is pinned to its content, so a changed comment asks every repository's owner to approve the file again.
-  - **6 in [templates/harness/LEDGER.md](../templates/harness/LEDGER.md)**, a dated ledger. Its dates are its content; the check should probably leave it alone.
+- [x] The templates, which ship into other people's repositories. All 56 stamps are settled: 50 rewritten, and the ledger's 6 left as a dated record. The hook stub's comment changed in all 35 copies and three workflow templates changed, on Alex's "your picks." of 2026-11-27; each repository sees one approval prompt for them at its next update.
 - [x] The rule text of the 7 practices. All 9 stamps are out of the rules. Where a person's words were only in the rule, they moved to that practice's Story word for word.
 - [ ] Messages tools print. The check does not read these; they are found by searching what each tool writes to a session (needs: this session, after the three above).
 - [ ] The header of the resident block, which shows a token count and a practice count to every session. The figure moves to the output of the check that measures it.
@@ -47,3 +44,5 @@ closed:            null
 - 2026-11-25: the instructions file is done. One heading kept its old words, "Build-environment gotchas", because two tools find the section by them.
 - 2026-11-27: templates, first pass. A starter practice under `templates/` is now read as a practice, its Rule only.
 - 2026-11-27: the rule texts are done. 33 stamps remain, all under `templates/`, all waiting on the decisions listed above.
+- 2026-11-27: Alex agreed to all three proposals put to him that day ("your picks."): the ledger is exempt as a dated record; the hook stub and the workflow templates are to be cleaned in one update; a session archives the sessions it created.
+- 2026-11-27: the list in `precedent.json` is empty. What the check reads is clean: the instructions file, every rule text and every template. Still open above: messages tools print, the resident block's header, root documents, and whether a practice's Detail is covered.

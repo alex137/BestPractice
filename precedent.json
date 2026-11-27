@@ -874,6 +874,5 @@
     "so when an entry is higher than the file. The list is meant to reach {}."
   ],
   "record_in_instructions_before_the_rule": {
-    "templates/harness/LEDGER.md": 6
   }
 }
