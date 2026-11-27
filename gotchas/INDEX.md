@@ -195,3 +195,5 @@ Full catalogue, one file per trap. AGENTS.md carries only a pointer to this file
 - **Worker sessions in a project **cannot push**. Every push is refused with** [story](gotcha-2026-11-22-a-shared-set-under-another-account-is-looked-for-under-yours.md)
 
 - **Every local check passes, the pull request merges, and GitHub's test on `main` is red. Three merges later it is still red, and Update Vendors in every other repository has been quietly staying on an older commit. The local lint had printed the finding the whole time, under a heading that said "warning".** [story](gotcha-2026-11-24-a-local-pass-measured-against-main-hides-what-githubs-test-refuses.md)
+
+- **A pull request is refused by the merge check for something a fix on `main` has already cured. The refusal names "the merge GitHub would make" and a commit hash, and the hash is the same one it named before the fix landed.** [story](gotcha-2026-11-27-the-merge-check-judges-a-test-merge-built-before-the-base-moved.md)
