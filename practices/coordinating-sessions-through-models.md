@@ -9,7 +9,7 @@ occasion:    "tasking a session with long work, changing its plan, or working fo
 gates:       []
 index_clause: "several sessions: one registry, one build tool, computed figures"
 checked_by:  null
-defines:     []
+defines:     ["coordinator"]
 status:      active
 in_force_at: null
 supersedes:  []
@@ -30,6 +30,10 @@ strength: assented
 7. **The coordinator reports only figures a script printed, and only settled ones.** Anything else is called "not yet computed". A headline names the unverified assumptions it rests on ([numbers-are-sourced](numbers-are-sourced.md)).
 
 ## Detail
+**Who the coordinator is.** The coordinator of a piece of work is the session that tasks its workers and that they report to. For a worker, it is the session that created it, for as long as that session is running and has not handed over; after a handover it is the successor the handoff file names. A session the person opened themselves, tasked by nobody, has no coordinator above it and is the coordinator of whatever it starts. A session reads who its coordinator is from its own record, the session that created it, never from a title or a guess.
+
+**The coordinator opens new sessions.** A worker that needs a further session, to carry on its own work or for work it noticed, asks its coordinator to open it and does not open one itself: a session opened by a worker hangs under that worker, outlives it, and is in nobody's list of sessions to archive ([prompt-please](prompt-please.md), "A sibling, not a child").
+
 **The registry is for choices, not results.** Which design leads, what it is measured against, which variant is the baseline: these are decisions the person makes and changes. Each script reads them and computes from them. A check flags any note that quotes a figure computed for a different choice than the registry now holds, so a changed decision shows up as a list of notes to rebuild, not as a round of messages.
 
 **An assumption's evidence belongs to the design it was run on.** Each assumption a headline rests on is listed in the registry beside the design its evidence came from. When the design changes, that evidence is marked as an earlier design's until it is run again. Evidence gathered on one design and quoted for another looks exactly like evidence.
@@ -69,6 +73,8 @@ Each worker's own work can be a sound model while everything between the workers
 **2026-11-25: the state file.** A project spent a day replacing long sessions with fresh ones by hand. Fresh sessions did a unit of work for a few dollars where an old one cost several times that for a single turn after sitting idle, and three coordinators in a row were replaced cleanly at about the same size, each from a handoff file. The files were the weak point: written on request, sometimes by a third session from notes, because waking the old session cost more than writing its file for it. Automatic compaction on those sessions was set to begin far later than the point where a restart was already cheaper. Alex asked whether each session should save what it is doing so it can be restarted, and whether that beats compression; proposed here as a state file kept current at every unit, he said yes. The figures are that project's own.
 
 **2026-11-27: who archives.** The person a project belongs to asked a session whether two measurement threads were its own, and whether it was done with them. They were not its own, and nothing recorded whose they were or whether they were finished. His list of recent sessions held dozens that coordinators had started, and no rule said who closes one. He asked whether a session should archive the sessions it creates once they are no longer needed; proposed as the paragraph above, he agreed.
+
+**2026-11-27: who the coordinator is.** The Rule and this Detail had used the word since the practice landed without saying which session it meant. A worker that was finishing opened its own successor, which made the new session its child. Alex, the same day, proposed that opening a session route through "whatever is the current coordinator thread", and, asked whether to land that: "If we already have the concept of a coordinator as a best-practice then yes go ahead on the sibing rule. If not then we need both." The word was in use and undefined, so both were written: the definition here, and the rule in [prompt-please](prompt-please.md).
 
 ## Install
 Nothing to install from here. The registry file, the build command and the dropped-marker check are the project's own, written for what it builds. A coordinating session loads this rule when it starts tasking workers, and says in each worker's brief where the registry is and that no message will carry a choice.
