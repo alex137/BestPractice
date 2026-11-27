@@ -700,6 +700,28 @@ def bot_author_findings() -> tuple[list[str], set[str]]:
 BOT_WARNINGS: list[str] = []
 
 
+def _github_made_merges() -> set[str]:
+    """-> the commits in scope that GitHub itself wrote when a pull request
+    was merged, or tested for merging, on its site: two parents or more, and
+    committed by GitHub.
+
+    WHY (2026-11-27). GitHub authors that commit as the account that merges,
+    under the account's primary email, which no session and no hook sets.
+    The merge check judges `refs/pull/N/merge`, so with a person declared
+    it refused every pull request over a commit nobody here wrote, while
+    every merge already on the base branch carried the same author. The
+    author's NAME is still held to the declared one (find_violations)."""
+    made = set()
+    for line in _git_log_lines("--format=%H|%P|%cn|%ce"):
+        if not line.strip():
+            continue
+        sha, parents, cname, cemail = line.split("|", 3)
+        if (len(parents.split()) >= 2 and cname == "GitHub"
+                and cemail.lower() == "noreply@github.com"):
+            made.add(sha)
+    return made
+
+
 def find_violations() -> list[str]:
     # The bot half first: it needs no declared person, so it still judges
     # where the identity half below stands down. Its findings are warnings.
@@ -721,11 +743,14 @@ def find_violations() -> list[str]:
                 f"or no email -- both are required; every commit here is "
                 f"checked against them"]
     findings = list(_REPO_GRANDFATHERED_FINDINGS)
+    github_made = _github_made_merges()
     for line in _git_log_lines("--format=%H|%an|%ae"):
         if not line.strip():
             continue
         sha, name, email = line.split("|", 2)
         if sha in EFFECTIVE_GRANDFATHERED_SHAS or sha in bot_flagged:
+            continue
+        if sha in github_made and name == EXPECTED_NAME:
             continue
         if name != EXPECTED_NAME or email != EXPECTED_EMAIL:
             findings.append(

@@ -4219,6 +4219,7 @@ def main():
     check_engine_capability_holds_a_practice_back()
     check_new_rule_shows_its_debt_and_booked_names_it()
     check_bot_authored_commits_are_warned_where_no_person_is_declared()
+    check_commit_author_passes_the_merge_github_itself_writes()
     check_harness_drops_inherited_git_repository_variables()
     check_a_check_leaves_no_foreign_engine_module_behind()
     check_harness_fixtures_run_no_background_maintenance()
