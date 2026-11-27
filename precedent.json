@@ -849,12 +849,12 @@
       "approved_by": "Morgan, 2026-10-11: \"Both yml are fine and approved.\" (the structural leak gate on each push to main, and by hand; a merge made on GitHub never passes the session's own push gate) Morgan, 2026-10-14: \"Yes on fix 6\" (actions/checkout v4 -> v5 and actions/setup-python v5 -> v6, the releases that run on Node 24; no CI work added)."
     },
     ".github/workflows/precedent-branch-cleanup.yml": {
-      "sha256": "2c6dd036beb59b592f72a7f7741be4e300b2745e80d1f14811b1ef206291455c",
-      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content after the 2026-10-30 very deep check found it edited on 2026-10-17 (a comment changed; no CI work added)."
+      "sha256": "b2ca7c818c0d99a2dbe570f8c207cdbd201a2e62ea32177939a971bd3967d991",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content after the 2026-10-30 very deep check found it edited on 2026-10-17 (a comment changed; no CI work added). Alex, 2026-11-27 (strength: assented): \"your picks.\", to cleaning the names and dates out of the hook stub and the workflow templates at the price of a fresh approval -- re-approved at its current content (one comment reworded; no CI work added)."
     },
     "templates/github-actions/branch-cleanup.yml.template": {
-      "sha256": "2c6dd036beb59b592f72a7f7741be4e300b2745e80d1f14811b1ef206291455c",
-      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content with the workflow it installs (a comment changed on 2026-10-17; no CI work added)."
+      "sha256": "b2ca7c818c0d99a2dbe570f8c207cdbd201a2e62ea32177939a971bd3967d991",
+      "approved_by": "Morgan, 2026-10-16: \"on both [private] and public, NEVER run the cleanup automatically. In both cases, [put] the buttons on the branch cleanup page\" and \"This is great. Build it, please, and then Booked.\" (spec/BRANCH_CLEANUP_BUTTON_PLAN.md: one job, started only by hand with workflow_dispatch from the branch cleanup page's button; it deletes the branches already in main; about one billed minute a click in a private repository, none in a public one, nothing while it sits unclicked). Morgan, 2026-10-31 (strength: assented): \"do your recommendations for all\" -- re-approved at its current content with the workflow it installs (a comment changed on 2026-10-17; no CI work added). Alex, 2026-11-27 (strength: assented): \"your picks.\", to cleaning the names and dates out of the hook stub and the workflow templates at the price of a fresh approval -- re-approved at its current content (one comment reworded; no CI work added)."
     }
   },
   "landing_branch": "staging",
@@ -874,27 +874,5 @@
     "so when an entry is higher than the file. The list is meant to reach {}."
   ],
   "record_in_instructions_before_the_rule": {
-    "templates/github-actions/branch-cleanup.yml.template": 1,
-    "templates/github-actions/leak-gate.yml.template": 1,
-    "templates/github-actions/light-check.yml.template": 6,
-    "templates/harness/claude-code/hooks/artifact-publish-gate.sh": 1,
-    "templates/harness/claude-code/hooks/commit-identity-once.sh": 1,
-    "templates/harness/claude-code/hooks/commit-identity-push-gate.sh": 1,
-    "templates/harness/claude-code/hooks/commit-identity.sh": 1,
-    "templates/harness/claude-code/hooks/doc-lint-gate.sh": 1,
-    "templates/harness/claude-code/hooks/freshness-guard.sh": 1,
-    "templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template": 1,
-    "templates/harness/claude-code/hooks/merge-check-gate.sh": 1,
-    "templates/harness/claude-code/hooks/precedent-hooks.sh": 1,
-    "templates/harness/claude-code/hooks/precedent-paths.sh": 1,
-    "templates/harness/claude-code/hooks/precedent-universal-catalogue.sh": 1,
-    "templates/harness/claude-code/hooks/push-check-gate.sh": 1,
-    "templates/harness/claude-code/hooks/reply-gate.sh": 1,
-    "templates/harness/claude-code/hooks/seeded-prompt-gate.sh": 1,
-    "templates/harness/claude-code/hooks/session-start.sh": 1,
-    "templates/harness/claude-code/hooks/stop-git-check.sh": 1,
-    "templates/harness/claude-code/hooks/stop-reply-check.sh": 1,
-    "templates/harness/claude-code/hooks/wait-loop-gate.sh": 1,
-    "templates/harness/claude-code/hooks/workflow-write-gate.sh": 1
   }
 }

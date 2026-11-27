@@ -4,7 +4,7 @@
 # name from the engine, tools/<this file's name>, which Update Vendors keeps
 # current like any other engine file.
 #
-# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# WHY: so that an update of the engine never stops to ask about this file.
 # Claude Code's auto mode holds any commit that changes a file under .claude/
 # until the person says yes, and the hook scripts changed upstream on 27 days
 # in one month, so nearly every Update Vendors stopped to ask about a change

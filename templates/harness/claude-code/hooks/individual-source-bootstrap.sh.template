@@ -4,7 +4,7 @@
 # and never changed after: everything this hook does is in the engine's
 # tools/individual-source-bootstrap.sh, which Update Vendors keeps current.
 #
-# WHY (Morgan, 2026-10-07, strength: decided: "It should no longer ask").
+# WHY: so that an update of the engine never stops to ask about this file.
 # Claude Code's auto mode holds any commit that changes a file under .claude/
 # until the person says yes, and this hook's logic changed on 4 days in the
 # month before; each change reached every repository through the individual
