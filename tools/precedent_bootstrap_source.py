@@ -1009,8 +1009,8 @@ def verify(level, path):
     # after landing a practice in it.
     agents = path / 'AGENTS.md'
     if not agents.is_file():
-        missing.append("AGENTS.md (written by this tool's bootstrap since "
-                       "2026-09-14; without it the set's own build_views.py "
+        missing.append("AGENTS.md (written by this tool's bootstrap; "
+                       "without it the set's own build_views.py "
                        "fails, so the drift workflow is red and "
                        "precedent_move.py cannot regenerate the set's views)")
     else:
@@ -1030,7 +1030,7 @@ def verify(level, path):
     # identical to one that has it until the day that default changes.
     if not (path / 'CLAUDE.md').is_file():
         missing.append("CLAUDE.md (the Claude Code adapter stub, written by "
-                       "this tool's bootstrap since 2026-09-20; without it "
+                       "this tool's bootstrap; without it "
                        "the set's AGENTS.md loads only via the harness's "
                        "AGENTS.md fallback -- add a file whose body is "
                        "`@AGENTS.md`)")

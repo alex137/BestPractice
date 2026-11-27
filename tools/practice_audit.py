@@ -764,7 +764,7 @@ def loader(fails):
         "LOADER: this repo vendors Precedent's practice catalogue but does not "
         "run it -- " + "; and ".join(gaps) + ". NONE of the vendored practices "
         "are in force in sessions here. This is the classic install "
-        "(INSTALL.md section 1), retired 2026-09-23. Migrate the repo onto the "
+        "(INSTALL.md section 1), which is retired. Migrate the repo onto the "
         "loader, whole, in one change: " + MIGRATION_DOC)
 
 
@@ -874,8 +874,8 @@ if __name__ == '__main__':
                   "catalogue under process/upstream/, but " + "; and ".join(gaps) +
                   ". None of those practices is in force in this session -- do not "
                   "tell anyone they are. Say so to the person first thing, and "
-                  "offer the migration (the classic install was retired "
-                  "2026-09-23): " + MIGRATION_DOC)
+                  "offer the migration (the classic install is retired): "
+                  + MIGRATION_DOC)
         gap = engine_gap(ROOT)
         if gap:
             print("PRECEDENT'S ENGINE WAS NEVER VENDORED HERE: " + gap

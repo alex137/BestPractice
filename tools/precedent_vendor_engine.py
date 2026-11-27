@@ -1251,11 +1251,11 @@ RETIRED_ENGINE_FILES = {
         'moved to the ladder set as tools/ladder/upstream_review.py, 2026-10-17; '
         'the engine finds a set\'s step_review through precedent_resolve.load_set_tool',
     'precedent_switchboard_offer.py':
-        'retired 2026-10-20 with its SessionStart hook: one master maintainer per '
+        'retired with its SessionStart hook: one master maintainer per '
         'repository replaces the per-person switchboard offer (practice '
         'master-maintainer; S. Alexander Jacobson, decided)',
     'switchboard-offer.sh':
-        'retired 2026-10-20 with precedent_switchboard_offer.py; '
+        'retired with precedent_switchboard_offer.py; '
         'maintainer-heartbeat.sh holds its SessionStart slot',
 }
 _SECOND_PASS_ENV = 'PRECEDENT_VENDOR_ENGINE_SECOND_PASS'
@@ -4110,7 +4110,7 @@ LEGACY_REASON_UPSTREAM_SYNC = (
     'Vendors" replaced it, and the manual trigger it kept ran a job nothing '
     'uses')
 LEGACY_REASON_DOCS = (
-    'the Markdown-lint workflow, retired 2026-09-21 -- doc_lint.py already '
+    'the Markdown-lint workflow, which is retired -- doc_lint.py already '
     'gates every commit as the light check (spec/BILLING_FLOOR.md)')
 LEGACY_REASON_VIEWS_DRIFT = (
     'folded into the practice-set check workflow as its own job, 2026-09-19 '
@@ -4276,7 +4276,7 @@ def _retire_engine_written_files(dest_root, pd, written=()):
 # Config fields nothing reads any more, deleted from these files on refresh.
 RETIRED_CONFIG_FIELDS = {
     'ci_debounce_minutes':
-        'retired 2026-09-20 -- the debounce job cost the minute it was '
+        'retired -- the debounce job cost the minute it was '
         'deciding whether to spend (spec/BILLING_FLOOR.md)',
 }
 _CONFIG_FILES = ('precedent.json', 'identity.json')
@@ -4623,8 +4623,8 @@ def _remove_unapproved_workflows(dest_root, manifest, kind, pd):
         _uses, scripts = _workflow_facts(text)
         reason = ('upstream does not ship it, and github_ci_approved carries '
                   'no approval of it in the person\'s words -- a repo\'s CI '
-                  'converges to upstream (a consumer since 2026-09-27, a '
-                  'practice set since 2026-10-01). Its content stays '
+                  'converges to upstream, in a consumer and in a '
+                  'practice set alike. Its content stays '
                   'in git history'
                   + (f'. It ran {", ".join(sorted(scripts))}: the local push '
                      f'check runs that already' if scripts else ''))
