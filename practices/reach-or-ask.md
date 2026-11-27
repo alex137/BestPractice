@@ -51,7 +51,7 @@ address says nothing about the right one.
 to act on, never a final answer.
 
 ## Detail
-Everything under the headings below from "The three answers in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). Whatever the Rule still holds word for word stayed there and is not repeated. The Rule names each heading where it needs it.
+The headings below from "The three answers in full" on give the Rule in full. What the Rule itself holds word for word is not repeated here. The Rule names each heading where it needs it.
 
 ### The three answers in full
 **A reply never stops at "could not reach it."** When a check, a tool or

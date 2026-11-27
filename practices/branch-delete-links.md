@@ -142,7 +142,7 @@ collected. Say the first of those where the list is handed over — a person
 who knows a misclick is recoverable works a long list faster than one who
 does not.
 
-Everything under the headings below from "The link in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The link in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### The link in full
 
@@ -196,8 +196,7 @@ that starts the engine's cleanup workflow (practice
 [never-delete-a-remote-branch](never-delete-a-remote-branch.md) says who
 may start it); every branch still gets its own row and its own filtered
 link, so the person can count them, read the names, and delete one at a
-time instead (Morgan, 2026-10-16: "it should ALSO keep the list as it is
-now", strength: decided).
+time instead.
 
 **The session never attempts the deletion itself** — not by any route, and not
 after being asked to. [never-delete-a-remote-branch](never-delete-a-remote-branch.md)
@@ -237,8 +236,8 @@ Three things the report must not get wrong, each of which fails silently:
    any lock branch the engine keeps are never offered for deletion, by any
    route, whatever a merge test says: a long-lived branch that is
    fast-forwarded to match another reads as merged right after. A filter
-   that would also show one of them on the page says so on the row. Morgan,
-   2026-09-28 (strength: decided). A branch work no longer moves through is
+   that would also show one of them on the page says so on the row.
+   A branch work no longer moves through is
    not one of them: one a person has stopped landing on is offered once it
    holds nothing the branch they land on now lacks, never before
    (`precedent_branches.never_offered`, 2026-10-09).
@@ -345,6 +344,10 @@ without its link, until 2026-10-30, when Morgan retired the Boildown's
 list of branches to delete: the branch cleanup page carries them.
 
 **2026-10-31: the Rule cut to what a session must do.** The Rule had grown to 854 words; it now holds the link, what to say beside it and the four things the report must not get wrong, in 248 words (both counted with `wc -w` over the section). Every paragraph it held moved word for word into Detail, under the headings the Rule names; nothing was deleted. The old list was headed "Three things" over four items; the Rule now says four. Morgan asked for the longest Rules to be reviewed and shortened this way, and approved it (strength: assented); his words are in [todo-2026-10-30-very-deep-check-findings](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-10-30-very-deep-check-findings.md).
+
+**2026-09-28, never a long-lived branch.** The Detail's fourth item, that `main`, any other long-lived branch and any lock branch are never offered for deletion: Morgan, 2026-09-28 (strength: decided).
+
+**2026-10-16, the list stays beside the delete-all button.** Behind the Detail's "an addition, never a replacement": Morgan, 2026-10-16: "it should ALSO keep the list as it is now", strength: decided.
 
 ## Install
 Two surfaces carry this, and both cite it rather than restating it:

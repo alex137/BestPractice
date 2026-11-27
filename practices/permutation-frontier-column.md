@@ -45,7 +45,7 @@ at least as good on every output the reader ranks by. Three rules (Detail,
    the source.
 
 ## Detail
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives that part of the Rule in full. The Rule names each one where it needs it.
 
 ### The three rules in full
 A configuration study whose table is the cross-product of its input axes

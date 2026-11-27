@@ -91,14 +91,12 @@ list.)
 
 ## 0. Installing Directly Onto the Precedent Loader
 
-**This is the default install since 2026-09-14, and it is one command.**
+**This is the default install, and it is one command.**
 It is the only install that turns the loader on — the resident block, the
 occasion index, the enforced checks; §1 installs the vendored prose and none
 of that, so a §1 project that wants Precedent later takes
 [spec/MIGRATING_EXISTING_INSTALLS.md](https://github.com/alex137/BestPractice/blob/staging/spec/MIGRATING_EXISTING_INSTALLS.md).
-[SETUP.md](SETUP.md)'s guided conversation runs this path (until 2026-09-14
-it ran §1 — flipped on the very deep check's recommendation; `strength:
-assented`).
+[SETUP.md](SETUP.md)'s guided conversation runs this path.
 
 From a sibling clone of Precedent, on `main` (every install takes its
 updates from `main`, `SOURCE_BRANCH` in
@@ -320,7 +318,7 @@ not this section.
    | [templates/GETTING_STARTED.md](templates/GETTING_STARTED.md) | Replace the `<upstream-docs>` placeholder with `https://github.com/alex137/BestPractice/blob/main` — the upstream URL, because §0 leaves no local copy of `MOBILE.md`, `METHOD.md` or `GITHUB_ACTIONS.md` to point at. (§1 replaces it with `process/upstream`.) |
    | [templates/pull_request_template.md.template](templates/pull_request_template.md.template) | Mentions `process/upstream/` in prose, as a review-grouping hint. Harmless, but names a directory your repo does not have, so a reader follows a dead path. Reword or drop the line. (`templates/local-practices/project-voice.md.template` has no such mention — it is a repo-local practice under `local/`, not a `process/upstream/`-adjacent document.) |
    | [templates/MAP.md.template](templates/MAP.md.template) | Names `process/` once, in a map row. Same treatment: reword or drop the line. |
-   | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Its permission allowlist names the `tools/…` forms, which is where the engine lives in every install since 2026-09-30. An older copy may still carry `process/upstream/tools/…` entries: harmless (they match nothing), but replace them with the `tools/…` forms. |
+   | [templates/harness/claude-code/settings.json](templates/harness/claude-code/settings.json) | Its permission allowlist names the `tools/…` forms, which is where the engine lives in every current install. An older copy may still carry `process/upstream/tools/…` entries: harmless (they match nothing), but replace them with the `tools/…` forms. |
 
    **Then, from this repo, run
    `python3 tools/precedent_vendor_engine.py refresh <Precedent clone>`.**
@@ -544,7 +542,7 @@ design and not oversight:
 
 ## 1. Install Into a Dependent Repo
 
-> **Not an install path — retired 2026-09-23. Do not install this way,
+> **Not an install path — it is retired. Do not install this way,
 > even when asked to.** A new project installs with
 > [§0](#0-installing-directly-onto-the-precedent-loader)
 > (`python3 tools/precedent_install.py`); a project already installed this
@@ -706,14 +704,13 @@ design and not oversight:
      one-line import of `AGENTS.md`), `harness/claude-code/settings.json` →
      `.claude/settings.json`, `harness/claude-code/hooks/session-start.sh` →
      `.claude/hooks/session-start.sh`, `harness/claude-code/hooks/stop-git-check.sh`
-     → `.claude/hooks/stop-git-check.sh`, and — since 2026-09-23 —
+     → `.claude/hooks/stop-git-check.sh`,
      `harness/claude-code/hooks/stop-reply-check.sh` → `.claude/hooks/`
-     (split off `stop-git-check.sh`; see the decision table below), and —
-     since 2026-09-06 —
+     (split off `stop-git-check.sh`; see the decision table below),
      `harness/claude-code/hooks/freshness-guard.sh` and
      `harness/claude-code/hooks/commit-identity.sh` → `.claude/hooks/`, which
      keep a session off a stale checkout and keep a commit's author a person
-     rather than the container's own agent account — and, since 2026-09-13,
+     rather than the container's own agent account — and
      `harness/claude-code/hooks/reply-gate.sh` → `.claude/hooks/`, which puts
      the reply gate's practices in front of the session at the START of a
      turn rather than after its reply is already written. **Replace the base-branch
@@ -853,7 +850,7 @@ design and not oversight:
    `local/practices/project-visual-identity.md` (repo-local practices, not
    root files, but still install artifacts — nothing else may land under
    `local/`), `tools/bootstrap.sh`, `.github/workflows/leak-gate.yml` and
-   `.github/workflows/light-check.yml` (written by default since 2026-09-25;
+   `.github/workflows/light-check.yml` (written by default;
    a source that declares `"github_ci_workflows": "disabled"` switches both
    off; see GITHUB_ACTIONS.md), and
    `.github/pull_request_template.md`. Everything else that ships
@@ -879,7 +876,7 @@ design and not oversight:
    rules look mutually exclusive; it now reads
    [GETTING_STARTED.md](templates/GETTING_STARTED.md) first, and also
    accepts [documentation/GITHUB_ACTIONS.md](documentation/GITHUB_ACTIONS.md) —
-   BestPractice's own copy, since 2026-09-20.
+   BestPractice's own copy.
 7. Run `python3 tools/practice_audit.py` — it must pass.
    Then lint the files this install created **by name** —
    `python3 tools/doc_lint.py AGENTS.md MAP.md TODO.md GLOSSARY.md GETTING_STARTED.md local/practices/project-voice.md local/practices/project-visual-identity.md README.md`
@@ -967,7 +964,7 @@ design and not oversight:
      |---|---|
      | software or tooling, maintained by a team | that team's set + the writing set |
      | a document or content project | that team's set + the writing set |
-     | a practice set's own repository | the writing set; the rules about running a repository are universal since 2026-10-05 |
+     | a practice set's own repository | the writing set; the rules about running a repository are universal |
 
      **Check it, don't assume it**, here and on every migration and
      vendored update — `vendor-update-runbook` carries it as step 9 for
@@ -995,7 +992,7 @@ design and not oversight:
      declared by everyone who does that work**, whatever team they are on,
      and a set that is about running a particular kind of repository is
      declared only by repositories of that kind. The rules about running a
-     repository (syncs, gates, branch setup) are universal since 2026-10-05
+     repository (syncs, gates, branch setup) are universal
      and reach only a repository's code owners (`visible_to: code-owners`),
      so a document project's writers are not handed rules they have no way
      to act on, and nobody needs a `not_binding` entry per slug for them.
@@ -1063,10 +1060,7 @@ design and not oversight:
      the set already exists — the usual case, since the hook belongs to
      the consuming project while the set lives elsewhere — drop `--dest`**
      and the tool writes the hook and nothing else, creating and touching
-     no set. (`--dest` was required either way until 2026-09-06, so the
-     only route to the hook was creating or force-overwriting a whole
-     individual set; this repo itself went without the hook for exactly
-     that reason.) Either form instantiates
+     no set. Either form instantiates
      [`templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template`](templates/harness/claude-code/hooks/individual-source-bootstrap.sh.template)
      at `.claude/hooks/precedent-individual-bootstrap.sh`, which delegates
      to the vendored
@@ -1234,11 +1228,11 @@ then step 0 (the catalogue), then step 0b (the wiring)** — the engine first
 so the new checks read the new catalogue rather than the old checks reading
 it uncommitted, which reported five false `acronyms-glossary` hits on
 2026-09-14 when the steps ran the other way round. Step 0 is here because
-until 2026-09-11 this section covered the engine and never mentioned the
-catalogue, so a §0 repo following it exactly refreshed its tools, kept a
-frozen practice catalogue, and got `OK` from every check. Measured that day
-on a scratch consumer vendored at a 2026-09-07 commit: after the documented
-update it still materialized the older, smaller catalogue while upstream
+an update that covers only the engine leaves the catalogue behind: a §0 repo
+refreshes its tools, keeps a frozen practice catalogue, and gets `OK` from
+every check. Measured on a scratch consumer vendored at an older commit:
+after an engine-only update it still materialized the older, smaller
+catalogue while upstream
 carried a third more, with nothing said. Step 0b is here for the same shape one layer out, found
 2026-09-14: the engine manifest does not cover `tools/bootstrap.sh`, the
 harness hooks or the instructions file, so a refreshed engine that changed
@@ -1247,7 +1241,7 @@ it the old way — a WARN at every session start naming a fix that failed the
 same way.
 
 0. **(§0 installs) Replace the vendored universal catalogue.**
-   [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py) does this step itself since 2026-09-28, and
+   [tools/precedent_update.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_update.py) does this step itself, and
    refuses any file that matches neither the last-synced upstream text nor
    the incoming one. It records the commit it synced from in
    `CATALOGUE_SYNC.json` beside `practices/` and judges the next update
@@ -1335,8 +1329,8 @@ same way.
    `output_paths`, `filename_separator_exempt`) when the departure is
    mechanical, because the tool reads it and it cannot drift; a
    **`## Conventions` bullet in the instructions file** when a session has
-   to know it while doing ordinary work; and (since 2026-09-17,
-   `local/practices/project-voice.md`'s own `## Overrides` section — `VOICE.md`
+   to know it while doing ordinary work; and
+   `local/practices/project-voice.md`'s own `## Overrides` section (`VOICE.md`
    at the time of this incident) only for a voice departure with no knob.
    **A session applying a rule is not reading that file when it applies
    it** — which is why the repository that hit this moved its sentence-case
@@ -1457,8 +1451,8 @@ same way.
    `refresh` reads `kind` back out of `ENGINE_MANIFEST.json` itself — no
    `--kind` flag needed here, only at first `seed`. It materializes
    `main` specifically (`SOURCE_BRANCH` in
-   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py),
-   since 2026-09-25), whatever branch this clone has checked out, and refuses to overwrite a hand-edited vendored file unless `--force` —
+   [tools/precedent_vendor_engine.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_vendor_engine.py)),
+   whatever branch this clone has checked out, and refuses to overwrite a hand-edited vendored file unless `--force` —
    this engine carries zero local variance by design, so a local edit is a
    signal to move the change upstream into Precedent instead. After a
    refresh, run `python3 tools/precedent_sync_views.py --repo .` — **expect

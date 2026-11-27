@@ -42,7 +42,7 @@ it back.
 goes in as a labelled band-aid beside the upstream pull request.
 
 ## Detail
-**Enforced since 2026-10-17, in two places.** Before the edit: in Claude
+**Enforced in two places.** Before the edit: in Claude
 Code, the edit-time hook refuses an edit to a file this repository
 received from upstream until the change has its answer. After it: the
 full check (this rule's check in
@@ -138,6 +138,10 @@ moment this rule is about: the decision, before any edit, to patch a copy
 rather than stop. That is why the rule is tied to the vendored paths, so it is
 printed when an edit there begins, and why the Boildown carries the after-the-
 fact report.
+
+**2026-10-17: enforced.** The two checks the Detail opens with, the
+edit-time hook before the edit and the full check after it, have enforced
+this rule since 2026-10-17.
 
 ## Install
 Nothing to install. The path channel prints this Rule when a session edits a

@@ -56,11 +56,9 @@ unenforced in between: the set ships its copy; the engine's copy comes out
 in the same release; both reach a consumer in the same Update Vendors.
 **The set's half reaches the set's `main` before the engine's removal
 reaches the engine's `main`**, because a person who brings the set reads
-it from `main`: on 2026-10-17 the branch-cleanup note left the engine's
-reply gate and reached BestPractice's `main` while the ladder set's
-copy sat on its staging, and the note went silent (Morgan, 2026-10-18,
-strength: decided, over a fallback kept in the engine, which would have
-put the set's rule back in it).
+it from `main`: a removal that reaches the engine's `main` while the set's
+copy still sits on its staging leaves the rule silent. A fallback kept in
+the engine is not the answer, since it would put the set's rule back in it.
 Where the engine still needs a piece for its own operations (the branch
 name builder, which the engine's ladder steps call), the piece stays until
 those operations move, and the plan that moves them says so.
@@ -91,6 +89,14 @@ failed to load read the same as a person off the ladder. The same day an
 inventory found the pattern twice more: the ladder's landing steps run on
 engine code, and the private individual set declared its commit checks as
 engine files. Morgan asked for the practice in the words above.
+
+**2026-10-17, the order of the two halves.** Behind the Detail's "the set's
+half reaches the set's `main` before the engine's removal reaches the
+engine's `main`": on 2026-10-17 the branch-cleanup note left the engine's
+reply gate and reached BestPractice's `main` while the ladder set's
+copy sat on its staging, and the note went silent (Morgan, 2026-10-18,
+strength: decided, over a fallback kept in the engine, which would have
+put the set's rule back in it).
 
 ## Install
 Nothing to install: it binds wherever a practice set is written, and its

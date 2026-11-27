@@ -11,7 +11,7 @@ summary: The single-file, numbered catalogue that phase 1 converted into practic
 
 # The practice catalog (pre-fork)
 
-> **SUPERSEDED, and frozen since 2026-08-31 at the 53 entries it held.** This file was
+> **SUPERSEDED, and frozen at the 53 entries it held.** This file was
 > the *source* for phase 1's conversion into one file per practice, and it
 > stopped being the catalogue the moment that conversion landed. **The live
 > catalogue is [practices/](practices/)**, indexed by [MAP.md](https://github.com/alex137/BestPractice/blob/staging/MAP.md); read

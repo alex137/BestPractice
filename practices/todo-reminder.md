@@ -73,9 +73,7 @@ first is the end of a reply:** once `remind_on` arrives, the reply gate
 names the longest-due reminder this conversation has not shown yet, and
 [the-boildown](the-boildown.md)'s Todo line raises it, ahead of any pick by
 topic, once per conversation, until the person answers it (done, a new
-date, or "Drop it"). Morgan, 2026-10-10 (strength: decided), after four
-reminders sat due for up to three weeks without one reaching him: *"Maybe
-we should have it show one BY DATE, like when something is due."* The
+date, or "Drop it"). The
 others are [three-things](three-things.md), which weighs marked items when
 choosing what matters now, and the **Due Reminders** table in generated
 [todo/TODO.md](https://github.com/alex137/BestPractice/blob/staging/todo/TODO.md)
@@ -130,6 +128,12 @@ practice already said *"nothing fires on a schedule"*; what was missing was
 the explicit prohibition on reaching for a scheduled-trigger tool instead,
 now in the Rule above, and the mechanical detail — this practice had not yet
 caught up to the frontmatter format the migration introduced.
+
+**2026-10-10: the longest-due reminder is raised at the end of a reply.**
+Behind the Detail's "The first is the end of a reply": Morgan, 2026-10-10
+(strength: decided), after four reminders sat due for up to three weeks
+without one reaching him: *"Maybe we should have it show one BY DATE, like
+when something is due."*
 
 ## Install
 Nothing beyond the open-items directory itself. `disposition` and

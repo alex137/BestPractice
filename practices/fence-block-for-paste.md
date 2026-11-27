@@ -76,7 +76,7 @@ describing an intent to produce it.
 commit message if you want" names an intent; the fence-block requirement
 fires once the actual text is produced, not before.
 
-Each heading below that ends "in full" holds Rule paragraphs as they stood until 2026-10-31, moved here whole when the Rule was cut to what a session must do (Story, 2026-10-31). The Rule names each one where it needs it.
+Each heading below that ends "in full" gives part of the Rule in full. The Rule names each one where it needs it.
 
 ### Several blocks, destinations and output, in full
 **More than one distinct thing to paste gets more than one fence block.** A

@@ -38,7 +38,7 @@ often, it is a line of its own inside the item, in
 [open-item-disposition](open-item-disposition.md)'s grammar:
 
 ```
-**Strength:** assented (2026-09-09, Morgan)
+**Strength:** assented (2026-09-09, the person's name)
 ```
 
 **The session writes it, and the session is the interested party.** You are

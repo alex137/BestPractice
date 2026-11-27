@@ -35,11 +35,11 @@ you are not doing what was asked, the reply's first line says so, and why.
 ask, with your pick.** Never comply or override silently.
 
 ## Detail
-**Asking when the letter is wrong** (Morgan, 2026-09-30). A session left two
-workflow templates with dead paths because a rule said a workflow is never
-edited without his words, a rule written to stop new CI minutes, not fixes:
-*"In ambiguous cases like this, you should decide what is best and if you
-think my rule contradicts what you think is best then ASK ME."* A rule's
+**Asking when the letter is wrong.** A rule that says a workflow is never
+edited without the person's words is written to stop new CI minutes, not
+fixes; a session that leaves a workflow template with a dead path because
+of it has followed the letter into something broken. In an ambiguous case,
+decide what is best, and if the rule contradicts it, ask the person. A rule's
 purpose decides the ambiguous case. Where the purpose and the letter
 plainly part, the person hears it, with what you would do.
 
@@ -157,6 +157,13 @@ practice adds.
 **Tightened 2026-10-01** in the reduction pass Morgan approved that day
 ("all are great, approved", strength: decided): the same four parts in fewer
 words, since this Rule loads on every turn.
+
+**2026-09-30, asking when the letter is wrong.** Behind the Detail's
+paragraph of that name (Morgan, 2026-09-30). A session left two workflow
+templates with dead paths because a rule said a workflow is never edited
+without his words, a rule written to stop new CI minutes, not fixes: *"In
+ambiguous cases like this, you should decide what is best and if you think
+my rule contradicts what you think is best then ASK ME."*
 
 ## Install
 Resident, so every repository running the loader carries it in its

@@ -225,10 +225,9 @@ cannot tell a drift this run introduced from one that was there before. So:
    `PLANTED CASE COVERAGE` section says on every run whether this invocation
    did it or still owes it; `--with-harness` runs it from inside the tool
    and records the result in the ledger like any other section. Typed by
-   hand it needs `--because 'very deep check'`: since 2026-10-07 a full run
+   hand it needs `--because 'very deep check'`: a full run
    refuses without the person's go-ahead, and asking for this check by name
-   is that go-ahead. Added
-   2026-09-21 (Morgan, strength: decided) from
+   is that go-ahead. The design is
    [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
    item 11.
 3. **Run [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py)** for the
@@ -392,22 +391,16 @@ method"). Build the fixtures.
   page offers (individual → shared, shared → individual, shared → universal,
   and universal → shared/individual, both halves — the initial duplicate
   landing and the deliberate `--dedupe-only --accept-reach-loss`
-  withdrawal), and `--withdraw-from-universal` (added 2026-10-17, the day
-  a rehearsal found the page never named it), with
+  withdrawal), and `--withdraw-from-universal`, with
   `tools/precedent_move.py` and, separately, by hand
   against the page's two steps — then the copy-and-delete the page
   forbids, to see which check names it. **And read what the move left
-  behind elsewhere**: since 2026-09-28 the run that withdraws the source
+  behind elsewhere**: the run that withdraws the source
   copy also fixes every current mention that still places the practice in
   the old set, in every repo in force, and names the sentences it could
   not fix; a rehearsal checks that a planted mention came out right and a
-  dated one did not move. Added 2026-09-14, the day Morgan
-  asked whether the run had tested it and it had not: the rehearsal
-  returned thirteen findings and the move tool. The universal → shared/
-  individual direction was added 2026-09-23, the same day a hand-done
-  version of exactly that move (before the tool supported it) shipped a
-  deduplication this repo's own consumer-fixture check later found
-  resolving nowhere — rehearse it for the same reason the others are
+  dated one did not move. Rehearse the universal → shared/
+  individual direction for the same reason the others are
   rehearsed: the tool having a `--help` line for something is not the
   same as the something working. Each rehearsal ends by running the result's
   own checks and reporting the real output. **Then ask one more question of each: is what
@@ -436,8 +429,7 @@ method"). Build the fixtures.
   that has never had to move, so nothing here ever exercised drift — and
   drift is where a consumer spends its whole life. This is the cheap half
   and it needs nobody's permission.
-- **A DELETION, which is the direction nothing rehearsed until
-  2026-09-21.** Every fixture above tests a repo RECEIVING something. A
+- **A DELETION, the one direction no fixture above rehearses.** Every fixture above tests a repo RECEIVING something. A
   deletion is decided in one tree and executed in many, and for a long time
   the two vendoring paths did not even agree it happened: engine files
   diffed the manifest and propagated, CI workflow files waited for somebody
@@ -446,7 +438,7 @@ method"). Build the fixtures.
   assertions, not one — the file is gone, **and nothing left in that repo
   still names it.**
 
-  The second is the half that bit. *(Found 2026-09-21: a refresh deleted
+  The second is the half that bit. *(The incident: a refresh deleted
   `precedent-check.yml` from four practice sets. A second workflow in each
   had been paused hours earlier, its own header saying its checks now ran
   as steps in the file that was about to be deleted. The premise was true
@@ -463,13 +455,13 @@ method"). Build the fixtures.
   `DELETIONS PENDING` section asks it early: per repo in force, what this
   checkout's **current** engine lists would remove from that repo on its
   next refresh, and which tracked files still name each one. **All three
-  shipped paths, since 2026-09-22** — engine files, CI workflows and hooks —
+  shipped paths** — engine files, CI workflows and hooks —
   each with the same empty-source guard the removers themselves carry, since
   a source directory that globs to nothing means this checkout cannot see
   upstream rather than that upstream ships nothing. Read against
   the upstream's lists deliberately, never the consumer's own vendored
   copy, which may be months old. A row with referrers is a finding; a row
-  without is a heads-up. Added 2026-09-21 (Morgan, strength: decided) from
+  without is a heads-up. The design is
   [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
   items 1 and 2.
 - **A REAL consumer repository, brought up to date.** Ask the person to
@@ -540,8 +532,8 @@ method"). Build the fixtures.
   the `FINDING` from zero. Disagreement between sets, a partial decision, or
   an expired `revisit` all still print the ordinary `FINDING`, annotated with
   what is already on record. A repo that holds no such file is unaffected —
-  this is additive, never a gate (`VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`,
-  proposed by Morgan, 2026-09-20; Install section below).
+  this is additive, never a gate (`VERY_DEEP_CHECK_DEDUP_LEDGER_PROPOSAL.md`;
+  Install section below).
 - **Cross-repo relationships and permissions.** Walk who must be able to read
   or write what, for a *new* repo and a *new* person: the vendored engine,
   each declared source, approvers and CODEOWNERS, and the protected paths
@@ -573,9 +565,7 @@ method"). Build the fixtures.
   seven steps, so no non-Claude session had ever been handed
   `.precedent/SESSION_PRACTICES.md`, the file AGENTS.md's own Standing
   instruction tells every session to read. Nothing was lying; the two files
-  had simply never been read side by side. Added 2026-09-21 at Morgan's
-  request (strength: decided) — "check everything unique to Claude and make
-  sure there's a parallel for the three others."
+  had simply never been read side by side.
 - **Not the practice simulation.** This pass installs real fixtures and runs
   the ordinary checks on them. It does not run
   [tools/precedent_simulate.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_simulate.py) or its
@@ -647,8 +637,8 @@ confidently.
    2026-09-29, both missed by earlier runs of this question: a hand-kept list
    of every practice's routing reason, whose copy of the gates had drifted
    on fourteen practices, and two checks scanning for retired words, one
-   with history-aware rules and one without. Morgan, that day: add a check
-   for needless redundancy -- this is it, widened, rather than a second
+   with history-aware rules and one without. The check
+   for needless redundancy is this question, widened, rather than a second
    pass that would itself be the redundancy.)* Copies do not stay identical: one gets fixed
    and the other goes on being wrong, and the stale one is as likely as not
    to be the one actually running. Search by what code *does*, not by what
@@ -692,7 +682,7 @@ confidently.
     by nothing**: where a key has no local reader the row names which other
     repo in force mentions it, since a private check may legitimately run
     against every repo. Mentioned nowhere at all is the row worth an
-    answer. Added 2026-09-21 (Morgan, strength: decided) from
+    answer. The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 10.
 
@@ -713,9 +703,9 @@ confidently.
     | Shipped class | Addition arrives | Change arrives | Deletion arrives |
     |---|---|---|---|
     | Engine files (`tools/`) | yes | yes | **yes** — manifest diff |
-    | CI workflow files | yes | yes | **yes**, since 2026-09-21 — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
-    | Hooks (`.claude/hooks/`) | **yes** — since 2026-10-07 every hook file is one permanent stub that runs `tools/<its name>`, and the script is an engine file (`HOOK_SCRIPT_FILES`); a hook added since then is listed in `tools/hook_wiring.json` and run by the one fixed `precedent-hooks.sh` entry per event. Before that, `HOOK_WIRING` added a `settings.json` entry (2026-09-25), and it takes no new hook | yes — the script, by the engine manifest; the stub never changes | **yes** — the script by the engine manifest diff; a stub upstream stops shipping by `_remove_dropped_hook_files` (since 2026-09-22; it removed nothing until 2026-09-28, when it began reading the record from before the update) |
-    | Practice-declared hooks (`process/practice_hooks.json`) | yes, since 2026-10-07 — the sync writes the `hooks:` of the practices in force | yes | yes — the file is regenerated whole |
+    | CI workflow files | yes | yes | **yes** — manifest diff, with tombstones kept for what a diff cannot express (a rename) |
+    | Hooks (`.claude/hooks/`) | **yes** — every hook file is one permanent stub that runs `tools/<its name>`, and the script is an engine file (`HOOK_SCRIPT_FILES`); a hook added after the stubs is listed in `tools/hook_wiring.json` and run by the one fixed `precedent-hooks.sh` entry per event. `HOOK_WIRING` once added a `settings.json` entry, and it takes no new hook | yes — the script, by the engine manifest; the stub never changes | **yes** — the script by the engine manifest diff; a stub upstream stops shipping by `_remove_dropped_hook_files`, which reads the record from before the update |
+    | Practice-declared hooks (`process/practice_hooks.json`) | yes — the sync writes the `hooks:` of the practices in force | yes | yes — the file is regenerated whole |
     | `settings.json` itself | yes, add-only hook entries, 2026-09-25 to 2026-10-07; since then nothing a new hook needs touches it | no | no |
     | The practice catalogue | yes — materialized per session | yes | yes |
     | Skeleton / bootstrap templates | only into a newly created set | only into a new set | only into a new set — existing sets drift, which `BOOTSTRAP DRIFT` reports |
@@ -728,12 +718,12 @@ confidently.
     than the CI case, since `_write_hook_files` then replaced `hook_files`
     with only what it had just written, so **the manifest entry vanished
     too** and the file went on running, in every session, recorded by
-    nothing. **Fixed 2026-09-22** by `_remove_dropped_hook_files`
+    nothing. **The fix is** `_remove_dropped_hook_files`
     ([todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer](https://github.com/alex137/BestPractice/blob/staging/todo/todo-2026-09-21-a-dropped-hook-never-leaves-a-consumer.md)),
-    which is why the row now reads yes and carries the date it changed.
+    which is why the row now reads yes.
     **The question outliving the answer is the point of the table**: a cell
     is re-read, not inherited.
-    Added 2026-09-21 (Morgan, strength: decided) from
+    The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 4.
 
@@ -793,9 +783,9 @@ confidently.
     one. *(First run, 2026-09-21: 17 commits in the window carrying a
     `+00:00` author date and 8 carrying `-04:00`, against 275 at the
     declared `-03:00` — the enforcement not having reached the sessions
-    that made them.)* Added 2026-09-21 (Morgan, strength: decided) from
+    that made them.)* The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
-    item 8, after three identity incidents in six days.
+    item 8.
 
 14. **Does a verification enumerate, or does it sample?** For any check
     whose failure mode is something *absent* — a file, a term, a link, a
@@ -871,8 +861,7 @@ confidently.
     first place. *(First run, 2026-09-21: a shared source at 17 passed and
     53 skipped, **44 of the 53 for one cause** — each check keyed to a
     `practices/<slug>.md` a source set does not carry, because its
-    `practices/` holds its own level only.)* Added 2026-09-21 (Morgan,
-    strength: decided) from
+    `practices/` holds its own level only.)* The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 13.
 
@@ -915,14 +904,14 @@ confidently.
     adapter they actually use. Every family member with an adapter
     directory gets read this way, present tense: today that is
     `claude-code/`, `codex/`, `gemini-cli/`, and `grok-build/`. All four
-    carry ledger rows since 2026-09-21. grok-build's hooks syntax is still
+    carry ledger rows. grok-build's hooks syntax is still
     unverified against xAI's docs, so its rows record verdicts, not wiring:
     read them like the others, and confirm the unverified-hooks caveat in
     [templates/harness/grok-build/README.md](https://github.com/alex137/BestPractice/blob/staging/templates/harness/grok-build/README.md)
     still holds. A fifth member joins the full read the day it gets a directory
     of its own -- there is nothing to check for one that does not exist
     yet, which is a finding this pass should say plainly rather than
-    passing over in silence. *(Found, 2026-09-17: `templates/harness/LEDGER.md`'s `ffcae058`
+    passing over in silence. *(The incident: `templates/harness/LEDGER.md`'s `ffcae058`
     row, and two rows above it for the same file, each say a codex or
     gemini-cli user could get the fix by running `commit-identity.sh` once
     by hand -- `commit.gpgsign false`, the global commit identity, the
@@ -944,7 +933,7 @@ confidently.
     template provides before concluding anything. **Never classify one as
     orphaned by its filename alone** — that is exactly the mistake the
     incident below made, one pass before this item existed to stop it.
-    *(Found, 2026-09-20: a sweep list built by matching filenames against
+    *(The incident: a sweep list built by matching filenames against
     [spec/CI_MINUTES_PLAN.md](https://github.com/alex137/BestPractice/blob/staging/spec/CI_MINUTES_PLAN.md)'s own table of
     retired-workflow names flagged `light-check.yml` in a real dependent
     repo as a retired duplicate of `bestpractice-docs.yml`.
@@ -979,18 +968,16 @@ confidently.
     work**: `workflow-yaml-github-can-parse`
     ([tools/precedent_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_check.py))
     refuses a YAML merge key (`<<:`) in any workflow file or shipped
-    workflow template (it refused every anchor and alias until 2026-09-28,
-    when a very deep check found GitHub had accepted plain ones since
-    2025-09-18), through PyYAML's own event stream where PyYAML is installed
+    workflow template (a plain anchor or alias passes: GitHub accepts
+    those, as of 2025-09-18), through PyYAML's own event stream where PyYAML is installed
     and a structural line match where it is not — **CI has no PyYAML, so
     the first version of that check skipped in the one environment that
     gates every pull request**, which is not a check
-    ([upstream-fix](upstream-fix.md), point 7). *(Found 2026-09-21: an anchor shared one `paths:` list
+    ([upstream-fix](upstream-fix.md), point 7). *(The incident: an anchor shared one `paths:` list
     between a `push:` and a `pull_request:` trigger. PyYAML resolved it —
     including through the exact command this repository's own templates
     recommend — and GitHub rejects the file outright. Every local
-    verification this project teaches would have passed it.)* Added
-    2026-09-21 (Morgan, strength: decided) from
+    verification this project teaches would have passed it.)* The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 5.
 
@@ -1017,8 +1004,7 @@ confidently.
     a check testing for one. What it removes is the part nobody does, which
     is assembling the list. *(Its first run, 2026-09-21, found four of the
     six gotchas filed that week cited by nothing in `tools/` or
-    `practices/` at all.)* Added 2026-09-21 (Morgan, strength: decided)
-    from
+    `practices/` at all.)* The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 12.
 
@@ -1055,9 +1041,7 @@ confidently.
     about this one's diff. And a depth-limited clone may hold no commit
     before the ledger's date, in which case the comparison runs from the
     oldest commit it has and **under-reports** — the narrower window is
-    named in the output rather than silently applied. Added 2026-09-22
-    (Morgan, strength: decided — *"Build item 13's fix-sweep half, go
-    update"*) from
+    named in the output rather than silently applied. The design is
     [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
     item 13.
 
@@ -1076,13 +1060,10 @@ confidently.
     ([ci-workflow-approved](https://github.com/alex137/BestPractice/blob/staging/practices/ci-workflow-approved.md)),
     and GitHub's run count over 30 days by event. A schedule shows among a
     workflow's triggers. It runs only here and by hand, never on a schedule
-    of its own (Morgan, 2026-09-26: "I only want this to run when either
-    manually invoked or as part of a very deep check").
+    of its own.
 
     **Its output stays in the session.** It names other repositories, so it
-    never goes into a repo, an issue or a pull request (Morgan, 2026-09-26,
-    strength: decided: *"its results should go to the session not the
-    GitHub since it references other repos of yours"*).
+    never goes into a repo, an issue or a pull request.
 
     **Each FINDING is money spent without anyone deciding to.** Show the
     person the workflow and when it runs, then approve it in their words,
@@ -1106,17 +1087,15 @@ confidently.
     one:** narrow what ships (a rule in `VENDORING_RULES`, the ruleset
     [vendor-rollout-disclosed](vendor-rollout-disclosed.md)'s fifth question
     applies to every new file), or say why the consumer needs it. The consumer
-    side clears itself on its next Update Vendors. *(Found 2026-09-30: a
+    side clears itself on its next Update Vendors. *(The incident: a
     consumer's copy held 543 files, among them this repo's test suite, its
     gotchas and a second copy of the engine. Question 8 never saw it: it
     reads one repo against itself, and the section before this one checked
     only the checkout the run started in, against a list of what to leave
-    out, so anything not on that list read as fine. Morgan, that day:
-    "check specifically the vendored-in files to see if anything is
-    vendored-in that the consumer repo would never have use of." Its first
+    out, so anything not on that list read as fine. The section's first
     run flagged the Claude Code hooks, installed and again in the copy's
-    templates. Morgan kept them: the template is what a new repo is made
-    from. A template beside the file made from it is now counted, not
+    templates. They stay: the template is what a new repo is made
+    from. A template beside the file made from it is counted, not
     flagged.)*
 24. **Every warning the routine checks print, judged: fixed, or excluded
     with a reason.** A warning is the finding nothing gates on, so nothing
@@ -1151,14 +1130,7 @@ confidently.
     against the previous run's. After deciding, run
     `python3 tools/very_deep_check.py --refresh-warnings`, which rewrites
     the block with the start-of-run count beside the new one. The ledger
-    records the open count, which is how the next run compares. *(Morgan,
-    2026-10-11: "I like reviewing warnings to see if we can get rid of them
-    or explicitly exclude them and so on to over time eliminate warnings",
-    and on who decides: asking about each one "will add a lot of time and
-    frustration to the very deep check", so the session uses its judgment
-    and asks only when in doubt. Before this, the markdown warnings were
-    the only ones any section showed; the advisory count was read and
-    dropped, and no section collected any other tool's warnings.)*
+    records the open count, which is how the next run compares.
 
 25. **What runs before each push, and what runs after it?** Before a push
     to staging or main only the bare essentials and the leak gate run;
@@ -1181,9 +1153,7 @@ confidently.
     per-file step that starts a test. A route through the old tier below
     staging, retired for everyone on 2026-10-14, is reported as retired
     code to delete, and so is any mention of that tier the run finds: it
-    is fixed to assume the retirement (Morgan, 2026-10-17, of that tier:
-    "any mention of [it] it finds should be fixed to assume its
-    deprecation").
+    is fixed to assume the retirement.
 
     **Fix each violation in this pass**: move the check to the full tier,
     or make the move run the quick tier before it pushes. Only the person's
@@ -1200,13 +1170,7 @@ confidently.
     the three stages, before and after, the quick tier, the full tier's
     additions, and the findings. Say in the account what each finding
     became. The deep check refuses an account for a run from 2026-10-17 on
-    without that section. *(Morgan, 2026-10-17: "Please add to very deep
-    check, an explicit check for that ... It should list this, which is for
-    the push to staging, the push to main. What are the checks listed? ...
-    what are the checks that are done before each, and then what are the
-    checks that are done after each, and the same for debut ... and then
-    also flag it and fix it if before the pushes it has any checks other
-    than the minimum essential urgent check and the leak gate check.")*
+    without that section.
 
 26. **Does each practice set stand on its own?** A shared or individual
     set's rules, its checks and the tests for those checks live in the
@@ -1234,11 +1198,7 @@ confidently.
     [prompt-please](prompt-please.md) block. A name the engine keeps on
     purpose goes in the inventory's `_SET_NAMES_KEPT`, with the person's
     words. The section writes a `## Set independence` block into the run's
-    write-up. *(Morgan, 2026-10-17: "The practice sets should be more
-    independent as practices and the test for the practices in the
-    practice sets ... add to a very deep check a review for that to make
-    sure that is how it works. And fix it if it's not, if you find it
-    otherwise at any point.")*
+    write-up.
 
 27. **Is every test still worth running?** Tests are added one at a time,
     each for a real reason, and until this question nothing asked the
@@ -1261,8 +1221,7 @@ confidently.
     time. Leads come first, then the slowest. A practice set keeps no
     retired list of its own, so its tests are also read against the list
     of the repo running the check: a set's test still about a tier
-    BestPractice retired is flagged like one of BestPractice's own
-    (Morgan, 2026-10-18, strength: decided).
+    BestPractice retired is flagged like one of BestPractice's own.
 
     **Judge on today's times.** The whole-suite run this check already
     makes (`--with-harness`, `verify_harness.py --all --record-times`)
@@ -1313,12 +1272,7 @@ confidently.
     `python3 tools/very_deep_check.py --refresh-tests` to rewrite it. In
     the account, say what was retired, what was cheapened and how much time
     each saved. The deep check refuses an account for a run from 2026-10-18
-    on without that section. *(Morgan, 2026-10-17, strength: decided:
-    "Update 'very deep check' to review all TESTS to see if all tests are
-    relevant and important. Do they test something still used and needed?
-    Was what it tests deprecated? ... does the amount of time it takes
-    worth it for its level of importance? Write all this in the result doc
-    you create." No earlier item asked for it; this question is the first.)*
+    on without that section.
 
 ### Pass 3 — Does the writing still hold together?
 The coherence read, across every repo in scope. Run the mechanical audits
@@ -1333,7 +1287,7 @@ first so this pass spends its attention on what they cannot see.
   anything, so a sentence that has quietly stopped being true costs more
   here than anywhere else in the tree.
 
-  Added 2026-09-21 (Morgan, strength: decided) after an Update Vendors
+  The incident behind it: an Update Vendors
   pass found a consuming repo's `AGENTS.md` naming a repository that does
   not exist — a private voice-definition repository under its old name,
   twice, after the real one had been renamed, in the session-start step and
@@ -1353,8 +1307,7 @@ first so this pass spends its attention on what they cannot see.
   section's output; do not re-read the file looking for what it already
   answered.
 
-  **A rename is fixed in the run, not only reported** (Morgan, 2026-09-29,
-  strength: decided). The repository-visibility audit already asks GitHub
+  **A rename is fixed in the run, not only reported.** The repository-visibility audit already asks GitHub
   about every repository named anywhere in this checkout's tracked text; it
   now also asks about the names in every source's own tree, and any answer
   under a different full name -- from that audit, this one, or the
@@ -1404,8 +1357,7 @@ first so this pass spends its attention on what they cannot see.
   **a pass that finds nothing to cut in a file that size has not read it.**
   **Churn is not a defect**: the top row may be the healthy one, and the
   ranking buys only that a file nobody has opened whole cannot stay
-  invisible because every commit to it was fine. Added 2026-09-21 (Morgan,
-  strength: decided) from
+  invisible because every commit to it was fine. The design is
   [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
   item 9.
 - **Contradictions** — two rules, or two documents, that can't both be
@@ -1520,8 +1472,7 @@ first so this pass spends its attention on what they cannot see.
   records as vendored are skipped — pass 2's *this repo wrote it versus this
   repo received it* applied here. With all three, the first run returned
   **zero rows in three repos and five in the one where the incident
-  actually happened**, all naming the deleted file. Added 2026-09-21
-  (Morgan, strength: decided) from
+  actually happened**, all naming the deleted file. The design is
   [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
   item 14.
 - **Stale references** — a slug, practice number, filename, heading, or
@@ -1538,10 +1489,8 @@ first so this pass spends its attention on what they cannot see.
   `python3 tools/precedent_vocabulary.py`, the most used ones again in
   AGENTS.md's command list, and `check_park_it.py` fails if the "Drop it"
   paragraph goes missing — so
-  check where a keyword IS defined before calling it undefined. (An early
-  "don't put it in the glossary", Morgan 2026-09-08, was later read
-  narrowly; park-it's Story records why, and "Drop it" is in the glossary
-  now.)
+  check where a keyword IS defined before calling it undefined. ("Drop it"
+  is in the glossary; park-it's Story records why.)
 - **What every session loads, and what it costs.** The rule is
   [session-load-budget](session-load-budget.md) — every always-loaded surface
   carries a declared ceiling in
@@ -1570,10 +1519,8 @@ first so this pass spends its attention on what they cannot see.
   same registry, where the file is meant to live). Over target, this pass
   runs a reduction pass, **including its practice-by-practice review of the
   occasion index and resident block**, and reports what it proposes; a
-  change that takes a rule out of a session waits for the person. *(Morgan,
-  2026-10-01, after the first such review: "if it's not part of Very Deep
-  Check, it absolutely should be", strength: decided.)*
-  *(Added 2026-09-22, and the gap it closes is the reason to trust neither
+  change that takes a rule out of a session waits for the person.
+  *(The gap the ceiling report closes is the reason to trust neither
   signal for the other's job. `precedent-individual` had AGENTS.md at 2,276
   tokens against a declared 1,800 — 476 tokens, 26% over — and every check
   green. Its largest section was 990 against a 2,500 threshold, so this pass
@@ -1595,11 +1542,7 @@ first so this pass spends its attention on what they cannot see.
   and a resident cap set too low, after reporting each clean unplanted. A
   check that passes a planted overage is the finding. The table and the fire
   test go into the run's write-up as its `## Token budgets` block, rewritten
-  every run. *(Morgan, 2026-10-17, strength: decided, after weeks without a
-  budget warning raised the question of whether they were still checked:
-  "even if they all pass, share the exact numbers, the limits, the chart,
-  and any other details. These should all go into the very deep check
-  document.")*
+  every run.
   Its "GOTCHA CURRENCY" sub-pass reads the other direction — **the tree
   against each entry, rather than the entry against itself** — because the
   settled-marker flag can only find an entry honest enough to say it is
@@ -1620,7 +1563,7 @@ first so this pass spends its attention on what they cannot see.
   bites moves to a linked archive **in full** — the payload of a gotcha is the
   story of what failed ([environment-gotchas](environment-gotchas.md)), so a
   deletion eventually leaves a live section of unexplained rules.
-  *(Found 2026-09-08, and the shape is why this belongs here: the resident
+  *(The incident, and its shape is why this belongs here: the resident
   block's 2,000-token budget had been reporting green for weeks while the
   file around it reached ≈17,000 — the budget governed 4% of the cost, and
   nothing was measuring the rest. The first pass moved 24 entries' full text
@@ -1672,10 +1615,7 @@ first so this pass spends its attention on what they cannot see.
   kept Rule is a fine verdict. Record each verdict, kept or cut with its word
   counts before and after, under the account's `## Long Rules` list, which
   the section writes; a private set's Rules are named there in general terms
-  only. *(Morgan, 2026-10-31, strength: assented, after the 2026-10-30 run cut
-  four Rules by hand, the longest from 9,301 words to 1,773: "maybe we add to
-  very deep check to always review like the 25% of all the rules that are the
-  longest in that repo and shorten them like you did?")*
+  only.
 - **Whether each practice's SOURCE is still right.** A different axis from
   the bullet above — not resident-versus-on-demand within one catalogue, but
   *which* catalogue a practice's slug lives in at all, across every source in
@@ -1712,10 +1652,7 @@ first so this pass spends its attention on what they cannot see.
   `small-calls` and `push-back` sitting active in both a shared set and
   universal for three days after a 2026-09-19 move landed only its first
   half — a duplication this bullet would have caught on the next run rather
-  than waiting for someone to notice by hand.)* Added 2026-09-23 (Morgan,
-  strength: decided), after asking for a placement review across the five
-  Precedent repos and finding this axis was never checked anywhere: the
-  session's own report is the worked example above.
+  than waiting for someone to notice by hand.)*
 - **Orphans — files nothing owns any more.** The mirror of every other
   check here, which all ask whether something that should be present *is*.
   An orphan is present and in nobody's list, so no mechanism keyed on a
@@ -1725,7 +1662,7 @@ first so this pass spends its attention on what they cannot see.
   current kind dropped, an unrecorded engine file hand-copied in, and a
   `check_<slug>.py` whose practice is gone — so read only what it cannot:
   a document nothing links to, a workflow whose job moved, a directory a
-  migration emptied. *(Found 2026-09-08: three practice sets each carrying a
+  migration emptied. *(The incident: three practice sets each carrying a
   `precedent_retire_path.py` that a rename had orphaned, with `status`
   reporting all three healthy — it was gone from the file list, gone from
   the manifest, and the untracked-file check is keyed on the current lists
@@ -1735,8 +1672,8 @@ first so this pass spends its attention on what they cannot see.
   real source has everything in it — which catches a source that drifted
   below the template and can never catch the template drifting below
   reality. Run the reverse: what does every resolved source of a level
-  carry that a newly bootstrapped one would be created without? *(Found
-  2026-09-08: the individual skeleton shipped no `identity.json` — the one
+  carry that a newly bootstrapped one would be created without? *(The incident:
+  the individual skeleton shipped no `identity.json` — the one
   place a person's name, address and timezone live, and the file that
   decides whether the commit hook ENFORCES an author-date offset or merely
   guesses one. Every real set had it; a bootstrapped set would not have,
@@ -1803,8 +1740,8 @@ first so this pass spends its attention on what they cannot see.
   still accurate rather than adding a second one.
 - **Conflicting practices inside one source, and same-slug practices across
   two** — two rules in the same catalogue that cannot both be followed, and
-  the same slug defined by two sources at the same level. Requested by
-  Morgan 2026-09-07 and **not yet built as a mechanical step**: the
+  the same slug defined by two sources at the same level.
+  It is **not yet built as a mechanical step**: the
   cross-source half is already a hard `ResolveError`
   (`precedent_resolve.py` refuses a source list where two same-level
   sources define one slug), so what this pass adds is the *within-source*
@@ -1886,10 +1823,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   record alone. Treat an item that is really just an unfixed bug as work,
   not as backlog -- [todo-is-a-handoff](todo-is-a-handoff.md) queues only what
   is blocked or out of scope, so anything else there is either doable now or
-  should be closed. Morgan, 2026-09-28 (strength: decided): *"review all to
-  do's and see if any are outdated ... close them ... and then also to do the
-  same with all the gotchas ... for both of these, the to-dos and the gotchas,
-  should be both in the doc and ask the session user."*
+  should be closed.
 - **Automated actions and schedules — crons, scheduled workflows, session
   triggers — across every repo and account in force.** Nothing else here
   sweeps these: a `schedule:` trigger in a `.github/workflows/*.yml`, an
@@ -1942,10 +1876,8 @@ Last because none of it strands an adopter, and none of it is cheap.
   or somebody else's, and "unclear" is only allowed with what would settle
   it. The branch nobody remembers is the one this bullet exists for. *(2026-09-26: two week-old session branches in a
   consuming repo each held one commit that never reached `main`, two
-  hundred commits back, and nobody could say what either was for. Morgan:
-  *"I don't even know what that was, or if it's deprecated, or no longer
-  needed, or if it was something useful ... it was completely
-  forgotten."*)* Commits behind is not age: in a busy repo two hundred
+  hundred commits back, and nobody could say what either was for.)*
+  Commits behind is not age: in a busy repo two hundred
   commits can be a week, so read the date, not the count.
 
   The *inventory* was already read at step 4 of the order of operations,
@@ -1970,9 +1902,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   that does not pass `--skip-branch-scan`, and relocatable with
   `--branch-report PATH`. Commit the result so the links are live on the
   branch a person actually opens, the same way `MAP.md` and the ledger are
-  committed rather than left as a run's private output (Morgan, reading a
-  Sunday run that had produced the list twice and shown it neither time:
-  *"it shouldn't live in the chat"*).
+  committed rather than left as a run's private output.
 
   **Committing the file is not the same as the run's own write-up carrying
   it**, and this repeated the exact failure once already, in a different
@@ -2018,8 +1948,8 @@ Last because none of it strands an adopter, and none of it is cheap.
 
   **This sweep stays inside the repos this check already reads — the
   checkout and the sources that are their own git checkouts — and is never
-  widened to every Precedent repo the person owns.** Morgan kept the fleet
-  sweep out of this check on 2026-09-21, with the reasoning worth keeping:
+  widened to every Precedent repo the person owns.** The fleet
+  sweep stays out of this check, for a reason worth keeping:
   branch hygiene is per-repo
   bookkeeping, not a finding in the seam between two repos, which is the
   class this check exists for. Widening it here would duplicate that
@@ -2032,8 +1962,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   That kept the deletion safe and made the list wrong: **the branches that
   accumulate longest are exactly the ones nobody in the room opened**, so
   the sweep reported a short clean list while the branch page grew every
-  month (Morgan, 2026-09-12: *"find stale branches, even if worked on by
-  someone else"*). Listing is not deleting — someone else's branch gets a
+  month. Listing is not deleting — someone else's branch gets a
   verdict routed to them by name, never a silent skip and never a deletion
   on their behalf.
 
@@ -2135,9 +2064,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   `session_window_days` in the repo's own
   [precedent.json](https://github.com/alex137/BestPractice/blob/staging/precedent.json),
   `--session-days N` for one run, and a conservative default where a repo
-  has declared nothing. *(Asked by Morgan, 2026-09-12: "do a sweep of live
-  sessions against the repo to see if there's anything recent being
-  missed." Nothing else in this check can see it — every other part reads
+  has declared nothing. *(Nothing else in this check can see it — every other part reads
   the repository against itself, and this is the failure where the
   repository is internally perfect and the work never arrived in it.)*
 
@@ -2168,10 +2095,9 @@ Last because none of it strands an adopter, and none of it is cheap.
   [spec/VERY_DEEP_CHECK.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK.md)'s
   run record, with its reason.
 
-  **A repo that also keeps a carry watermark reads both.** This one did
-  until 2026-09-27, when its upstream-carry notice was retired, and the
+  **A repo that also keeps a carry watermark reads both.** This one keeps none: the
   drift check in [tools/precedent_branches.py](https://github.com/alex137/BestPractice/blob/staging/tools/precedent_branches.py)
-  answers by files what the watermark answered by commits. A watermark
+  answers by files what a watermark answers by commits. A watermark
   answers "has the base moved since somebody last carried from it"; this
   answers "what, specifically, has never come across", which is the thing
   a person can decide about. The first can read *current* while the second
@@ -2208,9 +2134,7 @@ Last because none of it strands an adopter, and none of it is cheap.
   person will catch.
 
 ### The Rule's points in full
-Everything under the headings below was the Rule's own text until
-2026-10-31, moved here whole when the Rule was cut to what a session must do
-when asked for a very deep check (Story, 2026-10-31). The Rule names each
+The headings below give the Rule's points in full. The Rule names each
 heading where it needs it.
 
 #### What the tool enumerates, and why it is never a gate
@@ -2313,11 +2237,7 @@ lands on. **Where that branch is not `main`, reading `main` alone would
 re-find what is already fixed and not live yet**, so the tool's
 `LIVE VERSUS LANDING` section names, per repo, the files the landing
 branch carries that are not live yet; before fixing a finding in one of
-them, check whether the landing branch already did. Morgan, 2026-09-28
-(strength: decided): *"it's better to do a deep check on the live version
-(main), but we don't want to edit it, to edit it we should use the normal
-process."* Until then a run read whatever the harness checked out, which
-was not the same branch in every repo the same afternoon.
+them, check whether the landing branch already did.
 
 #### The upstream question
 **Run in a repo that has an upstream -- a consumer, or a practice set --
@@ -2332,8 +2252,7 @@ findings that belong upstream are collected into one
 under `## Upstream findings` and given in the reply. Then the person is asked
 whether to put band-aids in place here until the upstream fix lands, and
 the session does what they say. The tool's `UPSTREAM` section prints the
-upstream, the scope and the steps; Detail has the full procedure (Morgan,
-2026-10-11, strength: decided).
+upstream, the scope and the steps; Detail has the full procedure.
 
 #### Can this session land work in each repo
 **Every repo in force is also probed for whether THIS session can land work
@@ -2364,18 +2283,16 @@ and should the branch go. Lints, checks and fixes (the FIX SWEEP included)
 run on each repo's current copy, never on a side branch. One read reaches
 further on purpose and reports without fixing: the CI fleet audit reads the
 workflow files on branches pushed in the last seven days, because GitHub
-runs a pushed branch's own workflows (Morgan, 2026-09-29, strength:
-decided).
+runs a pushed branch's own workflows.
 
 #### Long-lived branches are never offered for deletion
 **A long-lived branch work lands on is never offered for deletion, by any
 list this check prints or writes** — `main`, the declared base branch, any
 branch a person's work lands on, and the lock branch a tool keeps, in every
 repo in force, merged or not. A branch that is routinely fast-forwarded to
-match another looks "merged" to an ancestor test; until 2026-09-28 the sweep
-protected only the declared base and the default branch, and would have
-handed such a branch over with a one-click delete link (Morgan, 2026-09-28,
-strength: decided). The guard sits in the one function that mints every
+match another looks "merged" to an ancestor test, and a sweep that
+protected only the declared base and the default branch would
+hand such a branch over with a one-click delete link. The guard sits in the one function that mints every
 delete link, and a filtered page that would also show a protected row says
 so on the row.
 
@@ -2405,10 +2322,7 @@ archived. A set whose active rules are all in force elsewhere is a finding
 with its one remedy, `python3 tools/precedent_vendor_engine.py drop-retired
 .`, run in that repo on its working branch; one still holding a rule found
 nowhere else is a finding that names the rule, and stays declared. *Not
-Found* never counts as retired. Morgan, 2026-10-06 (strength: decided):
-*"have update vendors and very deep check see if any repos are declared to
-be included that no longer exist and remove them"*, choosing to drop on a
-set's own retirement or GitHub's archived flag, and never on *Not Found*.
+Found* never counts as retired.
 
 #### Current is not the same as carried
 **Current is not the same as CARRIED either, and that is the half nothing
@@ -2416,7 +2330,7 @@ else here could see.** The freshness gate proves a clone matches **its own
 origin**. A repo can be perfectly current with itself and be running an
 engine from three weeks ago, because a fix merged upstream reaches an
 installed repo only when somebody goes there and runs `Update Vendors` —
-and until 2026-09-21 nothing anywhere said which repos had not. **Measured
+and nothing else says which repos have not. **Measured
 2026-09-20: 18 of 22 repositories had never taken one.** That is also the
 structural reason this check had never once found a stale vendored tree:
 not a gap in its passes, a gap in what any pass could see, since every pass
@@ -2428,8 +2342,7 @@ where upstream is now, and how many engine files were added, changed or
 refresh is the one that breaks something. **It reports and refreshes
 nothing**: taking an update is `Update Vendors`, run in that repo, and it is
 ordinary work authorized the ordinary way. **Scope is the repos this run
-already opens.** Added 2026-09-21 (Morgan, strength:
-decided) from
+already opens.** The design is
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 3.
 
@@ -2460,8 +2373,7 @@ this is the standing version. **A floor, never an invoice**: real minutes are
 at least this, and whether they are billed at all depends on the repository
 being private. The lever it makes visible is the one both item 13 and item 15
 landed on independently — **job count per workflow**, because two workflows on
-one pull request is two whole minutes for however little work. Added
-2026-09-21 (Morgan, strength: decided) from
+one pull request is two whole minutes for however little work. The design is
 [spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md)
 item 7.
 
@@ -2545,15 +2457,13 @@ links the account in the reply that reports the run. A run is not done
 until the account is there, and the deep check enforces it
 (`precedent_check.py --only very-deep-check`): once all four passes
 are recorded in the ledger, a push is refused while the account still
-describes an earlier run. Morgan, 2026-10-11 (strength: decided), after
-that day's run left it out until he asked for it: *"Let's update very deep
-check to make that document mandatory."*
+describes an earlier run.
 
 #### The component ledger
 **Every run records what each of its parts returned and what each cost, and
 reads them against the runs before it.** This check grew a section at a time,
-each one added because a real run wanted it, and until 2026-09-11 nothing had
-ever asked the reverse question: does any of them still earn its place?
+each one added because a real run wanted it, and the ledger asks
+the reverse question: does any of them still earn its place?
 [tools/very_deep_check.py](https://github.com/alex137/BestPractice/blob/staging/tools/very_deep_check.py) appends every run to the
 checked repo's own
 [record/very-deep-check-ledger.json](https://github.com/alex137/BestPractice/blob/staging/record/very-deep-check-ledger.json)
@@ -3093,6 +3003,196 @@ dated 2026-11-01 on: `--record-pass` by a green whole-suite run, by
 question 27, question 20, the quiet and unmeasured sections, the Pass 2
 question list, the schedules inventory and the blocks' stamps. Steps 2, 6,
 7, 8 and 9 above and "Running the check with helpers" say so.
+
+**2026-11-27: the record moved out of Detail.** The repository's owner
+decided that day (*"yes for both"*) that a practice's Detail is an
+instruction as much as its Rule is
+([record-not-instruction](record-not-instruction.md)). Detail had carried,
+beside each part, who asked for it and when. Those lines are below, oldest
+first, each naming the part of Detail it stood behind, with the person's
+words and the strength as they were written there. What the paragraphs
+above or the approval history below already tell is not repeated: the
+2026-09-11 component ledger, the 2026-09-12 sweeps, the 2026-09-20 dedup
+ledger proposal, the 2026-10-31 cut of the Rule and the 2026-10-31
+long-Rules read left Detail with nothing new to add here.
+
+**2026-09-07.** Pass 4's bullet on conflicting practices inside one source
+and same-slug practices across two: requested by Morgan 2026-09-07.
+
+**2026-09-08.** Three incidents Pass 3 tells were found that day: the
+resident block's budget reporting green while the file around it reached
+about 17,000 tokens (the session-load bullet), three practice sets each
+carrying a `precedent_retire_path.py` a rename had orphaned (the orphans
+bullet), and the individual skeleton shipping no `identity.json` (the
+skeletons bullet). Pass 3's bullet on a keyword being findable: an early
+"don't put it in the glossary", Morgan 2026-09-08, was later read
+narrowly; park-it's Story records why, and "Drop it" is in the glossary
+now.
+
+**2026-09-14.** Pass 1's rehearsal of a practice moved between levels was
+added 2026-09-14, the day Morgan asked whether the run had tested it and it
+had not: the rehearsal returned thirteen findings and the move tool.
+
+**2026-09-17.** Pass 2's question 17: the incident it tells, the
+`ffcae058` ledger row promising a hand-run workaround neither adapter's
+README mentioned, was found 2026-09-17.
+
+**2026-09-20.** Pass 2's question 18: the incident it tells, the sweep
+list built by matching filenames that flagged a live `light-check.yml` as
+retired, was found 2026-09-20.
+
+**2026-09-21.** Each of these parts of Detail was marked "Added 2026-09-21
+(Morgan, strength: decided)" from
+[spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md](https://github.com/alex137/BestPractice/blob/staging/spec/VERY_DEEP_CHECK_DEEPENING_PROPOSAL.md):
+step 2's planted-case rotation in the order of operations (item 11);
+Pass 1's DELETIONS PENDING (items 1 and 2); Pass 2's question 8a, CONFIG
+KEYS (item 10), question 8b, the deletion table (item 4), question 13a,
+IDENTITY REALITY (item 8, "after three identity incidents in six days"),
+question 15a, CHECK COVERAGE (item 13), question 19, WORKFLOW REALITY
+(item 5), and question 20, INCIDENT COVERAGE (item 12); Pass 3's ACCRETION
+(item 9) and MOVED CLAIMS (item 14); CARRY-THROUGH under "Current is not
+the same as carried" (item 3); and ACTIONS FLOOR under "The bills it reads"
+(item 7). Two more carried the same day with a different source. Pass 1's
+adapter-parity bullet: "Added 2026-09-21 at Morgan's request (strength:
+decided)", in the words the approval history quotes. Pass 3's close read
+of every always-loaded instructions file: "Added 2026-09-21 (Morgan,
+strength: decided) after an Update Vendors pass found a consuming repo's
+`AGENTS.md` naming a repository that does not exist".
+
+**2026-09-21, what changed that day.** Pass 1: a deletion was the direction
+nothing rehearsed until 2026-09-21, and the incident its bullet tells, a
+refresh deleting `precedent-check.yml` from four practice sets, was found
+2026-09-21. Question 8b's table: a CI workflow file's deletion arrives
+since 2026-09-21. Question 17: all four adapters carry ledger rows since
+2026-09-21. Question 19: the anchor shared between a `push:` and a
+`pull_request:` trigger was found 2026-09-21. "Current is not the same as
+carried": until 2026-09-21 nothing anywhere said which repos had not taken
+an update.
+
+**2026-09-22.** Pass 1's DELETIONS PENDING has read all three shipped paths
+since 2026-09-22. Question 8b: the missing removal path for hooks was fixed
+2026-09-22 by `_remove_dropped_hook_files`, which removed nothing until
+2026-09-28, when it began reading the record from before the update; the
+row carried the date it changed. Question 21, FIX SWEEP: added 2026-09-22
+(Morgan, strength: decided - *"Build item 13's fix-sweep half, go
+update"*), from the same proposal's item 13. Pass 3's session-load bullet:
+the report of a file over its declared ceiling was added 2026-09-22.
+
+**2026-09-23.** Pass 1's move rehearsal: the universal to shared or
+individual direction was added 2026-09-23, the same day a hand-done version
+of exactly that move (before the tool supported it) shipped a deduplication
+this repo's own consumer-fixture check later found resolving nowhere.
+Pass 3's SOURCE bullet: added 2026-09-23 (Morgan, strength: decided), after
+asking for a placement review across the five Precedent repos and finding
+this axis was never checked anywhere: the session's own report is the
+bullet's worked example.
+
+**2026-09-25 to 2026-10-07.** Question 8b's hooks rows: `HOOK_WIRING` added
+a `settings.json` entry (2026-09-25); since 2026-10-07 every hook file is
+one permanent stub and a hook added since then is listed in
+`tools/hook_wiring.json`; the sync has written practice-declared hooks
+since 2026-10-07. Step 2 of the order of operations: since 2026-10-07 a
+full harness run refuses without the person's go-ahead.
+
+**2026-09-26.** Pass 2's question 22, the CI fleet audit. That it runs only
+here and by hand: Morgan, 2026-09-26: "I only want this to run when either
+manually invoked or as part of a very deep check". That its output stays
+in the session: Morgan, 2026-09-26, strength: decided: *"its results
+should go to the session not the GitHub since it references other repos of
+yours"*. Pass 4's branches bullet, on the two forgotten session branches it
+tells of: Morgan: *"I don't even know what that was, or if it's deprecated,
+or no longer needed, or if it was something useful ... it was completely
+forgotten."*
+
+**2026-09-27.** Pass 4's base-branch bullet: this repository kept a carry
+watermark until 2026-09-27, when its upstream-carry notice was retired.
+
+**2026-09-28.** Pass 1's move rehearsal: since 2026-09-28 the run that
+withdraws the source copy also fixes every current mention that still
+places the practice in the old set. Question 19: the workflow YAML check
+refused every anchor and alias until 2026-09-28, when a very deep check
+found GitHub had accepted plain ones since 2025-09-18. Pass 4's open-items
+bullet: Morgan, 2026-09-28 (strength: decided): *"review all to do's and
+see if any are outdated ... close them ... and then also to do the same
+with all the gotchas ... for both of these, the to-dos and the gotchas,
+should be both in the doc and ask the session user."* "Read `main`, write
+through the normal process": Morgan, 2026-09-28 (strength: decided):
+*"it's better to do a deep check on the live version (main), but we don't
+want to edit it, to edit it we should use the normal process."* Until then
+a run read whatever the harness checked out, which was not the same branch
+in every repo the same afternoon. "Long-lived branches are never offered
+for deletion": until 2026-09-28 the sweep protected only the declared base
+and the default branch, and would have handed a routinely fast-forwarded
+branch over with a one-click delete link (Morgan, 2026-09-28, strength:
+decided).
+
+**2026-09-29.** Pass 3, that a rename is fixed in the run and not only
+reported: Morgan, 2026-09-29, strength: decided. "Every branch read, only
+the current copy fixed", that the CI fleet audit reads the workflow files
+on branches pushed in the last seven days: Morgan, 2026-09-29, strength:
+decided. Pass 2's duplicate question, on the two duplicates it says were
+found 2026-09-29: Morgan, that day: add a check for needless redundancy.
+The question was widened to be that check.
+
+**2026-09-30.** Pass 2's question 23, VENDORED SURPLUS: the incident it
+tells, a consumer's copy holding 543 files, was found 2026-09-30. Morgan,
+that day: "check specifically the vendored-in files to see if anything is
+vendored-in that the consumer repo would never have use of." The section's
+first run flagged the Claude Code hooks, installed and again in the copy's
+templates. Morgan kept them: the template is what a new repo is made from.
+
+**2026-10-01.** Pass 3's session-load bullet, the reduction pass over
+target: Morgan, 2026-10-01, after the first such review: "if it's not part
+of Very Deep Check, it absolutely should be", strength: decided.
+
+**2026-10-06.** "Retired sets": Morgan, 2026-10-06 (strength: decided):
+*"have update vendors and very deep check see if any repos are declared to
+be included that no longer exist and remove them"*, choosing to drop on a
+set's own retirement or GitHub's archived flag, and never on *Not Found*.
+
+**2026-10-11.** Pass 2's question 24, the warnings: Morgan, 2026-10-11: "I
+like reviewing warnings to see if we can get rid of them or explicitly
+exclude them and so on to over time eliminate warnings", and on who
+decides: asking about each one "will add a lot of time and frustration to
+the very deep check", so the session uses its judgment and asks only when
+in doubt. Before this, the markdown warnings were the only ones any
+section showed; the advisory count was read and dropped, and no section
+collected any other tool's warnings. "The upstream question": Morgan,
+2026-10-11, strength: decided. "The run's full account": Morgan,
+2026-10-11 (strength: decided), after that day's run left it out until he
+asked for it: *"Let's update very deep check to make that document
+mandatory."*
+
+**2026-10-17.** Pass 1's move rehearsal: `--withdraw-from-universal` was
+added 2026-10-17, the day a rehearsal found the page never named it.
+Pass 2's question 25, of the retired tier below staging: Morgan,
+2026-10-17, of that tier: "any mention of [it] it finds should be fixed to
+assume its deprecation". The same question, the checks by stage: Morgan,
+2026-10-17: "Please add to very deep check, an explicit check for that ...
+It should list this, which is for the push to staging, the push to main.
+What are the checks listed? ... what are the checks that are done before
+each, and then what are the checks that are done after each, and the same
+for debut ... and then also flag it and fix it if before the pushes it has
+any checks other than the minimum essential urgent check and the leak gate
+check." Question 26, set independence: Morgan, 2026-10-17: "The practice
+sets should be more independent as practices and the test for the
+practices in the practice sets ... add to a very deep check a review for
+that to make sure that is how it works. And fix it if it's not, if you
+find it otherwise at any point." Question 27, the test review: Morgan,
+2026-10-17, strength: decided: "Update 'very deep check' to review all
+TESTS to see if all tests are relevant and important. Do they test
+something still used and needed? Was what it tests deprecated? ... does
+the amount of time it takes worth it for its level of importance? Write
+all this in the result doc you create." No earlier item asked for it; that
+question is the first. Pass 3's TOKEN BUDGETS: Morgan, 2026-10-17,
+strength: decided, after weeks without a budget warning raised the
+question of whether they were still checked: "even if they all pass, share
+the exact numbers, the limits, the chart, and any other details. These
+should all go into the very deep check document."
+
+**2026-10-18.** Question 27, that a set's tests are also read against the
+retired list of the repo running the check: Morgan, 2026-10-18, strength:
+decided.
 
 
 ### Approval history

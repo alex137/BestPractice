@@ -273,9 +273,9 @@ are simpler:
   **With a single approver, allow the administrator to bypass**, or add a
   second approver: GitHub never lets authors approve their own pull
   requests, so a sole approver's own changes could otherwise never merge.
-- **No workflow**, since 2026-09-21 (universal `source-sets-run-no-ci`):
-  the set's checks run in the session before a push. Until then the
-  bootstrap tool installed one, carrying the views-drift gate as a job.
+- **No workflow** (universal `source-sets-run-no-ci`):
+  the set's checks run in the session before a push. An older set may
+  still carry one the bootstrap tool installed, with the views-drift gate as a job.
 - **A token to reach it from a hosted session**: the read-only
   `PRECEDENT_GIT_TOKEN` plus `PRECEDENT_SOURCE_BASE_URL` on the environment,
   which is [PER_MACHINE_SETUP.md](PER_MACHINE_SETUP.md)'s subject, not

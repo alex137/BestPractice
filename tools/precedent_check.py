@@ -4612,7 +4612,8 @@ _TEMPLATE_TEXT = ('.md', '.template', '.sh', '.txt', '.json', '.yml', '.yaml', '
 def _record_stamps(root):
     """-> [(rel, line number, the stamp)] for every piece of the record
     found in an instruction under `root`: the hand-written part of an
-    instructions file, an active practice's `## Rule`, any text file
+    instructions file, an active practice's `## Rule` and `## Detail`, any
+    text file
     under templates/, and a message a tool can print
     (_record_stamps_printed). Generated blocks are blanked, never matched
     by hand (generated_blocks.blank)."""
@@ -4637,7 +4638,7 @@ def _record_stamps(root):
             inrule = False
             for n, line in enumerate(lines, 1):
                 if line.startswith('## '):
-                    inrule = line.strip() == '## Rule'
+                    inrule = line.strip() in ('## Rule', '## Detail')
                     continue
                 if inrule:
                     for m in _RECORD_STAMP_RE.finditer(line):
@@ -4794,7 +4795,7 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
 
 @check('record-not-instruction', 'tree',
        'no instruction gains a piece of the record: the hand-written part '
-       'of an instructions file, an active practice\'s Rule, every text '
+       'of an instructions file, an active practice\'s Rule and Detail, every text '
        'file under templates/, every Markdown document at the root and '
        'under documentation/, every string a script directly under tools/ '
        'can print and every reason in reply_check.json carry no "Name, '
@@ -4806,8 +4807,7 @@ RECORD_BASELINE_KEY = 'record_in_instructions_before_the_rule'
        'date) or "before <date>" (usually a cutoff), a template that '
        'declares itself a dated record with the record-doc marker, a '
        'document with that marker or generated whole by a tool, a document '
-       'under spec/ or todo/, a '
-       'practice\'s Detail (left for a later decision), a tool\'s comments '
+       'under spec/ or todo/, a practice\'s Why, Story and Install, a tool\'s comments '
        'and docstrings, a string a tool marks as the record it writes (an '
        'approval line, a Story), a message a test or a script in a '
        'subdirectory of tools/ prints, a registry other than '

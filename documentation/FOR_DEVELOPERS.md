@@ -20,7 +20,7 @@ with the project's own subject matter, at their real locations. Nothing is
 fetched while you work.
 
 One path. §1 below is described because installs made that way still
-exist, not because anyone should take it — it was retired 2026-09-23:
+exist, not because anyone should take it — it is retired:
 
 - **[INSTALL.md §0](../INSTALL.md#0-installing-directly-onto-the-precedent-loader)**
   — straight onto Precedent's three-source loader: the practice catalogue

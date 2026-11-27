@@ -205,8 +205,8 @@ already know what they are.
   `.github/workflows/`. The filename is whoever wrote it's choice:
   [`deep-check.yml`](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/deep-check.yml) here runs the full
   gate suite, [`leak-gate.yml`](https://github.com/alex137/BestPractice/blob/staging/.github/workflows/leak-gate.yml) checks
-  nothing private is being published. (A third, docs.yml, ran the markdown
-  linter until 2026-09-21, when a commit hook replaced it — see
+  nothing private is being published. (The markdown
+  linter runs in a commit hook, not in a workflow — see
   [documentation/GITHUB_ACTIONS.md](GITHUB_ACTIONS.md).)
 - **GitHub Actions** — GitHub's name for the service that runs those
   workflows, and for the tab where you watch them run.

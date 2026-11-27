@@ -50,7 +50,7 @@ line. A session that cannot reach a catalogue says so, and marks the rule
 it writes as written blind.
 
 ## Detail
-Everything under the headings below from "The five whys and the rungs, in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "The five whys and the rungs, in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Why search first, and where the rule goes
 **The lookup is aimed at one specific blindness, and it is structural rather

@@ -3033,6 +3033,25 @@ def check_precedent_check_fires():
                           _rc_rk == 0 and 'VIOLATION' not in _out_rk))
             shutil.rmtree(_rk, ignore_errors=True)
 
+            # A practice's Detail is an instruction too: a stamp there
+            # fails, and the same stamp in its Story does not.
+            _dsrc = (ROOT / 'practices' / 'verify-postcondition.md').read_text(
+                encoding='utf-8')
+            for _where, _want_fail in (('## Detail', True), ('## Story', False)):
+                _rdt = fresh('record-not-instruction-' + _where.strip('# ').lower())
+                _m = re.search(r'^%s\s*$' % re.escape(_where), _dsrc, re.M)
+                if _m:
+                    (_rdt / 'practices' / 'verify-postcondition.md').write_text(
+                        _dsrc[:_m.end()] + f'\nAsked for {_stamp}.\n'
+                        + _dsrc[_m.end():], encoding='utf-8')
+                _rc_dt, _out_dt = run(_rdt, 'record-not-instruction')
+                cases.append((f'record-not-instruction: a stamp under a '
+                              f'practice\'s {_where} '
+                              + ('fails' if _want_fail else 'does NOT fail'),
+                              bool(_m) and ((_rc_dt != 0) == _want_fail),
+                              ))
+                shutil.rmtree(_rdt, ignore_errors=True)
+
             # History that opens in lower case, mid-sentence, fails too;
             # "as of <date>", the form an outside-world fact carries, and
             # "before <date>", a cutoff, do not.

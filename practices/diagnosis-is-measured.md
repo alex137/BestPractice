@@ -52,7 +52,7 @@ input.
 ruled in"), however finished the message sounds.
 
 ## Detail
-Everything under the headings below from "Measuring in full" on was the Rule's own text until 2026-10-31, moved here whole when the Rule was cut to what a session does (Story, 2026-10-31). The Rule names each heading where it needs it.
+The headings below from "Measuring in full" on give the Rule in full. The Rule names each heading where it needs it.
 
 ### Looking again, and where the time went
 **Absence at the moment you looked is not absence.** A great many of these
